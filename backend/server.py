@@ -419,8 +419,15 @@ async def analyze_card(data: CardAnalysisCreate):
             if ',' in back_image:
                 back_image = back_image.split(',')[1]
         
-        # Analyze with AI (both sides if back is provided)
-        grading_result = await analyze_card_with_ai(front_image, back_image)
+        # Process reference image if provided
+        reference_image = None
+        if data.reference_image_base64:
+            reference_image = data.reference_image_base64
+            if ',' in reference_image:
+                reference_image = reference_image.split(',')[1]
+        
+        # Analyze with AI (with optional back and reference images)
+        grading_result = await analyze_card_with_ai(front_image, back_image, reference_image)
         
         # Create thumbnails for storage
         front_thumbnail = create_thumbnail(front_image)
