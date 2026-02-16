@@ -1,9 +1,8 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Save, Check, Library, Trash2 } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Save, Check, Library, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
-import { Input } from '../components/ui/input';
 import { ScrollArea } from '../components/ui/scroll-area';
 
 const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent, small }) => {
@@ -149,9 +148,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [error, setError] = useState(null);
   const [showReferenceSection, setShowReferenceSection] = useState(false);
   const [savedReferences, setSavedReferences] = useState([]);
-  const [newRefName, setNewRefName] = useState('');
   const [savingRef, setSavingRef] = useState(false);
-  const [referenceMode, setReferenceMode] = useState('library'); // 'library' or 'upload'
+  const [referenceMode, setReferenceMode] = useState('library');
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
@@ -173,25 +171,22 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     fetchReferences();
   }, [fetchReferences]);
 
-  // Save new reference
-  const saveReference = async () => {
-    if (!referenceImage || !newRefName.trim()) return;
-    
+  // Auto-save reference when image is uploaded
+  const saveReference = async (imageData) => {
     setSavingRef(true);
     try {
       const response = await fetch(`${API}/references`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: newRefName.trim(),
-          image_base64: referenceImage
+          image_base64: imageData
+          // name is omitted - backend will auto-read from PSA label
         })
       });
       
       if (response.ok) {
         const saved = await response.json();
         setSavedReferences(prev => [saved, ...prev]);
-        setNewRefName('');
         setReferenceImage(null);
         setSelectedReferenceId(saved.id);
         setReferenceMode('library');
@@ -201,6 +196,13 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     } finally {
       setSavingRef(false);
     }
+  };
+
+  // Handle reference image selection - auto save
+  const handleReferenceImageSelect = (imageData) => {
+    setReferenceImage(imageData);
+    // Automatically save the reference
+    saveReference(imageData);
   };
 
   // Delete reference
@@ -242,10 +244,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         back_image_base64: backImage,
       };
 
-      // Add reference - either from upload or selected from library
-      if (referenceMode === 'upload' && referenceImage) {
-        requestBody.reference_image_base64 = referenceImage;
-      } else if (referenceMode === 'library' && selectedReferenceId) {
+      // Add reference from library if selected
+      if (selectedReferenceId) {
         requestBody.reference_id = selectedReferenceId;
       }
 
@@ -290,7 +290,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   };
 
   const hasAnyImage = frontImage || backImage;
-  const hasReference = (referenceMode === 'library' && selectedReferenceId) || (referenceMode === 'upload' && referenceImage);
+  const hasReference = selectedReferenceId !== null;
 
   return (
     <div className="w-full">
@@ -329,7 +329,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
                 Referencia PSA 10 {hasReference && <Check className="w-4 h-4 inline text-green-500 ml-1" />}
               </p>
               <p className="text-xs text-gray-500">
-                {savedReferences.length > 0 ? `${savedReferences.length} guardadas` : 'Biblioteca vacía'}
+                {savedReferences.length > 0 ? `${savedReferences.length} en biblioteca` : 'Sube un PSA 10 para comparar'}
               </p>
             </div>
           </div>
@@ -345,119 +345,80 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               className="overflow-hidden"
             >
               <div className="p-4 bg-[#121212] border border-t-0 border-[#27272a] rounded-b-lg">
-                {/* Mode Toggle */}
-                <div className="flex gap-2 mb-4">
-                  <button
-                    onClick={() => setReferenceMode('library')}
-                    className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                      referenceMode === 'library' 
-                        ? 'bg-[#eab308] text-black' 
-                        : 'bg-[#1e1e1e] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Library className="w-4 h-4 inline mr-2" />
-                    Biblioteca
-                  </button>
-                  <button
-                    onClick={() => setReferenceMode('upload')}
-                    className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
-                      referenceMode === 'upload' 
-                        ? 'bg-[#eab308] text-black' 
-                        : 'bg-[#1e1e1e] text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    <Upload className="w-4 h-4 inline mr-2" />
-                    Subir Nueva
-                  </button>
-                </div>
-
-                {referenceMode === 'library' ? (
-                  /* Library Mode */
-                  <div>
-                    {savedReferences.length === 0 ? (
-                      <p className="text-center text-gray-500 text-sm py-4">
-                        No hay referencias guardadas. Sube una nueva para empezar.
-                      </p>
-                    ) : (
-                      <ScrollArea className="h-[200px]">
-                        <div className="grid grid-cols-3 gap-2">
-                          {savedReferences.map((ref) => (
-                            <div
-                              key={ref.id}
-                              onClick={() => setSelectedReferenceId(ref.id === selectedReferenceId ? null : ref.id)}
-                              className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
-                                selectedReferenceId === ref.id 
-                                  ? 'border-[#eab308] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
-                                  : 'border-transparent hover:border-[#27272a]'
-                              }`}
-                            >
-                              <div className="aspect-[3/4] bg-[#1e1e1e]">
-                                <img
-                                  src={`data:image/jpeg;base64,${ref.image_preview}`}
-                                  alt={ref.name}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                              <div className="absolute inset-x-0 bottom-0 bg-black/80 p-1.5">
-                                <p className="text-[10px] text-white truncate">{ref.name}</p>
-                              </div>
-                              {selectedReferenceId === ref.id && (
-                                <div className="absolute top-1 right-1 bg-[#eab308] rounded-full p-0.5">
-                                  <Check className="w-3 h-3 text-black" />
-                                </div>
-                              )}
-                              <button
-                                onClick={(e) => deleteReference(ref.id, e)}
-                                className="absolute top-1 left-1 p-1 bg-red-500/80 rounded-full opacity-0 hover:opacity-100 transition-opacity"
-                              >
-                                <Trash2 className="w-3 h-3 text-white" />
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </ScrollArea>
-                    )}
-                  </div>
-                ) : (
-                  /* Upload Mode */
-                  <div>
-                    <p className="text-xs text-gray-400 mb-3">
-                      Sube una imagen de PSA 10 y guárdala en tu biblioteca para usar en futuros análisis.
-                    </p>
-                    <div className="flex gap-3">
-                      <div className="w-24">
-                        <ImageUploadZone
-                          label="PSA 10"
-                          image={referenceImage}
-                          onImageSelect={setReferenceImage}
-                          onClear={() => setReferenceImage(null)}
-                          disabled={isAnalyzing}
-                          testId="reference-image-upload"
-                          accent="gold"
-                          small
-                        />
-                      </div>
-                      {referenceImage && (
-                        <div className="flex-1 flex flex-col gap-2">
-                          <Input
-                            placeholder="Nombre (ej: Kobe Bryant RC 1996)"
-                            value={newRefName}
-                            onChange={(e) => setNewRefName(e.target.value)}
-                            className="bg-[#0a0a0a] border-[#27272a] text-white"
-                          />
-                          <Button
-                            onClick={saveReference}
-                            disabled={!newRefName.trim() || savingRef}
-                            className="bg-[#eab308] text-black hover:bg-[#ca9a06]"
-                          >
-                            <Save className="w-4 h-4 mr-2" />
-                            {savingRef ? 'Guardando...' : 'Guardar en Biblioteca'}
-                          </Button>
-                        </div>
-                      )}
+                {/* Saving indicator */}
+                {savingRef && (
+                  <div className="mb-4 p-3 bg-[#eab308]/10 border border-[#eab308]/30 rounded-lg flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-[#eab308] animate-spin" />
+                    <div>
+                      <p className="text-sm text-[#eab308] font-medium">Leyendo label del PSA...</p>
+                      <p className="text-xs text-gray-500">Extrayendo información automáticamente</p>
                     </div>
                   </div>
                 )}
+
+                {/* Library Grid */}
+                {savedReferences.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Tu Biblioteca</p>
+                    <ScrollArea className="h-[180px]">
+                      <div className="grid grid-cols-3 gap-2">
+                        {savedReferences.map((ref) => (
+                          <div
+                            key={ref.id}
+                            onClick={() => setSelectedReferenceId(ref.id === selectedReferenceId ? null : ref.id)}
+                            className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                              selectedReferenceId === ref.id 
+                                ? 'border-[#eab308] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                                : 'border-transparent hover:border-[#27272a]'
+                            }`}
+                          >
+                            <div className="aspect-[3/4] bg-[#1e1e1e]">
+                              <img
+                                src={`data:image/jpeg;base64,${ref.image_preview}`}
+                                alt={ref.name}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="absolute inset-x-0 bottom-0 bg-black/80 p-1.5">
+                              <p className="text-[9px] text-white truncate leading-tight">{ref.name}</p>
+                            </div>
+                            {selectedReferenceId === ref.id && (
+                              <div className="absolute top-1 right-1 bg-[#eab308] rounded-full p-0.5">
+                                <Check className="w-3 h-3 text-black" />
+                              </div>
+                            )}
+                            <button
+                              onClick={(e) => deleteReference(ref.id, e)}
+                              className="absolute top-1 left-1 p-1 bg-red-500/80 rounded-full opacity-0 hover:opacity-100 transition-opacity"
+                            >
+                              <Trash2 className="w-3 h-3 text-white" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
+
+                {/* Add New Reference */}
+                <div className="pt-3 border-t border-[#27272a]">
+                  <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Agregar Nueva Referencia</p>
+                  <p className="text-xs text-gray-500 mb-3">
+                    Sube una foto del PSA 10 - el sistema leerá el label automáticamente
+                  </p>
+                  <div className="w-24">
+                    <ImageUploadZone
+                      label="PSA 10"
+                      image={referenceImage}
+                      onImageSelect={handleReferenceImageSelect}
+                      onClear={() => setReferenceImage(null)}
+                      disabled={isAnalyzing || savingRef}
+                      testId="reference-image-upload"
+                      accent="gold"
+                      small
+                    />
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
