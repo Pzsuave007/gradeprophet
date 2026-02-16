@@ -1,10 +1,12 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Save, Check, Library, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { Input } from '../components/ui/input';
+import { ScrollArea } from '../components/ui/scroll-area';
 
-const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent }) => {
+const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent, small }) => {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -57,10 +59,11 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
   }, [processFile]);
 
   const accentColor = accent === 'gold' ? '#eab308' : '#3b82f6';
+  const aspectClass = small ? 'aspect-square' : 'aspect-[3/4]';
 
   if (image) {
     return (
-      <div className="relative aspect-[3/4] bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden group">
+      <div className={`relative ${aspectClass} bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden group`}>
         <img
           src={image}
           alt={label}
@@ -76,8 +79,8 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
-        <div className="absolute bottom-0 inset-x-0 py-2 px-3" style={{ backgroundColor: `${accentColor}dd` }}>
-          <p className="text-xs text-white font-heading uppercase tracking-wider text-center font-semibold">
+        <div className="absolute bottom-0 inset-x-0 py-1.5 px-2" style={{ backgroundColor: `${accentColor}dd` }}>
+          <p className="text-xs text-white font-heading uppercase tracking-wider text-center font-semibold truncate">
             {label}
           </p>
         </div>
@@ -88,7 +91,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
   return (
     <div
       className={`
-        relative aspect-[3/4] border-2 border-dashed rounded-lg
+        relative ${aspectClass} border-2 border-dashed rounded-lg
         transition-all duration-300 cursor-pointer
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${dragActive 
@@ -113,24 +116,21 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
         disabled={disabled}
       />
       
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
-        <div className={`
-          p-3 rounded-full transition-colors
-          ${dragActive ? `bg-[${accentColor}]/20` : 'bg-[#1e1e1e]'}
-        `}>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-3">
+        <div className={`p-2 rounded-full transition-colors ${dragActive ? `bg-[${accentColor}]/20` : 'bg-[#1e1e1e]'}`}>
           {accent === 'gold' ? (
-            <Award className={`w-6 h-6 ${dragActive ? 'text-[#eab308]' : 'text-gray-400'}`} />
+            <Award className={`w-5 h-5 ${dragActive ? 'text-[#eab308]' : 'text-gray-400'}`} />
           ) : (
-            <Upload className={`w-6 h-6 ${dragActive ? 'text-[#3b82f6]' : 'text-gray-400'}`} />
+            <Upload className={`w-5 h-5 ${dragActive ? 'text-[#3b82f6]' : 'text-gray-400'}`} />
           )}
         </div>
         
         <div className="text-center">
-          <p className="font-heading text-sm font-semibold uppercase tracking-wider text-white mb-1">
+          <p className="font-heading text-xs font-semibold uppercase tracking-wider text-white mb-0.5">
             {label}
           </p>
           {sublabel && (
-            <p className="text-gray-500 text-xs">
+            <p className="text-gray-500 text-[10px]">
               {sublabel}
             </p>
           )}
@@ -144,12 +144,80 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
   const [referenceImage, setReferenceImage] = useState(null);
+  const [selectedReferenceId, setSelectedReferenceId] = useState(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState(null);
-  const [showReferenceInfo, setShowReferenceInfo] = useState(false);
+  const [showReferenceSection, setShowReferenceSection] = useState(false);
+  const [savedReferences, setSavedReferences] = useState([]);
+  const [newRefName, setNewRefName] = useState('');
+  const [savingRef, setSavingRef] = useState(false);
+  const [referenceMode, setReferenceMode] = useState('library'); // 'library' or 'upload'
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
+
+  // Fetch saved references
+  const fetchReferences = useCallback(async () => {
+    try {
+      const response = await fetch(`${API}/references`);
+      if (response.ok) {
+        const data = await response.json();
+        setSavedReferences(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch references:', err);
+    }
+  }, [API]);
+
+  useEffect(() => {
+    fetchReferences();
+  }, [fetchReferences]);
+
+  // Save new reference
+  const saveReference = async () => {
+    if (!referenceImage || !newRefName.trim()) return;
+    
+    setSavingRef(true);
+    try {
+      const response = await fetch(`${API}/references`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newRefName.trim(),
+          image_base64: referenceImage
+        })
+      });
+      
+      if (response.ok) {
+        const saved = await response.json();
+        setSavedReferences(prev => [saved, ...prev]);
+        setNewRefName('');
+        setReferenceImage(null);
+        setSelectedReferenceId(saved.id);
+        setReferenceMode('library');
+      }
+    } catch (err) {
+      console.error('Failed to save reference:', err);
+    } finally {
+      setSavingRef(false);
+    }
+  };
+
+  // Delete reference
+  const deleteReference = async (refId, e) => {
+    e.stopPropagation();
+    try {
+      const response = await fetch(`${API}/references/${refId}`, { method: 'DELETE' });
+      if (response.ok) {
+        setSavedReferences(prev => prev.filter(r => r.id !== refId));
+        if (selectedReferenceId === refId) {
+          setSelectedReferenceId(null);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete reference:', err);
+    }
+  };
 
   const analyzeCard = async () => {
     if (!frontImage) return;
@@ -158,7 +226,6 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     setError(null);
     setScanProgress(0);
 
-    // Simulate progress
     const progressInterval = setInterval(() => {
       setScanProgress(prev => {
         if (prev >= 90) {
@@ -170,16 +237,22 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     }, 400);
 
     try {
+      const requestBody = {
+        front_image_base64: frontImage,
+        back_image_base64: backImage,
+      };
+
+      // Add reference - either from upload or selected from library
+      if (referenceMode === 'upload' && referenceImage) {
+        requestBody.reference_image_base64 = referenceImage;
+      } else if (referenceMode === 'library' && selectedReferenceId) {
+        requestBody.reference_id = selectedReferenceId;
+      }
+
       const response = await fetch(`${API}/cards/analyze`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          front_image_base64: frontImage,
-          back_image_base64: backImage,
-          reference_image_base64: referenceImage,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
       });
 
       clearInterval(progressInterval);
@@ -196,7 +269,6 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         onAnalysisComplete(result, frontImage, backImage);
         setFrontImage(null);
         setBackImage(null);
-        setReferenceImage(null);
         setScanProgress(0);
         setIsAnalyzing(false);
       }, 500);
@@ -217,7 +289,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     setScanProgress(0);
   };
 
-  const hasAnyImage = frontImage || backImage || referenceImage;
+  const hasAnyImage = frontImage || backImage;
+  const hasReference = (referenceMode === 'library' && selectedReferenceId) || (referenceMode === 'upload' && referenceImage);
 
   return (
     <div className="w-full">
@@ -243,28 +316,28 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         />
       </div>
 
-      {/* Reference Image Section */}
+      {/* PSA 10 Reference Section */}
       <div className="mb-6">
         <div 
           className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-[#27272a] rounded-t-lg cursor-pointer hover:bg-[#1e1e1e] transition-colors"
-          onClick={() => setShowReferenceInfo(!showReferenceInfo)}
+          onClick={() => setShowReferenceSection(!showReferenceSection)}
         >
           <div className="flex items-center gap-3">
             <Award className="w-5 h-5 text-[#eab308]" />
             <div>
               <p className="text-sm font-medium text-white">
-                Imagen de Referencia PSA 10
+                Referencia PSA 10 {hasReference && <Check className="w-4 h-4 inline text-green-500 ml-1" />}
               </p>
               <p className="text-xs text-gray-500">
-                Sube un ejemplo de PSA 10 para comparación más precisa
+                {savedReferences.length > 0 ? `${savedReferences.length} guardadas` : 'Biblioteca vacía'}
               </p>
             </div>
           </div>
-          <Info className={`w-4 h-4 text-gray-500 transition-transform ${showReferenceInfo ? 'rotate-180' : ''}`} />
+          <Info className={`w-4 h-4 text-gray-500 transition-transform ${showReferenceSection ? 'rotate-180' : ''}`} />
         </div>
         
         <AnimatePresence>
-          {showReferenceInfo && (
+          {showReferenceSection && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
@@ -272,22 +345,119 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               className="overflow-hidden"
             >
               <div className="p-4 bg-[#121212] border border-t-0 border-[#27272a] rounded-b-lg">
-                <p className="text-xs text-gray-400 mb-4">
-                  Sube una imagen de una tarjeta PSA 10 de la misma tarjeta o set similar. 
-                  El AI comparará tu tarjeta contra este estándar para dar un grado más preciso.
-                </p>
-                <div className="max-w-[200px]">
-                  <ImageUploadZone
-                    label="PSA 10 Ref"
-                    sublabel="Opcional"
-                    image={referenceImage}
-                    onImageSelect={setReferenceImage}
-                    onClear={() => setReferenceImage(null)}
-                    disabled={isAnalyzing}
-                    testId="reference-image-upload"
-                    accent="gold"
-                  />
+                {/* Mode Toggle */}
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => setReferenceMode('library')}
+                    className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
+                      referenceMode === 'library' 
+                        ? 'bg-[#eab308] text-black' 
+                        : 'bg-[#1e1e1e] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Library className="w-4 h-4 inline mr-2" />
+                    Biblioteca
+                  </button>
+                  <button
+                    onClick={() => setReferenceMode('upload')}
+                    className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${
+                      referenceMode === 'upload' 
+                        ? 'bg-[#eab308] text-black' 
+                        : 'bg-[#1e1e1e] text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    <Upload className="w-4 h-4 inline mr-2" />
+                    Subir Nueva
+                  </button>
                 </div>
+
+                {referenceMode === 'library' ? (
+                  /* Library Mode */
+                  <div>
+                    {savedReferences.length === 0 ? (
+                      <p className="text-center text-gray-500 text-sm py-4">
+                        No hay referencias guardadas. Sube una nueva para empezar.
+                      </p>
+                    ) : (
+                      <ScrollArea className="h-[200px]">
+                        <div className="grid grid-cols-3 gap-2">
+                          {savedReferences.map((ref) => (
+                            <div
+                              key={ref.id}
+                              onClick={() => setSelectedReferenceId(ref.id === selectedReferenceId ? null : ref.id)}
+                              className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                                selectedReferenceId === ref.id 
+                                  ? 'border-[#eab308] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
+                                  : 'border-transparent hover:border-[#27272a]'
+                              }`}
+                            >
+                              <div className="aspect-[3/4] bg-[#1e1e1e]">
+                                <img
+                                  src={`data:image/jpeg;base64,${ref.image_preview}`}
+                                  alt={ref.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                              <div className="absolute inset-x-0 bottom-0 bg-black/80 p-1.5">
+                                <p className="text-[10px] text-white truncate">{ref.name}</p>
+                              </div>
+                              {selectedReferenceId === ref.id && (
+                                <div className="absolute top-1 right-1 bg-[#eab308] rounded-full p-0.5">
+                                  <Check className="w-3 h-3 text-black" />
+                                </div>
+                              )}
+                              <button
+                                onClick={(e) => deleteReference(ref.id, e)}
+                                className="absolute top-1 left-1 p-1 bg-red-500/80 rounded-full opacity-0 hover:opacity-100 transition-opacity"
+                              >
+                                <Trash2 className="w-3 h-3 text-white" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    )}
+                  </div>
+                ) : (
+                  /* Upload Mode */
+                  <div>
+                    <p className="text-xs text-gray-400 mb-3">
+                      Sube una imagen de PSA 10 y guárdala en tu biblioteca para usar en futuros análisis.
+                    </p>
+                    <div className="flex gap-3">
+                      <div className="w-24">
+                        <ImageUploadZone
+                          label="PSA 10"
+                          image={referenceImage}
+                          onImageSelect={setReferenceImage}
+                          onClear={() => setReferenceImage(null)}
+                          disabled={isAnalyzing}
+                          testId="reference-image-upload"
+                          accent="gold"
+                          small
+                        />
+                      </div>
+                      {referenceImage && (
+                        <div className="flex-1 flex flex-col gap-2">
+                          <Input
+                            placeholder="Nombre (ej: Kobe Bryant RC 1996)"
+                            value={newRefName}
+                            onChange={(e) => setNewRefName(e.target.value)}
+                            className="bg-[#0a0a0a] border-[#27272a] text-white"
+                          />
+                          <Button
+                            onClick={saveReference}
+                            disabled={!newRefName.trim() || savingRef}
+                            className="bg-[#eab308] text-black hover:bg-[#ca9a06]"
+                          >
+                            <Save className="w-4 h-4 mr-2" />
+                            {savingRef ? 'Guardando...' : 'Guardar en Biblioteca'}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -303,8 +473,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               Análisis inteligente con ojo humano
             </p>
             <p className="text-xs text-gray-500">
-              El AI evalúa como un experto PSA - no penaliza por artefactos de imagen. 
-              {referenceImage && <span className="text-[#eab308]"> Comparando contra tu referencia PSA 10.</span>}
+              El AI evalúa como un experto PSA - no penaliza por artefactos de imagen.
+              {hasReference && <span className="text-[#eab308]"> Comparando contra referencia PSA 10.</span>}
             </p>
           </div>
         </div>
@@ -323,7 +493,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               <Scan className="w-8 h-8 text-[#3b82f6] animate-pulse" />
               <div className="text-center">
                 <p className="font-heading text-lg uppercase tracking-wider text-white">
-                  Analizando {referenceImage ? 'con referencia PSA 10' : backImage ? 'ambos lados' : 'tarjeta'}...
+                  Analizando {hasReference ? 'con referencia PSA 10' : backImage ? 'ambos lados' : 'tarjeta'}...
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   GPT-5.2 Vision evaluando como experto humano
