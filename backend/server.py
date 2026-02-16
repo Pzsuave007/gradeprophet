@@ -70,7 +70,7 @@ class PSA10Reference(BaseModel):
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 class PSA10ReferenceCreate(BaseModel):
-    name: str
+    name: Optional[str] = None  # Optional - will auto-read from PSA label if not provided
     image_base64: str
 
 class PSA10ReferenceResponse(BaseModel):
