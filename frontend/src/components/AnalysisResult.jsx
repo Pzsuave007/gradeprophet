@@ -3,8 +3,6 @@ import { motion } from 'framer-motion';
 import { 
   CheckCircle, 
   XCircle, 
-  TrendingUp, 
-  DollarSign,
   Target,
   Box,
   Layers,
