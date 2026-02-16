@@ -75,6 +75,7 @@ class PSA10ReferenceCreate(BaseModel):
 class PSA10ReferenceResponse(BaseModel):
     id: str
     name: str
+    year: Optional[str] = None
     image_preview: str
     created_at: str
 
