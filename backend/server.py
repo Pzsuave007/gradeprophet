@@ -650,17 +650,33 @@ async def analyze_card(data: CardAnalysisCreate):
                     corner_img = corner_img.split(',')[1]
                 corner_images.append(corner_img)
         
-        # Get reference image - either from direct upload or from saved reference
+        # Get reference image and year - either from direct upload or from saved reference
         reference_image = None
+        reference_year = None
         if data.reference_image_base64:
             reference_image = data.reference_image_base64
             if ',' in reference_image:
                 reference_image = reference_image.split(',')[1]
         elif data.reference_id:
-            # Fetch from saved references
+            # Fetch from saved references (includes year from PSA label)
             saved_ref = await db.psa10_references.find_one({"id": data.reference_id}, {"_id": 0})
             if saved_ref:
                 reference_image = saved_ref.get('image_full')
+                reference_year = saved_ref.get('year')  # Get year from reference
+        
+        # Determine card year: manual input > reference year > auto-detect
+        card_year = data.card_year
+        if not card_year and reference_year:
+            # Extract numeric year from reference (e.g., "1996-97" -> 1996)
+            try:
+                year_str = reference_year.split('-')[0].strip()
+                card_year = int(year_str)
+                logger.info(f"Using year {card_year} from PSA 10 reference")
+            except (ValueError, AttributeError):
+                pass
+        
+        # If still no year and no reference, AI will auto-detect (see prompt addition below)
+        auto_detect_year = card_year is None and reference_image is None
         
         # Analyze with AI (with optional back, reference, corner images, and card year)
         grading_result = await analyze_card_with_ai(
@@ -668,7 +684,8 @@ async def analyze_card(data: CardAnalysisCreate):
             back_image, 
             reference_image,
             corner_images if corner_images else None,
-            data.card_year
+            card_year,
+            auto_detect_year
         )
         
         # Create thumbnails for storage (corners are NOT saved, only used for analysis)
