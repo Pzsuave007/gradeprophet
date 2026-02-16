@@ -95,8 +95,8 @@ const Dashboard = () => {
                 <span className="text-gray-400">PSA Standards</span>
               </div>
               <div className="flex items-center gap-2 text-sm">
-                <TrendingUp className="w-4 h-4 text-[#3b82f6]" />
-                <span className="text-gray-400">AI Analysis</span>
+                <Brain className="w-4 h-4 text-[#3b82f6]" />
+                <span className="text-gray-400">AI + Learning</span>
               </div>
             </div>
 
