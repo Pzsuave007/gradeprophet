@@ -405,6 +405,59 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         logger.error(f"AI analysis failed: {e}")
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
 
+async def get_learning_context() -> str:
+    """Get learning context from past predictions vs actual grades"""
+    try:
+        graded_cards = await db.card_analyses.find(
+            {"actual_psa_grade": {"$ne": None}},
+            {"_id": 0}
+        ).to_list(50)
+        
+        if not graded_cards:
+            return ""
+        
+        # Calculate stats
+        total = len(graded_cards)
+        high_predictions = 0
+        low_predictions = 0
+        accurate = 0
+        
+        examples = []
+        for card in graded_cards[-10:]:  # Last 10 for examples
+            predicted = card.get("grading_result", {}).get("overall_grade", 0)
+            actual = card.get("actual_psa_grade", 0)
+            diff = predicted - actual
+            
+            if abs(diff) <= 0.5:
+                accurate += 1
+            elif diff > 0:
+                high_predictions += 1
+            else:
+                low_predictions += 1
+            
+            examples.append(f"Predicted {predicted}, Actual PSA {actual}")
+        
+        context = f"""
+LEARNING FROM PAST PREDICTIONS:
+Based on {total} cards where we received actual PSA grades:
+- Accurate (within 0.5): {accurate} times
+- Predicted too HIGH: {high_predictions} times  
+- Predicted too LOW: {low_predictions} times
+
+Recent examples: {', '.join(examples[-5:])}
+
+"""
+        if high_predictions > low_predictions:
+            context += "ADJUSTMENT: You tend to predict HIGH. Be slightly more conservative.\n"
+        elif low_predictions > high_predictions:
+            context += "ADJUSTMENT: You tend to predict LOW. Be slightly more generous.\n"
+        
+        return context
+        
+    except Exception as e:
+        logger.warning(f"Failed to get learning context: {e}")
+        return ""
+
 def create_thumbnail(image_base64: str, max_size: int = 200) -> str:
     """Create a smaller thumbnail from base64 image"""
     try:
