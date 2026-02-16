@@ -236,6 +236,13 @@ const LearningPanel = ({ refreshTrigger }) => {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => deleteCard(card.id, e)}
+                        className="p-1.5 rounded hover:bg-red-500/20 transition-colors"
+                        title="Eliminar análisis"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400" />
+                      </button>
                       <span className={`text-xs px-2 py-1 rounded ${
                         card.status === 'sent_to_psa' 
                           ? 'bg-[#3b82f6]/20 text-[#3b82f6]' 
