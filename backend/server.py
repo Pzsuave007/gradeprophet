@@ -953,18 +953,18 @@ async def create_reference(data: PSA10ReferenceCreate):
         if ',' in image_base64:
             image_base64 = image_base64.split(',')[1]
         
-        # Auto-read PSA label if no name provided
-        name = data.name
-        if not name or name.strip() == "":
-            label_info = await read_psa_label(image_base64)
-            name = label_info.get("card_name", "PSA 10 Reference")
+        # Auto-read PSA label
+        label_info = await read_psa_label(image_base64)
+        name = data.name if data.name and data.name.strip() else label_info.get("card_name", "PSA 10 Reference")
+        year = label_info.get("year")  # Extract year from PSA label
         
         # Create thumbnail for display
         thumbnail = create_thumbnail(image_base64)
         
-        # Create reference object
+        # Create reference object with year
         reference = PSA10Reference(
             name=name,
+            year=year,
             image_preview=thumbnail,
             image_full=image_base64
         )
@@ -977,6 +977,7 @@ async def create_reference(data: PSA10ReferenceCreate):
         return PSA10ReferenceResponse(
             id=reference.id,
             name=reference.name,
+            year=reference.year,
             image_preview=reference.image_preview,
             created_at=doc['created_at']
         )
