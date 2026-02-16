@@ -307,7 +307,7 @@ Provide your response in the following JSON format ONLY (no additional text):
 
 Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade. Give benefit of the doubt!"""
 
-async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None) -> dict:
+async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
     import json
     
@@ -322,11 +322,22 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         # Create image contents list
         image_contents = [ImageContent(image_base64=front_image_base64)]
         
-        # Add back image if provided
-        if back_image_base64:
+        # Determine which prompt to use based on images provided
+        if back_image_base64 and reference_image_base64:
+            # Both back and reference provided
+            image_contents.append(ImageContent(image_base64=back_image_base64))
+            image_contents.append(ImageContent(image_base64=reference_image_base64))
+            prompt = PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE
+        elif reference_image_base64:
+            # Only reference provided (no back)
+            image_contents.append(ImageContent(image_base64=reference_image_base64))
+            prompt = PSA_ANALYSIS_PROMPT_WITH_REFERENCE
+        elif back_image_base64:
+            # Only back provided (no reference)
             image_contents.append(ImageContent(image_base64=back_image_base64))
             prompt = PSA_ANALYSIS_PROMPT_DUAL
         else:
+            # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
         
         # Create user message with image(s)
