@@ -63,6 +63,7 @@ class PSA10Reference(BaseModel):
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     name: str  # Card name/description
+    year: Optional[str] = None  # Card year extracted from PSA label
     image_preview: str  # Thumbnail for display
     image_full: str  # Full base64 for analysis
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
