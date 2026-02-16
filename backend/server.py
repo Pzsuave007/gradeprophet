@@ -63,7 +63,8 @@ class CardAnalysis(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    image_preview: str  # Small base64 thumbnail
+    front_image_preview: str  # Small base64 thumbnail of front
+    back_image_preview: Optional[str] = None  # Small base64 thumbnail of back
     grading_result: GradingResult
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     card_name: Optional[str] = None
