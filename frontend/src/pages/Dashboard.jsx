@@ -239,24 +239,37 @@ const Dashboard = () => {
             </AnimatePresence>
           </div>
 
-          {/* Sidebar - History (Desktop) */}
+          {/* Sidebar - History & Learning (Desktop) */}
           <div className="hidden lg:block">
             <div className="sticky top-24">
               <div className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
-                <div className="p-4 border-b border-[#27272a] flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#3b82f6]" />
-                    <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white">
+                <Tabs value={sidebarTab} onValueChange={setSidebarTab}>
+                  <TabsList className="w-full grid grid-cols-2 bg-[#0a0a0a] rounded-none border-b border-[#27272a]">
+                    <TabsTrigger 
+                      value="history" 
+                      className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-xs py-3"
+                    >
+                      <History className="w-4 h-4 mr-2" />
                       Historial
-                    </h3>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <HistoryPanel 
-                    onSelectCard={handleSelectFromHistory}
-                    refreshTrigger={historyRefresh}
-                  />
-                </div>
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="learning"
+                      className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-xs py-3"
+                    >
+                      <Brain className="w-4 h-4 mr-2" />
+                      Aprendizaje
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="history" className="mt-0 p-4">
+                    <HistoryPanel 
+                      onSelectCard={handleSelectFromHistory}
+                      refreshTrigger={historyRefresh}
+                    />
+                  </TabsContent>
+                  <TabsContent value="learning" className="mt-0 p-4">
+                    <LearningPanel refreshTrigger={historyRefresh} />
+                  </TabsContent>
+                </Tabs>
               </div>
             </div>
           </div>
@@ -267,9 +280,9 @@ const Dashboard = () => {
       <footer className="border-t border-[#27272a] mt-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-gray-500">
-            <p>© 2026 GradeProphet. Powered by AI.</p>
+            <p>© 2026 GradeProphet. Powered by AI + Learning.</p>
             <p className="text-xs">
-              Nota: Las predicciones son estimaciones y no garantizan el grado final de PSA.
+              Nota: Las predicciones mejoran con cada resultado real de PSA.
             </p>
           </div>
         </div>
