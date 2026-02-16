@@ -1,9 +1,10 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Library, Trash2, Loader2, CornerDownRight } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Library, Trash2, Loader2, CornerDownRight, Calendar } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { ScrollArea } from '../components/ui/scroll-area';
+import { Input } from '../components/ui/input';
 
 const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent, small }) => {
   const fileInputRef = useRef(null);
