@@ -441,12 +441,17 @@ async def analyze_card(data: CardAnalysisCreate):
             if ',' in back_image:
                 back_image = back_image.split(',')[1]
         
-        # Process reference image if provided
+        # Get reference image - either from direct upload or from saved reference
         reference_image = None
         if data.reference_image_base64:
             reference_image = data.reference_image_base64
             if ',' in reference_image:
                 reference_image = reference_image.split(',')[1]
+        elif data.reference_id:
+            # Fetch from saved references
+            saved_ref = await db.psa10_references.find_one({"id": data.reference_id}, {"_id": 0})
+            if saved_ref:
+                reference_image = saved_ref.get('image_full')
         
         # Analyze with AI (with optional back and reference images)
         grading_result = await analyze_card_with_ai(front_image, back_image, reference_image)
