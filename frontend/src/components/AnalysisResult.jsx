@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   CheckCircle, 
@@ -8,10 +8,12 @@ import {
   Target,
   Box,
   Layers,
-  CornerDownRight
+  CornerDownRight,
+  FlipHorizontal
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 const GradeDisplay = ({ score, label, icon: Icon, issues }) => {
   const getGradeColor = (grade) => {
@@ -56,8 +58,10 @@ const GradeDisplay = ({ score, label, icon: Icon, issues }) => {
   );
 };
 
-const AnalysisResult = ({ analysis, originalImage, onNewAnalysis }) => {
+const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
   const { grading_result } = analysis;
+  const [activeTab, setActiveTab] = useState('front');
+  const hasBothSides = frontImage && backImage;
   
   const getOverallGradeColor = (grade) => {
     if (grade >= 9.5) return { color: '#eab308', label: 'GEM MINT' };
@@ -80,16 +84,55 @@ const AnalysisResult = ({ analysis, originalImage, onNewAnalysis }) => {
     >
       {/* Header with Overall Grade */}
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Card Image */}
+        {/* Card Images */}
         <div className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
-          <div className="aspect-[3/4] relative">
-            <img
-              src={originalImage}
-              alt="Analyzed card"
-              className="w-full h-full object-contain"
-              data-testid="result-card-image"
-            />
-          </div>
+          {hasBothSides ? (
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="w-full grid grid-cols-2 bg-[#0a0a0a] rounded-none border-b border-[#27272a]">
+                <TabsTrigger 
+                  value="front" 
+                  className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-sm"
+                >
+                  Frente
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="back"
+                  className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-sm"
+                >
+                  Dorso
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="front" className="mt-0">
+                <div className="aspect-[3/4] relative">
+                  <img
+                    src={frontImage}
+                    alt="Card front"
+                    className="w-full h-full object-contain"
+                    data-testid="result-front-image"
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="back" className="mt-0">
+                <div className="aspect-[3/4] relative">
+                  <img
+                    src={backImage}
+                    alt="Card back"
+                    className="w-full h-full object-contain"
+                    data-testid="result-back-image"
+                  />
+                </div>
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="aspect-[3/4] relative">
+              <img
+                src={frontImage}
+                alt="Analyzed card"
+                className="w-full h-full object-contain"
+                data-testid="result-card-image"
+              />
+            </div>
+          )}
           {grading_result.card_info && (
             <div className="p-4 border-t border-[#27272a]">
               <p className="font-heading text-lg font-semibold text-white uppercase">
@@ -121,6 +164,12 @@ const AnalysisResult = ({ analysis, originalImage, onNewAnalysis }) => {
             >
               {gradeInfo.label}
             </p>
+            {hasBothSides && (
+              <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500">
+                <FlipHorizontal className="w-4 h-4" />
+                <span>Análisis de ambos lados</span>
+              </div>
+            )}
           </div>
 
           {/* Recommendation */}
