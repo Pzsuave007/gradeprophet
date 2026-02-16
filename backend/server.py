@@ -59,6 +59,26 @@ class GradingResult(BaseModel):
     analysis_summary: str
     card_info: Optional[str] = None
 
+# PSA 10 Reference Models
+class PSA10Reference(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # Card name/description
+    image_preview: str  # Thumbnail for display
+    image_full: str  # Full base64 for analysis
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+class PSA10ReferenceCreate(BaseModel):
+    name: str
+    image_base64: str
+
+class PSA10ReferenceResponse(BaseModel):
+    id: str
+    name: str
+    image_preview: str
+    created_at: str
+
 class CardAnalysis(BaseModel):
     model_config = ConfigDict(extra="ignore")
     
@@ -72,7 +92,8 @@ class CardAnalysis(BaseModel):
 class CardAnalysisCreate(BaseModel):
     front_image_base64: str
     back_image_base64: Optional[str] = None
-    reference_image_base64: Optional[str] = None  # PSA 10 reference for comparison
+    reference_image_base64: Optional[str] = None  # Direct PSA 10 reference upload
+    reference_id: Optional[str] = None  # OR select from saved references
     card_name: Optional[str] = None
 
 class CardAnalysisResponse(BaseModel):
@@ -82,6 +103,7 @@ class CardAnalysisResponse(BaseModel):
     grading_result: GradingResult
     created_at: str
     card_name: Optional[str] = None
+
 
 # PSA Grading Analysis Prompt
 PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You grade cards like a HUMAN EXPERT would - using your trained eye to distinguish between ACTUAL card defects and IMAGE/SCAN ARTIFACTS.
