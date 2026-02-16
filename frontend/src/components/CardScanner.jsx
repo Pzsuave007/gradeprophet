@@ -152,6 +152,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [savedReferences, setSavedReferences] = useState([]);
   const [savingRef, setSavingRef] = useState(false);
   const [referenceMode, setReferenceMode] = useState('library');
+  const [cardYear, setCardYear] = useState('');
   // Corner images state
   const [cornerTopLeft, setCornerTopLeft] = useState(null);
   const [cornerTopRight, setCornerTopRight] = useState(null);
