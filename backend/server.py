@@ -194,7 +194,7 @@ Provide your response in the following JSON format ONLY (no additional text):
     "card_info": "<if identifiable, provide card name/year/player/set>"
 }
 
-Be realistic and conservative in your grading - the final grade is limited by the WORST aspect of either side. A PSA 10 is extremely rare."""
+Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade. Give benefit of the doubt!"""
 
 async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
