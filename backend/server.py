@@ -103,6 +103,11 @@ class CardAnalysisCreate(BaseModel):
     reference_image_base64: Optional[str] = None  # Direct PSA 10 reference upload
     reference_id: Optional[str] = None  # OR select from saved references
     card_name: Optional[str] = None
+    # Optional corner photos for detailed analysis
+    corner_top_left: Optional[str] = None
+    corner_top_right: Optional[str] = None
+    corner_bottom_left: Optional[str] = None
+    corner_bottom_right: Optional[str] = None
 
 class CardAnalysisResponse(BaseModel):
     id: str
