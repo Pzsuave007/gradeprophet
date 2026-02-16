@@ -357,6 +357,9 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         # Create image contents list
         image_contents = [ImageContent(image_base64=front_image_base64)]
         
+        # Get learning context from past predictions
+        learning_context = await get_learning_context()
+        
         # Determine which prompt to use based on images provided
         if back_image_base64 and reference_image_base64:
             # Both back and reference provided
@@ -374,6 +377,10 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         else:
             # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
+        
+        # Add learning context to prompt if available
+        if learning_context:
+            prompt = learning_context + prompt
         
         # Create user message with image(s)
         user_message = UserMessage(
