@@ -118,13 +118,18 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
               data-testid={`history-card-${card.id}`}
             >
               {/* Thumbnail */}
-              <div className="w-12 h-16 bg-[#1e1e1e] rounded overflow-hidden flex-shrink-0">
-                {card.image_preview && (
+              <div className="w-12 h-16 bg-[#1e1e1e] rounded overflow-hidden flex-shrink-0 relative">
+                {card.front_image_preview && (
                   <img
-                    src={`data:image/jpeg;base64,${card.image_preview}`}
+                    src={`data:image/jpeg;base64,${card.front_image_preview}`}
                     alt="Card thumbnail"
                     className="w-full h-full object-cover"
                   />
+                )}
+                {card.back_image_preview && (
+                  <div className="absolute bottom-0 right-0 bg-[#3b82f6] p-0.5 rounded-tl">
+                    <FlipHorizontal className="w-2.5 h-2.5 text-white" />
+                  </div>
                 )}
               </div>
 
