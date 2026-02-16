@@ -1,0 +1,106 @@
+{
+  "identity": {
+    "name": "E1",
+    "persona": "The Anti-AI Designer",
+    "philosophy": "Fusion over Imitation. Emotion First. Content is King."
+  },
+  "project_context": {
+    "app_name": "GradeProphet",
+    "theme": "Professional Dark Mode (The Vault)",
+    "target_audience": "Sports Card Collectors & Resellers",
+    "core_value": "Precision, Trust, Value"
+  },
+  "typography": {
+    "font_family": {
+      "headings": "\"Barlow Condensed\", sans-serif",
+      "body": "\"Inter\", sans-serif",
+      "mono": "\"JetBrains Mono\", monospace"
+    },
+    "scale": {
+      "h1": "text-5xl md:text-7xl font-bold tracking-tighter uppercase",
+      "h2": "text-3xl md:text-5xl font-semibold tracking-tight uppercase",
+      "h3": "text-2xl md:text-3xl font-medium tracking-normal",
+      "body": "text-base leading-relaxed text-gray-300",
+      "caption": "text-xs tracking-widest uppercase text-gray-500 font-mono"
+    },
+    "installation_instructions": "Import fonts via Google Fonts in index.css: @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');"
+  },
+  "colors": {
+    "palette": {
+      "background": "#0a0a0a",
+      "surface": "#121212",
+      "surface_highlight": "#1e1e1e",
+      "border": "#27272a",
+      "primary": "#3b82f6",
+      "primary_foreground": "#ffffff",
+      "accent_mint": "#22c55e",
+      "accent_psa_red": "#ef4444",
+      "accent_gold": "#eab308",
+      "text_primary": "#f8fafc",
+      "text_secondary": "#94a3b8",
+      "text_muted": "#64748b"
+    },
+    "usage_rules": {
+      "dashboard_bg": "bg-[#0a0a0a]",
+      "card_bg": "bg-[#121212] border border-[#27272a]",
+      "high_value_text": "text-[#22c55e] (Green for Mint/Profit)",
+      "warning_text": "text-[#ef4444] (Red for Damage/Avoid)",
+      "gold_grade": "text-[#eab308] (For PSA 10)"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-black/40 border border-white/10 shadow-2xl",
+    "neon_glow": "shadow-[0_0_20px_rgba(59,130,246,0.5)]",
+    "card_scan_effect": "A moving gradient line (scanning beam) overlay for the analysis phase.",
+    "holographic_overlay": "CSS gradient mix-blend-overlay to simulate foil cards.",
+    "grid_background": "bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"
+  },
+  "layout_strategies": {
+    "dashboard_grid": "Bento Grid Mode A (Tetris). Mix of 1x1 (stats), 2x2 (featured card), and 2x1 (lists).",
+    "analysis_page": "Split View. Left: Immersive Card Viewer (Zoom/Pan). Right: Data/Grading Breakdown Panel (Scrolly).",
+    "landing_hero": "Centered, high-impact 'Vault' door or floating card animation. Minimal text. Massive CTA."
+  },
+  "component_specifications": {
+    "buttons": {
+      "primary": "bg-white text-black hover:bg-gray-200 rounded-sm font-semibold uppercase tracking-wider h-12 px-8",
+      "secondary": "bg-transparent border border-white/20 text-white hover:bg-white/10 rounded-sm uppercase tracking-wider h-12 px-8",
+      "ghost": "hover:bg-white/5 text-gray-400 hover:text-white"
+    },
+    "cards": {
+      "base": "bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden transition-all hover:border-[#3b82f6]/50 hover:shadow-[0_0_30px_rgba(0,0,0,0.5)]",
+      "interactive": "group relative overflow-hidden"
+    },
+    "inputs": {
+      "style": "bg-[#0a0a0a] border-[#27272a] focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6] rounded-md h-12 text-white placeholder:text-gray-600"
+    },
+    "charts": {
+      "library": "Recharts (via Shadcn Charts)",
+      "style": "Minimal axes, tooltip focused. Colors: Mint Green, PSA Red, Slate Blue."
+    }
+  },
+  "image_urls": {
+    "hero_background": "https://images.unsplash.com/photo-1616793958347-3e41632671d5?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHw0fHxiYXNrZXRiYWxsJTIwdHJhZGluZyUyMGNhcmQlMjBob2xvZ3JhcGhpY3xlbnwwfHx8fDE3NzEyMjc3MzN8MA&ixlib=rb-4.1.0&q=85",
+    "card_placeholder_1": "https://images.unsplash.com/photo-1642692704112-80f6ba7f6aa3?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzOTB8MHwxfHNlYXJjaHwxfHxiYXNrZXRiYWxsJTIwdHJhZGluZyUyMGNhcmQlMjBob2xvZ3JhcGhpY3xlbnwwfHx8fDE3NzEyMjc3MzN8MA&ixlib=rb-4.1.0&q=85",
+    "card_stack": "https://images.unsplash.com/photo-1728167049089-3ead39b5417a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxOTJ8MHwxfHNlYXJjaHwzfHxiYXNlYmFsbCUyMGNhcmQlMjBtaW50JTIwY29uZGl0aW9uJTIwcHJvZmVzc2lvbmFsfGVufDB8fHx8MTc3MTIyNzczMnww&ixlib=rb-4.1.0&q=85"
+  },
+  "motion_guidelines": {
+    "page_transition": "initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} transition={{ duration: 0.4, ease: 'easeOut' }}",
+    "hover_lift": "hover:-translate-y-1 transition-transform duration-300",
+    "scanning_beam": "animate-scan (custom keyframe moving top to bottom)"
+  },
+  "instructions_to_main_agent": [
+    "1. Setup Tailwind Config: Add the custom colors (obsidian, mint, psa-red) and fonts (Barlow Condensed).",
+    "2. Component Overrides: Customize Shadcn components to remove 'rounded-xl' and use 'rounded-sm' or 'rounded-md' for a sharper, more technical feel.",
+    "3. Dashboard Layout: Implement the 'Bento Grid' for the main dashboard view. Use 'recharts' for the value history graph.",
+    "4. Card Analysis View: Create a dedicated component for 'CardScanner' which takes an image, applies a scanning animation overlay, and then reveals the 4 sub-grades (Corners, Edges, Surface, Centering).",
+    "5. Dark Mode Default: Force dark mode. Do not create a light mode toggle unless strictly necessary. This is 'The Vault'.",
+    "6. Use 'lucide-react' for icons. Use 'Scan', 'Box', 'TrendingUp', 'ShieldCheck' icons.",
+    "7. Data Visualization: Use Radial Progress charts for the 4 sub-grades.",
+    "8. Mock Data: Create a robust set of mock data for the 'History' and 'Analysis' to show the UI potential (e.g., '1986 Fleer Michael Jordan', '2011 Mike Trout')."
+  ],
+  "UNIVERSAL_GUIDELINES": {
+    "avoid_ai_slop": "No generic gradients. Use subtle noise/grain. No 'Inter' everywhere.",
+    "spacing": "Use p-8, p-12 for containers. Let the content breathe.",
+    "testing": "All interactive elements must have data-testid attributes."
+  }
+}
