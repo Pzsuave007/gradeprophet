@@ -233,6 +233,8 @@ const Dashboard = () => {
                     frontImage={frontImage}
                     backImage={backImage}
                     onNewAnalysis={handleNewAnalysis}
+                    onDelete={() => setHistoryRefresh(prev => prev + 1)}
+                    onRefresh={() => setHistoryRefresh(prev => prev + 1)}
                   />
                 </motion.div>
               )}
