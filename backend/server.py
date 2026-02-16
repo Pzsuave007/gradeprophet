@@ -86,6 +86,16 @@ class CardAnalysis(BaseModel):
     grading_result: GradingResult
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     card_name: Optional[str] = None
+    # Learning system fields
+    actual_psa_grade: Optional[float] = None  # Real PSA grade when received
+    psa_cert_number: Optional[str] = None  # PSA certification number
+    feedback_date: Optional[str] = None  # When feedback was added
+    status: str = "pending"  # pending, sent_to_psa, graded
+
+class CardFeedbackUpdate(BaseModel):
+    actual_psa_grade: float = Field(..., ge=1, le=10)
+    psa_cert_number: Optional[str] = None
+    status: str = "graded"
 
 class CardAnalysisCreate(BaseModel):
     front_image_base64: str
@@ -101,6 +111,19 @@ class CardAnalysisResponse(BaseModel):
     grading_result: GradingResult
     created_at: str
     card_name: Optional[str] = None
+    actual_psa_grade: Optional[float] = None
+    psa_cert_number: Optional[str] = None
+    feedback_date: Optional[str] = None
+    status: str = "pending"
+
+class LearningStats(BaseModel):
+    total_analyzed: int
+    total_graded: int
+    accuracy_rate: float  # Percentage within 0.5 of actual
+    average_difference: float
+    predictions_high: int  # Times we predicted higher
+    predictions_low: int  # Times we predicted lower
+    predictions_accurate: int  # Within 0.5
 
 
 # PSA Grading Analysis Prompt
