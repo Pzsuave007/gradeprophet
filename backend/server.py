@@ -123,6 +123,8 @@ Be realistic and conservative in your grading - collectors depend on accurate as
 
 async def analyze_card_with_ai(image_base64: str) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
+    import json  # Move import outside try block
+    
     try:
         # Create chat instance
         chat = LlmChat(
@@ -144,7 +146,6 @@ async def analyze_card_with_ai(image_base64: str) -> dict:
         response = await chat.send_message(user_message)
         
         # Parse JSON response
-        import json
         # Clean the response - remove markdown code blocks if present
         cleaned_response = response.strip()
         if cleaned_response.startswith("```json"):
