@@ -317,6 +317,21 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const hasReference = selectedReferenceId !== null;
   const hasCorners = cornerTopLeft || cornerTopRight || cornerBottomLeft || cornerBottomRight;
   const cornerCount = [cornerTopLeft, cornerTopRight, cornerBottomLeft, cornerBottomRight].filter(Boolean).length;
+  const hasYear = cardYear && !isNaN(parseInt(cardYear));
+
+  // Get vintage label based on year
+  const getVintageLabel = (year) => {
+    if (!year) return null;
+    const y = parseInt(year);
+    if (isNaN(y)) return null;
+    if (y <= 1979) return { text: 'Vintage (Pre-1980)', color: 'text-amber-400' };
+    if (y <= 1989) return { text: 'Vintage (80s)', color: 'text-amber-400' };
+    if (y <= 1999) return { text: 'Semi-Vintage (90s)', color: 'text-yellow-400' };
+    if (y <= 2009) return { text: '2000s', color: 'text-blue-400' };
+    return { text: 'Moderna', color: 'text-gray-400' };
+  };
+
+  const vintageLabel = getVintageLabel(cardYear);
 
   return (
     <div className="w-full">
