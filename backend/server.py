@@ -72,6 +72,7 @@ class CardAnalysis(BaseModel):
 class CardAnalysisCreate(BaseModel):
     front_image_base64: str
     back_image_base64: Optional[str] = None
+    reference_image_base64: Optional[str] = None  # PSA 10 reference for comparison
     card_name: Optional[str] = None
 
 class CardAnalysisResponse(BaseModel):
