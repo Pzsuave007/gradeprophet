@@ -588,7 +588,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
             </p>
             <p className="text-xs text-gray-500">
               El AI evalúa como un experto PSA - no penaliza por artefactos de imagen.
-              {hasReference && <span className="text-[#eab308]"> Comparando contra referencia PSA 10.</span>}
+              {hasReference && <span className="text-[#eab308]"> Comparando contra referencia PSA 10 (año extraído del label).</span>}
+              {!hasReference && !hasYear && <span className="text-amber-400"> Detectará la era de la tarjeta automáticamente.</span>}
               {hasYear && vintageLabel && (
                 <span className="text-amber-400"> Ajustando estándares para tarjeta {vintageLabel.text.toLowerCase()}.</span>
               )}
