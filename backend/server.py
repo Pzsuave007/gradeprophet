@@ -76,7 +76,8 @@ class CardAnalysisCreate(BaseModel):
 
 class CardAnalysisResponse(BaseModel):
     id: str
-    image_preview: str
+    front_image_preview: str
+    back_image_preview: Optional[str] = None
     grading_result: GradingResult
     created_at: str
     card_name: Optional[str] = None
