@@ -83,7 +83,7 @@ class CardAnalysisResponse(BaseModel):
     card_name: Optional[str] = None
 
 # PSA Grading Analysis Prompt
-PSA_ANALYSIS_PROMPT = """You are an expert sports card grader with extensive experience evaluating cards for PSA (Professional Sports Authenticator) grading. Analyze this sports card image and provide a detailed grading assessment.
+PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with extensive experience evaluating cards for PSA (Professional Sports Authenticator) grading. Analyze this sports card image and provide a detailed grading assessment.
 
 IMPORTANT: Evaluate the card based on PSA's official grading standards:
 - **Centering**: Measure the borders on all sides. PSA 10 requires 55/45 or better centering on front and 75/25 on back.
@@ -124,9 +124,57 @@ Provide your response in the following JSON format ONLY (no additional text):
 
 Be realistic and conservative in your grading - collectors depend on accurate assessments. A PSA 10 is extremely rare and requires near-perfect condition. Most vintage cards grade between 4-7. Modern cards in good condition typically grade 8-9."""
 
-async def analyze_card_with_ai(image_base64: str) -> dict:
+PSA_ANALYSIS_PROMPT_DUAL = """You are an expert sports card grader with extensive experience evaluating cards for PSA (Professional Sports Authenticator). You are being shown TWO images: the FRONT and BACK of the same sports card. Analyze BOTH sides and provide a comprehensive grading assessment.
+
+CRITICAL: PSA evaluates BOTH sides of a card. The centering requirements are:
+- FRONT: 55/45 or better for PSA 10
+- BACK: 75/25 or better for PSA 10
+
+Evaluate based on PSA's official grading standards:
+- **Centering**: Measure borders on ALL sides of BOTH front and back. Note any off-centering.
+- **Corners**: Examine all EIGHT corners (4 front + 4 back) for wear, dings, fraying, or rounding.
+- **Surface**: Check BOTH sides for scratches, print defects, staining, wax marks, or imperfections.
+- **Edges**: Inspect ALL edges on BOTH sides for chipping, wear, rough cuts, or damage.
+
+The FIRST image is the FRONT of the card.
+The SECOND image is the BACK of the card.
+
+Provide your response in the following JSON format ONLY (no additional text):
+{
+    "centering": {
+        "score": <float 1-10>,
+        "description": "<assessment of BOTH front and back centering>",
+        "issues": ["<specific issues on front>", "<specific issues on back>"]
+    },
+    "corners": {
+        "score": <float 1-10>,
+        "description": "<assessment of all 8 corners>",
+        "issues": ["<list of specific issues found on either side>"]
+    },
+    "surface": {
+        "score": <float 1-10>,
+        "description": "<assessment of both surfaces>",
+        "issues": ["<list of specific issues found on either side>"]
+    },
+    "edges": {
+        "score": <float 1-10>,
+        "description": "<assessment of all edges>",
+        "issues": ["<list of specific issues found on either side>"]
+    },
+    "overall_grade": <float 1-10>,
+    "psa_recommendation": "<detailed recommendation considering BOTH sides>",
+    "send_to_psa": <boolean - true if card is likely to get 8+ grade>,
+    "estimated_raw_value": "<estimated value as raw card in USD>",
+    "estimated_graded_value": "<estimated value if graded at predicted grade in USD>",
+    "analysis_summary": "<2-3 sentence summary covering condition of BOTH sides>",
+    "card_info": "<if identifiable, provide card name/year/player/set>"
+}
+
+Be realistic and conservative in your grading - the final grade is limited by the WORST aspect of either side. A PSA 10 is extremely rare."""
+
+async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
-    import json  # Move import outside try block
+    import json
     
     try:
         # Create chat instance
@@ -136,13 +184,20 @@ async def analyze_card_with_ai(image_base64: str) -> dict:
             system_message="You are an expert sports card grader. Respond only with valid JSON."
         ).with_model("openai", "gpt-5.2")
         
-        # Create image content
-        image_content = ImageContent(image_base64=image_base64)
+        # Create image contents list
+        image_contents = [ImageContent(image_base64=front_image_base64)]
         
-        # Create user message with image
+        # Add back image if provided
+        if back_image_base64:
+            image_contents.append(ImageContent(image_base64=back_image_base64))
+            prompt = PSA_ANALYSIS_PROMPT_DUAL
+        else:
+            prompt = PSA_ANALYSIS_PROMPT_SINGLE
+        
+        # Create user message with image(s)
         user_message = UserMessage(
-            text=PSA_ANALYSIS_PROMPT,
-            file_contents=[image_content]
+            text=prompt,
+            file_contents=image_contents
         )
         
         # Send message and get response
