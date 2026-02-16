@@ -406,6 +406,14 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
             # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
         
+        # Add corner images if provided (for detailed corner analysis)
+        if corner_images and len(corner_images) > 0:
+            for corner_img in corner_images:
+                if corner_img:
+                    image_contents.append(ImageContent(image_base64=corner_img))
+            # Add corner analysis instructions to prompt
+            prompt = prompt + CORNER_ANALYSIS_ADDITION
+        
         # Add learning context to prompt if available
         if learning_context:
             prompt = learning_context + prompt
