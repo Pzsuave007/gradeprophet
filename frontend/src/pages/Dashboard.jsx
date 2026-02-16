@@ -227,7 +227,8 @@ const Dashboard = () => {
 
                   <AnalysisResult
                     analysis={currentAnalysis}
-                    originalImage={currentImage}
+                    frontImage={frontImage}
+                    backImage={backImage}
                     onNewAnalysis={handleNewAnalysis}
                   />
                 </motion.div>
