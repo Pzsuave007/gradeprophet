@@ -56,6 +56,10 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
   - 1990-1999 (Semi-Vintage): Estándares moderadamente indulgentes
   - 2000-2009: Estándares ligeramente relajados
   - 2010+: Estándares estrictos (modernos)
+- ✅ **Detección automática de año**:
+  - Desde referencia PSA 10: El año se extrae automáticamente del label guardado
+  - Sin referencia: La IA detecta la era mirando la tarjeta (diseño, jugador, set)
+  - Override manual: El usuario puede especificar el año si lo desea
 
 ## Technical Architecture
 - **Frontend**: React + TailwindCSS + Framer Motion + Shadcn UI
