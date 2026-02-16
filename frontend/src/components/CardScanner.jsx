@@ -1,10 +1,10 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 
-const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testId }) => {
+const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent }) => {
   const fileInputRef = useRef(null);
   const [dragActive, setDragActive] = useState(false);
 
@@ -56,6 +56,8 @@ const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testI
     }
   }, [processFile]);
 
+  const accentColor = accent === 'gold' ? '#eab308' : '#3b82f6';
+
   if (image) {
     return (
       <div className="relative aspect-[3/4] bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden group">
@@ -74,8 +76,8 @@ const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testI
             <X className="w-5 h-5 text-white" />
           </button>
         </div>
-        <div className="absolute bottom-0 inset-x-0 bg-black/60 py-2 px-3">
-          <p className="text-xs text-white font-heading uppercase tracking-wider text-center">
+        <div className="absolute bottom-0 inset-x-0 py-2 px-3" style={{ backgroundColor: `${accentColor}dd` }}>
+          <p className="text-xs text-white font-heading uppercase tracking-wider text-center font-semibold">
             {label}
           </p>
         </div>
@@ -90,10 +92,11 @@ const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testI
         transition-all duration-300 cursor-pointer
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
         ${dragActive 
-          ? 'border-[#3b82f6] bg-[#3b82f6]/10' 
+          ? `border-[${accentColor}] bg-[${accentColor}]/10` 
           : 'border-[#27272a] hover:border-[#3b82f6]/50 bg-[#121212]'
         }
       `}
+      style={dragActive ? { borderColor: accentColor, backgroundColor: `${accentColor}10` } : {}}
       onDragEnter={handleDrag}
       onDragLeave={handleDrag}
       onDragOver={handleDrag}
@@ -113,18 +116,24 @@ const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testI
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-4">
         <div className={`
           p-3 rounded-full transition-colors
-          ${dragActive ? 'bg-[#3b82f6]/20' : 'bg-[#1e1e1e]'}
+          ${dragActive ? `bg-[${accentColor}]/20` : 'bg-[#1e1e1e]'}
         `}>
-          <Upload className={`w-6 h-6 ${dragActive ? 'text-[#3b82f6]' : 'text-gray-400'}`} />
+          {accent === 'gold' ? (
+            <Award className={`w-6 h-6 ${dragActive ? 'text-[#eab308]' : 'text-gray-400'}`} />
+          ) : (
+            <Upload className={`w-6 h-6 ${dragActive ? 'text-[#3b82f6]' : 'text-gray-400'}`} />
+          )}
         </div>
         
         <div className="text-center">
           <p className="font-heading text-sm font-semibold uppercase tracking-wider text-white mb-1">
             {label}
           </p>
-          <p className="text-gray-500 text-xs">
-            Arrastra o haz clic
-          </p>
+          {sublabel && (
+            <p className="text-gray-500 text-xs">
+              {sublabel}
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -134,8 +143,10 @@ const ImageUploadZone = ({ label, image, onImageSelect, onClear, disabled, testI
 const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
+  const [referenceImage, setReferenceImage] = useState(null);
   const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState(null);
+  const [showReferenceInfo, setShowReferenceInfo] = useState(false);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
@@ -167,6 +178,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         body: JSON.stringify({
           front_image_base64: frontImage,
           back_image_base64: backImage,
+          reference_image_base64: referenceImage,
         }),
       });
 
@@ -184,6 +196,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         onAnalysisComplete(result, frontImage, backImage);
         setFrontImage(null);
         setBackImage(null);
+        setReferenceImage(null);
         setScanProgress(0);
         setIsAnalyzing(false);
       }, 500);
@@ -199,18 +212,20 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const clearAll = () => {
     setFrontImage(null);
     setBackImage(null);
+    setReferenceImage(null);
     setError(null);
     setScanProgress(0);
   };
 
-  const hasAnyImage = frontImage || backImage;
+  const hasAnyImage = frontImage || backImage || referenceImage;
 
   return (
     <div className="w-full">
-      {/* Upload Zones */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      {/* Main Card Upload Zones */}
+      <div className="grid grid-cols-2 gap-4 mb-4">
         <ImageUploadZone
           label="Frente"
+          sublabel="Requerido"
           image={frontImage}
           onImageSelect={setFrontImage}
           onClear={() => setFrontImage(null)}
@@ -218,7 +233,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
           testId="front-image-upload"
         />
         <ImageUploadZone
-          label="Dorso (Opcional)"
+          label="Dorso"
+          sublabel="Opcional"
           image={backImage}
           onImageSelect={setBackImage}
           onClear={() => setBackImage(null)}
@@ -227,16 +243,68 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         />
       </div>
 
+      {/* Reference Image Section */}
+      <div className="mb-6">
+        <div 
+          className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-[#27272a] rounded-t-lg cursor-pointer hover:bg-[#1e1e1e] transition-colors"
+          onClick={() => setShowReferenceInfo(!showReferenceInfo)}
+        >
+          <div className="flex items-center gap-3">
+            <Award className="w-5 h-5 text-[#eab308]" />
+            <div>
+              <p className="text-sm font-medium text-white">
+                Imagen de Referencia PSA 10
+              </p>
+              <p className="text-xs text-gray-500">
+                Sube un ejemplo de PSA 10 para comparación más precisa
+              </p>
+            </div>
+          </div>
+          <Info className={`w-4 h-4 text-gray-500 transition-transform ${showReferenceInfo ? 'rotate-180' : ''}`} />
+        </div>
+        
+        <AnimatePresence>
+          {showReferenceInfo && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-4 bg-[#121212] border border-t-0 border-[#27272a] rounded-b-lg">
+                <p className="text-xs text-gray-400 mb-4">
+                  Sube una imagen de una tarjeta PSA 10 de la misma tarjeta o set similar. 
+                  El AI comparará tu tarjeta contra este estándar para dar un grado más preciso.
+                </p>
+                <div className="max-w-[200px]">
+                  <ImageUploadZone
+                    label="PSA 10 Ref"
+                    sublabel="Opcional"
+                    image={referenceImage}
+                    onImageSelect={setReferenceImage}
+                    onClear={() => setReferenceImage(null)}
+                    disabled={isAnalyzing}
+                    testId="reference-image-upload"
+                    accent="gold"
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Info Banner */}
       <div className="mb-6 p-4 bg-[#121212] border border-[#27272a] rounded-lg">
         <div className="flex items-start gap-3">
           <FlipHorizontal className="w-5 h-5 text-[#3b82f6] flex-shrink-0 mt-0.5" />
           <div>
             <p className="text-sm text-white font-medium mb-1">
-              Análisis completo con ambos lados
+              Análisis inteligente con ojo humano
             </p>
             <p className="text-xs text-gray-500">
-              PSA evalúa el centrado del frente (55/45) y dorso (75/25). Sube ambas imágenes para una predicción más precisa.
+              El AI evalúa como un experto PSA - no penaliza por artefactos de imagen. 
+              {referenceImage && <span className="text-[#eab308]"> Comparando contra tu referencia PSA 10.</span>}
             </p>
           </div>
         </div>
@@ -255,10 +323,10 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               <Scan className="w-8 h-8 text-[#3b82f6] animate-pulse" />
               <div className="text-center">
                 <p className="font-heading text-lg uppercase tracking-wider text-white">
-                  Analizando {backImage ? 'ambos lados' : 'tarjeta'}...
+                  Analizando {referenceImage ? 'con referencia PSA 10' : backImage ? 'ambos lados' : 'tarjeta'}...
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
-                  GPT-5.2 Vision evaluando según estándares PSA
+                  GPT-5.2 Vision evaluando como experto humano
                 </p>
               </div>
             </div>
