@@ -252,6 +252,11 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         back_image_base64: backImage,
       };
 
+      // Add card year if provided (for vintage consideration)
+      if (cardYear && !isNaN(parseInt(cardYear))) {
+        requestBody.card_year = parseInt(cardYear);
+      }
+
       // Add reference from library if selected
       if (selectedReferenceId) {
         requestBody.reference_id = selectedReferenceId;
