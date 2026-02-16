@@ -609,6 +609,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
                 </p>
                 <p className="text-xs text-gray-500 mt-1">
                   GPT-5.2 Vision evaluando como experto humano
+                  {hasYear && <span className="text-amber-400"> • Considerando antigüedad ({cardYear})</span>}
                 </p>
               </div>
             </div>
