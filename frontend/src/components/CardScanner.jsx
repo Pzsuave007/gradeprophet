@@ -147,9 +147,15 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState(null);
   const [showReferenceSection, setShowReferenceSection] = useState(false);
+  const [showCornersSection, setShowCornersSection] = useState(false);
   const [savedReferences, setSavedReferences] = useState([]);
   const [savingRef, setSavingRef] = useState(false);
   const [referenceMode, setReferenceMode] = useState('library');
+  // Corner images state
+  const [cornerTopLeft, setCornerTopLeft] = useState(null);
+  const [cornerTopRight, setCornerTopRight] = useState(null);
+  const [cornerBottomLeft, setCornerBottomLeft] = useState(null);
+  const [cornerBottomRight, setCornerBottomRight] = useState(null);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
