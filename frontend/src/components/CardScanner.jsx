@@ -357,7 +357,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         />
       </div>
 
-      {/* Card Year Input */}
+      {/* Card Year Input - Optional Override */}
       <div className="mb-4">
         <div className="p-3 bg-[#1a1a1a] border border-[#27272a] rounded-lg">
           <div className="flex items-center gap-3">
@@ -372,13 +372,15 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
                 )}
               </div>
               <p className="text-xs text-gray-500">
-                PSA aplica estándares diferentes según la antigüedad
+                {hasReference 
+                  ? 'Se usará el año de la referencia PSA 10. Puedes sobreescribirlo aquí.'
+                  : 'Opcional - la IA detectará la era automáticamente'}
               </p>
             </div>
             <div className="w-24">
               <Input
                 type="number"
-                placeholder="Ej: 1996"
+                placeholder="Auto"
                 value={cardYear}
                 onChange={(e) => setCardYear(e.target.value)}
                 disabled={isAnalyzing}
