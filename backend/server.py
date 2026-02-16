@@ -456,7 +456,25 @@ Recent cards should be in near-perfect condition to achieve high grades.
 Apply strict PSA standards as written.
 """
 
-async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None) -> dict:
+AUTO_DETECT_YEAR_PROMPT = """
+IMPORTANT - CARD ERA DETECTION:
+No year was provided for this card. You MUST identify the card and determine its approximate year/era from:
+1. The card design, style, and printing technology
+2. The player's age/appearance in the photo
+3. The set/brand visible on the card
+4. Any text, logos, or copyright dates visible
+
+Once you identify the approximate year, APPLY THE APPROPRIATE GRADING STANDARDS:
+- Pre-1980 (TRUE VINTAGE): Very lenient - accept 65/35 centering, expect minor imperfections
+- 1980-1989 (VINTAGE): Lenient - accept 60/40 centering, some softness OK
+- 1990-1999 (SEMI-VINTAGE): Moderately lenient - accept 57/43 centering
+- 2000-2009 (EARLY MODERN): Slightly lenient - accept 55/45 centering
+- 2010+ (MODERN): Strict standards apply
+
+Include the detected year/era in your card_info field.
+"""
+
+async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None, auto_detect_year: bool = False) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
     import json
     
@@ -492,10 +510,14 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
             # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
         
-        # Add vintage card consideration if year is provided
+        # Add vintage card consideration based on year source
         if card_year:
+            # Year was provided (manually or from reference)
             vintage_prompt = get_vintage_adjustment_prompt(card_year)
             prompt = vintage_prompt + "\n\n" + prompt
+        elif auto_detect_year:
+            # No year available - AI must detect and apply appropriate standards
+            prompt = AUTO_DETECT_YEAR_PROMPT + "\n\n" + prompt
         
         # Add corner images if provided (for detailed corner analysis)
         if corner_images and len(corner_images) > 0:
