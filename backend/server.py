@@ -54,8 +54,6 @@ class GradingResult(BaseModel):
     overall_grade: float = Field(..., ge=0, le=10)
     psa_recommendation: str
     send_to_psa: bool
-    estimated_raw_value: str
-    estimated_graded_value: str
     analysis_summary: str
     card_info: Optional[str] = None
 
