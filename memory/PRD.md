@@ -18,20 +18,41 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
    - Edges (Bordes)
 4. Grado estimado PSA (1-10)
 5. Recomendación de enviar o no a PSA
-6. Valor estimado raw vs graded
-7. Historial de tarjetas analizadas
-8. Tema oscuro profesional
+6. Historial de tarjetas analizadas
+7. Tema oscuro profesional
+8. Análisis de frente y dorso de la tarjeta
+9. Fotos de esquinas opcionales para análisis detallado
+10. Biblioteca de referencias PSA 10 para comparación
+11. Sistema de aprendizaje con feedback de grados reales
+12. **Consideración de antigüedad de la tarjeta** - La IA ajusta estándares según el año
 
-## What's Been Implemented (Jan 2026)
+## What's Been Implemented
+
+### Enero 2026
 - ✅ Dashboard principal con zona de upload drag & drop
 - ✅ Integración con OpenAI GPT-5.2 Vision para análisis
 - ✅ Desglose detallado de grados por categoría
 - ✅ Recomendación de envío a PSA con explicación
-- ✅ Estimación de valores (raw vs graded)
 - ✅ Historial de análisis con MongoDB
 - ✅ CRUD completo de tarjetas analizadas
-- ✅ UI responsive con tema oscuro "The Vault"
+- ✅ UI responsive con tema oscuro profesional
 - ✅ Animación de escaneo durante análisis
+
+### Febrero 2026
+- ✅ Upload de imagen frontal y dorso de la tarjeta
+- ✅ Fotos opcionales de las 4 esquinas para análisis detallado (útil para compras de eBay)
+- ✅ Biblioteca de referencias PSA 10 con lectura automática del label
+- ✅ Sistema de aprendizaje: feedback de grados reales de PSA
+- ✅ Panel de estadísticas de precisión del AI
+- ✅ Eliminación de análisis innecesarios
+- ✅ Botones de acción accesibles en móvil (vista detallada)
+- ✅ Removidos valores de mercado (Raw/Graded) - usuario usa CardLadder
+- ✅ **Consideración de antigüedad de tarjetas**: La IA ahora aplica estándares diferentes según la era:
+  - Pre-1980 (Vintage): Estándares significativamente más indulgentes
+  - 1980-1989: Estándares más indulgentes
+  - 1990-1999 (Semi-Vintage): Estándares moderadamente indulgentes
+  - 2000-2009: Estándares ligeramente relajados
+  - 2010+: Estándares estrictos (modernos)
 
 ## Technical Architecture
 - **Frontend**: React + TailwindCSS + Framer Motion + Shadcn UI
@@ -40,10 +61,15 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 - **Database**: MongoDB
 
 ## API Endpoints
-- `POST /api/cards/analyze` - Analiza imagen de tarjeta
+- `POST /api/cards/analyze` - Analiza imagen de tarjeta (soporta año para consideración vintage)
 - `GET /api/cards/history` - Historial de análisis
 - `GET /api/cards/{id}` - Detalle de análisis
 - `DELETE /api/cards/{id}` - Eliminar análisis
+- `PUT /api/cards/{id}/feedback` - Agregar grado real de PSA
+- `PUT /api/cards/{id}/status` - Actualizar estado (pending, sent_to_psa, graded)
+- `POST /api/references` - Guardar referencia PSA 10
+- `GET /api/references` - Obtener biblioteca de referencias
+- `DELETE /api/references/{id}` - Eliminar referencia
 
 ## Prioritized Backlog
 
@@ -51,18 +77,21 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 - Análisis de tarjetas con AI
 - Historial persistente
 - UI funcional
+- Upload frente/dorso
+- Fotos de esquinas
+- Referencias PSA 10
+- Sistema de aprendizaje
+- Consideración de antigüedad de tarjetas
 
 ### P1 (High Priority)
 - Autenticación de usuarios
-- Múltiples fotos por tarjeta (frente/dorso)
-- Comparación de tarjetas
 - Export de reportes (PDF)
+- Dashboard de estadísticas avanzadas
 
 ### P2 (Medium Priority)
 - API de precios en tiempo real (eBay, COMC)
 - Integración con PSA submission
-- Dashboard de estadísticas
-- Notificaciones cuando el precio de mercado cambia
+- Notificaciones de cambios de precio
 
 ### P3 (Nice to Have)
 - App móvil nativa
@@ -72,6 +101,5 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 
 ## Next Tasks
 1. Agregar autenticación de usuarios
-2. Permitir subir múltiples fotos (frente y dorso)
-3. Implementar comparador de tarjetas
-4. Agregar exportación de reportes PDF
+2. Implementar exportación de reportes PDF
+3. Dashboard de estadísticas avanzadas
