@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Scan, 
   History, 
-  TrendingUp, 
+  Brain, 
   Shield,
   ChevronLeft,
   Menu,
@@ -12,7 +12,9 @@ import {
 import CardScanner from '../components/CardScanner';
 import AnalysisResult from '../components/AnalysisResult';
 import HistoryPanel from '../components/HistoryPanel';
+import LearningPanel from '../components/LearningPanel';
 import { Button } from '../components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
 const Dashboard = () => {
   const [currentView, setCurrentView] = useState('scanner'); // scanner | result | history-detail
@@ -22,6 +24,7 @@ const Dashboard = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState('history');
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
