@@ -197,13 +197,13 @@ const Dashboard = () => {
                     </div>
                     <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4 text-center">
                       <div className="w-10 h-10 bg-[#eab308]/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                        <TrendingUp className="w-5 h-5 text-[#eab308]" />
+                        <Brain className="w-5 h-5 text-[#eab308]" />
                       </div>
                       <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white mb-1">
-                        Valor Estimado
+                        Sistema Aprendizaje
                       </h3>
                       <p className="text-xs text-gray-500">
-                        Raw vs Graded comparison
+                        Mejora con cada resultado
                       </p>
                     </div>
                   </div>
