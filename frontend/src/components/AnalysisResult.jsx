@@ -192,28 +192,6 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
               </p>
             </div>
           </div>
-
-          {/* Value Estimates */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-4 h-4 text-gray-400" />
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Valor Raw</span>
-              </div>
-              <p className="font-mono text-xl text-white" data-testid="raw-value">
-                {grading_result.estimated_raw_value}
-              </p>
-            </div>
-            <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-[#22c55e]" />
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Valor Graded</span>
-              </div>
-              <p className="font-mono text-xl text-[#22c55e]" data-testid="graded-value">
-                {grading_result.estimated_graded_value}
-              </p>
-            </div>
-          </div>
         </div>
       </div>
 
