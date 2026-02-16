@@ -203,8 +203,6 @@ Provide your response in the following JSON format ONLY (no additional text):
     "overall_grade": <float 1-10>,
     "psa_recommendation": "<recommendation based on comparison to PSA 10>",
     "send_to_psa": <boolean>,
-    "estimated_raw_value": "<estimated value in USD>",
-    "estimated_graded_value": "<estimated value if graded in USD>",
     "analysis_summary": "<summary comparing to the PSA 10 reference>",
     "card_info": "<card identification>"
 }
