@@ -83,35 +83,48 @@ class CardAnalysisResponse(BaseModel):
     card_name: Optional[str] = None
 
 # PSA Grading Analysis Prompt
-PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with extensive experience evaluating cards for PSA (Professional Sports Authenticator) grading. Analyze this sports card image and provide a detailed grading assessment.
+PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You grade cards like a HUMAN EXPERT would - using your trained eye to distinguish between ACTUAL card defects and IMAGE/SCAN ARTIFACTS.
 
-IMPORTANT: Evaluate the card based on PSA's official grading standards:
-- **Centering**: Measure the borders on all sides. PSA 10 requires 55/45 or better centering on front and 75/25 on back.
-- **Corners**: Examine all four corners for wear, dings, fraying, or rounding.
-- **Surface**: Look for scratches, print defects, staining, wax marks, or any surface imperfections.
-- **Edges**: Check for chipping, wear, rough cuts, or any edge damage.
+CRITICAL DISTINCTION - DO NOT PENALIZE FOR:
+- Image compression artifacts, pixelation, or blur
+- Lighting reflections, glare, or shadows from photography
+- Scanner lines or digital noise
+- Color variations due to camera/lighting
+- Apparent "issues" that are clearly just photo quality limitations
+
+ONLY PENALIZE FOR CLEARLY VISIBLE ACTUAL DEFECTS:
+- **Centering**: PSA 10 = 55/45 or better. Be generous - if it looks reasonably centered, it probably is.
+- **Corners**: Only dock points for OBVIOUS wear, fraying, or rounding visible to naked eye.
+- **Surface**: Only penalize for CLEAR scratches, creases, stains - NOT potential artifacts.
+- **Edges**: Only for VISIBLE chipping or whitening that's clearly on the card itself.
+
+GRADING PHILOSOPHY:
+- Modern cards in good condition from a collector typically deserve 9-10 consideration
+- Give the BENEFIT OF THE DOUBT when something could be image quality vs actual defect
+- A card that LOOKS clean and sharp to the eye should score high
+- Only list issues you are CONFIDENT are real card defects, not maybes
 
 Provide your response in the following JSON format ONLY (no additional text):
 {
     "centering": {
         "score": <float 1-10>,
         "description": "<brief assessment>",
-        "issues": ["<list of specific issues found>"]
+        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
     },
     "corners": {
         "score": <float 1-10>,
         "description": "<brief assessment>",
-        "issues": ["<list of specific issues found>"]
+        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
     },
     "surface": {
         "score": <float 1-10>,
         "description": "<brief assessment>",
-        "issues": ["<list of specific issues found>"]
+        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
     },
     "edges": {
         "score": <float 1-10>,
         "description": "<brief assessment>",
-        "issues": ["<list of specific issues found>"]
+        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
     },
     "overall_grade": <float 1-10>,
     "psa_recommendation": "<detailed recommendation about sending to PSA>",
@@ -122,7 +135,7 @@ Provide your response in the following JSON format ONLY (no additional text):
     "card_info": "<if identifiable, provide card name/year/player/set>"
 }
 
-Be realistic and conservative in your grading - collectors depend on accurate assessments. A PSA 10 is extremely rare and requires near-perfect condition. Most vintage cards grade between 4-7. Modern cards in good condition typically grade 8-9."""
+Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade."""
 
 PSA_ANALYSIS_PROMPT_DUAL = """You are an expert sports card grader with extensive experience evaluating cards for PSA (Professional Sports Authenticator). You are being shown TWO images: the FRONT and BACK of the same sports card. Analyze BOTH sides and provide a comprehensive grading assessment.
 
