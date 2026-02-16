@@ -17,39 +17,47 @@ import { Button } from '../components/ui/button';
 const Dashboard = () => {
   const [currentView, setCurrentView] = useState('scanner'); // scanner | result | history-detail
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
-  const [currentImage, setCurrentImage] = useState(null);
+  const [frontImage, setFrontImage] = useState(null);
+  const [backImage, setBackImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const handleAnalysisComplete = useCallback((analysis, originalImage) => {
+  const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
-    setCurrentImage(originalImage);
+    setFrontImage(front);
+    setBackImage(back);
     setCurrentView('result');
     setHistoryRefresh(prev => prev + 1);
   }, []);
 
   const handleSelectFromHistory = useCallback((card) => {
-    // Reconstruct the image from preview
-    const imageData = card.image_preview 
-      ? `data:image/jpeg;base64,${card.image_preview}`
+    // Reconstruct the images from preview
+    const front = card.front_image_preview 
+      ? `data:image/jpeg;base64,${card.front_image_preview}`
+      : null;
+    const back = card.back_image_preview 
+      ? `data:image/jpeg;base64,${card.back_image_preview}`
       : null;
     setCurrentAnalysis(card);
-    setCurrentImage(imageData);
+    setFrontImage(front);
+    setBackImage(back);
     setCurrentView('history-detail');
     setMobileMenuOpen(false);
   }, []);
 
   const handleNewAnalysis = useCallback(() => {
     setCurrentAnalysis(null);
-    setCurrentImage(null);
+    setFrontImage(null);
+    setBackImage(null);
     setCurrentView('scanner');
   }, []);
 
   const handleBack = useCallback(() => {
     if (currentView === 'history-detail') {
       setCurrentAnalysis(null);
-      setCurrentImage(null);
+      setFrontImage(null);
+      setBackImage(null);
       setCurrentView('scanner');
     } else {
       handleNewAnalysis();
