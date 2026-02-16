@@ -255,6 +255,12 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         requestBody.reference_id = selectedReferenceId;
       }
 
+      // Add corner images if provided (for detailed corner analysis)
+      if (cornerTopLeft) requestBody.corner_top_left = cornerTopLeft;
+      if (cornerTopRight) requestBody.corner_top_right = cornerTopRight;
+      if (cornerBottomLeft) requestBody.corner_bottom_left = cornerBottomLeft;
+      if (cornerBottomRight) requestBody.corner_bottom_right = cornerBottomRight;
+
       const response = await fetch(`${API}/cards/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
