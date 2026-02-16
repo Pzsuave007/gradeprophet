@@ -357,6 +357,41 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         />
       </div>
 
+      {/* Card Year Input */}
+      <div className="mb-4">
+        <div className="p-3 bg-[#1a1a1a] border border-[#27272a] rounded-lg">
+          <div className="flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-[#3b82f6]" />
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-1">
+                <p className="text-sm font-medium text-white">Año de la Tarjeta</p>
+                {vintageLabel && (
+                  <span className={`text-xs ${vintageLabel.color}`}>
+                    ({vintageLabel.text})
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-gray-500">
+                PSA aplica estándares diferentes según la antigüedad
+              </p>
+            </div>
+            <div className="w-24">
+              <Input
+                type="number"
+                placeholder="Ej: 1996"
+                value={cardYear}
+                onChange={(e) => setCardYear(e.target.value)}
+                disabled={isAnalyzing}
+                className="bg-[#121212] border-[#27272a] text-white text-center h-9"
+                min="1900"
+                max="2025"
+                data-testid="card-year-input"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Corner Photos Section */}
       <div className="mb-4">
         <div 
