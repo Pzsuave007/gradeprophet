@@ -527,10 +527,73 @@ async def delete_card_analysis(card_id: str):
         logger.error(f"Failed to delete card: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# PSA Label Reading Prompt
+PSA_LABEL_READER_PROMPT = """Look at this PSA graded card image. Read the PSA label/slab information and extract the card details.
+
+The PSA label typically contains:
+- Card year (e.g., 1996, 2020)
+- Card set/brand (e.g., Upper Deck, Topps Chrome, Prizm)
+- Card name/number (e.g., #138, Kobe Bryant RC)
+- Player name
+- Grade (should be 10 or Gem Mint)
+
+Return ONLY a JSON object with this format (no other text):
+{
+    "card_name": "<Year> <Set> <Player Name> <Card Number if visible>",
+    "year": "<year>",
+    "set": "<card set/brand>",
+    "player": "<player name>",
+    "grade": "<grade number>"
+}
+
+Example response:
+{
+    "card_name": "1996-97 Upper Deck SP #134 Kobe Bryant RC",
+    "year": "1996-97",
+    "set": "Upper Deck SP",
+    "player": "Kobe Bryant",
+    "grade": "10"
+}
+
+If you cannot read certain information, use "Unknown" for that field but try your best to read the label."""
+
+async def read_psa_label(image_base64: str) -> dict:
+    """Read PSA label information from a graded card image"""
+    import json
+    
+    try:
+        chat = LlmChat(
+            api_key=OPENAI_API_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message="You are an expert at reading PSA graded card labels. Respond only with valid JSON."
+        ).with_model("openai", "gpt-5.2")
+        
+        image_content = ImageContent(image_base64=image_base64)
+        user_message = UserMessage(
+            text=PSA_LABEL_READER_PROMPT,
+            file_contents=[image_content]
+        )
+        
+        response = await chat.send_message(user_message)
+        
+        # Clean response
+        cleaned = response.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        
+        return json.loads(cleaned.strip())
+    except Exception as e:
+        logger.error(f"Failed to read PSA label: {e}")
+        return {"card_name": "PSA 10 Reference", "error": str(e)}
+
 # PSA 10 Reference Endpoints
 @api_router.post("/references", response_model=PSA10ReferenceResponse)
 async def create_reference(data: PSA10ReferenceCreate):
-    """Save a PSA 10 reference image for future use"""
+    """Save a PSA 10 reference image - automatically reads label info"""
     try:
         if not data.image_base64:
             raise HTTPException(status_code=400, detail="Image is required")
@@ -540,12 +603,18 @@ async def create_reference(data: PSA10ReferenceCreate):
         if ',' in image_base64:
             image_base64 = image_base64.split(',')[1]
         
+        # Auto-read PSA label if no name provided
+        name = data.name
+        if not name or name.strip() == "":
+            label_info = await read_psa_label(image_base64)
+            name = label_info.get("card_name", "PSA 10 Reference")
+        
         # Create thumbnail for display
         thumbnail = create_thumbnail(image_base64)
         
         # Create reference object
         reference = PSA10Reference(
-            name=data.name,
+            name=name,
             image_preview=thumbnail,
             image_full=image_base64
         )
