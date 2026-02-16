@@ -297,12 +297,18 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     setFrontImage(null);
     setBackImage(null);
     setReferenceImage(null);
+    setCornerTopLeft(null);
+    setCornerTopRight(null);
+    setCornerBottomLeft(null);
+    setCornerBottomRight(null);
     setError(null);
     setScanProgress(0);
   };
 
   const hasAnyImage = frontImage || backImage;
   const hasReference = selectedReferenceId !== null;
+  const hasCorners = cornerTopLeft || cornerTopRight || cornerBottomLeft || cornerBottomRight;
+  const cornerCount = [cornerTopLeft, cornerTopRight, cornerBottomLeft, cornerBottomRight].filter(Boolean).length;
 
   return (
     <div className="w-full">
@@ -328,6 +334,81 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         />
       </div>
 
+      {/* Corner Photos Section */}
+      <div className="mb-4">
+        <div 
+          className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-[#27272a] rounded-lg cursor-pointer hover:bg-[#1e1e1e] transition-colors"
+          onClick={() => setShowCornersSection(!showCornersSection)}
+        >
+          <div className="flex items-center gap-3">
+            <CornerDownRight className="w-5 h-5 text-[#3b82f6]" />
+            <div>
+              <p className="text-sm font-medium text-white">
+                Fotos de Esquinas {hasCorners && <Check className="w-4 h-4 inline text-green-500 ml-1" />}
+              </p>
+              <p className="text-xs text-gray-500">
+                {hasCorners ? `${cornerCount}/4 esquinas` : 'Opcional - Para análisis más detallado'}
+              </p>
+            </div>
+          </div>
+          <Info className={`w-4 h-4 text-gray-500 transition-transform ${showCornersSection ? 'rotate-180' : ''}`} />
+        </div>
+        
+        <AnimatePresence>
+          {showCornersSection && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="p-4 bg-[#121212] border border-t-0 border-[#27272a] rounded-b-lg">
+                <p className="text-xs text-gray-400 mb-3">
+                  Sube fotos cercanas de cada esquina (como las de eBay) para un análisis más preciso de las esquinas.
+                </p>
+                <div className="grid grid-cols-4 gap-2">
+                  <ImageUploadZone
+                    label="↖ Izq"
+                    image={cornerTopLeft}
+                    onImageSelect={setCornerTopLeft}
+                    onClear={() => setCornerTopLeft(null)}
+                    disabled={isAnalyzing}
+                    testId="corner-top-left"
+                    small
+                  />
+                  <ImageUploadZone
+                    label="↗ Der"
+                    image={cornerTopRight}
+                    onImageSelect={setCornerTopRight}
+                    onClear={() => setCornerTopRight(null)}
+                    disabled={isAnalyzing}
+                    testId="corner-top-right"
+                    small
+                  />
+                  <ImageUploadZone
+                    label="↙ Izq"
+                    image={cornerBottomLeft}
+                    onImageSelect={setCornerBottomLeft}
+                    onClear={() => setCornerBottomLeft(null)}
+                    disabled={isAnalyzing}
+                    testId="corner-bottom-left"
+                    small
+                  />
+                  <ImageUploadZone
+                    label="↘ Der"
+                    image={cornerBottomRight}
+                    onImageSelect={setCornerBottomRight}
+                    onClear={() => setCornerBottomRight(null)}
+                    disabled={isAnalyzing}
+                    testId="corner-bottom-right"
+                    small
+                  />
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
       {/* PSA 10 Reference Section */}
       <div className="mb-6">
         <div 
