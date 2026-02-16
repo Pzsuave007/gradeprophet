@@ -550,6 +550,15 @@ async def analyze_card(data: CardAnalysisCreate):
             if ',' in back_image:
                 back_image = back_image.split(',')[1]
         
+        # Process corner images if provided (for detailed corner analysis)
+        corner_images = []
+        for corner in [data.corner_top_left, data.corner_top_right, data.corner_bottom_left, data.corner_bottom_right]:
+            if corner:
+                corner_img = corner
+                if ',' in corner_img:
+                    corner_img = corner_img.split(',')[1]
+                corner_images.append(corner_img)
+        
         # Get reference image - either from direct upload or from saved reference
         reference_image = None
         if data.reference_image_base64:
