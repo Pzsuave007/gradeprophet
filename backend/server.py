@@ -660,12 +660,13 @@ async def analyze_card(data: CardAnalysisCreate):
             if saved_ref:
                 reference_image = saved_ref.get('image_full')
         
-        # Analyze with AI (with optional back, reference, and corner images)
+        # Analyze with AI (with optional back, reference, corner images, and card year)
         grading_result = await analyze_card_with_ai(
             front_image, 
             back_image, 
             reference_image,
-            corner_images if corner_images else None
+            corner_images if corner_images else None,
+            data.card_year
         )
         
         # Create thumbnails for storage (corners are NOT saved, only used for analysis)
