@@ -308,6 +308,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     setCornerTopRight(null);
     setCornerBottomLeft(null);
     setCornerBottomRight(null);
+    setCardYear('');
     setError(null);
     setScanProgress(0);
   };
