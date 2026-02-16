@@ -103,6 +103,7 @@ class CardAnalysisCreate(BaseModel):
     reference_image_base64: Optional[str] = None  # Direct PSA 10 reference upload
     reference_id: Optional[str] = None  # OR select from saved references
     card_name: Optional[str] = None
+    card_year: Optional[int] = None  # Year of the card for vintage consideration
     # Optional corner photos for detailed analysis
     corner_top_left: Optional[str] = None
     corner_top_right: Optional[str] = None
@@ -368,6 +369,89 @@ For CORNERS scoring, carefully examine EACH corner close-up for:
 Be VERY PRECISE with corner grading since you have detailed close-up views. 
 A PSA 10 requires all corners to be sharp with no visible wear.
 Minor imperfections visible in close-ups may drop the grade to PSA 9.
+"""
+
+def get_vintage_adjustment_prompt(card_year: int) -> str:
+    """Generate prompt addition for vintage card consideration based on year"""
+    current_year = 2025
+    card_age = current_year - card_year
+    
+    if card_year <= 1979:
+        # Pre-1980: True vintage (45+ years old)
+        return f"""
+VINTAGE CARD CONSIDERATION (Year: {card_year} - {card_age} years old):
+This is a TRUE VINTAGE card from the pre-1980 era. PSA graders apply SIGNIFICANTLY more lenient standards:
+
+ADJUSTED GRADING STANDARDS FOR THIS ERA:
+- **Centering**: Accept up to 65/35 front, 85/15 back for PSA 10 consideration
+- **Corners**: Minor softness is expected and acceptable - only penalize obvious damage
+- **Surface**: Print lines, minor color variations, and light wax stains from original packs are acceptable
+- **Edges**: Slight roughness from original cutting is normal - only penalize clear chipping
+
+CONTEXT: Cards from this era were printed with primitive technology, hand-cut in many cases, 
+and have survived 45+ years. Finding one in ANY good condition is remarkable.
+Grade this card GENEROUSLY while acknowledging its age.
+"""
+    elif card_year <= 1989:
+        # 1980-1989: Junk wax era beginning, still vintage (35-45 years)
+        return f"""
+VINTAGE CARD CONSIDERATION (Year: {card_year} - {card_age} years old):
+This is a VINTAGE card from the early modern era. PSA graders apply more lenient standards:
+
+ADJUSTED GRADING STANDARDS FOR THIS ERA:
+- **Centering**: Accept up to 60/40 front, 80/20 back for PSA 10 consideration
+- **Corners**: Some softness is expected - only penalize clear wear or damage
+- **Surface**: Minor print variations and light imperfections from era's printing are acceptable
+- **Edges**: Slight roughness is normal for the period - only penalize visible chipping
+
+CONTEXT: Cards from the 1980s used improved but still imperfect printing and cutting technology.
+After 35+ years, minor imperfections are expected. Grade with appropriate leniency.
+"""
+    elif card_year <= 1999:
+        # 1990-1999: Junk wax/early premium era (25-35 years)
+        return f"""
+VINTAGE CARD CONSIDERATION (Year: {card_year} - {card_age} years old):
+This is a card from the 1990s era. PSA graders apply MODERATELY lenient standards:
+
+ADJUSTED GRADING STANDARDS FOR THIS ERA:
+- **Centering**: Accept up to 57/43 front, 77/23 back for PSA 10 consideration
+- **Corners**: Minor softness acceptable - penalize only clear wear
+- **Surface**: Light print imperfections from the era are acceptable
+- **Edges**: Slight variations acceptable - penalize only visible chipping
+
+CONTEXT: 1990s cards had improving quality but still show era-specific characteristics.
+A 25-30 year old card in good condition deserves generous consideration.
+"""
+    elif card_year <= 2009:
+        # 2000-2009: Modern era beginning (15-25 years)
+        return f"""
+CARD AGE CONSIDERATION (Year: {card_year} - {card_age} years old):
+This is a card from the early 2000s. PSA applies SLIGHTLY relaxed standards:
+
+ADJUSTED GRADING STANDARDS FOR THIS ERA:
+- **Centering**: Accept up to 55/45 front, 75/25 back for PSA 10 consideration
+- **Corners**: Should be sharp but very minor softness acceptable
+- **Surface**: Should be clean with minimal tolerance for print issues
+- **Edges**: Should be crisp with minimal tolerance
+
+CONTEXT: 2000s cards had good production quality. After 15-25 years, 
+very minor imperfections are understandable. Grade fairly.
+"""
+    else:
+        # 2010+: Modern era (less than 15 years)
+        return f"""
+MODERN CARD (Year: {card_year} - {card_age} years old):
+This is a MODERN card. PSA applies STRICT grading standards:
+
+STANDARD GRADING (NO VINTAGE ADJUSTMENT):
+- **Centering**: Requires 55/45 front, 75/25 back for PSA 10
+- **Corners**: Must be sharp with no visible softness
+- **Surface**: Must be clean with no print defects
+- **Edges**: Must be crisp with no chipping
+
+CONTEXT: Modern cards are produced with high-quality processes and tight tolerances.
+Recent cards should be in near-perfect condition to achieve high grades.
+Apply strict PSA standards as written.
 """
 
 async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None) -> dict:
