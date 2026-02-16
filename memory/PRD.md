@@ -24,7 +24,10 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 9. Fotos de esquinas opcionales para análisis detallado
 10. Biblioteca de referencias PSA 10 para comparación
 11. Sistema de aprendizaje con feedback de grados reales
-12. **Consideración de antigüedad de la tarjeta** - La IA ajusta estándares según el año
+12. **Consideración de antigüedad de la tarjeta** - La IA ajusta estándares según el año:
+    - Automático desde referencia PSA 10 (extrae año del label)
+    - Auto-detección por IA cuando no hay referencia
+    - Override manual opcional
 
 ## What's Been Implemented
 
