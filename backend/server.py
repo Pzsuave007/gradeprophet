@@ -257,24 +257,33 @@ async def root():
 async def analyze_card(data: CardAnalysisCreate):
     """Analyze a sports card image and predict PSA grade"""
     try:
-        # Validate image
-        if not data.image_base64:
-            raise HTTPException(status_code=400, detail="Image is required")
+        # Validate front image
+        if not data.front_image_base64:
+            raise HTTPException(status_code=400, detail="Front image is required")
         
         # Remove data URL prefix if present
-        image_base64 = data.image_base64
-        if ',' in image_base64:
-            image_base64 = image_base64.split(',')[1]
+        front_image = data.front_image_base64
+        if ',' in front_image:
+            front_image = front_image.split(',')[1]
         
-        # Analyze with AI
-        grading_result = await analyze_card_with_ai(image_base64)
+        # Process back image if provided
+        back_image = None
+        if data.back_image_base64:
+            back_image = data.back_image_base64
+            if ',' in back_image:
+                back_image = back_image.split(',')[1]
         
-        # Create thumbnail for storage
-        thumbnail = create_thumbnail(image_base64)
+        # Analyze with AI (both sides if back is provided)
+        grading_result = await analyze_card_with_ai(front_image, back_image)
+        
+        # Create thumbnails for storage
+        front_thumbnail = create_thumbnail(front_image)
+        back_thumbnail = create_thumbnail(back_image) if back_image else None
         
         # Create card analysis object
         card_analysis = CardAnalysis(
-            image_preview=thumbnail,
+            front_image_preview=front_thumbnail,
+            back_image_preview=back_thumbnail,
             grading_result=GradingResult(**grading_result),
             card_name=data.card_name or grading_result.get('card_info')
         )
@@ -287,7 +296,8 @@ async def analyze_card(data: CardAnalysisCreate):
         # Return response
         return CardAnalysisResponse(
             id=card_analysis.id,
-            image_preview=card_analysis.image_preview,
+            front_image_preview=card_analysis.front_image_preview,
+            back_image_preview=card_analysis.back_image_preview,
             grading_result=card_analysis.grading_result,
             created_at=doc['created_at'],
             card_name=card_analysis.card_name
