@@ -540,6 +540,141 @@ async def delete_card_analysis(card_id: str):
         logger.error(f"Failed to delete card: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.put("/cards/{card_id}/feedback", response_model=CardAnalysisResponse)
+async def update_card_feedback(card_id: str, feedback: CardFeedbackUpdate):
+    """Update a card with actual PSA grade for learning"""
+    try:
+        # Find the card
+        card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        if not card:
+            raise HTTPException(status_code=404, detail="Card analysis not found")
+        
+        # Update with feedback
+        update_data = {
+            "actual_psa_grade": feedback.actual_psa_grade,
+            "psa_cert_number": feedback.psa_cert_number,
+            "feedback_date": datetime.now(timezone.utc).isoformat(),
+            "status": feedback.status
+        }
+        
+        await db.card_analyses.update_one(
+            {"id": card_id},
+            {"$set": update_data}
+        )
+        
+        # Return updated card
+        updated_card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        return updated_card
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update feedback: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/cards/{card_id}/status")
+async def update_card_status(card_id: str, status: str):
+    """Update card status (pending, sent_to_psa, graded)"""
+    try:
+        valid_statuses = ["pending", "sent_to_psa", "graded"]
+        if status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        
+        result = await db.card_analyses.update_one(
+            {"id": card_id},
+            {"$set": {"status": status}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Card analysis not found")
+        
+        return {"message": f"Status updated to {status}"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/learning/stats", response_model=LearningStats)
+async def get_learning_stats():
+    """Get learning statistics - how accurate are our predictions"""
+    try:
+        # Get all cards with actual grades
+        all_cards = await db.card_analyses.find({}, {"_id": 0}).to_list(1000)
+        
+        total_analyzed = len(all_cards)
+        graded_cards = [c for c in all_cards if c.get("actual_psa_grade") is not None]
+        total_graded = len(graded_cards)
+        
+        if total_graded == 0:
+            return LearningStats(
+                total_analyzed=total_analyzed,
+                total_graded=0,
+                accuracy_rate=0,
+                average_difference=0,
+                predictions_high=0,
+                predictions_low=0,
+                predictions_accurate=0
+            )
+        
+        predictions_high = 0
+        predictions_low = 0
+        predictions_accurate = 0
+        total_diff = 0
+        
+        for card in graded_cards:
+            predicted = card.get("grading_result", {}).get("overall_grade", 0)
+            actual = card.get("actual_psa_grade", 0)
+            diff = predicted - actual
+            total_diff += abs(diff)
+            
+            if abs(diff) <= 0.5:
+                predictions_accurate += 1
+            elif diff > 0:
+                predictions_high += 1
+            else:
+                predictions_low += 1
+        
+        accuracy_rate = (predictions_accurate / total_graded) * 100
+        average_difference = total_diff / total_graded
+        
+        return LearningStats(
+            total_analyzed=total_analyzed,
+            total_graded=total_graded,
+            accuracy_rate=round(accuracy_rate, 1),
+            average_difference=round(average_difference, 2),
+            predictions_high=predictions_high,
+            predictions_low=predictions_low,
+            predictions_accurate=predictions_accurate
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to get learning stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/learning/history")
+async def get_learning_history():
+    """Get cards with feedback for learning analysis"""
+    try:
+        graded_cards = await db.card_analyses.find(
+            {"actual_psa_grade": {"$ne": None}},
+            {"_id": 0}
+        ).sort("feedback_date", -1).to_list(100)
+        
+        # Add comparison data
+        for card in graded_cards:
+            predicted = card.get("grading_result", {}).get("overall_grade", 0)
+            actual = card.get("actual_psa_grade", 0)
+            card["difference"] = round(predicted - actual, 1)
+            card["accurate"] = abs(predicted - actual) <= 0.5
+        
+        return graded_cards
+        
+    except Exception as e:
+        logger.error(f"Failed to get learning history: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # PSA Label Reading Prompt
 PSA_LABEL_READER_PROMPT = """Look at this PSA graded card image. Read the PSA label/slab information and extract the card details.
 
