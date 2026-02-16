@@ -454,7 +454,7 @@ Recent cards should be in near-perfect condition to achieve high grades.
 Apply strict PSA standards as written.
 """
 
-async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None) -> dict:
+async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
     import json
     
@@ -489,6 +489,11 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         else:
             # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
+        
+        # Add vintage card consideration if year is provided
+        if card_year:
+            vintage_prompt = get_vintage_adjustment_prompt(card_year)
+            prompt = vintage_prompt + "\n\n" + prompt
         
         # Add corner images if provided (for detailed corner analysis)
         if corner_images and len(corner_images) > 0:
