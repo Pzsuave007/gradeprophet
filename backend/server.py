@@ -347,7 +347,30 @@ Provide your response in the following JSON format ONLY (no additional text):
 
 Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade. Give benefit of the doubt!"""
 
-async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None) -> dict:
+CORNER_ANALYSIS_ADDITION = """
+
+IMPORTANT: You have been provided with CLOSE-UP PHOTOS OF THE CORNERS in addition to the main card images.
+These corner photos allow you to examine each corner in detail.
+
+Corner photos provided (in order after main card images):
+- Top-Left Corner
+- Top-Right Corner  
+- Bottom-Left Corner
+- Bottom-Right Corner
+
+For CORNERS scoring, carefully examine EACH corner close-up for:
+- Fuzzing or fraying of the card stock
+- Whitening at the corner tip
+- Rounding or blunting
+- Dings or dents
+- Any visible wear
+
+Be VERY PRECISE with corner grading since you have detailed close-up views. 
+A PSA 10 requires all corners to be sharp with no visible wear.
+Minor imperfections visible in close-ups may drop the grade to PSA 9.
+"""
+
+async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None) -> dict:
     """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
     import json
     
