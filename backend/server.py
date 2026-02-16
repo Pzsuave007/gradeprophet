@@ -69,7 +69,8 @@ class CardAnalysis(BaseModel):
     card_name: Optional[str] = None
 
 class CardAnalysisCreate(BaseModel):
-    image_base64: str
+    front_image_base64: str
+    back_image_base64: Optional[str] = None
     card_name: Optional[str] = None
 
 class CardAnalysisResponse(BaseModel):
