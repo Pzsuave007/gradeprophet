@@ -139,7 +139,7 @@ async def analyze_card_with_ai(image_base64: str) -> dict:
         # Create user message with image
         user_message = UserMessage(
             text=PSA_ANALYSIS_PROMPT,
-            image_contents=[image_content]
+            file_contents=[image_content]
         )
         
         # Send message and get response
