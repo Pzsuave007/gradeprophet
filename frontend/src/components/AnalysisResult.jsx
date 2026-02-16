@@ -7,11 +7,16 @@ import {
   Box,
   Layers,
   CornerDownRight,
-  FlipHorizontal
+  FlipHorizontal,
+  Trash2,
+  Package,
+  Save,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Input } from '../components/ui/input';
 
 const GradeDisplay = ({ score, label, icon: Icon, issues }) => {
   const getGradeColor = (grade) => {
@@ -56,10 +61,18 @@ const GradeDisplay = ({ score, label, icon: Icon, issues }) => {
   );
 };
 
-const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
+const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDelete, onRefresh }) => {
   const { grading_result } = analysis;
   const [activeTab, setActiveTab] = useState('front');
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [actualGrade, setActualGrade] = useState('');
+  const [certNumber, setCertNumber] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  
   const hasBothSides = frontImage && backImage;
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
   
   const getOverallGradeColor = (grade) => {
     if (grade >= 9.5) return { color: '#eab308', label: 'GEM MINT' };
@@ -73,6 +86,66 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
   };
 
   const gradeInfo = getOverallGradeColor(grading_result.overall_grade);
+
+  const handleDelete = async () => {
+    if (!window.confirm('¿Eliminar este análisis?')) return;
+    
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API}/cards/${analysis.id}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        onDelete?.();
+        onNewAnalysis();
+      }
+    } catch (err) {
+      console.error('Failed to delete:', err);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleMarkSent = async () => {
+    try {
+      await fetch(`${API}/cards/${analysis.id}/status?status=sent_to_psa`, {
+        method: 'PUT'
+      });
+      onRefresh?.();
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleSubmitFeedback = async () => {
+    if (!actualGrade) return;
+    
+    setSaving(true);
+    try {
+      const response = await fetch(`${API}/cards/${analysis.id}/feedback`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          actual_psa_grade: parseFloat(actualGrade),
+          psa_cert_number: certNumber || null,
+          status: 'graded'
+        })
+      });
+      
+      if (response.ok) {
+        setShowFeedback(false);
+        onRefresh?.();
+      }
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Check if this card already has feedback
+  const hasActualGrade = analysis.actual_psa_grade !== null && analysis.actual_psa_grade !== undefined;
+  const isSentToPSA = analysis.status === 'sent_to_psa';
 
   return (
     <motion.div
@@ -170,6 +243,28 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
             )}
           </div>
 
+          {/* Actual PSA Grade (if has feedback) */}
+          {hasActualGrade && (
+            <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-lg p-4 text-center">
+              <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Grado Real PSA</p>
+              <p className="text-4xl font-heading font-black text-[#22c55e]">
+                {analysis.actual_psa_grade}
+              </p>
+              {analysis.psa_cert_number && (
+                <p className="text-xs text-gray-500 mt-1">Cert: {analysis.psa_cert_number}</p>
+              )}
+              <div className="mt-2 text-xs">
+                {Math.abs(grading_result.overall_grade - analysis.actual_psa_grade) <= 0.5 ? (
+                  <span className="text-[#22c55e]">✓ Predicción precisa</span>
+                ) : grading_result.overall_grade > analysis.actual_psa_grade ? (
+                  <span className="text-[#eab308]">↑ Predijimos más alto</span>
+                ) : (
+                  <span className="text-[#3b82f6]">↓ Predijimos más bajo</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Recommendation */}
           <div className={`
             p-4 rounded-lg flex items-center gap-4
@@ -200,7 +295,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
         <h3 className="font-heading text-xl font-semibold uppercase tracking-wider text-white mb-4">
           Desglose de Grados
         </h3>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <GradeDisplay 
             score={grading_result.centering.score} 
             label="Centrado" 
@@ -238,8 +333,92 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis }) => {
         </p>
       </div>
 
+      {/* Feedback Section - For entering actual PSA grade */}
+      {!hasActualGrade && (
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowFeedback(!showFeedback)}
+            className="w-full p-4 flex items-center justify-between hover:bg-[#1e1e1e] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Package className="w-5 h-5 text-[#eab308]" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-white">
+                  {isSentToPSA ? '¿Ya recibiste el grado?' : '¿Vas a enviar esta tarjeta?'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {isSentToPSA ? 'Ingresa el resultado para que el sistema aprenda' : 'Marca como enviada o ingresa el resultado'}
+                </p>
+              </div>
+            </div>
+            <span className={`text-xs px-2 py-1 rounded ${
+              isSentToPSA 
+                ? 'bg-[#3b82f6]/20 text-[#3b82f6]' 
+                : 'bg-[#27272a] text-gray-400'
+            }`}>
+              {isSentToPSA ? 'Enviada a PSA' : 'Pendiente'}
+            </span>
+          </button>
+          
+          {showFeedback && (
+            <div className="p-4 border-t border-[#27272a] space-y-4">
+              {!isSentToPSA && (
+                <Button
+                  variant="outline"
+                  onClick={handleMarkSent}
+                  className="w-full border-[#3b82f6]/50 text-[#3b82f6] hover:bg-[#3b82f6]/10"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  Marcar como Enviada a PSA
+                </Button>
+              )}
+              
+              <div className="space-y-3">
+                <p className="text-xs text-gray-400">Ingresa el grado real cuando lo recibas:</p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <Input
+                    type="number"
+                    step="0.5"
+                    min="1"
+                    max="10"
+                    placeholder="Grado PSA (1-10)"
+                    value={actualGrade}
+                    onChange={(e) => setActualGrade(e.target.value)}
+                    className="bg-[#0a0a0a] border-[#27272a] text-white flex-1"
+                  />
+                  <Input
+                    placeholder="Cert # (opcional)"
+                    value={certNumber}
+                    onChange={(e) => setCertNumber(e.target.value)}
+                    className="bg-[#0a0a0a] border-[#27272a] text-white sm:w-32"
+                  />
+                </div>
+                <Button
+                  onClick={handleSubmitFeedback}
+                  disabled={!actualGrade || saving}
+                  className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-white"
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  {saving ? 'Guardando...' : 'Guardar Resultado PSA'}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-3">
+        <Button
+          variant="outline"
+          onClick={handleDelete}
+          disabled={deleting}
+          className="border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-300"
+          data-testid="delete-analysis-btn"
+        >
+          <Trash2 className="w-4 h-4 mr-2" />
+          {deleting ? 'Eliminando...' : 'Eliminar Análisis'}
+        </Button>
         <Button
           onClick={onNewAnalysis}
           className="flex-1 h-12 bg-white text-black hover:bg-gray-200 font-semibold uppercase tracking-wider"
