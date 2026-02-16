@@ -101,6 +101,27 @@ const LearningPanel = ({ refreshTrigger }) => {
     }
   };
 
+  const deleteCard = async (cardId, e) => {
+    e.stopPropagation();
+    if (!window.confirm('¿Eliminar este análisis?')) return;
+    
+    try {
+      const response = await fetch(`${API}/cards/${cardId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        setPendingCards(prev => prev.filter(c => c.id !== cardId));
+        // Also refresh stats
+        const statsRes = await fetch(`${API}/learning/stats`);
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        }
+      }
+    } catch (err) {
+      console.error('Failed to delete card:', err);
+    }
+  };
+
   const getGradeColor = (grade) => {
     if (grade >= 9) return '#22c55e';
     if (grade >= 7) return '#3b82f6';
