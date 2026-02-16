@@ -527,6 +527,70 @@ async def delete_card_analysis(card_id: str):
         logger.error(f"Failed to delete card: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# PSA 10 Reference Endpoints
+@api_router.post("/references", response_model=PSA10ReferenceResponse)
+async def create_reference(data: PSA10ReferenceCreate):
+    """Save a PSA 10 reference image for future use"""
+    try:
+        if not data.image_base64:
+            raise HTTPException(status_code=400, detail="Image is required")
+        
+        # Remove data URL prefix if present
+        image_base64 = data.image_base64
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        
+        # Create thumbnail for display
+        thumbnail = create_thumbnail(image_base64)
+        
+        # Create reference object
+        reference = PSA10Reference(
+            name=data.name,
+            image_preview=thumbnail,
+            image_full=image_base64
+        )
+        
+        # Save to database
+        doc = reference.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        await db.psa10_references.insert_one(doc)
+        
+        return PSA10ReferenceResponse(
+            id=reference.id,
+            name=reference.name,
+            image_preview=reference.image_preview,
+            created_at=doc['created_at']
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to save reference: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/references", response_model=List[PSA10ReferenceResponse])
+async def get_references():
+    """Get all saved PSA 10 references"""
+    try:
+        refs = await db.psa10_references.find({}, {"_id": 0, "image_full": 0}).sort("created_at", -1).to_list(100)
+        return refs
+    except Exception as e:
+        logger.error(f"Failed to fetch references: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/references/{ref_id}")
+async def delete_reference(ref_id: str):
+    """Delete a PSA 10 reference"""
+    try:
+        result = await db.psa10_references.delete_one({"id": ref_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Reference not found")
+        return {"message": "Reference deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete reference: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include the router in the main app
 app.include_router(api_router)
 
