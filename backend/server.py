@@ -150,8 +150,6 @@ Provide your response in the following JSON format ONLY (no additional text):
     "overall_grade": <float 1-10>,
     "psa_recommendation": "<detailed recommendation about sending to PSA>",
     "send_to_psa": <boolean - true if card is likely to get 8+ grade>,
-    "estimated_raw_value": "<estimated value as raw card in USD>",
-    "estimated_graded_value": "<estimated value if graded at predicted grade in USD>",
     "analysis_summary": "<2-3 sentence summary of the card's condition>",
     "card_info": "<if identifiable, provide card name/year/player/set>"
 }
