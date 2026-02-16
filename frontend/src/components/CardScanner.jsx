@@ -587,6 +587,9 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
             <p className="text-xs text-gray-500">
               El AI evalúa como un experto PSA - no penaliza por artefactos de imagen.
               {hasReference && <span className="text-[#eab308]"> Comparando contra referencia PSA 10.</span>}
+              {hasYear && vintageLabel && (
+                <span className="text-amber-400"> Ajustando estándares para tarjeta {vintageLabel.text.toLowerCase()}.</span>
+              )}
             </p>
           </div>
         </div>
