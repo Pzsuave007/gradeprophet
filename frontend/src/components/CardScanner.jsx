@@ -422,6 +422,131 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
 
   return (
     <div className="w-full">
+      {/* eBay Import Section */}
+      <div className="mb-4">
+        <div 
+          className="flex items-center justify-between p-3 bg-[#1a1a1a] border border-[#27272a] rounded-lg cursor-pointer hover:bg-[#1e1e1e] transition-colors"
+          onClick={() => setShowEbayImport(!showEbayImport)}
+        >
+          <div className="flex items-center gap-3">
+            <Link className="w-5 h-5 text-[#22c55e]" />
+            <div>
+              <p className="text-sm font-medium text-white">Importar desde eBay</p>
+              <p className="text-xs text-gray-500">Pega un link de eBay para importar las fotos</p>
+            </div>
+          </div>
+          <div className="text-gray-500">
+            {showEbayImport ? '−' : '+'}
+          </div>
+        </div>
+        
+        {showEbayImport && (
+          <div className="mt-2 p-4 bg-[#121212] border border-[#27272a] rounded-lg">
+            <div className="flex gap-2 mb-3">
+              <Input
+                type="url"
+                placeholder="https://www.ebay.com/itm/..."
+                value={ebayUrl}
+                onChange={(e) => setEbayUrl(e.target.value)}
+                disabled={ebayLoading}
+                className="bg-[#1a1a1a] border-[#27272a] text-white flex-1"
+                data-testid="ebay-url-input"
+              />
+              <Button
+                onClick={importFromEbay}
+                disabled={ebayLoading || !ebayUrl.trim()}
+                className="bg-[#22c55e] hover:bg-[#16a34a] text-white"
+                data-testid="ebay-import-btn"
+              >
+                {ebayLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Importar'}
+              </Button>
+            </div>
+            
+            {ebayError && (
+              <p className="text-red-400 text-sm mb-3">{ebayError}</p>
+            )}
+            
+            {ebayTitle && (
+              <p className="text-gray-400 text-sm mb-3 truncate">{ebayTitle}</p>
+            )}
+            
+            {ebayImages.length > 0 && (
+              <div>
+                <p className="text-xs text-gray-500 mb-2">
+                  Haz clic en una imagen y selecciona su tipo:
+                </p>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {ebayImages.map((img, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={`data:image/jpeg;base64,${img.thumbnail}`}
+                        alt={`eBay ${idx + 1}`}
+                        className="w-full aspect-square object-cover rounded border border-[#27272a] cursor-pointer hover:border-[#3b82f6] transition-colors"
+                      />
+                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity rounded flex flex-col items-center justify-center gap-1 p-1">
+                        <button
+                          onClick={() => assignEbayImage(img.base64, 'front')}
+                          className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded w-full"
+                        >
+                          Frente
+                        </button>
+                        <button
+                          onClick={() => assignEbayImage(img.base64, 'back')}
+                          className="text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded w-full"
+                        >
+                          Dorso
+                        </button>
+                        <div className="grid grid-cols-2 gap-1 w-full">
+                          <button
+                            onClick={() => assignEbayImage(img.base64, 'corner_tl')}
+                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
+                          >
+                            ↖TL
+                          </button>
+                          <button
+                            onClick={() => assignEbayImage(img.base64, 'corner_tr')}
+                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
+                          >
+                            TR↗
+                          </button>
+                          <button
+                            onClick={() => assignEbayImage(img.base64, 'corner_bl')}
+                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
+                          >
+                            ↙BL
+                          </button>
+                          <button
+                            onClick={() => assignEbayImage(img.base64, 'corner_br')}
+                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
+                          >
+                            BR↘
+                          </button>
+                        </div>
+                      </div>
+                      {img.suggested_type !== 'unknown' && (
+                        <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white px-1 rounded">
+                          {img.suggested_type === 'front' ? 'Frente?' : 'Dorso?'}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={clearEbayImport}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs border-[#27272a] text-gray-400"
+                  >
+                    Limpiar
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Main Card Upload Zones */}
       <div className="grid grid-cols-2 gap-4 mb-4">
         <ImageUploadZone
