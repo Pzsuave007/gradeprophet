@@ -642,8 +642,14 @@ Recent examples: {', '.join(examples[-5:])}
         logger.warning(f"Failed to get learning context: {e}")
         return ""
 
-def create_thumbnail(image_base64: str, max_size: int = 200) -> str:
-    """Create a smaller thumbnail from base64 image"""
+def create_thumbnail(image_base64: str, max_size: int = 800, quality: int = 90) -> str:
+    """Create a high-quality preview from base64 image
+    
+    Args:
+        image_base64: Base64 encoded image
+        max_size: Maximum dimension (width or height) - default 800px for good detail
+        quality: JPEG quality 1-100 - default 90 for high quality
+    """
     try:
         from PIL import Image
         import io
@@ -652,19 +658,23 @@ def create_thumbnail(image_base64: str, max_size: int = 200) -> str:
         image_data = base64.b64decode(image_base64)
         image = Image.open(io.BytesIO(image_data))
         
-        # Resize maintaining aspect ratio
-        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+        # Only resize if larger than max_size
+        if image.width > max_size or image.height > max_size:
+            image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
         
-        # Convert back to base64
+        # Convert back to base64 with high quality
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=70)
+        # Use RGB mode for JPEG (in case image has alpha channel)
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+        image.save(buffer, format='JPEG', quality=quality)
         thumbnail_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
         
         return thumbnail_base64
     except Exception as e:
         logger.warning(f"Failed to create thumbnail: {e}")
         # Return original if thumbnail creation fails
-        return image_base64[:1000] + "..."  # Truncate for storage
+        return image_base64
 
 # API Routes
 @api_router.get("/")
