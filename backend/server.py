@@ -62,10 +62,15 @@ class GradingResult(BaseModel):
     surface: SubGrade
     edges: SubGrade
     overall_grade: float = Field(..., ge=0, le=10)
+    grade_min: float = Field(default=0, ge=0, le=10)  # Minimum likely grade
+    grade_max: float = Field(default=10, ge=0, le=10)  # Maximum likely grade
+    confidence: str = Field(default="medium")  # high, medium, low
     psa_recommendation: str
     send_to_psa: bool
+    recommendation_level: str = Field(default="REVIEW")  # SEND, REVIEW, NO_SEND
     analysis_summary: str
     card_info: Optional[str] = None
+    defects_found: List[str] = Field(default_factory=list)  # Clear list of all defects
 
 # PSA 10 Reference Models
 class PSA10Reference(BaseModel):
