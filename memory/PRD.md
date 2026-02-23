@@ -112,6 +112,15 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 - Marketplace integrado
 - Predicción de tendencias de precio
 
+## Changelog
+
+### 16 Feb 2026
+- ✅ Fix: Selector de imágenes eBay cambiado de hover a clic
+  - Antes: El menú aparecía al pasar el mouse (no funcionaba en móvil)
+  - Ahora: Menú aparece al hacer clic, con botones claros para asignar
+- ✅ Script de actualización mejorado (`update-server.sh`)
+- ✅ Documentación de actualización creada (`INSTRUCCIONES-ACTUALIZAR.md`)
+
 ## Next Tasks
 1. Agregar autenticación de usuarios
 2. Implementar exportación de reportes PDF
