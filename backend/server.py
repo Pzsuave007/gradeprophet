@@ -117,6 +117,7 @@ class CardAnalysisCreate(BaseModel):
     reference_id: Optional[str] = None  # OR select from saved references
     card_name: Optional[str] = None
     card_year: Optional[int] = None  # Year of the card for vintage consideration
+    ebay_url: Optional[str] = None  # eBay listing URL
     # Optional corner photos for detailed analysis
     corner_top_left: Optional[str] = None
     corner_top_right: Optional[str] = None
