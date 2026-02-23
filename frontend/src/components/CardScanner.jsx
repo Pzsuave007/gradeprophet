@@ -367,8 +367,14 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
       setScanProgress(100);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Error al analizar la tarjeta');
+        let errorMessage = 'Error al analizar la tarjeta';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          // If we can't parse the error, use default message
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();

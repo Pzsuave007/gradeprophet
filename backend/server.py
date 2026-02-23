@@ -484,6 +484,9 @@ Once you identify the approximate year, APPLY THE APPROPRIATE GRADING STANDARDS:
 Include the detected year/era in your card_info field.
 """
 
+# Initialize OpenAI client
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+
 async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None, auto_detect_year: bool = False) -> dict:
     """Analyze a sports card image using OpenAI GPT-4o Vision"""
     import json

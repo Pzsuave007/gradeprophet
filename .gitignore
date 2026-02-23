@@ -97,6 +97,7 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+<<<<<<< update2-23
 -e 
 # Environment files
 *.env
@@ -109,3 +110,5 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+=======
+>>>>>>> main
