@@ -265,6 +265,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     setEbayImages([]);
     setEbayError(null);
     setEbayTitle('');
+    setSelectedEbayIdx(null);
   };
 
   // Auto-save reference when image is uploaded
