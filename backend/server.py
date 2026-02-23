@@ -152,58 +152,70 @@ class LearningStats(BaseModel):
     predictions_accurate: int  # Within 0.5
 
 
-# PSA Grading Analysis Prompt
-PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You grade cards like a HUMAN EXPERT would - using your trained eye to distinguish between ACTUAL card defects and IMAGE/SCAN ARTIFACTS.
+# PSA Grading Analysis Prompt - STRICT VERSION
+PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You are known for being STRICT and CONSERVATIVE in your grading - you would rather under-grade than over-grade.
 
-CRITICAL DISTINCTION - DO NOT PENALIZE FOR:
-- Image compression artifacts, pixelation, or blur
-- Lighting reflections, glare, or shadows from photography
+STRICT GRADING PHILOSOPHY:
+- PSA 10 GEM MINT is RARE - only 1 in 20 cards deserve it. Requires PERFECTION.
+- PSA 9 MINT requires near-perfection with only ONE minor flaw maximum.
+- Most cards from eBay listings are PSA 7-8 range. Be realistic.
+- When in doubt, grade LOWER. It's better to be pleasantly surprised than disappointed.
+
+CRITICAL - WHAT TO LOOK FOR:
+- **Centering**: PSA 10 = 55/45 or better on BOTH front and back. PSA 9 = 60/40. Measure carefully.
+- **Corners**: Look at ALL 4 corners closely. ANY visible wear, fuzzing, or softness = deduct points.
+- **Surface**: Check for scratches, print lines, ink spots, wax stains, roller marks. Common on vintage.
+- **Edges**: Check for whitening, chipping, rough cuts. Very common flaw.
+
+STRICT SCORING GUIDE:
+- 10: PERFECT. Zero defects visible even under magnification. Extremely rare.
+- 9.5: Near perfect. One barely visible flaw. Very rare.
+- 9: One minor flaw visible (slight centering, one soft corner). Uncommon.
+- 8.5: One-two minor flaws. Above average card.
+- 8: Multiple minor flaws OR one moderate flaw. Good condition.
+- 7-7.5: Several flaws but still presentable. Average condition.
+- 6 and below: Obvious visible defects.
+
+DO NOT PENALIZE FOR:
+- Image compression artifacts or blur (but note if image quality prevents accurate grading)
+- Lighting reflections or photography issues
 - Scanner lines or digital noise
-- Color variations due to camera/lighting
-- Apparent "issues" that are clearly just photo quality limitations
-
-ONLY PENALIZE FOR CLEARLY VISIBLE ACTUAL DEFECTS:
-- **Centering**: PSA 10 = 55/45 or better. Be generous - if it looks reasonably centered, it probably is.
-- **Corners**: Only dock points for OBVIOUS wear, fraying, or rounding visible to naked eye.
-- **Surface**: Only penalize for CLEAR scratches, creases, stains - NOT potential artifacts.
-- **Edges**: Only for VISIBLE chipping or whitening that's clearly on the card itself.
-
-GRADING PHILOSOPHY:
-- Modern cards in good condition from a collector typically deserve 9-10 consideration
-- Give the BENEFIT OF THE DOUBT when something could be image quality vs actual defect
-- A card that LOOKS clean and sharp to the eye should score high
-- Only list issues you are CONFIDENT are real card defects, not maybes
 
 Provide your response in the following JSON format ONLY (no additional text):
 {
     "centering": {
         "score": <float 1-10>,
-        "description": "<brief assessment>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<specific measurement like 55/45 or 60/40>",
+        "issues": ["<specific issues found>"]
     },
     "corners": {
         "score": <float 1-10>,
-        "description": "<brief assessment>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe each corner: TL, TR, BL, BR>",
+        "issues": ["<specific issues like 'Top-left corner shows slight wear'>"]
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<brief assessment>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe surface condition>",
+        "issues": ["<specific issues like 'Light scratch visible center-left'>"]
     },
     "edges": {
         "score": <float 1-10>,
-        "description": "<brief assessment>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe all 4 edges>",
+        "issues": ["<specific issues like 'Minor whitening on top edge'>"]
     },
-    "overall_grade": <float 1-10>,
-    "psa_recommendation": "<detailed recommendation about sending to PSA>",
-    "send_to_psa": <boolean - true if card is likely to get 8+ grade>,
-    "analysis_summary": "<2-3 sentence summary of the card's condition>",
-    "card_info": "<if identifiable, provide card name/year/player/set>"
+    "overall_grade": <float 1-10 - be conservative>,
+    "grade_min": <float - lowest likely PSA grade>,
+    "grade_max": <float - highest likely PSA grade>,
+    "confidence": "<high/medium/low - based on image quality and defect visibility>",
+    "psa_recommendation": "<detailed recommendation>",
+    "send_to_psa": <true only if likely to get 9+ AND worth the grading cost>,
+    "recommendation_level": "<SEND if 9+ confident / REVIEW if 8-9 range / NO_SEND if below 8>",
+    "analysis_summary": "<honest 2-3 sentence summary>",
+    "card_info": "<card name/year/player/set if identifiable>",
+    "defects_found": ["<complete list of ALL defects found, be specific>"]
 }
 
-Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade."""
+Remember: Grade CONSERVATIVELY. A 9 from you should be a confident 9 from PSA."""
 
 PSA_ANALYSIS_PROMPT_WITH_REFERENCE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You have been given a REFERENCE IMAGE of a PSA 10 graded card to compare against.
 
