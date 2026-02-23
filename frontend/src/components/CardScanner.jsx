@@ -158,6 +158,14 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [cornerTopRight, setCornerTopRight] = useState(null);
   const [cornerBottomLeft, setCornerBottomLeft] = useState(null);
   const [cornerBottomRight, setCornerBottomRight] = useState(null);
+  
+  // eBay import state
+  const [showEbayImport, setShowEbayImport] = useState(false);
+  const [ebayUrl, setEbayUrl] = useState('');
+  const [ebayImages, setEbayImages] = useState([]);
+  const [ebayLoading, setEbayLoading] = useState(false);
+  const [ebayError, setEbayError] = useState(null);
+  const [ebayTitle, setEbayTitle] = useState('');
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
