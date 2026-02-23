@@ -166,6 +166,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   const [ebayLoading, setEbayLoading] = useState(false);
   const [ebayError, setEbayError] = useState(null);
   const [ebayTitle, setEbayTitle] = useState('');
+  const [selectedEbayIdx, setSelectedEbayIdx] = useState(null);
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
