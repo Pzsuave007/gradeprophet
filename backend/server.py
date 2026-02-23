@@ -115,6 +115,14 @@ class CardFeedbackUpdate(BaseModel):
     psa_cert_number: Optional[str] = None
     status: str = "graded"
 
+class PhysicalInspectionAdjust(BaseModel):
+    """User's physical inspection feedback to adjust AI grade"""
+    centering_better: bool = False
+    corners_better: bool = False
+    surface_better: bool = False
+    edges_better: bool = False
+    notes: Optional[str] = None
+
 class CardAnalysisCreate(BaseModel):
     front_image_base64: str
     back_image_base64: Optional[str] = None
