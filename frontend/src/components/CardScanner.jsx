@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Library, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors, Image as ImageIcon } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Library, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors, Image as ImageIcon, Search } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { ScrollArea } from '../components/ui/scroll-area';
