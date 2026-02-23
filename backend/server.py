@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import base64
 import httpx
 import re
+import json
 from io import BytesIO
 from openai import AsyncOpenAI
 from PIL import Image
