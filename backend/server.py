@@ -1106,18 +1106,24 @@ class CornerCropResponse(BaseModel):
 async def scrape_ebay_listing(url: str) -> dict:
     """Scrape eBay listing to extract images"""
     try:
-        # Use Scrape.do if API key is available, otherwise try direct
-        if SCRAPEDO_API_KEY:
-            scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={url}&render=true"
-        else:
-            scrape_url = url
-        
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
-            response = await client.get(scrape_url, headers=headers, follow_redirects=True)
+            
+            # First, resolve the short URL to get the actual listing URL
+            # eBay share links (ebay.us) redirect to the full URL
+            response = await client.get(url, headers=headers)
+            final_url = str(response.url)
             html = response.text
+            
+            logger.info(f"Resolved eBay URL: {url} -> {final_url}")
+            
+            # If using Scrape.do API for better reliability
+            if SCRAPEDO_API_KEY and 'ebay.com/itm/' in final_url:
+                scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={final_url}&render=true"
+                response = await client.get(scrape_url, headers=headers)
+                html = response.text
         
         # Extract title
         title_match = re.search(r'<title>([^<]+)</title>', html)
@@ -1127,37 +1133,62 @@ async def scrape_ebay_listing(url: str) -> dict:
         # Extract image URLs - eBay uses various patterns
         image_urls = set()
         
-        # Pattern 1: High-res images in data attributes
+        # Pattern 1: High-res images in data attributes and JSON
         patterns = [
             r'data-zoom-src="([^"]+)"',
             r'"imageUrl"\s*:\s*"([^"]+)"',
-            r'https://i\.ebayimg\.com/images/g/[^"\'>\s]+',
+            r'"enlargedImageUrl"\s*:\s*"([^"]+)"',
             r'"image"\s*:\s*"(https://[^"]+ebayimg[^"]+)"',
-            r'src="(https://i\.ebayimg\.com/[^"]+)"',
+            r'src="(https://i\.ebayimg\.com/images/g/[^"]+)"',
+            r'"https://i\.ebayimg\.com/images/g/([^"]+)"',
         ]
         
         for pattern in patterns:
             matches = re.findall(pattern, html)
             for match in matches:
-                if 'ebayimg.com' in match and 's-l' not in match:  # Skip small thumbnails
-                    # Try to get highest resolution
-                    clean_url = match.split('?')[0]
-                    if '/s-l64' not in clean_url and '/s-l96' not in clean_url:
-                        image_urls.add(clean_url)
+                img_url = match
+                # Handle relative or incomplete URLs
+                if not img_url.startswith('http'):
+                    if img_url.startswith('//'):
+                        img_url = 'https:' + img_url
+                    elif 'ebayimg.com' not in img_url:
+                        img_url = f'https://i.ebayimg.com/images/g/{img_url}'
+                
+                if 'ebayimg.com' in img_url:
+                    # Skip small thumbnails
+                    if '/s-l64' not in img_url and '/s-l96' not in img_url and '/s-l140' not in img_url:
+                        image_urls.add(img_url)
+        
+        # Also try to find images in the main image gallery JSON
+        gallery_match = re.search(r'"imageGallery"\s*:\s*\[(.*?)\]', html, re.DOTALL)
+        if gallery_match:
+            gallery_urls = re.findall(r'"(https://i\.ebayimg\.com[^"]+)"', gallery_match.group(1))
+            image_urls.update(gallery_urls)
         
         # Upgrade image URLs to high resolution
         high_res_urls = set()
-        for url in image_urls:
-            # Convert to high-res version
-            high_res = re.sub(r'/s-l\d+\.', '/s-l1600.', url)
-            if '/s-l' not in high_res:
-                high_res = url.replace('.jpg', '/s-l1600.jpg').replace('.png', '/s-l1600.png')
+        for img_url in image_urls:
+            # Convert to high-res version (s-l1600 or s-l1200)
+            high_res = re.sub(r'/s-l\d+\.', '/s-l1600.', img_url)
+            if '/s-l' not in img_url:
+                # Add high-res suffix if not present
+                if '.jpg' in img_url:
+                    high_res = img_url.replace('.jpg', '/s-l1600.jpg')
+                elif '.png' in img_url:
+                    high_res = img_url.replace('.png', '/s-l1600.png')
+                else:
+                    high_res = img_url
             high_res_urls.add(high_res)
+        
+        # Remove duplicates and limit
+        final_urls = list(high_res_urls)[:12]
+        
+        logger.info(f"Found {len(final_urls)} images from eBay listing")
         
         return {
             "success": True,
             "title": title,
-            "image_urls": list(high_res_urls)[:12]  # Limit to 12 images
+            "image_urls": final_urls
         }
         
     except Exception as e:
