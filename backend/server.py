@@ -98,6 +98,7 @@ class CardAnalysis(BaseModel):
     grading_result: GradingResult
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     card_name: Optional[str] = None
+    ebay_url: Optional[str] = None  # eBay listing URL for easy access
     # Learning system fields
     actual_psa_grade: Optional[float] = None  # Real PSA grade when received
     psa_cert_number: Optional[str] = None  # PSA certification number
