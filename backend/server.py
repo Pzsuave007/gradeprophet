@@ -485,74 +485,89 @@ Include the detected year/era in your card_info field.
 """
 
 async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None, auto_detect_year: bool = False) -> dict:
-    """Analyze a sports card image using OpenAI GPT-5.2 Vision"""
+    """Analyze a sports card image using OpenAI GPT-4o Vision"""
     import json
     
     try:
-        # Create chat instance
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=str(uuid.uuid4()),
-            system_message="You are an expert sports card grader. Respond only with valid JSON."
-        ).with_model("openai", "gpt-5.2")
+        # Build the image content list for OpenAI
+        image_contents = []
         
-        # Create image contents list
-        image_contents = [ImageContent(image_base64=front_image_base64)]
+        # Add front image
+        image_contents.append({
+            "type": "image_url",
+            "image_url": {
+                "url": f"data:image/jpeg;base64,{front_image_base64}",
+                "detail": "high"
+            }
+        })
         
         # Get learning context from past predictions
         learning_context = await get_learning_context()
         
         # Determine which prompt to use based on images provided
         if back_image_base64 and reference_image_base64:
-            # Both back and reference provided
-            image_contents.append(ImageContent(image_base64=back_image_base64))
-            image_contents.append(ImageContent(image_base64=reference_image_base64))
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{back_image_base64}", "detail": "high"}
+            })
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{reference_image_base64}", "detail": "high"}
+            })
             prompt = PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE
         elif reference_image_base64:
-            # Only reference provided (no back)
-            image_contents.append(ImageContent(image_base64=reference_image_base64))
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{reference_image_base64}", "detail": "high"}
+            })
             prompt = PSA_ANALYSIS_PROMPT_WITH_REFERENCE
         elif back_image_base64:
-            # Only back provided (no reference)
-            image_contents.append(ImageContent(image_base64=back_image_base64))
+            image_contents.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{back_image_base64}", "detail": "high"}
+            })
             prompt = PSA_ANALYSIS_PROMPT_DUAL
         else:
-            # Only front image
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
         
         # Add vintage card consideration based on year source
         if card_year:
-            # Year was provided (manually or from reference)
             vintage_prompt = get_vintage_adjustment_prompt(card_year)
             prompt = vintage_prompt + "\n\n" + prompt
         elif auto_detect_year:
-            # No year available - AI must detect and apply appropriate standards
             prompt = AUTO_DETECT_YEAR_PROMPT + "\n\n" + prompt
         
-        # Add corner images if provided (for detailed corner analysis)
+        # Add corner images if provided
         if corner_images and len(corner_images) > 0:
             for corner_img in corner_images:
                 if corner_img:
-                    image_contents.append(ImageContent(image_base64=corner_img))
-            # Add corner analysis instructions to prompt
+                    image_contents.append({
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/jpeg;base64,{corner_img}", "detail": "high"}
+                    })
             prompt = prompt + CORNER_ANALYSIS_ADDITION
         
         # Add learning context to prompt if available
         if learning_context:
             prompt = learning_context + prompt
         
-        # Create user message with image(s)
-        user_message = UserMessage(
-            text=prompt,
-            file_contents=image_contents
+        # Create the messages for OpenAI
+        messages = [
+            {"role": "system", "content": "You are an expert sports card grader. Respond only with valid JSON."},
+            {"role": "user", "content": [{"type": "text", "text": prompt}, *image_contents]}
+        ]
+        
+        # Call OpenAI API
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=2000
         )
         
-        # Send message and get response
-        response = await chat.send_message(user_message)
+        response_text = response.choices[0].message.content
         
         # Parse JSON response
-        # Clean the response - remove markdown code blocks if present
-        cleaned_response = response.strip()
+        cleaned_response = response_text.strip()
         if cleaned_response.startswith("```json"):
             cleaned_response = cleaned_response[7:]
         if cleaned_response.startswith("```"):
