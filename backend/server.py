@@ -10,7 +10,11 @@ from typing import List, Optional
 import uuid
 from datetime import datetime, timezone
 import base64
-from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+import httpx
+import re
+from io import BytesIO
+from openai import AsyncOpenAI
+from PIL import Image
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
