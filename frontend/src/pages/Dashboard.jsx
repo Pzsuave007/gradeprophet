@@ -26,6 +26,23 @@ const Dashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('history');
 
+  const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+  const API = `${BACKEND_URL}/api`;
+
+  const refreshCurrentAnalysis = useCallback(async () => {
+    if (!currentAnalysis?.id) return;
+    try {
+      const response = await fetch(`${API}/cards/${currentAnalysis.id}`);
+      if (response.ok) {
+        const updatedCard = await response.json();
+        setCurrentAnalysis(updatedCard);
+        setHistoryRefresh(prev => prev + 1);
+      }
+    } catch (err) {
+      console.error('Failed to refresh analysis:', err);
+    }
+  }, [currentAnalysis?.id, API]);
+
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
     setFrontImage(front);
