@@ -270,112 +270,110 @@ Provide your response in the following JSON format ONLY:
 
 The PSA 10 reference is your calibration standard - anything less than equal = grade lower."""
 
-PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You have been given a REFERENCE IMAGE of a PSA 10 graded card to compare against.
+PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE = """You are an expert sports card grader with 20+ years experience at PSA. You are STRICT and CONSERVATIVE. You have a PSA 10 REFERENCE to compare against.
 
 You are analyzing THREE images:
 - IMAGE 1: The card to be graded (FRONT)
 - IMAGE 2: The card to be graded (BACK)
 - IMAGE 3: A PSA 10 REFERENCE of the same or similar card
 
-COMPARISON TASK:
-Compare the card being graded against the PSA 10 reference. For BOTH front and back, evaluate:
-1. Is the centering as good or close to the PSA 10 reference? (Front: 55/45, Back: 75/25)
-2. Are all 8 corners as sharp as the PSA 10 reference?
-3. Are both surfaces as clean as the PSA 10 reference?
-4. Are all edges as crisp as the PSA 10 reference?
+STRICT COMPARISON - Check BOTH sides against PSA 10:
+- PSA 10 is PERFECT. Any visible difference = NOT a 10.
+- Check ALL 8 corners (4 front + 4 back).
+- Back centering is 75/25 for PSA 10, more lenient than front's 55/45.
+- Surface defects on EITHER side will lower the grade.
 
-CRITICAL - DO NOT PENALIZE FOR IMAGE/SCAN ARTIFACTS:
-- Only compare ACTUAL card condition, not photo quality differences
-
-GRADING WITH REFERENCE:
-- If the card looks EQUAL to the reference → PSA 10 candidate
-- If slightly below in one area → PSA 9 candidate  
-- If noticeably below in multiple areas → PSA 8 or lower
-
-Provide your response in the following JSON format ONLY (no additional text):
+Provide your response in the following JSON format ONLY:
 {
     "centering": {
         "score": <float 1-10>,
-        "description": "<how BOTH sides compare to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10>"]
+        "description": "<compare BOTH sides to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "corners": {
         "score": <float 1-10>,
-        "description": "<how all 8 corners compare to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10>"]
+        "description": "<compare all 8 corners to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<how both surfaces compare to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10>"]
+        "description": "<compare both surfaces to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "edges": {
         "score": <float 1-10>,
-        "description": "<how all edges compare to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10>"]
+        "description": "<compare all edges to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
-    "overall_grade": <float 1-10>,
-    "psa_recommendation": "<recommendation based on comparison to PSA 10>",
-    "send_to_psa": <boolean>,
-    "analysis_summary": "<summary comparing to the PSA 10 reference>",
-    "card_info": "<card identification>"
+    "overall_grade": <float 1-10 - be conservative>,
+    "grade_min": <float - lowest likely grade>,
+    "grade_max": <float - highest likely grade>,
+    "confidence": "<high/medium/low>",
+    "psa_recommendation": "<honest recommendation>",
+    "send_to_psa": <true only if likely 9+>,
+    "recommendation_level": "<SEND/REVIEW/NO_SEND>",
+    "analysis_summary": "<honest summary vs PSA 10>",
+    "card_info": "<card identification>",
+    "defects_found": ["<ALL differences from PSA 10 reference>"]
 }
 
-The PSA 10 reference is your calibration standard - use it wisely!"""
+The PSA 10 reference is your calibration standard - anything less than equal = grade lower."""
 
-PSA_ANALYSIS_PROMPT_DUAL = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You grade cards like a HUMAN EXPERT would - using your trained eye to distinguish between ACTUAL card defects and IMAGE/SCAN ARTIFACTS.
+PSA_ANALYSIS_PROMPT_DUAL = """You are an expert sports card grader with 20+ years experience at PSA. You are STRICT and CONSERVATIVE - you would rather under-grade than over-grade.
 
 You are being shown TWO images: the FRONT and BACK of the same sports card.
 
-CRITICAL DISTINCTION - DO NOT PENALIZE FOR:
-- Image compression artifacts, pixelation, or blur
-- Lighting reflections, glare, or shadows from photography
-- Scanner lines or digital noise
-- Color variations due to camera/lighting
-- Apparent "issues" that are clearly just photo quality limitations
+STRICT GRADING PHILOSOPHY:
+- PSA 10 GEM MINT is RARE. Requires PERFECTION on BOTH sides.
+- PSA 9 MINT requires near-perfection with only ONE minor flaw on either side.
+- Most cards from eBay are PSA 7-8 range. Be realistic.
+- When in doubt, grade LOWER.
 
-ONLY PENALIZE FOR CLEARLY VISIBLE ACTUAL DEFECTS:
-- **Centering**: FRONT needs 55/45, BACK needs 75/25 for PSA 10. Be generous if it looks centered.
-- **Corners**: Only dock for OBVIOUS wear, fraying, or rounding visible to naked eye on all 8 corners.
-- **Surface**: Only penalize for CLEAR scratches, creases, stains on BOTH sides - NOT potential artifacts.
-- **Edges**: Only for VISIBLE chipping or whitening that's clearly on the card itself.
+CHECK ALL 8 CORNERS (4 front + 4 back):
+- ANY visible wear, fuzzing, or softness = deduct points.
 
-GRADING PHILOSOPHY:
-- Modern cards in good condition from a collector typically deserve 9-10 consideration
-- Give the BENEFIT OF THE DOUBT when something could be image quality vs actual defect
-- A card that LOOKS clean and sharp to the eye should score high
-- Only list issues you are CONFIDENT are real card defects, not maybes
+CENTERING STANDARDS:
+- FRONT: 55/45 for PSA 10, 60/40 for PSA 9
+- BACK: 75/25 for PSA 10, 90/10 for PSA 9
 
-The FIRST image is the FRONT of the card.
-The SECOND image is the BACK of the card.
+DO NOT PENALIZE FOR:
+- Image compression artifacts or blur
+- Lighting reflections or photography issues
 
-Provide your response in the following JSON format ONLY (no additional text):
+The FIRST image is the FRONT. The SECOND image is the BACK.
+
+Provide your response in the following JSON format ONLY:
 {
     "centering": {
         "score": <float 1-10>,
-        "description": "<assessment of BOTH front and back centering>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<specific measurements for BOTH sides>",
+        "issues": ["<specific issues>"]
     },
     "corners": {
         "score": <float 1-10>,
-        "description": "<assessment of all 8 corners>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe all 8 corners>",
+        "issues": ["<specific corner issues>"]
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<assessment of both surfaces>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe both surfaces>",
+        "issues": ["<specific surface issues>"]
     },
     "edges": {
         "score": <float 1-10>,
-        "description": "<assessment of all edges>",
-        "issues": ["<only CONFIRMED real issues, empty array if none visible>"]
+        "description": "<describe all edges>",
+        "issues": ["<specific edge issues>"]
     },
-    "overall_grade": <float 1-10>,
-    "psa_recommendation": "<detailed recommendation considering BOTH sides>",
-    "send_to_psa": <boolean - true if card is likely to get 8+ grade>,
-    "analysis_summary": "<2-3 sentence summary covering condition of BOTH sides>",
-    "card_info": "<if identifiable, provide card name/year/player/set>"
+    "overall_grade": <float 1-10 - be conservative>,
+    "grade_min": <float - lowest likely grade>,
+    "grade_max": <float - highest likely grade>,
+    "confidence": "<high/medium/low>",
+    "psa_recommendation": "<honest recommendation>",
+    "send_to_psa": <true only if likely 9+>,
+    "recommendation_level": "<SEND/REVIEW/NO_SEND>",
+    "analysis_summary": "<honest summary of BOTH sides>",
+    "card_info": "<card identification>",
+    "defects_found": ["<ALL defects found on both sides>"]
 }
 
 Remember: Grade the CARD, not the IMAGE QUALITY. A clean-looking card deserves a high grade. Give benefit of the doubt!"""
