@@ -635,6 +635,19 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
               className="overflow-hidden"
             >
               <div className="p-4 bg-[#121212] border border-t-0 border-[#27272a] rounded-b-lg">
+                {/* Auto-crop corners button */}
+                {frontImage && !hasCorners && (
+                  <Button
+                    onClick={autoCropCorners}
+                    variant="outline"
+                    size="sm"
+                    className="w-full mb-3 border-[#3b82f6] text-[#3b82f6] hover:bg-[#3b82f6]/10"
+                    data-testid="auto-crop-corners-btn"
+                  >
+                    <Scissors className="w-4 h-4 mr-2" />
+                    Auto-generar esquinas desde la foto frontal
+                  </Button>
+                )}
                 <p className="text-xs text-gray-400 mb-3">
                   Sube fotos cercanas de cada esquina (como las de eBay) para un análisis más preciso de las esquinas.
                 </p>
