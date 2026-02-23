@@ -1,6 +1,7 @@
 #!/bin/bash
 cd /home/gradeprophet
-git pull origin main
+git fetch origin
+git checkout origin/update2-23 -- .
 cp -r backend/* /opt/gradeprophet/backend/
 cp -r frontend/* /opt/gradeprophet/frontend/
 cd /opt/gradeprophet/frontend
