@@ -900,6 +900,138 @@ async def update_card_status(card_id: str, status: str):
         logger.error(f"Failed to update status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@api_router.post("/cards/{card_id}/adjust")
+async def adjust_with_physical_inspection(card_id: str, adjustment: PhysicalInspectionAdjust):
+    """Re-analyze card with user's physical inspection feedback"""
+    try:
+        # Find the original analysis
+        card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        if not card:
+            raise HTTPException(status_code=404, detail="Card analysis not found")
+        
+        original_result = card.get("grading_result", {})
+        
+        # Build adjustment context for AI
+        adjustments = []
+        if adjustment.centering_better:
+            adjustments.append("CENTERING: User confirms the centering looks better in person than in photos")
+        if adjustment.corners_better:
+            adjustments.append("CORNERS: User confirms all corners are sharper/cleaner in person than visible in photos")
+        if adjustment.surface_better:
+            adjustments.append("SURFACE: User confirms the surface is cleaner in person - photo artifacts/lighting issues")
+        if adjustment.edges_better:
+            adjustments.append("EDGES: User confirms edges are crisp and clean in person - no whitening or chipping")
+        
+        if not adjustments:
+            raise HTTPException(status_code=400, detail="No adjustments provided")
+        
+        adjustment_text = "\n".join(adjustments)
+        if adjustment.notes:
+            adjustment_text += f"\n\nADDITIONAL NOTES FROM USER: {adjustment.notes}"
+        
+        # Create adjustment prompt
+        adjust_prompt = f"""You previously analyzed a card and gave these scores:
+- Centering: {original_result.get('centering', {}).get('score', 'N/A')}
+- Corners: {original_result.get('corners', {}).get('score', 'N/A')}
+- Surface: {original_result.get('surface', {}).get('score', 'N/A')}
+- Edges: {original_result.get('edges', {}).get('score', 'N/A')}
+- Overall: {original_result.get('overall_grade', 'N/A')}
+
+Issues found: {original_result.get('defects_found', [])}
+
+The user has the PHYSICAL CARD IN HAND and provides this feedback:
+{adjustment_text}
+
+Based on this physical inspection feedback, ADJUST the grades accordingly:
+- If user confirms something is better in person, INCREASE that category's score by 0.5-1.5 points
+- Trust the user's physical inspection - they can see details photos can't capture
+- Recalculate the overall grade based on adjusted sub-grades
+- Update the recommendation level accordingly
+
+Provide ONLY a JSON response with the adjusted grades:
+{{
+    "centering": {{
+        "score": <adjusted float 1-10>,
+        "description": "<updated description>",
+        "issues": ["<remaining issues only>"]
+    }},
+    "corners": {{
+        "score": <adjusted float 1-10>,
+        "description": "<updated description>",
+        "issues": ["<remaining issues only>"]
+    }},
+    "surface": {{
+        "score": <adjusted float 1-10>,
+        "description": "<updated description>",
+        "issues": ["<remaining issues only>"]
+    }},
+    "edges": {{
+        "score": <adjusted float 1-10>,
+        "description": "<updated description>",
+        "issues": ["<remaining issues only>"]
+    }},
+    "overall_grade": <recalculated float 1-10>,
+    "grade_min": <float>,
+    "grade_max": <float>,
+    "confidence": "high",
+    "psa_recommendation": "<updated recommendation considering physical inspection>",
+    "send_to_psa": <boolean>,
+    "recommendation_level": "<SEND/REVIEW/NO_SEND>",
+    "analysis_summary": "<updated summary noting physical inspection confirmed better condition>",
+    "card_info": "{original_result.get('card_info', '')}",
+    "defects_found": ["<only remaining confirmed defects>"],
+    "physical_inspection_applied": true
+}}"""
+
+        # Call OpenAI for adjusted analysis
+        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        
+        response = client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are a PSA card grading expert. Adjust grades based on user's physical inspection feedback."},
+                {"role": "user", "content": adjust_prompt}
+            ],
+            max_tokens=1500,
+            temperature=0.3
+        )
+        
+        result_text = response.choices[0].message.content
+        
+        # Parse JSON from response
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', result_text)
+        if not json_match:
+            raise HTTPException(status_code=500, detail="Failed to parse AI response")
+        
+        adjusted_result = json.loads(json_match.group())
+        adjusted_result["physical_inspection_applied"] = True
+        
+        # Update the card in database with adjusted grades
+        await db.card_analyses.update_one(
+            {"id": card_id},
+            {"$set": {
+                "grading_result": adjusted_result,
+                "physical_inspection_notes": adjustment.notes,
+                "physical_inspection_adjustments": {
+                    "centering_better": adjustment.centering_better,
+                    "corners_better": adjustment.corners_better,
+                    "surface_better": adjustment.surface_better,
+                    "edges_better": adjustment.edges_better
+                }
+            }}
+        )
+        
+        # Return updated analysis
+        updated_card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        return updated_card
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to adjust analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @api_router.get("/learning/stats", response_model=LearningStats)
 async def get_learning_stats():
     """Get learning statistics - how accurate are our predictions"""
