@@ -985,9 +985,9 @@ Provide ONLY a JSON response with the adjusted grades:
 }}"""
 
         # Call OpenAI for adjusted analysis
-        client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         
-        response = client.chat.completions.create(
+        response = await client.chat.completions.create(
             model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a PSA card grading expert. Adjust grades based on user's physical inspection feedback."},
@@ -1000,7 +1000,6 @@ Provide ONLY a JSON response with the adjusted grades:
         result_text = response.choices[0].message.content
         
         # Parse JSON from response
-        import re
         json_match = re.search(r'\{[\s\S]*\}', result_text)
         if not json_match:
             raise HTTPException(status_code=500, detail="Failed to parse AI response")
