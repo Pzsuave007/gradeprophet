@@ -12,12 +12,16 @@ import {
   Package,
   Save,
   AlertTriangle,
-  ExternalLink
+  ExternalLink,
+  Hand,
+  RefreshCw,
+  Eye
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Input } from '../components/ui/input';
+import { Checkbox } from '../components/ui/checkbox';
 
 const GradeDisplay = ({ score, label, icon: Icon, issues }) => {
   const getGradeColor = (grade) => {
