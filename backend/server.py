@@ -217,58 +217,58 @@ Provide your response in the following JSON format ONLY (no additional text):
 
 Remember: Grade CONSERVATIVELY. A 9 from you should be a confident 9 from PSA."""
 
-PSA_ANALYSIS_PROMPT_WITH_REFERENCE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You have been given a REFERENCE IMAGE of a PSA 10 graded card to compare against.
+PSA_ANALYSIS_PROMPT_WITH_REFERENCE = """You are an expert sports card grader with 20+ years experience at PSA. You are STRICT and CONSERVATIVE. You have a PSA 10 REFERENCE to compare against.
 
 You are analyzing:
 - IMAGE 1: The card to be graded (FRONT)
 - IMAGE 2: A PSA 10 REFERENCE of the same or similar card
 
-COMPARISON TASK:
-Compare the card being graded against the PSA 10 reference. Look for:
-1. Is the centering as good or close to the PSA 10 reference?
-2. Are the corners as sharp as the PSA 10 reference?
-3. Is the surface as clean as the PSA 10 reference?
-4. Are the edges as crisp as the PSA 10 reference?
+STRICT COMPARISON:
+- PSA 10 is PERFECT. Any visible difference from the reference = NOT a 10.
+- PSA 9 allows ONE minor flaw. TWO minor flaws = 8.5 or lower.
+- Be CRITICAL. Most cards are NOT PSA 10 worthy.
 
-CRITICAL - DO NOT PENALIZE FOR IMAGE/SCAN ARTIFACTS:
-- Only compare ACTUAL card condition, not photo quality differences
-- The reference helps you understand what PSA 10 looks like for THIS specific card
+Compare specifically:
+1. CENTERING: Is it as centered as the PSA 10? Even 60/40 vs 55/45 is a difference.
+2. CORNERS: Are ALL 4 corners as sharp? Any softness or wear = deduct.
+3. SURFACE: Any scratches, marks, print issues not on PSA 10 = deduct.
+4. EDGES: Any whitening, chipping, roughness not on PSA 10 = deduct.
 
-GRADING WITH REFERENCE:
-- If the card looks EQUAL to the reference → PSA 10 candidate
-- If slightly below in one area → PSA 9 candidate  
-- If noticeably below in multiple areas → PSA 8 or lower
-
-Provide your response in the following JSON format ONLY (no additional text):
+Provide your response in the following JSON format ONLY:
 {
     "centering": {
         "score": <float 1-10>,
-        "description": "<how it compares to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10 reference>"]
+        "description": "<specific comparison to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "corners": {
         "score": <float 1-10>,
-        "description": "<how it compares to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10 reference>"]
+        "description": "<compare all 4 corners to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<how it compares to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10 reference>"]
+        "description": "<compare surface to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
     "edges": {
         "score": <float 1-10>,
-        "description": "<how it compares to PSA 10 reference>",
-        "issues": ["<only CONFIRMED differences from PSA 10 reference>"]
+        "description": "<compare edges to PSA 10>",
+        "issues": ["<differences from PSA 10>"]
     },
-    "overall_grade": <float 1-10>,
-    "psa_recommendation": "<recommendation based on comparison to PSA 10>",
-    "send_to_psa": <boolean>,
-    "analysis_summary": "<summary comparing to the PSA 10 reference>",
-    "card_info": "<card identification>"
+    "overall_grade": <float 1-10 - be conservative>,
+    "grade_min": <float - lowest likely grade>,
+    "grade_max": <float - highest likely grade>,
+    "confidence": "<high/medium/low>",
+    "psa_recommendation": "<honest recommendation>",
+    "send_to_psa": <true only if likely 9+>,
+    "recommendation_level": "<SEND/REVIEW/NO_SEND>",
+    "analysis_summary": "<honest summary vs PSA 10>",
+    "card_info": "<card identification>",
+    "defects_found": ["<ALL differences from PSA 10 reference>"]
 }
 
-The PSA 10 reference is your calibration standard - use it wisely!"""
+The PSA 10 reference is your calibration standard - anything less than equal = grade lower."""
 
 PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You have been given a REFERENCE IMAGE of a PSA 10 graded card to compare against.
 
