@@ -416,6 +416,127 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
         </div>
       )}
 
+      {/* Physical Inspection Adjustment */}
+      {!hasPhysicalInspection ? (
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
+          <button
+            onClick={() => setShowPhysicalAdjust(!showPhysicalAdjust)}
+            className="w-full p-4 flex items-center justify-between hover:bg-[#1e1e1e] transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <Hand className="w-5 h-5 text-[#3b82f6]" />
+              <div className="text-left">
+                <p className="text-sm font-medium text-white">
+                  ¿Tienes la tarjeta en mano?
+                </p>
+                <p className="text-xs text-gray-500">
+                  Ajusta el grado si ves algo diferente en persona
+                </p>
+              </div>
+            </div>
+            <Eye className="w-4 h-4 text-gray-500" />
+          </button>
+          
+          {showPhysicalAdjust && (
+            <div className="p-4 border-t border-[#27272a] space-y-4">
+              <p className="text-xs text-gray-400">
+                Marca lo que se ve mejor en persona que en las fotos:
+              </p>
+              
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                  <Checkbox 
+                    checked={centeringBetter}
+                    onCheckedChange={setCenteringBetter}
+                    className="border-[#3b82f6] data-[state=checked]:bg-[#3b82f6]"
+                  />
+                  <div>
+                    <p className="text-sm text-white">Centrado</p>
+                    <p className="text-xs text-gray-500">Está mejor centrada</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                  <Checkbox 
+                    checked={cornersBetter}
+                    onCheckedChange={setCornersBetter}
+                    className="border-[#3b82f6] data-[state=checked]:bg-[#3b82f6]"
+                  />
+                  <div>
+                    <p className="text-sm text-white">Esquinas</p>
+                    <p className="text-xs text-gray-500">Más afiladas/limpias</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                  <Checkbox 
+                    checked={surfaceBetter}
+                    onCheckedChange={setSurfaceBetter}
+                    className="border-[#3b82f6] data-[state=checked]:bg-[#3b82f6]"
+                  />
+                  <div>
+                    <p className="text-sm text-white">Superficie</p>
+                    <p className="text-xs text-gray-500">Sin rayones/marcas</p>
+                  </div>
+                </label>
+                
+                <label className="flex items-center gap-3 p-3 bg-[#0a0a0a] rounded-lg cursor-pointer hover:bg-[#1a1a1a] transition-colors">
+                  <Checkbox 
+                    checked={edgesBetter}
+                    onCheckedChange={setEdgesBetter}
+                    className="border-[#3b82f6] data-[state=checked]:bg-[#3b82f6]"
+                  />
+                  <div>
+                    <p className="text-sm text-white">Bordes</p>
+                    <p className="text-xs text-gray-500">Sin whitening/chips</p>
+                  </div>
+                </label>
+              </div>
+              
+              <div>
+                <p className="text-xs text-gray-400 mb-2">Notas adicionales (opcional):</p>
+                <Input
+                  placeholder="Ej: Los bordes están perfectos, es solo reflejo de luz"
+                  value={physicalNotes}
+                  onChange={(e) => setPhysicalNotes(e.target.value)}
+                  className="bg-[#0a0a0a] border-[#27272a] text-white"
+                />
+              </div>
+              
+              <Button
+                onClick={handlePhysicalAdjustment}
+                disabled={(!centeringBetter && !cornersBetter && !surfaceBetter && !edgesBetter) || adjusting}
+                className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+              >
+                {adjusting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                    Recalculando grado...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Recalcular con mi inspección
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-[#3b82f6]/10 border border-[#3b82f6]/30 rounded-lg p-4 flex items-center gap-3">
+          <Eye className="w-5 h-5 text-[#3b82f6]" />
+          <div>
+            <p className="text-sm font-medium text-[#3b82f6]">
+              ✓ Grado ajustado con inspección física
+            </p>
+            <p className="text-xs text-gray-400">
+              Este análisis incluye tu feedback de inspección en mano
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Sub-grades Grid */}
       <div>
         <h3 className="font-heading text-xl font-semibold uppercase tracking-wider text-white mb-4">
