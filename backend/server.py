@@ -71,6 +71,7 @@ class GradingResult(BaseModel):
     analysis_summary: str
     card_info: Optional[str] = None
     defects_found: List[str] = Field(default_factory=list)  # Clear list of all defects
+    physical_inspection_applied: bool = Field(default=False)  # Whether user adjusted with physical inspection
 
 # PSA 10 Reference Models
 class PSA10Reference(BaseModel):
