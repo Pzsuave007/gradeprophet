@@ -157,9 +157,49 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
     }
   };
 
+  const handlePhysicalAdjustment = async () => {
+    if (!centeringBetter && !cornersBetter && !surfaceBetter && !edgesBetter) {
+      return;
+    }
+    
+    setAdjusting(true);
+    try {
+      const response = await fetch(`${API}/cards/${analysis.id}/adjust`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          centering_better: centeringBetter,
+          corners_better: cornersBetter,
+          surface_better: surfaceBetter,
+          edges_better: edgesBetter,
+          notes: physicalNotes || null
+        })
+      });
+      
+      if (response.ok) {
+        setShowPhysicalAdjust(false);
+        // Reset form
+        setCenteringBetter(false);
+        setCornersBetter(false);
+        setSurfaceBetter(false);
+        setEdgesBetter(false);
+        setPhysicalNotes('');
+        onRefresh?.();
+      } else {
+        const error = await response.json();
+        console.error('Adjust failed:', error);
+      }
+    } catch (err) {
+      console.error('Failed to adjust:', err);
+    } finally {
+      setAdjusting(false);
+    }
+  };
+
   // Check if this card already has feedback
   const hasActualGrade = analysis.actual_psa_grade !== null && analysis.actual_psa_grade !== undefined;
   const isSentToPSA = analysis.status === 'sent_to_psa';
+  const hasPhysicalInspection = grading_result.physical_inspection_applied;
 
   return (
     <motion.div
