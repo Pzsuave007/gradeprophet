@@ -139,9 +139,23 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
                 <p className="text-sm font-medium text-white truncate">
                   {card.card_name || 'Tarjeta sin identificar'}
                 </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {formatDate(card.created_at)}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-xs text-gray-500">
+                    {formatDate(card.created_at)}
+                  </p>
+                  {card.ebay_url && (
+                    <a 
+                      href={card.ebay_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="text-[#3b82f6] hover:text-[#60a5fa]"
+                      title="Ver en eBay"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                  )}
+                </div>
               </div>
 
               {/* Grade */}
