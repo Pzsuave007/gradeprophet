@@ -1110,41 +1110,74 @@ async def scrape_ebay_listing(url: str) -> dict:
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
             'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
         }
         
-        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-            # First, resolve short URL to get the actual listing URL
-            response = await client.get(url, headers=headers)
-            final_url = str(response.url)
-            
-            # Clean the URL - remove tracking parameters
-            if '?' in final_url:
-                base_url = final_url.split('?')[0]
-                # Keep only the item number
-                final_url = base_url
-            
-            logger.info(f"Resolved eBay URL: {url} -> {final_url}")
-            
-            # Use Scrape.do API if available (much more reliable)
-            if SCRAPEDO_API_KEY:
+        final_url = url
+        item_id = None
+        
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True, max_redirects=10) as client:
+            # For short URLs (ebay.us), we need to resolve them carefully
+            if 'ebay.us' in url or '/m/' in url:
+                # Make initial request to get redirects
+                response = await client.get(url, headers=headers)
+                
+                # Check all redirect history for the item ID
+                for resp in response.history:
+                    resp_url = str(resp.url)
+                    # Look for item ID in redirect chain
+                    item_match = re.search(r'/itm/(\d+)', resp_url)
+                    if item_match:
+                        item_id = item_match.group(1)
+                        break
+                
+                # Also check final URL
+                if not item_id:
+                    item_match = re.search(r'/itm/(\d+)', str(response.url))
+                    if item_match:
+                        item_id = item_match.group(1)
+                
+                # Check URL parameters for the real URL
+                if not item_id:
+                    ru_match = re.search(r'ru=([^&]+)', str(response.url))
+                    if ru_match:
+                        from urllib.parse import unquote
+                        real_url = unquote(ru_match.group(1))
+                        item_match = re.search(r'/itm/(\d+)', real_url)
+                        if item_match:
+                            item_id = item_match.group(1)
+            else:
+                # Direct item URL
+                item_match = re.search(r'/itm/(\d+)', url)
+                if item_match:
+                    item_id = item_match.group(1)
+        
+        if not item_id:
+            return {
+                "success": False,
+                "error": "No se pudo extraer el ID del listing de eBay",
+                "image_urls": []
+            }
+        
+        # Build clean direct URL
+        final_url = f"https://www.ebay.com/itm/{item_id}"
+        logger.info(f"Extracted eBay item ID: {item_id}, URL: {final_url}")
+        
+        # Use Scrape.do API
+        if SCRAPEDO_API_KEY:
+            async with httpx.AsyncClient(timeout=60.0) as client:
                 scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={final_url}&render=true"
-                response = await client.get(scrape_url, timeout=60.0)
+                response = await client.get(scrape_url)
                 html = response.text
                 logger.info("Used Scrape.do API for eBay scraping")
-            else:
-                # Try direct scraping with the clean URL
+        else:
+            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
                 response = await client.get(final_url, headers=headers)
-                
-                if response.status_code == 503:
+                if response.status_code == 503 or 'challenge' in str(response.url):
                     return {
                         "success": False,
-                        "error": "eBay bloqueó el acceso. Configura SCRAPEDO_API_KEY para mejor confiabilidad (gratis: scrape.do)",
+                        "error": "eBay bloqueó el acceso. Configura SCRAPEDO_API_KEY para mejor confiabilidad.",
                         "image_urls": []
                     }
-                
                 html = response.text
         
         # Extract title
@@ -1152,63 +1185,38 @@ async def scrape_ebay_listing(url: str) -> dict:
         title = title_match.group(1) if title_match else "eBay Listing"
         title = title.replace(" | eBay", "").replace(" - eBay", "").strip()
         
-        # Extract image URLs - eBay uses various patterns
+        # Extract image URLs
         image_urls = set()
         
-        # Multiple patterns to find images
         patterns = [
             r'data-zoom-src="([^"]+)"',
             r'"imageUrl"\s*:\s*"([^"]+)"',
             r'"enlargedImageUrl"\s*:\s*"([^"]+)"',
-            r'"image"\s*:\s*"(https://[^"]+ebayimg[^"]+)"',
             r'src="(https://i\.ebayimg\.com/images/g/[^"]+)"',
-            r'https://i\.ebayimg\.com/images/g/[A-Za-z0-9_-]+/s-l\d+\.[a-z]+',
-            r'"(https://i\.ebayimg\.com/[^"]+)"',
+            r'"(https://i\.ebayimg\.com/images/g/[^"]+)"',
         ]
         
         for pattern in patterns:
             matches = re.findall(pattern, html)
             for match in matches:
-                img_url = match
-                if not img_url.startswith('http'):
-                    if img_url.startswith('//'):
-                        img_url = 'https:' + img_url
-                    continue
-                
-                if 'ebayimg.com' in img_url:
-                    # Skip very small thumbnails
-                    if '/s-l64' in img_url or '/s-l96' in img_url or '/s-l140' in img_url:
-                        continue
-                    image_urls.add(img_url.split('?')[0])  # Remove query params
-        
-        # Try to find the main gallery images specifically
-        gallery_patterns = [
-            r'"imageGallery":\s*\[([^\]]+)\]',
-            r'"imageUrls":\s*\[([^\]]+)\]',
-            r'"galleryImageUrls":\s*\[([^\]]+)\]',
-        ]
-        
-        for pattern in gallery_patterns:
-            match = re.search(pattern, html)
-            if match:
-                urls = re.findall(r'"(https://[^"]+ebayimg[^"]+)"', match.group(1))
-                image_urls.update(urls)
+                if 'ebayimg.com' in match:
+                    if '/s-l64' not in match and '/s-l96' not in match and '/s-l140' not in match:
+                        clean_url = match.split('?')[0]
+                        image_urls.add(clean_url)
         
         # Upgrade to high resolution
         high_res_urls = set()
         for img_url in image_urls:
-            # Convert to highest resolution
             high_res = re.sub(r'/s-l\d+\.', '/s-l1600.', img_url)
             high_res_urls.add(high_res)
         
         final_urls = list(high_res_urls)[:12]
-        
         logger.info(f"Found {len(final_urls)} images from eBay listing")
         
         if not final_urls:
             return {
                 "success": False,
-                "error": "No se encontraron imágenes. Intenta con el link completo del listing o configura SCRAPEDO_API_KEY.",
+                "error": "No se encontraron imágenes en el listing.",
                 "image_urls": []
             }
         
@@ -1222,7 +1230,7 @@ async def scrape_ebay_listing(url: str) -> dict:
         logger.error("eBay scraping timed out")
         return {
             "success": False,
-            "error": "Tiempo de espera agotado. eBay puede estar lento.",
+            "error": "Tiempo de espera agotado.",
             "image_urls": []
         }
     except Exception as e:
