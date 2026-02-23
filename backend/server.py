@@ -1278,9 +1278,12 @@ def crop_corners_from_image(image_base64: str, corner_size_percent: float = 0.25
 async def import_ebay_listing(data: EbayImportRequest):
     """Import images from an eBay listing URL"""
     try:
-        # Validate URL
-        if 'ebay.com' not in data.url and 'ebay.' not in data.url:
-            raise HTTPException(status_code=400, detail="Please provide a valid eBay URL")
+        # Validate URL - accept various eBay URL formats
+        valid_domains = ['ebay.com', 'ebay.us', 'ebay.co.uk', 'ebay.de', 'ebay.fr', 'ebay.es', 'ebay.it', 'ebay.ca', 'ebay.com.au']
+        is_valid = any(domain in data.url for domain in valid_domains)
+        
+        if not is_valid:
+            raise HTTPException(status_code=400, detail="Por favor proporciona un link válido de eBay (ebay.com, ebay.us, etc.)")
         
         # Scrape the listing
         result = await scrape_ebay_listing(data.url)
