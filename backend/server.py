@@ -747,7 +747,8 @@ async def analyze_card(data: CardAnalysisCreate):
             front_image_preview=front_thumbnail,
             back_image_preview=back_thumbnail,
             grading_result=GradingResult(**grading_result),
-            card_name=data.card_name or grading_result.get('card_info')
+            card_name=data.card_name or grading_result.get('card_info'),
+            ebay_url=data.ebay_url
         )
         
         # Save to database
@@ -762,7 +763,8 @@ async def analyze_card(data: CardAnalysisCreate):
             back_image_preview=card_analysis.back_image_preview,
             grading_result=card_analysis.grading_result,
             created_at=doc['created_at'],
-            card_name=card_analysis.card_name
+            card_name=card_analysis.card_name,
+            ebay_url=card_analysis.ebay_url
         )
         
     except HTTPException:
