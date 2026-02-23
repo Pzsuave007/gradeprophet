@@ -210,6 +210,32 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
               <p className="font-heading text-lg font-semibold text-white uppercase">
                 {grading_result.card_info}
               </p>
+              {analysis.ebay_url && (
+                <a 
+                  href={analysis.ebay_url} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 mt-2 text-sm text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
+                  data-testid="ebay-link"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Ver en eBay
+                </a>
+              )}
+            </div>
+          )}
+          {!grading_result.card_info && analysis.ebay_url && (
+            <div className="p-4 border-t border-[#27272a]">
+              <a 
+                href={analysis.ebay_url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm text-[#3b82f6] hover:text-[#60a5fa] transition-colors"
+                data-testid="ebay-link"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Ver en eBay
+              </a>
             </div>
           )}
         </div>
