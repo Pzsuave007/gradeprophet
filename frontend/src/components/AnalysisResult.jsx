@@ -313,19 +313,29 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
           {/* Recommendation */}
           <div className={`
             p-4 rounded-lg flex items-center gap-4
-            ${grading_result.send_to_psa 
+            ${grading_result.recommendation_level === 'SEND' 
               ? 'bg-green-500/10 border border-green-500/30' 
+              : grading_result.recommendation_level === 'REVIEW'
+              ? 'bg-yellow-500/10 border border-yellow-500/30'
               : 'bg-red-500/10 border border-red-500/30'
             }
           `}>
-            {grading_result.send_to_psa ? (
+            {grading_result.recommendation_level === 'SEND' ? (
               <CheckCircle className="w-8 h-8 text-green-500 flex-shrink-0" />
+            ) : grading_result.recommendation_level === 'REVIEW' ? (
+              <AlertTriangle className="w-8 h-8 text-yellow-500 flex-shrink-0" />
             ) : (
               <XCircle className="w-8 h-8 text-red-500 flex-shrink-0" />
             )}
             <div>
-              <p className={`font-semibold ${grading_result.send_to_psa ? 'text-green-400' : 'text-red-400'}`}>
-                {grading_result.send_to_psa ? '¡Recomendado enviar a PSA!' : 'No recomendado para PSA'}
+              <p className={`font-semibold ${
+                grading_result.recommendation_level === 'SEND' ? 'text-green-400' : 
+                grading_result.recommendation_level === 'REVIEW' ? 'text-yellow-400' :
+                'text-red-400'
+              }`}>
+                {grading_result.recommendation_level === 'SEND' ? '✓ ENVIAR a PSA' : 
+                 grading_result.recommendation_level === 'REVIEW' ? '⚠ REVISAR - En el límite' :
+                 '✗ NO ENVIAR a PSA'}
               </p>
               <p className="text-sm text-gray-400 mt-1">
                 {grading_result.psa_recommendation}
@@ -334,6 +344,24 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
           </div>
         </div>
       </div>
+
+      {/* Defects Found */}
+      {grading_result.defects_found && grading_result.defects_found.length > 0 && (
+        <div className="bg-[#121212] border border-red-500/20 rounded-lg p-6">
+          <h3 className="font-heading text-lg font-semibold uppercase tracking-wider text-red-400 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-5 h-5" />
+            Defectos Encontrados ({grading_result.defects_found.length})
+          </h3>
+          <ul className="space-y-2">
+            {grading_result.defects_found.map((defect, idx) => (
+              <li key={idx} className="flex items-start gap-2 text-sm text-gray-300">
+                <span className="text-red-400 mt-0.5">•</span>
+                {defect}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Sub-grades Grid */}
       <div>
