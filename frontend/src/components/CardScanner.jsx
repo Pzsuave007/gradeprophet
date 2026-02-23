@@ -785,43 +785,88 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
                 {/* Library Grid */}
                 {savedReferences.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-xs text-gray-400 mb-2 uppercase tracking-wider">Tu Biblioteca</p>
-                    <ScrollArea className="h-[180px]">
-                      <div className="grid grid-cols-3 gap-2">
-                        {savedReferences.map((ref) => (
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs text-gray-400 uppercase tracking-wider">Tu Biblioteca ({savedReferences.length})</p>
+                    </div>
+                    {/* Search Field */}
+                    <div className="relative mb-3">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+                      <Input
+                        type="text"
+                        placeholder="Buscar referencia..."
+                        value={referenceSearch}
+                        onChange={(e) => setReferenceSearch(e.target.value)}
+                        className="pl-9 bg-[#0a0a0a] border-[#27272a] text-white text-sm h-9"
+                      />
+                      {referenceSearch && (
+                        <button
+                          onClick={() => setReferenceSearch('')}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                    <ScrollArea className="h-[200px]">
+                      <div className="grid grid-cols-4 gap-2">
+                        {savedReferences
+                          .filter(ref => 
+                            !referenceSearch || 
+                            ref.name.toLowerCase().includes(referenceSearch.toLowerCase())
+                          )
+                          .map((ref) => (
                           <div
                             key={ref.id}
-                            onClick={() => setSelectedReferenceId(ref.id === selectedReferenceId ? null : ref.id)}
-                            className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${
+                            className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all group ${
                               selectedReferenceId === ref.id 
                                 ? 'border-[#eab308] shadow-[0_0_10px_rgba(234,179,8,0.3)]' 
                                 : 'border-transparent hover:border-[#27272a]'
                             }`}
                           >
-                            <div className="aspect-[3/4] bg-[#1e1e1e]">
+                            <div 
+                              className="aspect-[3/4] bg-[#1e1e1e]"
+                              onClick={() => setSelectedReferenceId(ref.id === selectedReferenceId ? null : ref.id)}
+                            >
                               <img
                                 src={`data:image/jpeg;base64,${ref.image_preview}`}
                                 alt={ref.name}
                                 className="w-full h-full object-cover"
                               />
                             </div>
-                            <div className="absolute inset-x-0 bottom-0 bg-black/80 p-1.5">
-                              <p className="text-[9px] text-white truncate leading-tight">{ref.name}</p>
+                            <div className="absolute inset-x-0 bottom-0 bg-black/80 p-1">
+                              <p className="text-[8px] text-white truncate leading-tight">{ref.name}</p>
                             </div>
                             {selectedReferenceId === ref.id && (
                               <div className="absolute top-1 right-1 bg-[#eab308] rounded-full p-0.5">
-                                <Check className="w-3 h-3 text-black" />
+                                <Check className="w-2.5 h-2.5 text-black" />
                               </div>
                             )}
+                            {/* Delete button - always visible on selected, hover on others */}
                             <button
-                              onClick={(e) => deleteReference(ref.id, e)}
-                              className="absolute top-1 left-1 p-1 bg-red-500/80 rounded-full opacity-0 hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`¿Eliminar "${ref.name}" de tu biblioteca?`)) {
+                                  deleteReference(ref.id, e);
+                                }
+                              }}
+                              className={`absolute top-1 left-1 p-1 bg-red-500 rounded-full transition-opacity ${
+                                selectedReferenceId === ref.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                              }`}
+                              title="Eliminar referencia"
                             >
-                              <Trash2 className="w-3 h-3 text-white" />
+                              <Trash2 className="w-2.5 h-2.5 text-white" />
                             </button>
                           </div>
                         ))}
                       </div>
+                      {savedReferences.filter(ref => 
+                        !referenceSearch || 
+                        ref.name.toLowerCase().includes(referenceSearch.toLowerCase())
+                      ).length === 0 && referenceSearch && (
+                        <p className="text-center text-gray-500 text-sm py-4">
+                          No se encontraron referencias para "{referenceSearch}"
+                        </p>
+                      )}
                     </ScrollArea>
                   </div>
                 )}
