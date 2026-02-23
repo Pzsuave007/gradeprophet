@@ -1077,6 +1077,242 @@ async def delete_reference(ref_id: str):
         logger.error(f"Failed to delete reference: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# eBay Import Models
+class EbayImportRequest(BaseModel):
+    url: str
+
+class EbayImage(BaseModel):
+    url: str
+    base64: str
+    thumbnail: str
+    suggested_type: Optional[str] = None  # front, back, corner, unknown
+
+class EbayImportResponse(BaseModel):
+    success: bool
+    title: Optional[str] = None
+    images: List[EbayImage] = []
+    error: Optional[str] = None
+
+class CornerCropRequest(BaseModel):
+    image_base64: str
+
+class CornerCropResponse(BaseModel):
+    top_left: str
+    top_right: str
+    bottom_left: str
+    bottom_right: str
+
+# Helper function to extract eBay images
+async def scrape_ebay_listing(url: str) -> dict:
+    """Scrape eBay listing to extract images"""
+    try:
+        # Use Scrape.do if API key is available, otherwise try direct
+        if SCRAPEDO_API_KEY:
+            scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={url}&render=true"
+        else:
+            scrape_url = url
+        
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            response = await client.get(scrape_url, headers=headers, follow_redirects=True)
+            html = response.text
+        
+        # Extract title
+        title_match = re.search(r'<title>([^<]+)</title>', html)
+        title = title_match.group(1) if title_match else "eBay Listing"
+        title = title.replace(" | eBay", "").strip()
+        
+        # Extract image URLs - eBay uses various patterns
+        image_urls = set()
+        
+        # Pattern 1: High-res images in data attributes
+        patterns = [
+            r'data-zoom-src="([^"]+)"',
+            r'"imageUrl"\s*:\s*"([^"]+)"',
+            r'https://i\.ebayimg\.com/images/g/[^"\'>\s]+',
+            r'"image"\s*:\s*"(https://[^"]+ebayimg[^"]+)"',
+            r'src="(https://i\.ebayimg\.com/[^"]+)"',
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, html)
+            for match in matches:
+                if 'ebayimg.com' in match and 's-l' not in match:  # Skip small thumbnails
+                    # Try to get highest resolution
+                    clean_url = match.split('?')[0]
+                    if '/s-l64' not in clean_url and '/s-l96' not in clean_url:
+                        image_urls.add(clean_url)
+        
+        # Upgrade image URLs to high resolution
+        high_res_urls = set()
+        for url in image_urls:
+            # Convert to high-res version
+            high_res = re.sub(r'/s-l\d+\.', '/s-l1600.', url)
+            if '/s-l' not in high_res:
+                high_res = url.replace('.jpg', '/s-l1600.jpg').replace('.png', '/s-l1600.png')
+            high_res_urls.add(high_res)
+        
+        return {
+            "success": True,
+            "title": title,
+            "image_urls": list(high_res_urls)[:12]  # Limit to 12 images
+        }
+        
+    except Exception as e:
+        logger.error(f"Failed to scrape eBay listing: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "image_urls": []
+        }
+
+async def download_and_encode_image(url: str) -> tuple:
+    """Download image and return base64 encoded data"""
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, follow_redirects=True)
+            if response.status_code == 200:
+                image_data = response.content
+                base64_data = base64.b64encode(image_data).decode('utf-8')
+                
+                # Create thumbnail
+                img = Image.open(BytesIO(image_data))
+                img.thumbnail((200, 200))
+                thumb_buffer = BytesIO()
+                img.save(thumb_buffer, format='JPEG', quality=70)
+                thumbnail = base64.b64encode(thumb_buffer.getvalue()).decode('utf-8')
+                
+                return base64_data, thumbnail
+    except Exception as e:
+        logger.error(f"Failed to download image {url}: {e}")
+    return None, None
+
+def suggest_image_type(index: int, total: int) -> str:
+    """Suggest image type based on position in listing"""
+    if index == 0:
+        return "front"
+    elif index == 1 and total > 2:
+        return "back"
+    else:
+        return "unknown"
+
+def crop_corners_from_image(image_base64: str, corner_size_percent: float = 0.25) -> dict:
+    """Crop the four corners from a card image for detailed analysis"""
+    try:
+        # Decode base64 image
+        image_data = base64.b64decode(image_base64)
+        img = Image.open(BytesIO(image_data))
+        
+        width, height = img.size
+        
+        # Calculate corner size (25% of smaller dimension)
+        corner_size = int(min(width, height) * corner_size_percent)
+        
+        corners = {}
+        
+        # Top-left corner
+        top_left = img.crop((0, 0, corner_size, corner_size))
+        tl_buffer = BytesIO()
+        top_left.save(tl_buffer, format='JPEG', quality=90)
+        corners['top_left'] = base64.b64encode(tl_buffer.getvalue()).decode('utf-8')
+        
+        # Top-right corner
+        top_right = img.crop((width - corner_size, 0, width, corner_size))
+        tr_buffer = BytesIO()
+        top_right.save(tr_buffer, format='JPEG', quality=90)
+        corners['top_right'] = base64.b64encode(tr_buffer.getvalue()).decode('utf-8')
+        
+        # Bottom-left corner
+        bottom_left = img.crop((0, height - corner_size, corner_size, height))
+        bl_buffer = BytesIO()
+        bottom_left.save(bl_buffer, format='JPEG', quality=90)
+        corners['bottom_left'] = base64.b64encode(bl_buffer.getvalue()).decode('utf-8')
+        
+        # Bottom-right corner
+        bottom_right = img.crop((width - corner_size, height - corner_size, width, height))
+        br_buffer = BytesIO()
+        bottom_right.save(br_buffer, format='JPEG', quality=90)
+        corners['bottom_right'] = base64.b64encode(br_buffer.getvalue()).decode('utf-8')
+        
+        return corners
+        
+    except Exception as e:
+        logger.error(f"Failed to crop corners: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to crop corners: {str(e)}")
+
+# eBay Import Endpoints
+@api_router.post("/ebay/import", response_model=EbayImportResponse)
+async def import_ebay_listing(data: EbayImportRequest):
+    """Import images from an eBay listing URL"""
+    try:
+        # Validate URL
+        if 'ebay.com' not in data.url and 'ebay.' not in data.url:
+            raise HTTPException(status_code=400, detail="Please provide a valid eBay URL")
+        
+        # Scrape the listing
+        result = await scrape_ebay_listing(data.url)
+        
+        if not result["success"]:
+            return EbayImportResponse(
+                success=False,
+                error=result.get("error", "Failed to fetch eBay listing")
+            )
+        
+        # Download and encode each image
+        images = []
+        total_images = len(result["image_urls"])
+        
+        for idx, img_url in enumerate(result["image_urls"]):
+            base64_data, thumbnail = await download_and_encode_image(img_url)
+            if base64_data:
+                images.append(EbayImage(
+                    url=img_url,
+                    base64=base64_data,
+                    thumbnail=thumbnail,
+                    suggested_type=suggest_image_type(idx, total_images)
+                ))
+        
+        if not images:
+            return EbayImportResponse(
+                success=False,
+                error="No images found in the listing"
+            )
+        
+        return EbayImportResponse(
+            success=True,
+            title=result["title"],
+            images=images
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"eBay import failed: {e}")
+        return EbayImportResponse(
+            success=False,
+            error=str(e)
+        )
+
+@api_router.post("/corners/crop", response_model=CornerCropResponse)
+async def crop_corners(data: CornerCropRequest):
+    """Auto-generate corner crops from a card image"""
+    try:
+        image_base64 = data.image_base64
+        if ',' in image_base64:
+            image_base64 = image_base64.split(',')[1]
+        
+        corners = crop_corners_from_image(image_base64)
+        
+        return CornerCropResponse(**corners)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Corner crop failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Include the router in the main app
 app.include_router(api_router)
 
