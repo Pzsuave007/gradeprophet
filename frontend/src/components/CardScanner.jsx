@@ -341,6 +341,11 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
         back_image_base64: backImage,
       };
 
+      // Add eBay URL if imported from eBay
+      if (ebayUrl && ebayUrl.trim()) {
+        requestBody.ebay_url = ebayUrl.trim();
+      }
+
       // Add card year if provided (for vintage consideration)
       if (cardYear && !isNaN(parseInt(cardYear))) {
         requestBody.card_year = parseInt(cardYear);
