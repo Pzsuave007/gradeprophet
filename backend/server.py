@@ -131,6 +131,7 @@ class CardAnalysisResponse(BaseModel):
     grading_result: GradingResult
     created_at: str
     card_name: Optional[str] = None
+    ebay_url: Optional[str] = None
     actual_psa_grade: Optional[float] = None
     psa_cert_number: Optional[str] = None
     feedback_date: Optional[str] = None
