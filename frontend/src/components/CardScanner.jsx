@@ -187,6 +187,85 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
     fetchReferences();
   }, [fetchReferences]);
 
+  // eBay Import Functions
+  const importFromEbay = async () => {
+    if (!ebayUrl.trim()) return;
+    
+    setEbayLoading(true);
+    setEbayError(null);
+    setEbayImages([]);
+    
+    try {
+      const response = await fetch(`${API}/ebay/import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: ebayUrl })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.images.length > 0) {
+        setEbayImages(data.images);
+        setEbayTitle(data.title || '');
+      } else {
+        setEbayError(data.error || 'No se encontraron imágenes en el listing');
+      }
+    } catch (err) {
+      setEbayError('Error al importar desde eBay');
+      console.error('eBay import failed:', err);
+    } finally {
+      setEbayLoading(false);
+    }
+  };
+
+  const assignEbayImage = (imageData, type) => {
+    const base64WithPrefix = `data:image/jpeg;base64,${imageData}`;
+    
+    if (type === 'front') {
+      setFrontImage(base64WithPrefix);
+    } else if (type === 'back') {
+      setBackImage(base64WithPrefix);
+    } else if (type === 'corner_tl') {
+      setCornerTopLeft(base64WithPrefix);
+    } else if (type === 'corner_tr') {
+      setCornerTopRight(base64WithPrefix);
+    } else if (type === 'corner_bl') {
+      setCornerBottomLeft(base64WithPrefix);
+    } else if (type === 'corner_br') {
+      setCornerBottomRight(base64WithPrefix);
+    }
+  };
+
+  const autoCropCorners = async () => {
+    if (!frontImage) return;
+    
+    try {
+      const response = await fetch(`${API}/corners/crop`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: frontImage })
+      });
+      
+      if (response.ok) {
+        const corners = await response.json();
+        setCornerTopLeft(`data:image/jpeg;base64,${corners.top_left}`);
+        setCornerTopRight(`data:image/jpeg;base64,${corners.top_right}`);
+        setCornerBottomLeft(`data:image/jpeg;base64,${corners.bottom_left}`);
+        setCornerBottomRight(`data:image/jpeg;base64,${corners.bottom_right}`);
+        setShowCornersSection(true);
+      }
+    } catch (err) {
+      console.error('Failed to auto-crop corners:', err);
+    }
+  };
+
+  const clearEbayImport = () => {
+    setEbayUrl('');
+    setEbayImages([]);
+    setEbayError(null);
+    setEbayTitle('');
+  };
+
   // Auto-save reference when image is uploaded
   const saveReference = async (imageData) => {
     setSavingRef(true);
