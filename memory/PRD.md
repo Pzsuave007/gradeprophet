@@ -29,6 +29,12 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
     - Auto-detección por IA cuando no hay referencia
     - Override manual opcional
 
+13. **Importar desde eBay** - Nueva funcionalidad:
+    - Pegar URL de listing de eBay
+    - Descarga automática de todas las fotos
+    - Asignar imágenes a Frente/Dorso/Esquinas con un clic
+    - Auto-generar crops de esquinas desde la foto frontal
+
 ## What's Been Implemented
 
 ### Enero 2026
