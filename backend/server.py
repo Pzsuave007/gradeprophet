@@ -976,22 +976,24 @@ async def read_psa_label(image_base64: str) -> dict:
     import json
     
     try:
-        chat = LlmChat(
-            api_key=OPENAI_API_KEY,
-            session_id=str(uuid.uuid4()),
-            system_message="You are an expert at reading PSA graded card labels. Respond only with valid JSON."
-        ).with_model("openai", "gpt-5.2")
+        messages = [
+            {"role": "system", "content": "You are an expert at reading PSA graded card labels. Respond only with valid JSON."},
+            {"role": "user", "content": [
+                {"type": "text", "text": PSA_LABEL_READER_PROMPT},
+                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}", "detail": "high"}}
+            ]}
+        ]
         
-        image_content = ImageContent(image_base64=image_base64)
-        user_message = UserMessage(
-            text=PSA_LABEL_READER_PROMPT,
-            file_contents=[image_content]
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=messages,
+            max_tokens=500
         )
         
-        response = await chat.send_message(user_message)
+        response_text = response.choices[0].message.content
         
         # Clean response
-        cleaned = response.strip()
+        cleaned = response_text.strip()
         if cleaned.startswith("```json"):
             cleaned = cleaned[7:]
         if cleaned.startswith("```"):
