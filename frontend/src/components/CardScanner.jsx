@@ -473,60 +473,100 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
             {ebayImages.length > 0 && (
               <div>
                 <p className="text-xs text-gray-500 mb-2">
-                  Haz clic en una imagen y selecciona su tipo:
+                  Haz clic en una imagen para asignarla:
                 </p>
                 <div className="grid grid-cols-4 gap-2 mb-3">
                   {ebayImages.map((img, idx) => (
-                    <div key={idx} className="relative group">
+                    <div key={idx} className="relative">
                       <img
                         src={`data:image/jpeg;base64,${img.thumbnail}`}
                         alt={`eBay ${idx + 1}`}
-                        className="w-full aspect-square object-cover rounded border border-[#27272a] cursor-pointer hover:border-[#3b82f6] transition-colors"
+                        className="w-full aspect-square object-cover rounded border-2 border-[#27272a] cursor-pointer hover:border-[#3b82f6] transition-colors"
+                        onClick={() => {
+                          // Toggle selection menu for this image
+                          setSelectedEbayIdx(selectedEbayIdx === idx ? null : idx);
+                        }}
                       />
-                      <div className="absolute inset-0 bg-black/80 opacity-0 group-hover:opacity-100 transition-opacity rounded flex flex-col items-center justify-center gap-1 p-1">
-                        <button
-                          onClick={() => assignEbayImage(img.base64, 'front')}
-                          className="text-[10px] bg-blue-600 hover:bg-blue-700 text-white px-2 py-0.5 rounded w-full"
-                        >
-                          Frente
-                        </button>
-                        <button
-                          onClick={() => assignEbayImage(img.base64, 'back')}
-                          className="text-[10px] bg-purple-600 hover:bg-purple-700 text-white px-2 py-0.5 rounded w-full"
-                        >
-                          Dorso
-                        </button>
-                        <div className="grid grid-cols-2 gap-1 w-full">
-                          <button
-                            onClick={() => assignEbayImage(img.base64, 'corner_tl')}
-                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
-                          >
-                            ↖TL
-                          </button>
-                          <button
-                            onClick={() => assignEbayImage(img.base64, 'corner_tr')}
-                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
-                          >
-                            TR↗
-                          </button>
-                          <button
-                            onClick={() => assignEbayImage(img.base64, 'corner_bl')}
-                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
-                          >
-                            ↙BL
-                          </button>
-                          <button
-                            onClick={() => assignEbayImage(img.base64, 'corner_br')}
-                            className="text-[9px] bg-amber-600 hover:bg-amber-700 text-white px-1 py-0.5 rounded"
-                          >
-                            BR↘
-                          </button>
-                        </div>
-                      </div>
                       {img.suggested_type !== 'unknown' && (
-                        <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white px-1 rounded">
+                        <span className="absolute top-1 left-1 text-[9px] bg-black/70 text-white px-1 rounded pointer-events-none">
                           {img.suggested_type === 'front' ? 'Frente?' : 'Dorso?'}
                         </span>
+                      )}
+                      {/* Selection menu */}
+                      {selectedEbayIdx === idx && (
+                        <div className="absolute inset-0 bg-black/90 rounded flex flex-col items-center justify-center gap-1 p-2 z-10">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              assignEbayImage(img.base64, 'front');
+                              setSelectedEbayIdx(null);
+                            }}
+                            className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded w-full font-medium"
+                          >
+                            📷 Frente
+                          </button>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              assignEbayImage(img.base64, 'back');
+                              setSelectedEbayIdx(null);
+                            }}
+                            className="text-xs bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded w-full font-medium"
+                          >
+                            🔄 Dorso
+                          </button>
+                          <div className="grid grid-cols-2 gap-1 w-full mt-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                assignEbayImage(img.base64, 'corner_tl');
+                                setSelectedEbayIdx(null);
+                              }}
+                              className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded font-medium"
+                            >
+                              ↖ Esq.
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                assignEbayImage(img.base64, 'corner_tr');
+                                setSelectedEbayIdx(null);
+                              }}
+                              className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded font-medium"
+                            >
+                              Esq. ↗
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                assignEbayImage(img.base64, 'corner_bl');
+                                setSelectedEbayIdx(null);
+                              }}
+                              className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded font-medium"
+                            >
+                              ↙ Esq.
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                assignEbayImage(img.base64, 'corner_br');
+                                setSelectedEbayIdx(null);
+                              }}
+                              className="text-[10px] bg-amber-600 hover:bg-amber-700 text-white px-2 py-1 rounded font-medium"
+                            >
+                              Esq. ↘
+                            </button>
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedEbayIdx(null);
+                            }}
+                            className="text-[10px] text-gray-400 hover:text-white mt-1"
+                          >
+                            ✕ Cerrar
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
