@@ -75,6 +75,15 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   
+  // Physical inspection adjustment states
+  const [showPhysicalAdjust, setShowPhysicalAdjust] = useState(false);
+  const [adjusting, setAdjusting] = useState(false);
+  const [centeringBetter, setCenteringBetter] = useState(false);
+  const [cornersBetter, setCornersBetter] = useState(false);
+  const [surfaceBetter, setSurfaceBetter] = useState(false);
+  const [edgesBetter, setEdgesBetter] = useState(false);
+  const [physicalNotes, setPhysicalNotes] = useState('');
+  
   const hasBothSides = frontImage && backImage;
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
