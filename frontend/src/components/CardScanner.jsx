@@ -445,7 +445,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
             <div className="flex gap-2 mb-3">
               <Input
                 type="url"
-                placeholder="https://www.ebay.com/itm/..."
+                placeholder="https://ebay.us/m/... o https://www.ebay.com/itm/..."
                 value={ebayUrl}
                 onChange={(e) => setEbayUrl(e.target.value)}
                 disabled={ebayLoading}
