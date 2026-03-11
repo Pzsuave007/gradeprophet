@@ -26,10 +26,23 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 11. Sistema de aprendizaje con feedback de grados reales
 12. **Consideración de antigüedad de la tarjeta** - La IA ajusta estándares según el año
 13. **Importar desde eBay** - Funcionalidad completa implementada
+14. **Monitor de eBay** - Sistema de watchlist y búsqueda de nuevos listings
 
 ## What's Been Implemented
 
-### Febrero 2026 (Actual)
+### Marzo 2026 (Actual)
+- ✅ **Monitor de eBay COMPLETO**:
+  - Nueva pestaña "Monitor eBay" en la navegación principal
+  - Crear watchlist de tarjetas específicas (ej: "1996 Topps Kobe Bryant #138")
+  - Botón "Buscar Nuevos Listings" que busca en eBay todas las tarjetas
+  - Muestra listings con: imagen, título, precio, tipo (Subasta/Compra Directa)
+  - Marcar listings como "Interesante" o "Visto"
+  - Filtros: Nuevos, Interesantes, Todos
+  - Enlace directo a eBay para ver el listing
+  - Stats: total tarjetas, nuevos listings, interesantes
+  - Parser HTML mejorado para extraer títulos correctamente de eBay
+
+### Febrero 2026
 - ✅ **Importador de eBay COMPLETO**:
   - Pegar URL de listing de eBay (soporta URLs completas y cortas ebay.us)
   - Descarga automática de imágenes usando Scrape.do API
@@ -76,6 +89,21 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 - `DELETE /api/references/{id}` - Eliminar referencia
 - `POST /api/ebay/import` - Importar imágenes desde URL de eBay
 - `POST /api/corners/crop` - Auto-generar crops de esquinas
+- **`POST /api/watchlist`** - Agregar tarjeta a watchlist
+- **`GET /api/watchlist`** - Obtener watchlist
+- **`DELETE /api/watchlist/{id}`** - Eliminar tarjeta de watchlist
+- **`PUT /api/watchlist/{id}`** - Actualizar tarjeta de watchlist
+- **`POST /api/watchlist/search`** - Buscar nuevos listings en eBay
+- **`GET /api/listings`** - Obtener listings encontrados
+- **`PUT /api/listings/{id}/status`** - Actualizar estado de listing
+- **`DELETE /api/listings/{id}`** - Eliminar listing
+- **`GET /api/listings/stats`** - Estadísticas de listings
+
+## Database Collections
+- **`card_analyses`**: Historial de análisis de tarjetas
+- **`psa_references`**: Biblioteca de referencias PSA 10
+- **`watchlist_cards`**: Tarjetas a monitorear en eBay
+- **`ebay_listings`**: Listings encontrados en eBay
 
 ## Prioritized Backlog
 
@@ -89,12 +117,14 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 - Sistema de aprendizaje
 - Consideración de antigüedad de tarjetas
 - **Importador de eBay COMPLETO**
+- **Monitor de eBay COMPLETO**
 
 ### P1 (High Priority)
 - Autenticación de usuarios
+- Búsqueda automática diaria (scheduled job)
 - Export de reportes (PDF)
 - Dashboard de estadísticas avanzadas
-- Asignación automática por IA de imágenes importadas (detectar qué es frente/dorso)
+- Asignación automática por IA (detectar qué imagen es frente/dorso)
 
 ### P2 (Medium Priority)
 - API de precios en tiempo real (eBay, COMC)
@@ -109,11 +139,13 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
 
 ## Known Issues
 - Scrape.do API tiene errores 502 intermitentes (~30% de requests). Reintentar usualmente funciona.
-- El proceso de importación desde eBay toma 45-60 segundos debido al render=true del scraping
+- El proceso de búsqueda puede tomar 30-60 segundos por tarjeta debido a render=true del scraping
 
 ## Key Files
-- `/app/frontend/src/components/CardScanner.jsx` - Componente principal con importador de eBay
-- `/app/backend/server.py` - Todos los endpoints API incluyendo /api/ebay/import
+- `/app/frontend/src/components/CardScanner.jsx` - Componente de análisis con importador de eBay
+- `/app/frontend/src/components/EbayMonitor.jsx` - Componente del monitor de eBay (NUEVO)
+- `/app/frontend/src/pages/Dashboard.jsx` - Dashboard con pestañas Analizar/Monitor
+- `/app/backend/server.py` - Todos los endpoints API
 - `/app/frontend/.env` - REACT_APP_BACKEND_URL
 - `/app/backend/.env` - MONGO_URL, OPENAI_API_KEY, SCRAPEDO_API_KEY
 
