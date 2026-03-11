@@ -759,8 +759,8 @@ Recent examples: {', '.join(examples[-5:])}
         logger.warning(f"Failed to get learning context: {e}")
         return ""
 
-def create_thumbnail(image_base64: str, max_size: int = 200) -> str:
-    """Create a smaller thumbnail from base64 image"""
+def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
+    """Create a high-quality preview from base64 image"""
     try:
         from PIL import Image
         import io
@@ -774,7 +774,7 @@ def create_thumbnail(image_base64: str, max_size: int = 200) -> str:
         
         # Convert back to base64
         buffer = io.BytesIO()
-        image.save(buffer, format='JPEG', quality=70)
+        image.save(buffer, format='JPEG', quality=90)
         thumbnail_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
         
         return thumbnail_base64
