@@ -213,8 +213,9 @@ class SearchResultSummary(BaseModel):
 PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You are STRICT and REALISTIC - you grade exactly how PSA would grade.
 
 IMAGE vs CARD DEFECTS:
-- Do NOT penalize for: image compression, lighting glare, scanner noise, camera blur
+- Do NOT penalize for: image compression, lighting glare, scanner noise, camera blur, WATERMARKS (like COMC, PSA, eBay logos overlaid on the image), website overlays
 - DO penalize for: edge wear/whitening, corner softness/rounding, surface scratches/creases, centering issues, discoloration
+- IMPORTANT: Images often come from eBay listings and may have seller watermarks. IGNORE these watermarks completely - they are NOT on the physical card. Focus ONLY on the actual card condition visible around/through the watermarks.
 
 === OFFICIAL PSA GRADING STANDARDS ===
 
@@ -305,7 +306,9 @@ Provide your response in the following JSON format ONLY (no additional text):
     "card_info": "<card name/year/player/set if identifiable>"
 }
 
-Grade honestly. Do NOT inflate."""
+Grade honestly. Do NOT inflate.
+
+CALIBRATION CHECK: If you see ANY visible edge whitening on dark borders, the card CANNOT be higher than PSA 8. If you see corner rounding visible to the naked eye, the card CANNOT be higher than PSA 8. If BOTH are present, the card is likely PSA 6-7. Most raw cards from eBay are PSA 5-8 range. PSA 9-10 is RARE."""
 
 PSA_ANALYSIS_PROMPT_WITH_REFERENCE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You have been given a REFERENCE IMAGE of a PSA 10 graded card to compare against.
 
@@ -418,8 +421,9 @@ PSA_ANALYSIS_PROMPT_DUAL = """You are an expert sports card grader with 20+ year
 You are being shown TWO images: the FRONT (image 1) and BACK (image 2) of the same sports card.
 
 IMAGE vs CARD DEFECTS:
-- Do NOT penalize for: image compression, lighting glare, scanner noise, camera blur
+- Do NOT penalize for: image compression, lighting glare, scanner noise, camera blur, WATERMARKS (like COMC, PSA, eBay logos overlaid on the image), website overlays
 - DO penalize for: edge wear/whitening, corner softness/rounding, surface scratches/creases, centering issues, discoloration
+- IMPORTANT: Images often come from eBay listings and may have seller watermarks. IGNORE these watermarks completely - they are NOT on the physical card. Focus ONLY on the actual card condition visible around/through the watermarks.
 
 === OFFICIAL PSA GRADING STANDARDS ===
 
@@ -478,7 +482,9 @@ Provide your response in the following JSON format ONLY (no additional text):
     "card_info": "<card identification>"
 }
 
-Grade honestly. The back is equally important. Do NOT inflate."""
+Grade honestly. The back is equally important. Do NOT inflate.
+
+CALIBRATION CHECK: If you see ANY visible edge whitening on dark borders, the card CANNOT be higher than PSA 8. If you see corner rounding visible to the naked eye, the card CANNOT be higher than PSA 8. If BOTH are present, the card is likely PSA 6-7. Most raw cards from eBay are PSA 5-8 range. PSA 9-10 is RARE."""
 
 CORNER_ANALYSIS_ADDITION = """
 
