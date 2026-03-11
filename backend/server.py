@@ -1788,6 +1788,9 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
             if not image_url:
                 continue
             
+            # Upgrade to higher resolution image
+            image_url = re.sub(r'/s-l\d+\.', '/s-l800.', image_url)
+            
             listing_url = f"https://www.ebay.com/itm/{item_id}"
             
             # Normalize title for deduplication (remove extra spaces, lowercase)
