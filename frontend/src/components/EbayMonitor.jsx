@@ -159,9 +159,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                   ) : (
                     <div className="flex items-start justify-between gap-1">
                       <div className="flex-1 cursor-pointer min-w-0" onClick={() => setSelectedCard(selectedCard === card.id ? null : card.id)}>
-                        <p className="text-xs text-white font-medium truncate">{card.search_query}</p>
-                        {card.notes && <p className="text-[10px] text-gray-600 truncate">{card.notes}</p>}
-                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-600">
+                        <p className="text-sm text-white font-medium truncate">{card.search_query}</p>
+                        {card.notes && <p className="text-xs text-gray-500 truncate">{card.notes}</p>}
+                        <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-600">
                           <span>{card.listings_found} listings</span>
                           {card.last_searched && <span><Clock className="w-2.5 h-2.5 inline mr-0.5" />{new Date(card.last_searched).toLocaleDateString()}</span>}
                         </div>
