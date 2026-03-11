@@ -76,54 +76,53 @@ const Dashboard = () => {
   }, []);
 
   const tabs = [
-    { id: 'scanner', label: 'Analizar', icon: Scan },
-    { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
-    { id: 'history', label: 'Historial', icon: History },
-    { id: 'learning', label: 'Aprendizaje', icon: Brain },
+    { id: 'scanner', label: 'Analizar', shortLabel: 'Analizar', icon: Scan },
+    { id: 'monitor', label: 'Monitor eBay', shortLabel: 'Monitor', icon: ShoppingBag },
+    { id: 'history', label: 'Historial', shortLabel: 'Historial', icon: History },
+    { id: 'learning', label: 'Aprendizaje', shortLabel: 'AI', icon: Brain },
   ];
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] grid-background">
-      {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-[#27272a]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-14">
-            {/* Logo */}
+    <div className="min-h-screen bg-[#0a0a0a]">
+      {/* Header - Slim */}
+      <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1a1a1a]">
+        <div className="w-full px-4 sm:px-6">
+          <div className="flex items-center justify-between h-12">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-[#3b82f6] rounded-sm flex items-center justify-center">
-                <Scan className="w-5 h-5 text-white" />
+              <div className="w-7 h-7 bg-[#3b82f6] rounded flex items-center justify-center">
+                <Scan className="w-4 h-4 text-white" />
               </div>
-              <h1 className="font-heading text-lg font-bold uppercase tracking-wider text-white">
+              <h1 className="font-heading text-base font-bold uppercase tracking-wider text-white">
                 GradeProphet
               </h1>
             </div>
 
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#27272a]">
+            <div className="hidden md:flex items-center gap-0.5">
               {tabs.map(({ id, label, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => { setMainTab(id); if (id === 'scanner') setCurrentView('scanner'); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-sm font-medium transition-all ${
                     mainTab === id 
                       ? 'bg-[#3b82f6] text-white' 
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                      : 'text-gray-500 hover:text-white hover:bg-white/5'
                   }`}
                   data-testid={`tab-${id}`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3.5 h-3.5" />
                   {label}
                 </button>
               ))}
             </div>
 
-            {/* Mobile Menu Toggle */}
+            {/* Mobile Menu */}
             <button
-              className="md:hidden p-2 hover:bg-white/5 rounded"
+              className="md:hidden p-1.5 hover:bg-white/5 rounded"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               data-testid="mobile-menu-toggle"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6 text-white" /> : <Menu className="w-6 h-6 text-white" />}
+              {mobileMenuOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
             </button>
           </div>
         </div>
@@ -136,21 +135,21 @@ const Dashboard = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-[#121212] border-b border-[#27272a]"
+            className="md:hidden bg-[#121212] border-b border-[#1a1a1a]"
           >
-            <div className="p-3 grid grid-cols-2 gap-2">
-              {tabs.map(({ id, label, icon: Icon }) => (
+            <div className="p-2 grid grid-cols-4 gap-1">
+              {tabs.map(({ id, shortLabel, icon: Icon }) => (
                 <button
                   key={id}
                   onClick={() => { setMainTab(id); if (id === 'scanner') setCurrentView('scanner'); setMobileMenuOpen(false); }}
-                  className={`flex items-center justify-center gap-2 px-3 py-3 rounded-lg text-sm font-medium ${
+                  className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded text-xs font-medium ${
                     mainTab === id 
                       ? 'bg-[#3b82f6] text-white' 
-                      : 'bg-[#0a0a0a] text-gray-400 border border-[#27272a]'
+                      : 'bg-[#0a0a0a] text-gray-400 border border-[#1a1a1a]'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {label}
+                  {shortLabel}
                 </button>
               ))}
             </div>
@@ -158,28 +157,17 @@ const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Main Content - Full Width */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6">
+      {/* Main Content - Full Width, No Max Width */}
+      <main className="w-full px-4 sm:px-6 py-4">
         <AnimatePresence mode="wait">
           {/* Scanner Tab */}
           {mainTab === 'scanner' && currentView === 'scanner' && (
             <motion.div
               key="scanner"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
             >
-              {/* Compact Hero */}
-              <div className="text-center mb-6">
-                <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase tracking-tighter text-white mb-1">
-                  Predice el Grado <span className="text-[#3b82f6]">Antes de Enviar</span>
-                </h2>
-                <p className="text-sm text-gray-500">
-                  IA basada en estándares oficiales de PSA
-                </p>
-              </div>
-
-              {/* Card Scanner - Full Width */}
               <CardScanner
                 onAnalysisComplete={handleAnalysisComplete}
                 isAnalyzing={isAnalyzing}
@@ -187,22 +175,6 @@ const Dashboard = () => {
                 ebayUrlToImport={ebayUrlToImport}
                 onEbayImportComplete={handleEbayImportComplete}
               />
-
-              {/* Compact Info Row */}
-              <div className="grid grid-cols-3 gap-3 mt-6">
-                <div className="bg-[#121212] border border-[#27272a] rounded-lg p-3 text-center">
-                  <Scan className="w-5 h-5 text-[#3b82f6] mx-auto mb-1" />
-                  <p className="text-xs text-gray-400 font-medium">Análisis AI</p>
-                </div>
-                <div className="bg-[#121212] border border-[#27272a] rounded-lg p-3 text-center">
-                  <Shield className="w-5 h-5 text-[#22c55e] mx-auto mb-1" />
-                  <p className="text-xs text-gray-400 font-medium">PSA Standards</p>
-                </div>
-                <div className="bg-[#121212] border border-[#27272a] rounded-lg p-3 text-center">
-                  <Brain className="w-5 h-5 text-[#eab308] mx-auto mb-1" />
-                  <p className="text-xs text-gray-400 font-medium">Auto-Aprendizaje</p>
-                </div>
-              </div>
             </motion.div>
           )}
 
@@ -210,9 +182,10 @@ const Dashboard = () => {
           {mainTab === 'scanner' && (currentView === 'result' || currentView === 'history-detail') && currentAnalysis && (
             <motion.div
               key="result"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto"
             >
               <Button
                 variant="ghost"
@@ -238,39 +211,28 @@ const Dashboard = () => {
           {mainTab === 'monitor' && (
             <motion.div
               key="monitor"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-6xl mx-auto"
             >
-              <div className="text-center mb-4">
-                <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase tracking-tighter text-white mb-1">
-                  Monitor de <span className="text-[#3b82f6]">Tarjetas en eBay</span>
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Agrega tarjetas y encuentra listings automáticamente
-                </p>
-              </div>
               <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} />
             </motion.div>
           )}
 
-          {/* History Tab - Now Full Width */}
+          {/* History Tab */}
           {mainTab === 'history' && (
             <motion.div
               key="history"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto"
             >
-              <div className="text-center mb-4">
-                <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase tracking-tighter text-white mb-1">
-                  <span className="text-[#3b82f6]">Historial</span> de Análisis
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Todas tus tarjetas analizadas
-                </p>
-              </div>
-              <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4">
+              <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
+                Historial de Análisis
+              </h2>
+              <div className="bg-[#121212] border border-[#1a1a1a] rounded-lg p-4">
                 <HistoryPanel 
                   onSelectCard={handleSelectFromHistory}
                   refreshTrigger={historyRefresh}
@@ -279,39 +241,25 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* Learning Tab - Now Full Width */}
+          {/* Learning Tab */}
           {mainTab === 'learning' && (
             <motion.div
               key="learning"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="max-w-5xl mx-auto"
             >
-              <div className="text-center mb-4">
-                <h2 className="font-heading text-2xl sm:text-3xl font-black uppercase tracking-tighter text-white mb-1">
-                  Sistema de <span className="text-[#eab308]">Aprendizaje</span>
-                </h2>
-                <p className="text-sm text-gray-500">
-                  Mejora las predicciones con resultados reales de PSA
-                </p>
-              </div>
-              <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4">
+              <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
+                Sistema de <span className="text-[#eab308]">Aprendizaje</span>
+              </h2>
+              <div className="bg-[#121212] border border-[#1a1a1a] rounded-lg p-4">
                 <LearningPanel refreshTrigger={historyRefresh} />
               </div>
             </motion.div>
           )}
         </AnimatePresence>
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-[#27272a] mt-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex items-center justify-between text-xs text-gray-600">
-            <p>© 2026 GradeProphet</p>
-            <p>Predicciones mejoran con cada resultado PSA</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
