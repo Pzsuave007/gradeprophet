@@ -1,5 +1,4 @@
-API_KEY=$(grep SCRAPEDO_API_KEY /home/flipcardsuni2/public_html/ebay.txt | cut -d'=' -f2)
-sed -i "s/SCRAPEDO_API_KEY=.*/SCRAPEDO_API_KEY=$API_KEY/" /opt/gradeprophet/backend/.env
+sed -i "s/SCRAPEDO_API_KEY=.*/SCRAPEDO_API_KEY=SCRAPEDO_KEY_REMOVED/" /opt/gradeprophet/backend/.env
 echo "Clave instalada"
 pkill -f "uvicorn.*8001" 2>/dev/null; sleep 3
 cd /opt/gradeprophet/backend
