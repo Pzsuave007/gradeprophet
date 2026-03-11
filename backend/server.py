@@ -1250,33 +1250,103 @@ async def scrape_ebay_listing(url: str) -> dict:
         title = title_match.group(1) if title_match else "eBay Listing"
         title = title.replace(" | eBay", "").replace(" - eBay", "").strip()
         
-        # Extract image URLs
-        image_urls = set()
+        # Extract image URLs - ONLY from the main listing gallery
+        image_urls = []
+        seen_urls = set()
         
-        patterns = [
-            r'data-zoom-src="([^"]+)"',
-            r'"imageUrl"\s*:\s*"([^"]+)"',
-            r'"enlargedImageUrl"\s*:\s*"([^"]+)"',
-            r'src="(https://i\.ebayimg\.com/images/g/[^"]+)"',
-            r'"(https://i\.ebayimg\.com/images/g/[^"]+)"',
+        # Extract item ID from URL
+        item_id = None
+        item_id_match = re.search(r'/itm/(\d+)', final_url)
+        if item_id_match:
+            item_id = item_id_match.group(1)
+            logger.info(f"Extracted eBay item ID: {item_id}")
+        
+        # Method 1: Look for the picture gallery data in JSON format
+        # eBay stores the main listing images in a specific JSON structure
+        gallery_json_patterns = [
+            r'"mediaList"\s*:\s*\[(.*?)\]',
+            r'"images"\s*:\s*\[(.*?)\]',
+            r'"picturePanel"\s*:\s*\{[^}]*"images"\s*:\s*\[(.*?)\]',
         ]
         
-        for pattern in patterns:
-            matches = re.findall(pattern, html)
-            for match in matches:
-                if 'ebayimg.com' in match:
-                    if '/s-l64' not in match and '/s-l96' not in match and '/s-l140' not in match:
-                        clean_url = match.split('?')[0]
-                        image_urls.add(clean_url)
+        for pattern in gallery_json_patterns:
+            match = re.search(pattern, html, re.DOTALL)
+            if match:
+                gallery_data = match.group(1)
+                # Find all image URLs in this gallery data
+                img_matches = re.findall(r'"(https://i\.ebayimg\.com/images/g/[^"]+)"', gallery_data)
+                for img_url in img_matches:
+                    clean_url = img_url.split('?')[0]
+                    if clean_url not in seen_urls:
+                        # Skip thumbnails
+                        if '/s-l64' not in clean_url and '/s-l96' not in clean_url:
+                            seen_urls.add(clean_url)
+                            image_urls.append(clean_url)
+                if image_urls:
+                    logger.info(f"Found {len(image_urls)} images from gallery JSON")
+                    break
         
-        # Upgrade to high resolution
-        high_res_urls = set()
+        # Method 2: Look for zoom images (these are definitely from main listing)
+        if len(image_urls) < 2:
+            zoom_matches = re.findall(r'data-zoom-src="(https://i\.ebayimg\.com/images/g/[^"]+)"', html)
+            for img_url in zoom_matches:
+                clean_url = img_url.split('?')[0]
+                if clean_url not in seen_urls:
+                    seen_urls.add(clean_url)
+                    image_urls.append(clean_url)
+            if zoom_matches:
+                logger.info(f"Found {len(zoom_matches)} images from zoom-src")
+        
+        # Method 3: Look for enlarged images in the listing
+        if len(image_urls) < 2:
+            enlarged_matches = re.findall(r'"enlargedImageUrl"\s*:\s*"(https://i\.ebayimg\.com/images/g/[^"]+)"', html)
+            for img_url in enlarged_matches:
+                clean_url = img_url.split('?')[0]
+                if clean_url not in seen_urls:
+                    seen_urls.add(clean_url)
+                    image_urls.append(clean_url)
+        
+        # Method 4: Fallback - look in the FIRST part of HTML only (before similar items)
+        if len(image_urls) < 2:
+            # Find where similar items section starts
+            similar_pos = len(html)
+            similar_markers = [
+                'id="vi-merch-top"',  # Similar items container
+                'id="merch_html_placeholder"',
+                '"similarItems"',
+                'class="merch-shelf',
+                'Similar sponsored items',
+                'People also viewed',
+            ]
+            
+            for marker in similar_markers:
+                pos = html.find(marker)
+                if pos > 0 and pos < similar_pos:
+                    similar_pos = pos
+            
+            # Only search in the main listing area
+            main_html = html[:similar_pos]
+            logger.info(f"Searching in first {len(main_html)} chars (cut at {similar_pos})")
+            
+            # Find images in main area only
+            main_matches = re.findall(r'src="(https://i\.ebayimg\.com/images/g/[^"]+)"', main_html)
+            for img_url in main_matches[:6]:  # Limit to first 6
+                clean_url = img_url.split('?')[0]
+                if clean_url not in seen_urls:
+                    # Skip tiny thumbnails
+                    if '/s-l64' not in clean_url and '/s-l96' not in clean_url and '/s-l140' not in clean_url:
+                        seen_urls.add(clean_url)
+                        image_urls.append(clean_url)
+        
+        # Upgrade all to high resolution
+        high_res_urls = []
         for img_url in image_urls:
             high_res = re.sub(r'/s-l\d+\.', '/s-l1600.', img_url)
-            high_res_urls.add(high_res)
+            high_res_urls.append(high_res)
         
-        final_urls = list(high_res_urls)[:12]
-        logger.info(f"Found {len(final_urls)} images from eBay listing")
+        # Limit to max 6 images (main listing rarely has more than 6-8 actual photos)
+        final_urls = high_res_urls[:6]
+        logger.info(f"Final: {len(final_urls)} images from main listing only")
         
         if not final_urls:
             return {
