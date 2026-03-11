@@ -765,6 +765,115 @@ Recent examples: {', '.join(examples[-5:])}
         logger.warning(f"Failed to get learning context: {e}")
         return ""
 
+
+def auto_crop_card(image_base64: str) -> str:
+    """Auto-detect and crop a sports card from its background"""
+    try:
+        import cv2
+        import numpy as np
+        from PIL import Image
+        import io
+        
+        # Decode base64 to image
+        image_data = base64.b64decode(image_base64)
+        nparr = np.frombuffer(image_data, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        
+        if img is None:
+            return image_base64
+        
+        h, w = img.shape[:2]
+        
+        # Convert to grayscale
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        # Apply Gaussian blur to reduce noise
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        
+        # Use adaptive threshold to handle various backgrounds
+        thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        
+        # Also try Otsu's threshold and pick the better result
+        _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+        # Find contours on both thresholds and pick the best card-like rectangle
+        best_box = None
+        best_area = 0
+        
+        for binary in [thresh, otsu]:
+            # Find edges
+            edges = cv2.Canny(binary, 50, 150)
+            
+            # Dilate to close gaps
+            kernel = np.ones((5, 5), np.uint8)
+            dilated = cv2.dilate(edges, kernel, iterations=2)
+            
+            # Find contours
+            contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                # Card should be at least 10% of image but not more than 95%
+                if area < (h * w * 0.10) or area > (h * w * 0.95):
+                    continue
+                
+                # Get bounding rectangle
+                x, y, rw, rh = cv2.boundingRect(cnt)
+                
+                # Card aspect ratio is roughly 2.5:3.5 (0.71) - allow range 0.5 to 0.9
+                aspect = min(rw, rh) / max(rw, rh) if max(rw, rh) > 0 else 0
+                if aspect < 0.4 or aspect > 0.95:
+                    continue
+                
+                if area > best_area:
+                    best_area = area
+                    best_box = (x, y, rw, rh)
+        
+        if best_box is None:
+            # Fallback: try simple color-based detection (card is usually lighter than dark background)
+            _, simple_thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY)
+            contours, _ = cv2.findContours(simple_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            for cnt in contours:
+                area = cv2.contourArea(cnt)
+                if area < (h * w * 0.10):
+                    continue
+                x, y, rw, rh = cv2.boundingRect(cnt)
+                if area > best_area:
+                    best_area = area
+                    best_box = (x, y, rw, rh)
+        
+        if best_box is None:
+            return image_base64  # No card detected, return original
+        
+        x, y, rw, rh = best_box
+        
+        # Add small padding (2% of dimensions)
+        pad_x = int(rw * 0.02)
+        pad_y = int(rh * 0.02)
+        x = max(0, x - pad_x)
+        y = max(0, y - pad_y)
+        rw = min(w - x, rw + 2 * pad_x)
+        rh = min(h - y, rh + 2 * pad_y)
+        
+        # Only crop if we're actually removing significant background (at least 15%)
+        crop_ratio = (rw * rh) / (w * h)
+        if crop_ratio > 0.85:
+            return image_base64  # Card already fills most of the image
+        
+        # Crop
+        cropped = img[y:y+rh, x:x+rw]
+        
+        # Encode back to base64
+        _, buffer = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        cropped_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        logger.info(f"Auto-crop: {w}x{h} -> {rw}x{rh} (removed {int((1-crop_ratio)*100)}% background)")
+        return cropped_base64
+        
+    except Exception as e:
+        logger.warning(f"Auto-crop failed: {e}")
+        return image_base64  # Return original on failure
+
 def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
     """Create a high-quality preview from base64 image"""
     try:
@@ -1539,10 +1648,13 @@ async def import_ebay_listing(data: EbayImportRequest):
         for idx, img_url in enumerate(result["image_urls"]):
             base64_data, thumbnail = await download_and_encode_image(img_url)
             if base64_data:
+                # Auto-crop to remove background around the card
+                cropped_data = auto_crop_card(base64_data)
+                cropped_thumbnail = create_thumbnail(cropped_data)
                 images.append(EbayImage(
                     url=img_url,
-                    base64=base64_data,
-                    thumbnail=thumbnail,
+                    base64=cropped_data,
+                    thumbnail=cropped_thumbnail,
                     suggested_type=suggest_image_type(idx, total_images)
                 ))
         
