@@ -1555,6 +1555,21 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
     
     logger.info(f"Searching eBay for: {search_query}")
     
+    # Extract key terms from the search query for validation
+    # e.g., "1986 Fleer Michael Jordan #57" -> ["1986", "fleer", "michael", "jordan", "57"]
+    search_terms = re.findall(r'\b[\w]+\b', search_query.lower())
+    # Common words that are NOT required to match (brand names, generic terms)
+    common_words = {'the', 'a', 'an', 'and', 'or', 'of', 'card', 'cards', 'rookie', 'rc', 
+                   'topps', 'fleer', 'upper', 'deck', 'hoops', 'skybox', 'panini', 
+                   'donruss', 'bowman', 'prizm', 'chrome', 'refractor', 'base', 'insert'}
+    
+    # Player name parts are alphabetic terms that are NOT common words
+    # These are the CRITICAL terms that MUST appear in the listing title
+    player_name_parts = [term for term in search_terms 
+                        if term.isalpha() and len(term) > 2 and term not in common_words]
+    
+    logger.info(f"Player name parts that MUST match: {player_name_parts}")
+    
     async with httpx.AsyncClient(timeout=60.0) as client:
         response = await client.get(scrape_url)
         html_content = response.text
@@ -1568,10 +1583,14 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
     
     logger.info(f"Found {len(item_ids)} unique item IDs")
     
-    for item_id in item_ids[:15]:  # Limit to 15 results
+    for item_id in item_ids[:40]:  # Check more items since we filter strictly
         if item_id in seen_ids or item_id == '123456':  # Skip placeholder
             continue
         seen_ids.add(item_id)
+        
+        # Stop if we have enough good matches
+        if len(listings) >= 15:
+            break
         
         try:
             # Find the complete listing block for this item
@@ -1609,12 +1628,8 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
                 ]
                 if any(skip in text.lower() for skip in skip_patterns):
                     continue
-                # Check if it looks like a card listing title
-                if any(keyword in text.upper() for keyword in ['MICHAEL', 'JORDAN', 'KOBE', 'BRYANT', 'ROOKIE', 'RC', '19']):
-                    title = text
-                    break
-                # Or if it has common card descriptors
-                if re.search(r'\b(fleer|topps|upper deck|hoops|skybox)\b', text, re.IGNORECASE):
+                # Accept any text that looks like a card title (long enough)
+                if len(text) > 25:
                     title = text
                     break
             
@@ -1625,6 +1640,20 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
                     if len(text) > 20 and not any(skip in text.lower() for skip in ['opens', 'stars', 'rating', 'delivery', 'located', 'positive', 'watch', 'cart', 'buy', 'similar', 'sponsored']):
                         title = text
                         break
+            
+            # CRITICAL: Validate that this listing matches the search query
+            # The title MUST contain the player name parts
+            title_lower = title.lower()
+            
+            # Check how many player name parts are in the title
+            player_matches = sum(1 for part in player_name_parts if part in title_lower)
+            
+            # Require at least 2 matches, or 1 if there's only 1 player name part
+            min_required = min(2, len(player_name_parts)) if player_name_parts else 0
+            
+            if player_matches < min_required:
+                logger.debug(f"SKIPPING '{title[:60]}' - player name mismatch ({player_matches}/{min_required} matches)")
+                continue
             
             # Skip if title contains grading company names
             title_upper = title.upper()
