@@ -85,7 +85,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
   const [scanProgress, setScanProgress] = useState(0);
   const [error, setError] = useState(null);
   const [showReferenceSection, setShowReferenceSection] = useState(false);
-  const [showCornersSection, setShowCornersSection] = useState(false);
+  const [showCornersSection, setShowCornersSection] = useState(true);
   const [savedReferences, setSavedReferences] = useState([]);
   const [savingRef, setSavingRef] = useState(false);
   const [cardYear, setCardYear] = useState('');
@@ -294,45 +294,33 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
             )}
           </div>
 
-          {/* Front + Back Side by Side */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Front + Back + Corners in one row */}
+          <div className="grid grid-cols-4 gap-3">
             <ImageUploadZone label="Frente" sublabel="Requerido" image={frontImage} onImageSelect={setFrontImage}
               onClear={() => setFrontImage(null)} disabled={isAnalyzing} testId="front-image-upload" />
             <ImageUploadZone label="Dorso" sublabel="Opcional" image={backImage} onImageSelect={setBackImage}
               onClear={() => setBackImage(null)} disabled={isAnalyzing} testId="back-image-upload" />
-          </div>
-
-          {/* Corners Section - Inline */}
-          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
-            <div className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5"
-              onClick={() => setShowCornersSection(!showCornersSection)}>
-              <div className="flex items-center gap-2">
-                <CornerDownRight className="w-4 h-4 text-[#3b82f6]" />
-                <span className="text-sm text-white font-medium">Esquinas {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
-                <span className="text-xs text-gray-600">{hasCorners ? `${cornerCount}/4` : 'Opcional'}</span>
+            
+            {/* Corners inline */}
+            <div className="col-span-2">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5">
+                  <CornerDownRight className="w-3.5 h-3.5 text-[#3b82f6]" />
+                  <span className="text-xs text-white font-medium">Esquinas {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
+                </div>
+                {frontImage && !hasCorners && (
+                  <Button onClick={autoCropCorners} variant="ghost" size="sm" className="text-[#3b82f6] h-6 text-[10px] px-2" data-testid="auto-crop-corners-btn">
+                    <Scissors className="w-3 h-3 mr-1" />Auto-generar
+                  </Button>
+                )}
               </div>
-              <span className="text-gray-600 text-sm">{showCornersSection ? '−' : '+'}</span>
+              <div className="grid grid-cols-2 gap-2">
+                <ImageUploadZone label="↖" image={cornerTopLeft} onImageSelect={setCornerTopLeft} onClear={() => setCornerTopLeft(null)} disabled={isAnalyzing} testId="corner-top-left" small />
+                <ImageUploadZone label="↗" image={cornerTopRight} onImageSelect={setCornerTopRight} onClear={() => setCornerTopRight(null)} disabled={isAnalyzing} testId="corner-top-right" small />
+                <ImageUploadZone label="↙" image={cornerBottomLeft} onImageSelect={setCornerBottomLeft} onClear={() => setCornerBottomLeft(null)} disabled={isAnalyzing} testId="corner-bottom-left" small />
+                <ImageUploadZone label="↘" image={cornerBottomRight} onImageSelect={setCornerBottomRight} onClear={() => setCornerBottomRight(null)} disabled={isAnalyzing} testId="corner-bottom-right" small />
+              </div>
             </div>
-            <AnimatePresence>
-              {showCornersSection && (
-                <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                  <div className="px-3 pb-3 border-t border-[#1a1a1a] pt-2">
-                    {frontImage && !hasCorners && (
-                      <Button onClick={autoCropCorners} variant="outline" size="sm"
-                        className="w-full mb-2 border-[#3b82f6] text-[#3b82f6] hover:bg-[#3b82f6]/10 h-7 text-xs" data-testid="auto-crop-corners-btn">
-                        <Scissors className="w-3 h-3 mr-1" /> Auto-generar desde foto frontal
-                      </Button>
-                    )}
-                    <div className="grid grid-cols-4 gap-1.5">
-                      <ImageUploadZone label="↖" image={cornerTopLeft} onImageSelect={setCornerTopLeft} onClear={() => setCornerTopLeft(null)} disabled={isAnalyzing} testId="corner-top-left" small />
-                      <ImageUploadZone label="↗" image={cornerTopRight} onImageSelect={setCornerTopRight} onClear={() => setCornerTopRight(null)} disabled={isAnalyzing} testId="corner-top-right" small />
-                      <ImageUploadZone label="↙" image={cornerBottomLeft} onImageSelect={setCornerBottomLeft} onClear={() => setCornerBottomLeft(null)} disabled={isAnalyzing} testId="corner-bottom-left" small />
-                      <ImageUploadZone label="↘" image={cornerBottomRight} onImageSelect={setCornerBottomRight} onClear={() => setCornerBottomRight(null)} disabled={isAnalyzing} testId="corner-bottom-right" small />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
           </div>
         </div>
 
