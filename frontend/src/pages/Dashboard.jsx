@@ -316,16 +316,14 @@ const Dashboard = () => {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
                 >
-                  {/* Monitor Header */}
-                  <div className="text-center mb-8">
-                    <h2 className="font-heading text-4xl sm:text-5xl font-black uppercase tracking-tighter text-white mb-4">
+                  {/* Monitor Header - Compact on mobile */}
+                  <div className="text-center mb-4 sm:mb-8">
+                    <h2 className="font-heading text-2xl sm:text-4xl md:text-5xl font-black uppercase tracking-tighter text-white mb-2 sm:mb-4">
                       Monitor de<br />
                       <span className="text-[#3b82f6]">Tarjetas en eBay</span>
                     </h2>
-                    <p className="text-gray-400 max-w-xl mx-auto">
-                      Agrega las tarjetas que buscas y el sistema encontrará 
-                      automáticamente los nuevos listings disponibles. Nunca 
-                      pierdas una oportunidad de compra.
+                    <p className="text-sm sm:text-base text-gray-400 max-w-xl mx-auto px-2">
+                      Agrega tarjetas y encuentra listings automáticamente.
                     </p>
                   </div>
 

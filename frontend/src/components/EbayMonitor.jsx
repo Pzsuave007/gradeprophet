@@ -205,20 +205,20 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header Stats */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-white">{stats.totalCards}</div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider">Tarjetas</div>
+      <div className="grid grid-cols-3 gap-2 sm:gap-4">
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-white">{stats.totalCards}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Tarjetas</div>
         </div>
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-[#22c55e]">{stats.newListings}</div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider">Nuevos</div>
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-[#22c55e]">{stats.newListings}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Nuevos</div>
         </div>
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-4 text-center">
-          <div className="text-2xl font-bold text-[#eab308]">{stats.interestedListings}</div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider">Interesantes</div>
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
+          <div className="text-xl sm:text-2xl font-bold text-[#eab308]">{stats.interestedListings}</div>
+          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider truncate">Interesantes</div>
         </div>
       </div>
 
@@ -419,7 +419,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2">
+      <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1">
         {[
           { value: 'new', label: 'Nuevos', icon: AlertCircle },
           { value: 'interested', label: 'Interesantes', icon: Star },
@@ -428,15 +428,16 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
           <button
             key={value}
             onClick={() => setStatusFilter(value)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex-1 min-w-[80px] flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap ${
               statusFilter === value
                 ? 'bg-[#3b82f6] text-white'
                 : 'bg-[#121212] text-gray-400 hover:text-white border border-[#27272a]'
             }`}
             data-testid={`filter-${value}`}
           >
-            <Icon className="w-3.5 h-3.5" />
-            {label}
+            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+            <span className="hidden xs:inline sm:inline">{label}</span>
+            <span className="xs:hidden sm:hidden">{value === 'interested' ? 'Fav' : label}</span>
           </button>
         ))}
       </div>
@@ -492,14 +493,14 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                       {cardListings.map((listing) => (
                         <div
                           key={listing.id}
-                          className={`p-4 hover:bg-white/5 transition-colors ${
+                          className={`p-3 sm:p-4 hover:bg-white/5 transition-colors ${
                             listing.status === 'interested' ? 'bg-[#eab308]/5' : ''
                           }`}
                           data-testid={`listing-${listing.id}`}
                         >
-                          <div className="flex gap-4">
+                          <div className="flex gap-3 sm:gap-4">
                             {/* Image */}
-                            <div className="w-20 h-20 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
                               <img
                                 src={listing.image_url}
                                 alt={listing.title}
@@ -510,104 +511,108 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
 
                             {/* Info */}
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white font-medium line-clamp-2 mb-2">
+                              <p className="text-xs sm:text-sm text-white font-medium line-clamp-2 mb-1.5 sm:mb-2">
                                 {listing.title}
                               </p>
                               
-                              <div className="flex flex-wrap items-center gap-2 mb-2">
+                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
                                 {/* Price */}
-                                <Badge variant="outline" className="border-[#22c55e] text-[#22c55e]">
-                                  <DollarSign className="w-3 h-3 mr-0.5" />
+                                <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-[10px] sm:text-xs px-1.5 py-0.5">
+                                  <DollarSign className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
                                   {listing.price}
                                 </Badge>
 
                                 {/* Type */}
                                 <Badge 
                                   variant="outline" 
-                                  className={listing.listing_type === 'auction' 
+                                  className={`text-[10px] sm:text-xs px-1.5 py-0.5 ${listing.listing_type === 'auction' 
                                     ? 'border-[#f59e0b] text-[#f59e0b]' 
                                     : 'border-[#3b82f6] text-[#3b82f6]'
-                                  }
+                                  }`}
                                 >
                                   {listing.listing_type === 'auction' ? (
                                     <>
-                                      <Gavel className="w-3 h-3 mr-0.5" />
-                                      Subasta
-                                      {listing.bids !== null && ` (${listing.bids} pujas)`}
+                                      <Gavel className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
+                                      <span className="hidden sm:inline">Subasta</span>
+                                      <span className="sm:hidden">Sub</span>
+                                      {listing.bids !== null && ` (${listing.bids})`}
                                     </>
                                   ) : (
                                     <>
-                                      <DollarSign className="w-3 h-3 mr-0.5" />
-                                      Compra Directa
+                                      <DollarSign className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
+                                      <span className="hidden sm:inline">Compra Directa</span>
+                                      <span className="sm:hidden">BIN</span>
                                     </>
                                   )}
                                 </Badge>
 
                                 {/* Time Left */}
                                 {listing.time_left && (
-                                  <Badge variant="outline" className="border-gray-500 text-gray-400">
-                                    <Clock className="w-3 h-3 mr-0.5" />
+                                  <Badge variant="outline" className="border-gray-500 text-gray-400 text-[10px] sm:text-xs px-1.5 py-0.5">
+                                    <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
                                     {listing.time_left}
                                   </Badge>
                                 )}
                               </div>
 
-                              {/* Actions */}
-                              <div className="flex items-center gap-2">
+                              {/* Actions - Stack on mobile */}
+                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs">
                                 <a
                                   href={listing.listing_url}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-[#3b82f6] hover:underline"
+                                  className="inline-flex items-center gap-1 text-[#3b82f6] hover:underline"
                                   data-testid={`view-listing-${listing.id}`}
                                 >
                                   <ExternalLink className="w-3 h-3" />
-                                  Ver en eBay
+                                  <span className="hidden sm:inline">Ver en eBay</span>
+                                  <span className="sm:hidden">eBay</span>
                                 </a>
 
-                                <span className="text-gray-600">|</span>
+                                <span className="text-gray-600 hidden sm:inline">|</span>
 
                                 {listing.status !== 'interested' && (
                                   <button
                                     onClick={() => handleUpdateStatus(listing.id, 'interested')}
-                                    className="inline-flex items-center gap-1 text-xs text-[#eab308] hover:underline"
+                                    className="inline-flex items-center gap-1 text-[#eab308] hover:underline"
                                     data-testid={`mark-interested-${listing.id}`}
                                   >
                                     <Star className="w-3 h-3" />
-                                    Interesante
+                                    <span className="hidden sm:inline">Interesante</span>
+                                    <span className="sm:hidden">Fav</span>
                                   </button>
                                 )}
 
                                 {listing.status !== 'seen' && listing.status !== 'interested' && (
                                   <button
                                     onClick={() => handleUpdateStatus(listing.id, 'seen')}
-                                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:underline"
+                                    className="inline-flex items-center gap-1 text-gray-500 hover:underline"
                                   >
                                     <Eye className="w-3 h-3" />
-                                    Visto
+                                    <span className="hidden sm:inline">Visto</span>
                                   </button>
                                 )}
 
                                 {listing.status === 'interested' && (
                                   <button
                                     onClick={() => handleUpdateStatus(listing.id, 'seen')}
-                                    className="inline-flex items-center gap-1 text-xs text-gray-500 hover:underline"
+                                    className="inline-flex items-center gap-1 text-gray-500 hover:underline"
                                   >
                                     <XCircle className="w-3 h-3" />
-                                    Quitar de interesantes
+                                    <span className="hidden sm:inline">Quitar</span>
                                   </button>
                                 )}
 
                                 {onAnalyzeCard && (
                                   <>
-                                    <span className="text-gray-600">|</span>
+                                    <span className="text-gray-600 hidden sm:inline">|</span>
                                     <button
                                       onClick={() => onAnalyzeCard(listing)}
-                                      className="inline-flex items-center gap-1 text-xs text-[#22c55e] hover:underline"
+                                      className="inline-flex items-center gap-1 text-[#22c55e] hover:underline"
                                       data-testid={`analyze-listing-${listing.id}`}
                                     >
                                       <Search className="w-3 h-3" />
-                                      Analizar
+                                      <span className="hidden sm:inline">Analizar</span>
                                     </button>
                                   </>
                                 )}
