@@ -41,6 +41,13 @@ El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (s
   - Enlace directo a eBay para ver el listing
   - Stats: total tarjetas, nuevos listings, interesantes
   - Parser HTML mejorado para extraer títulos correctamente de eBay
+- ✅ **Mobile Responsive Design**:
+  - Menú hamburguesa con navegación Analizar/Monitor
+  - Stats compactos en grid de 3 columnas
+  - Filtros adaptados ("Fav" en lugar de "Interesantes")
+  - Listings con imágenes 64x64, títulos truncados
+  - Touch targets adecuados (36px+ para botones)
+  - Acciones condensadas con iconos en móvil
 
 ### Febrero 2026
 - ✅ **Importador de eBay COMPLETO**:
