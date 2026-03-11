@@ -1547,8 +1547,9 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
     # Build eBay search URL - searching for raw cards (not graded)
     # Using urllib for proper encoding
     from urllib.parse import quote_plus
-    encoded_query = quote_plus(f"{search_query} -PSA -BGS -SGC -graded")
-    # Sort by newest, used condition ok for cards
+    # Add negative filters to exclude graded cards: -psa -bgs -sgc -cgc -graded -slab
+    encoded_query = quote_plus(f"{search_query} -psa -bgs -sgc -cgc -graded -slab")
+    # Sort by newest
     ebay_search_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=10"
     
     scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={ebay_search_url}&render=true"
@@ -1655,9 +1656,9 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
                 logger.debug(f"SKIPPING '{title[:60]}' - player name mismatch ({player_matches}/{min_required} matches)")
                 continue
             
-            # Skip if title contains grading company names
+            # Skip if title contains grading company names or slab references
             title_upper = title.upper()
-            if any(x in title_upper for x in ['PSA ', 'BGS ', 'SGC ', 'CGC ', ' PSA', ' BGS', ' SGC', 'GRADED']):
+            if any(x in title_upper for x in ['PSA ', 'BGS ', 'SGC ', 'CGC ', ' PSA', ' BGS', ' SGC', ' CGC', 'GRADED', 'SLAB', 'SLABBED']):
                 continue
             
             # Extract price
