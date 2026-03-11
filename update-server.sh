@@ -4,8 +4,8 @@
 echo "Actualizando GradeProphet..."
 
 # Copiar archivos desde el repo git a la carpeta de producción
-cp -r /var/www/gradeprophet/backend/* /opt/gradeprophet/backend/
-cp -r /var/www/gradeprophet/frontend/* /opt/gradeprophet/frontend/
+cp -r /home/gradeprophet/backend/* /opt/gradeprophet/backend/
+cp -r /home/gradeprophet/frontend/* /opt/gradeprophet/frontend/
 
 # Matar el backend viejo
 pkill -f "uvicorn server:app.*8001"
