@@ -703,6 +703,48 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         cleaned_response = cleaned_response.strip()
         
         result = json.loads(cleaned_response)
+        
+        # === PSA CALIBRATION: Enforce real PSA grading rules ===
+        try:
+            centering = result.get("centering", {}).get("score", 10)
+            corners = result.get("corners", {}).get("score", 10)
+            surface = result.get("surface", {}).get("score", 10)
+            edges = result.get("edges", {}).get("score", 10)
+            ai_grade = result.get("overall_grade", 10)
+            
+            # Rule 1: Overall grade cannot be more than 1 point above the LOWEST subcategory
+            lowest_sub = min(centering, corners, surface, edges)
+            max_allowed = lowest_sub + 1.0
+            
+            # Rule 2: If any subcategory is below 8, overall cannot exceed 8
+            if lowest_sub < 8:
+                max_allowed = min(max_allowed, 8.0)
+            
+            # Rule 3: If any subcategory is below 7, overall cannot exceed 7.5
+            if lowest_sub < 7:
+                max_allowed = min(max_allowed, 7.5)
+            
+            # Rule 4: If two or more subcategories are below 8, cap at lowest + 0.5
+            below_8_count = sum(1 for s in [centering, corners, surface, edges] if s < 8)
+            if below_8_count >= 2:
+                max_allowed = min(max_allowed, lowest_sub + 0.5)
+            
+            # Apply calibration
+            calibrated_grade = min(ai_grade, max_allowed)
+            
+            # Round to nearest 0.5
+            calibrated_grade = round(calibrated_grade * 2) / 2
+            
+            if calibrated_grade != ai_grade:
+                logger.info(f"PSA Calibration: AI said {ai_grade}, adjusted to {calibrated_grade} (lowest sub: {lowest_sub})")
+                result["overall_grade"] = calibrated_grade
+                result["analysis_summary"] = result.get("analysis_summary", "") + f" [Calibrated from {ai_grade} based on subcategory scores]"
+                
+                # Update send_to_psa recommendation
+                result["send_to_psa"] = calibrated_grade >= 8.0
+        except Exception as e:
+            logger.warning(f"Calibration failed: {e}")
+        
         return result
         
     except json.JSONDecodeError as e:
