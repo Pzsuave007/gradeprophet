@@ -1720,6 +1720,28 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
             
             listing_url = f"https://www.ebay.com/itm/{item_id}"
             
+            # Normalize title for deduplication (remove extra spaces, lowercase)
+            normalized_title = ' '.join(title.lower().split())
+            
+            # Check if we already have a very similar listing (same title)
+            is_duplicate = False
+            for existing in listings:
+                existing_normalized = ' '.join(existing['title'].lower().split())
+                # If titles are very similar (>90% match), skip this one
+                if normalized_title == existing_normalized:
+                    is_duplicate = True
+                    logger.debug(f"Skipping duplicate listing: {title[:50]}")
+                    break
+                # Also check if one title contains the other (common duplicate pattern)
+                if len(normalized_title) > 20 and len(existing_normalized) > 20:
+                    if normalized_title in existing_normalized or existing_normalized in normalized_title:
+                        is_duplicate = True
+                        logger.debug(f"Skipping similar listing: {title[:50]}")
+                        break
+            
+            if is_duplicate:
+                continue
+            
             listings.append({
                 "ebay_item_id": item_id,
                 "title": title[:200],  # Limit title length
@@ -1767,24 +1789,37 @@ async def search_all_watchlist():
                 
                 new_count = 0
                 for listing_data in listings:
-                    # Check if we already have this listing
+                    # Check if we already have this listing by ID
                     existing = await db.ebay_listings.find_one({
                         "ebay_item_id": listing_data["ebay_item_id"]
                     })
                     
-                    if not existing:
-                        # Save new listing
-                        ebay_listing = EbayListing(
-                            watchlist_card_id=card_id,
-                            search_query=search_query,
-                            **listing_data
-                        )
-                        
-                        listing_dict = ebay_listing.model_dump()
-                        listing_dict['found_at'] = listing_dict['found_at'].isoformat()
-                        
-                        await db.ebay_listings.insert_one(listing_dict)
-                        new_count += 1
+                    if existing:
+                        continue
+                    
+                    # Also check for duplicate titles in the same watchlist card
+                    normalized_title = ' '.join(listing_data["title"].lower().split())
+                    existing_by_title = await db.ebay_listings.find_one({
+                        "watchlist_card_id": card_id,
+                        "title": {"$regex": f"^{re.escape(listing_data['title'][:50])}", "$options": "i"}
+                    })
+                    
+                    if existing_by_title:
+                        logger.debug(f"Skipping duplicate by title: {listing_data['title'][:50]}")
+                        continue
+                    
+                    # Save new listing
+                    ebay_listing = EbayListing(
+                        watchlist_card_id=card_id,
+                        search_query=search_query,
+                        **listing_data
+                    )
+                    
+                    listing_dict = ebay_listing.model_dump()
+                    listing_dict['found_at'] = listing_dict['found_at'].isoformat()
+                    
+                    await db.ebay_listings.insert_one(listing_dict)
+                    new_count += 1
                 
                 if new_count > 0:
                     cards_with_results.append(search_query)
