@@ -1926,7 +1926,7 @@ async def search_all_watchlist():
 async def get_listings(status: Optional[str] = None, watchlist_card_id: Optional[str] = None):
     """Get eBay listings, optionally filtered by status or watchlist card"""
     try:
-        query = {}
+        query = {"status": {"$ne": "deleted"}}
         if status:
             query["status"] = status
         if watchlist_card_id:
@@ -1963,10 +1963,13 @@ async def update_listing_status(listing_id: str, status: str):
 
 @api_router.delete("/listings/{listing_id}")
 async def delete_listing(listing_id: str):
-    """Delete a specific listing"""
+    """Mark a listing as deleted so it won't reappear"""
     try:
-        result = await db.ebay_listings.delete_one({"id": listing_id})
-        if result.deleted_count == 0:
+        result = await db.ebay_listings.update_one(
+            {"id": listing_id},
+            {"$set": {"status": "deleted"}}
+        )
+        if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Listing not found")
         return {"success": True, "message": "Listing deleted"}
     except HTTPException:
