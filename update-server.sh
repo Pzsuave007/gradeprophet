@@ -1,10 +1,11 @@
 #!/bin/bash
 # Script para actualizar GradeProphet en el servidor
-# Ejecutar desde /opt/gradeprophet
 
 echo "Actualizando GradeProphet..."
 
-cd /opt/gradeprophet
+# Copiar archivos desde el repo git a la carpeta de producción
+cp -r /var/www/gradeprophet/backend/* /opt/gradeprophet/backend/
+cp -r /var/www/gradeprophet/frontend/* /opt/gradeprophet/frontend/
 
 # Matar el backend viejo
 pkill -f "uvicorn server:app.*8001"
