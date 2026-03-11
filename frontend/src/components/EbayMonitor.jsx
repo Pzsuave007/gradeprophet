@@ -221,34 +221,46 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                 <AnimatePresence>
                   {(expandedListings[cardName] !== false) && (
                     <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                      <div className="divide-y divide-[#1a1a1a]">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3">
                         {cardListings.map((listing) => (
-                          <div key={listing.id} className={`p-3 hover:bg-white/5 ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
-                            <div className="flex gap-3">
-                              <div className="w-16 h-16 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
-                                <img src={listing.image_url} alt="" className="w-full h-full object-cover"
-                                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect fill="%23121212"/></svg>'; }} />
+                          <div key={listing.id} className={`bg-[#0a0a0a] border rounded-lg overflow-hidden hover:border-[#3b82f6]/30 transition-all ${listing.status === 'interested' ? 'border-[#eab308]/30' : 'border-[#1a1a1a]'}`} data-testid={`listing-${listing.id}`}>
+                            {/* Image */}
+                            <div className="aspect-square bg-[#0a0a0a] relative">
+                              <img src={listing.image_url} alt="" className="w-full h-full object-contain"
+                                onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23121212" width="200" height="200"/></svg>'; }} />
+                              {/* Price Badge */}
+                              <div className="absolute top-1.5 left-1.5">
+                                <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] bg-black/70 text-xs px-2 py-0.5">
+                                  <DollarSign className="w-3 h-3 mr-0.5" />{listing.price}
+                                </Badge>
                               </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm text-white font-medium line-clamp-2 mb-1">{listing.title}</p>
-                                <div className="flex flex-wrap gap-1 mb-1.5">
-                                  <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-xs px-2 py-0.5">
-                                    <DollarSign className="w-3 h-3 mr-0.5" />{listing.price}
-                                  </Badge>
-                                  <Badge variant="outline" className={`text-xs px-2 py-0.5 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
-                                    {listing.listing_type === 'auction' ? <><Gavel className="w-3 h-3 mr-0.5" />Subasta{listing.bids !== null && ` (${listing.bids})`}</> : <><DollarSign className="w-3 h-3 mr-0.5" />BIN</>}
-                                  </Badge>
-                                  {listing.time_left && <Badge variant="outline" className="border-gray-600 text-gray-500 text-xs px-2 py-0.5"><Clock className="w-3 h-3 mr-0.5" />{listing.time_left}</Badge>}
-                                </div>
-                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                                  <a href={listing.listing_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
-                                    <ExternalLink className="w-2.5 h-2.5" />eBay</a>
-                                  {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')} className="text-[#eab308] hover:underline inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}><Star className="w-2.5 h-2.5" />Fav</button>}
-                                  {listing.status !== 'seen' && listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')} className="text-gray-500 hover:underline inline-flex items-center gap-0.5"><Eye className="w-2.5 h-2.5" />Visto</button>}
-                                  {listing.status === 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')} className="text-gray-500 hover:underline inline-flex items-center gap-0.5"><XCircle className="w-2.5 h-2.5" />Quitar</button>}
-                                  {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)} className="text-[#22c55e] hover:underline inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}><Search className="w-2.5 h-2.5" />Analizar</button>}
-                                  <button onClick={() => handleDeleteListing(listing.id)} className="text-red-500 hover:text-red-400 hover:underline inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}><Trash2 className="w-2.5 h-2.5" />Borrar</button>
-                                </div>
+                              {/* Type Badge */}
+                              <div className="absolute top-1.5 right-1.5">
+                                <Badge variant="outline" className={`bg-black/70 text-xs px-1.5 py-0.5 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
+                                  {listing.listing_type === 'auction' ? <><Gavel className="w-3 h-3" />{listing.bids !== null && <span className="ml-0.5">{listing.bids}</span>}</> : 'BIN'}
+                                </Badge>
+                              </div>
+                            </div>
+                            {/* Info */}
+                            <div className="p-2.5">
+                              <p className="text-xs text-white font-medium line-clamp-2 mb-2 leading-relaxed">{listing.title}</p>
+                              {listing.time_left && <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{listing.time_left}</p>}
+                              <div className="flex flex-wrap gap-1.5">
+                                <a href={listing.listing_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-[10px] bg-[#3b82f6]/10 text-[#3b82f6] px-2 py-1 rounded hover:bg-[#3b82f6]/20 inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
+                                  <ExternalLink className="w-2.5 h-2.5" />eBay</a>
+                                {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')}
+                                  className="text-[10px] bg-[#eab308]/10 text-[#eab308] px-2 py-1 rounded hover:bg-[#eab308]/20 inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}>
+                                  <Star className="w-2.5 h-2.5" />Fav</button>}
+                                {listing.status === 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')}
+                                  className="text-[10px] bg-gray-500/10 text-gray-400 px-2 py-1 rounded hover:bg-gray-500/20 inline-flex items-center gap-0.5">
+                                  <XCircle className="w-2.5 h-2.5" />Quitar</button>}
+                                {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
+                                  className="text-[10px] bg-[#22c55e]/10 text-[#22c55e] px-2 py-1 rounded hover:bg-[#22c55e]/20 inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}>
+                                  <Search className="w-2.5 h-2.5" />Analizar</button>}
+                                <button onClick={() => handleDeleteListing(listing.id)}
+                                  className="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded hover:bg-red-500/20 inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}>
+                                  <Trash2 className="w-2.5 h-2.5" />Borrar</button>
                               </div>
                             </div>
                           </div>
