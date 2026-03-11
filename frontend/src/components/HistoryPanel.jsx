@@ -1,15 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Clock, 
-  Trash2, 
-  ChevronRight, 
-  AlertCircle,
-  RefreshCw,
-  FlipHorizontal
-} from 'lucide-react';
+import { Clock, Trash2, ChevronRight, AlertCircle, RefreshCw, FlipHorizontal } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { ScrollArea } from '../components/ui/scroll-area';
 
 const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
   const [history, setHistory] = useState([]);
@@ -20,35 +12,23 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
   const API = `${BACKEND_URL}/api`;
 
   const fetchHistory = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
-      const response = await fetch(`${API}/cards/history`);
-      if (!response.ok) throw new Error('Error al cargar historial');
-      const data = await response.json();
-      setHistory(data);
-    } catch (err) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
+      const r = await fetch(`${API}/cards/history`);
+      if (!r.ok) throw new Error('Error al cargar');
+      setHistory(await r.json());
+    } catch (err) { setError(err.message); }
+    finally { setLoading(false); }
   };
 
-  useEffect(() => {
-    fetchHistory();
-  }, [refreshTrigger]);
+  useEffect(() => { fetchHistory(); }, [refreshTrigger]);
 
   const deleteCard = async (cardId, e) => {
     e.stopPropagation();
     try {
-      const response = await fetch(`${API}/cards/${cardId}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) throw new Error('Error al eliminar');
-      setHistory(prev => prev.filter(card => card.id !== cardId));
-    } catch (err) {
-      console.error('Delete error:', err);
-    }
+      const r = await fetch(`${API}/cards/${cardId}`, { method: 'DELETE' });
+      if (r.ok) setHistory(prev => prev.filter(c => c.id !== cardId));
+    } catch (err) { console.error(err); }
   };
 
   const getGradeColor = (grade) => {
@@ -58,116 +38,56 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
     return '#ef4444';
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-ES', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (d) => new Date(d).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <RefreshCw className="w-6 h-6 text-gray-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center py-12">
-        <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-3" />
-        <p className="text-gray-400 text-sm">{error}</p>
-        <Button 
-          variant="ghost" 
-          onClick={fetchHistory}
-          className="mt-3 text-[#3b82f6]"
-        >
-          Reintentar
-        </Button>
-      </div>
-    );
-  }
-
-  if (history.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <Clock className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-        <p className="text-gray-500 text-sm">No hay análisis previos</p>
-        <p className="text-gray-600 text-xs mt-1">Tus tarjetas analizadas aparecerán aquí</p>
-      </div>
-    );
-  }
+  if (loading) return <div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 text-gray-600 animate-spin" /></div>;
+  if (error) return <div className="text-center py-12"><AlertCircle className="w-6 h-6 text-red-500 mx-auto mb-2" /><p className="text-gray-500 text-sm">{error}</p><Button variant="ghost" onClick={fetchHistory} className="mt-2 text-[#3b82f6] text-xs">Reintentar</Button></div>;
+  if (history.length === 0) return <div className="text-center py-12"><Clock className="w-6 h-6 text-gray-700 mx-auto mb-2" /><p className="text-gray-600 text-sm">No hay análisis previos</p></div>;
 
   return (
-    <ScrollArea className="h-[400px]">
-      <div className="space-y-2 pr-4">
-        <AnimatePresence>
-          {history.map((card, index) => (
-            <motion.div
-              key={card.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              transition={{ delay: index * 0.05 }}
-              onClick={() => onSelectCard(card)}
-              className="group flex items-center gap-3 p-3 bg-[#121212] border border-[#27272a] rounded-lg cursor-pointer hover:border-[#3b82f6]/30 transition-all"
-              data-testid={`history-card-${card.id}`}
-            >
-              {/* Thumbnail */}
-              <div className="w-12 h-16 bg-[#1e1e1e] rounded overflow-hidden flex-shrink-0 relative">
-                {card.front_image_preview && (
-                  <img
-                    src={`data:image/jpeg;base64,${card.front_image_preview}`}
-                    alt="Card thumbnail"
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                {card.back_image_preview && (
-                  <div className="absolute bottom-0 right-0 bg-[#3b82f6] p-0.5 rounded-tl">
-                    <FlipHorizontal className="w-2.5 h-2.5 text-white" />
-                  </div>
-                )}
+    <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      <AnimatePresence>
+        {history.map((card, index) => (
+          <motion.div
+            key={card.id}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ delay: index * 0.03 }}
+            onClick={() => onSelectCard(card)}
+            className="group bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden cursor-pointer hover:border-[#3b82f6]/30 transition-all"
+            data-testid={`history-card-${card.id}`}
+          >
+            {/* Card Image */}
+            <div className="relative aspect-[4/3] bg-[#0a0a0a]">
+              {card.front_image_preview ? (
+                <img src={`data:image/jpeg;base64,${card.front_image_preview}`} alt="Card" className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center"><Clock className="w-8 h-8 text-gray-800" /></div>
+              )}
+              {card.back_image_preview && (
+                <div className="absolute top-1.5 right-1.5 bg-[#3b82f6] p-1 rounded"><FlipHorizontal className="w-2.5 h-2.5 text-white" /></div>
+              )}
+              {/* Grade Badge */}
+              <div className="absolute bottom-1.5 right-1.5 px-2 py-1 rounded font-mono text-sm font-bold"
+                style={{ backgroundColor: `${getGradeColor(card.grading_result.overall_grade)}22`, color: getGradeColor(card.grading_result.overall_grade), border: `1px solid ${getGradeColor(card.grading_result.overall_grade)}44` }}>
+                {card.grading_result.overall_grade.toFixed(1)}
               </div>
-
-              {/* Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">
-                  {card.card_name || 'Tarjeta sin identificar'}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  {formatDate(card.created_at)}
-                </p>
-              </div>
-
-              {/* Grade */}
-              <div className="flex items-center gap-2">
-                <span 
-                  className="font-mono text-lg font-bold"
-                  style={{ color: getGradeColor(card.grading_result.overall_grade) }}
-                >
-                  {card.grading_result.overall_grade.toFixed(1)}
-                </span>
-                
-                {/* Delete button */}
-                <button
-                  onClick={(e) => deleteCard(card.id, e)}
-                  className="p-1.5 rounded opacity-0 group-hover:opacity-100 hover:bg-red-500/20 transition-all"
-                  data-testid={`delete-card-${card.id}`}
-                >
-                  <Trash2 className="w-4 h-4 text-red-400" />
-                </button>
-
-                <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[#3b82f6] transition-colors" />
-              </div>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-    </ScrollArea>
+              {/* Delete */}
+              <button onClick={(e) => deleteCard(card.id, e)}
+                className="absolute top-1.5 left-1.5 p-1 rounded bg-black/60 opacity-0 group-hover:opacity-100 hover:bg-red-500/60 transition-all" data-testid={`delete-card-${card.id}`}>
+                <Trash2 className="w-3 h-3 text-white" />
+              </button>
+            </div>
+            {/* Card Info */}
+            <div className="p-2.5">
+              <p className="text-xs text-white font-medium truncate">{card.card_name || 'Tarjeta sin identificar'}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">{formatDate(card.created_at)}</p>
+            </div>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </div>
   );
 };
 

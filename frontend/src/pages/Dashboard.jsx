@@ -185,7 +185,7 @@ const Dashboard = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="max-w-5xl mx-auto"
+              className="w-full"
             >
               <Button
                 variant="ghost"
@@ -214,7 +214,7 @@ const Dashboard = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="max-w-6xl mx-auto"
+              className="w-full"
             >
               <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} />
             </motion.div>
@@ -227,7 +227,7 @@ const Dashboard = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="max-w-5xl mx-auto"
+              className="w-full"
             >
               <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
                 Historial de Análisis
@@ -248,7 +248,7 @@ const Dashboard = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              className="max-w-5xl mx-auto"
+              className="w-full"
             >
               <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
                 Sistema de <span className="text-[#eab308]">Aprendizaje</span>

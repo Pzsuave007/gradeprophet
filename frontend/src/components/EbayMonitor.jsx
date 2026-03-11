@@ -2,25 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import axios from 'axios';
 import {
-  Search,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Clock,
-  Tag,
-  Eye,
-  Star,
-  XCircle,
-  RefreshCw,
-  Loader2,
-  ChevronDown,
-  ChevronUp,
-  Gavel,
-  DollarSign,
-  AlertCircle,
-  Edit2,
-  Check,
-  X
+  Search, Plus, Trash2, ExternalLink, Clock, Tag, Eye, Star, XCircle,
+  Loader2, ChevronDown, ChevronUp, Gavel, DollarSign, AlertCircle,
+  Edit2, Check, X
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -29,625 +13,254 @@ import { Badge } from './ui/badge';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const EbayMonitor = ({ onAnalyzeCard }) => {
-  // API base path
   const apiBase = `${API}/api`;
-  // Watchlist state
   const [watchlist, setWatchlist] = useState([]);
   const [newCardQuery, setNewCardQuery] = useState('');
   const [newCardNotes, setNewCardNotes] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [loadingWatchlist, setLoadingWatchlist] = useState(true);
-  
-  // Listings state
   const [listings, setListings] = useState([]);
   const [loadingListings, setLoadingListings] = useState(false);
   const [searching, setSearching] = useState(false);
   const [searchResult, setSearchResult] = useState(null);
-  
-  // Filter state
-  const [selectedCard, setSelectedCard] = useState(null); // null = all cards
-  const [statusFilter, setStatusFilter] = useState('new'); // new, all, interested
-  
-  // Edit state
+  const [selectedCard, setSelectedCard] = useState(null);
+  const [statusFilter, setStatusFilter] = useState('new');
   const [editingCard, setEditingCard] = useState(null);
   const [editQuery, setEditQuery] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  
-  // Expanded cards state
   const [expandedListings, setExpandedListings] = useState({});
 
-  // Load watchlist
   const loadWatchlist = useCallback(async () => {
-    try {
-      setLoadingWatchlist(true);
-      const response = await axios.get(`${apiBase}/watchlist`);
-      setWatchlist(response.data);
-    } catch (error) {
-      console.error('Error loading watchlist:', error);
-    } finally {
-      setLoadingWatchlist(false);
-    }
+    try { setLoadingWatchlist(true); const r = await axios.get(`${apiBase}/watchlist`); setWatchlist(r.data); }
+    catch (e) { console.error(e); } finally { setLoadingWatchlist(false); }
   }, []);
 
-  // Load listings
   const loadListings = useCallback(async () => {
     try {
       setLoadingListings(true);
       const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
-      }
-      if (selectedCard) {
-        params.append('watchlist_card_id', selectedCard);
-      }
-      const response = await axios.get(`${apiBase}/listings?${params.toString()}`);
-      setListings(response.data);
-    } catch (error) {
-      console.error('Error loading listings:', error);
-    } finally {
-      setLoadingListings(false);
-    }
+      if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
+      if (selectedCard) params.append('watchlist_card_id', selectedCard);
+      const r = await axios.get(`${apiBase}/listings?${params.toString()}`);
+      setListings(r.data);
+    } catch (e) { console.error(e); } finally { setLoadingListings(false); }
   }, [statusFilter, selectedCard]);
 
-  useEffect(() => {
-    loadWatchlist();
-  }, [loadWatchlist]);
+  useEffect(() => { loadWatchlist(); }, [loadWatchlist]);
+  useEffect(() => { loadListings(); }, [loadListings]);
 
-  useEffect(() => {
-    loadListings();
-  }, [loadListings]);
-
-  // Add card to watchlist
   const handleAddCard = async (e) => {
     e.preventDefault();
     if (!newCardQuery.trim()) return;
-
-    try {
-      await axios.post(`${apiBase}/watchlist`, {
-        search_query: newCardQuery.trim(),
-        notes: newCardNotes.trim() || null
-      });
-      setNewCardQuery('');
-      setNewCardNotes('');
-      setShowAddForm(false);
-      loadWatchlist();
-    } catch (error) {
-      console.error('Error adding card:', error);
-    }
+    try { await axios.post(`${apiBase}/watchlist`, { search_query: newCardQuery.trim(), notes: newCardNotes.trim() || null }); setNewCardQuery(''); setNewCardNotes(''); setShowAddForm(false); loadWatchlist(); }
+    catch (e) { console.error(e); }
   };
 
-  // Remove card from watchlist
   const handleRemoveCard = async (cardId) => {
-    if (!window.confirm('¿Eliminar esta tarjeta de la watchlist? También se eliminarán todos sus listings.')) return;
-    
-    try {
-      await axios.delete(`${apiBase}/watchlist/${cardId}`);
-      loadWatchlist();
-      loadListings();
-    } catch (error) {
-      console.error('Error removing card:', error);
-    }
+    if (!window.confirm('Eliminar tarjeta y sus listings?')) return;
+    try { await axios.delete(`${apiBase}/watchlist/${cardId}`); loadWatchlist(); loadListings(); } catch (e) { console.error(e); }
   };
 
-  // Edit card
-  const handleStartEdit = (card) => {
-    setEditingCard(card.id);
-    setEditQuery(card.search_query);
-    setEditNotes(card.notes || '');
-  };
+  const handleStartEdit = (card) => { setEditingCard(card.id); setEditQuery(card.search_query); setEditNotes(card.notes || ''); };
+  const handleSaveEdit = async () => { try { await axios.put(`${apiBase}/watchlist/${editingCard}`, { search_query: editQuery.trim(), notes: editNotes.trim() || null }); setEditingCard(null); loadWatchlist(); } catch (e) { console.error(e); } };
+  const handleCancelEdit = () => { setEditingCard(null); };
 
-  const handleSaveEdit = async () => {
-    try {
-      await axios.put(`${apiBase}/watchlist/${editingCard}`, {
-        search_query: editQuery.trim(),
-        notes: editNotes.trim() || null
-      });
-      setEditingCard(null);
-      loadWatchlist();
-    } catch (error) {
-      console.error('Error updating card:', error);
-    }
-  };
-
-  const handleCancelEdit = () => {
-    setEditingCard(null);
-    setEditQuery('');
-    setEditNotes('');
-  };
-
-  // Search all watchlist
   const handleSearchAll = async () => {
-    if (watchlist.length === 0) {
-      alert('Agrega tarjetas a tu watchlist primero');
-      return;
-    }
-
-    try {
-      setSearching(true);
-      setSearchResult(null);
-      const response = await axios.post(`${apiBase}/watchlist/search`);
-      setSearchResult(response.data);
-      loadWatchlist();
-      loadListings();
-    } catch (error) {
-      console.error('Error searching:', error);
-      alert('Error al buscar. Intenta de nuevo.');
-    } finally {
-      setSearching(false);
-    }
+    if (watchlist.length === 0) { alert('Agrega tarjetas primero'); return; }
+    try { setSearching(true); setSearchResult(null); const r = await axios.post(`${apiBase}/watchlist/search`); setSearchResult(r.data); loadWatchlist(); loadListings(); }
+    catch (e) { console.error(e); alert('Error al buscar'); } finally { setSearching(false); }
   };
 
-  // Update listing status
-  const handleUpdateStatus = async (listingId, newStatus) => {
-    try {
-      await axios.put(`${apiBase}/listings/${listingId}/status?status=${newStatus}`);
-      loadListings();
-    } catch (error) {
-      console.error('Error updating status:', error);
-    }
-  };
+  const handleUpdateStatus = async (id, status) => { try { await axios.put(`${apiBase}/listings/${id}/status?status=${status}`); loadListings(); } catch (e) { console.error(e); } };
+  const handleDeleteListing = async (id) => { try { await axios.delete(`${apiBase}/listings/${id}`); loadListings(); } catch (e) { console.error(e); } };
 
-  // Delete individual listing
-  const handleDeleteListing = async (listingId) => {
-    try {
-      await axios.delete(`${apiBase}/listings/${listingId}`);
-      loadListings();
-    } catch (error) {
-      console.error('Error deleting listing:', error);
-    }
-  };
-
-  // Group listings by card
-  const listingsByCard = listings.reduce((acc, listing) => {
-    const key = listing.search_query;
-    if (!acc[key]) {
-      acc[key] = [];
-    }
-    acc[key].push(listing);
-    return acc;
-  }, {});
-
-  // Stats
-  const stats = {
-    totalCards: watchlist.length,
-    newListings: listings.filter(l => l.status === 'new').length,
-    interestedListings: listings.filter(l => l.status === 'interested').length
-  };
+  const listingsByCard = listings.reduce((acc, l) => { const k = l.search_query; if (!acc[k]) acc[k] = []; acc[k].push(l); return acc; }, {});
+  const stats = { totalCards: watchlist.length, newListings: listings.filter(l => l.status === 'new').length, interestedListings: listings.filter(l => l.status === 'interested').length };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      {/* Header Stats */}
-      <div className="grid grid-cols-3 gap-2 sm:gap-4">
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
-          <div className="text-xl sm:text-2xl font-bold text-white">{stats.totalCards}</div>
-          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Tarjetas</div>
-        </div>
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
-          <div className="text-xl sm:text-2xl font-bold text-[#22c55e]">{stats.newListings}</div>
-          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider">Nuevos</div>
-        </div>
-        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-2 sm:p-4 text-center">
-          <div className="text-xl sm:text-2xl font-bold text-[#eab308]">{stats.interestedListings}</div>
-          <div className="text-[10px] sm:text-xs text-gray-500 uppercase tracking-wider truncate">Interesantes</div>
-        </div>
-      </div>
-
-      {/* Search Button */}
-      <Button
-        onClick={handleSearchAll}
-        disabled={searching || watchlist.length === 0}
-        className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider"
-        data-testid="search-all-btn"
-      >
-        {searching ? (
-          <>
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-            Buscando en eBay...
-          </>
-        ) : (
-          <>
-            <Search className="w-4 h-4 mr-2" />
-            Buscar Nuevos Listings
-          </>
-        )}
-      </Button>
-
-      {/* Search Result */}
-      <AnimatePresence>
-        {searchResult && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-lg p-4"
-          >
-            <div className="flex items-center gap-2 text-[#22c55e]">
-              <Check className="w-5 h-5" />
-              <span className="font-semibold">Búsqueda completada</span>
-            </div>
-            <p className="text-sm text-gray-400 mt-1">
-              Se buscaron {searchResult.total_cards_searched} tarjetas. 
-              Se encontraron <span className="text-white font-semibold">{searchResult.new_listings_found}</span> nuevos listings.
-            </p>
-            {searchResult.cards_with_results.length > 0 && (
-              <p className="text-xs text-gray-500 mt-2">
-                Resultados para: {searchResult.cards_with_results.join(', ')}
-              </p>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Watchlist Section */}
-      <div className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
-        <div className="flex items-center justify-between p-4 border-b border-[#27272a]">
-          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white flex items-center gap-2">
-            <Tag className="w-4 h-4 text-[#3b82f6]" />
-            Mi Watchlist
-          </h3>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowAddForm(!showAddForm)}
-            className="text-[#3b82f6]"
-            data-testid="add-card-toggle"
-          >
-            {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-          </Button>
+    <div className="grid lg:grid-cols-5 gap-4">
+      {/* LEFT: Watchlist Controls */}
+      <div className="lg:col-span-2 space-y-3">
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
+            <div className="text-lg font-bold text-white">{stats.totalCards}</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Tarjetas</div>
+          </div>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
+            <div className="text-lg font-bold text-[#22c55e]">{stats.newListings}</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Nuevos</div>
+          </div>
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
+            <div className="text-lg font-bold text-[#eab308]">{stats.interestedListings}</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Favoritos</div>
+          </div>
         </div>
 
-        {/* Add Card Form */}
+        {/* Search Button */}
+        <Button onClick={handleSearchAll} disabled={searching || watchlist.length === 0}
+          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10" data-testid="search-all-btn">
+          {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Buscando...</> : <><Search className="w-4 h-4 mr-2" />Buscar Listings</>}
+        </Button>
+
+        {/* Search Result */}
         <AnimatePresence>
-          {showAddForm && (
-            <motion.form
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              onSubmit={handleAddCard}
-              className="p-4 bg-[#0a0a0a] border-b border-[#27272a] overflow-hidden"
-            >
-              <div className="space-y-3">
-                <Input
-                  placeholder="ej: 1996 Topps Kobe Bryant #138"
-                  value={newCardQuery}
-                  onChange={(e) => setNewCardQuery(e.target.value)}
-                  className="bg-[#121212] border-[#27272a] text-white"
-                  data-testid="new-card-input"
-                />
-                <Input
-                  placeholder="Notas (opcional)"
-                  value={newCardNotes}
-                  onChange={(e) => setNewCardNotes(e.target.value)}
-                  className="bg-[#121212] border-[#27272a] text-white text-sm"
-                  data-testid="new-card-notes"
-                />
-                <Button
-                  type="submit"
-                  disabled={!newCardQuery.trim()}
-                  className="w-full bg-[#22c55e] hover:bg-[#16a34a]"
-                  data-testid="add-card-btn"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Agregar a Watchlist
-                </Button>
-              </div>
-            </motion.form>
+          {searchResult && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-lg p-3">
+              <div className="flex items-center gap-2 text-[#22c55e] text-sm"><Check className="w-4 h-4" /><span className="font-semibold">{searchResult.new_listings_found} nuevos encontrados</span></div>
+            </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Watchlist Cards */}
-        <div className="divide-y divide-[#27272a] max-h-64 overflow-y-auto">
-          {loadingWatchlist ? (
-            <div className="p-8 text-center text-gray-500">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-              Cargando...
-            </div>
-          ) : watchlist.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <Tag className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              <p className="text-sm">No hay tarjetas en tu watchlist</p>
-              <p className="text-xs mt-1">Agrega tarjetas para empezar a monitorear</p>
-            </div>
-          ) : (
-            watchlist.map((card) => (
-              <div
-                key={card.id}
-                className={`p-3 hover:bg-white/5 transition-colors ${
-                  selectedCard === card.id ? 'bg-[#3b82f6]/10 border-l-2 border-[#3b82f6]' : ''
-                }`}
-              >
-                {editingCard === card.id ? (
-                  // Edit mode
-                  <div className="space-y-2">
-                    <Input
-                      value={editQuery}
-                      onChange={(e) => setEditQuery(e.target.value)}
-                      className="bg-[#0a0a0a] border-[#27272a] text-white text-sm"
-                      data-testid="edit-card-input"
-                    />
-                    <Input
-                      value={editNotes}
-                      onChange={(e) => setEditNotes(e.target.value)}
-                      placeholder="Notas"
-                      className="bg-[#0a0a0a] border-[#27272a] text-white text-xs"
-                    />
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSaveEdit} className="bg-[#22c55e] hover:bg-[#16a34a]">
-                        <Check className="w-3 h-3" />
-                      </Button>
-                      <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
-                        <X className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  // View mode
-                  <div className="flex items-start justify-between gap-2">
-                    <div 
-                      className="flex-1 cursor-pointer"
-                      onClick={() => setSelectedCard(selectedCard === card.id ? null : card.id)}
-                    >
-                      <p className="text-sm text-white font-medium">{card.search_query}</p>
-                      {card.notes && (
-                        <p className="text-xs text-gray-500 mt-0.5">{card.notes}</p>
-                      )}
-                      <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
-                        <span>{card.listings_found} listings</span>
-                        {card.last_searched && (
-                          <span>
-                            <Clock className="w-3 h-3 inline mr-1" />
-                            {new Date(card.last_searched).toLocaleDateString()}
-                          </span>
-                        )}
+        {/* Watchlist */}
+        <div className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
+          <div className="flex items-center justify-between px-3 py-2 border-b border-[#1a1a1a]">
+            <h3 className="text-sm font-semibold text-white flex items-center gap-2"><Tag className="w-3.5 h-3.5 text-[#3b82f6]" />Watchlist</h3>
+            <button onClick={() => setShowAddForm(!showAddForm)} className="text-[#3b82f6] p-1 hover:bg-white/5 rounded" data-testid="add-card-toggle">
+              {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+            </button>
+          </div>
+
+          <AnimatePresence>
+            {showAddForm && (
+              <motion.form initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }}
+                onSubmit={handleAddCard} className="overflow-hidden">
+                <div className="p-3 bg-[#0a0a0a] border-b border-[#1a1a1a] space-y-2">
+                  <Input placeholder="ej: 1996 Topps Kobe Bryant #138" value={newCardQuery} onChange={(e) => setNewCardQuery(e.target.value)}
+                    className="bg-[#111] border-[#1a1a1a] text-white h-8 text-sm" data-testid="new-card-input" />
+                  <Input placeholder="Notas (opcional)" value={newCardNotes} onChange={(e) => setNewCardNotes(e.target.value)}
+                    className="bg-[#111] border-[#1a1a1a] text-white h-8 text-xs" data-testid="new-card-notes" />
+                  <Button type="submit" disabled={!newCardQuery.trim()} className="w-full bg-[#22c55e] hover:bg-[#16a34a] h-8 text-sm" data-testid="add-card-btn">
+                    <Plus className="w-3 h-3 mr-1" />Agregar
+                  </Button>
+                </div>
+              </motion.form>
+            )}
+          </AnimatePresence>
+
+          <div className="divide-y divide-[#1a1a1a] max-h-[400px] overflow-y-auto">
+            {loadingWatchlist ? (
+              <div className="p-6 text-center text-gray-600"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
+            ) : watchlist.length === 0 ? (
+              <div className="p-6 text-center text-gray-600"><Tag className="w-6 h-6 mx-auto mb-1 opacity-50" /><p className="text-xs">Watchlist vacía</p></div>
+            ) : (
+              watchlist.map((card) => (
+                <div key={card.id} className={`p-2.5 hover:bg-white/5 transition-colors ${selectedCard === card.id ? 'bg-[#3b82f6]/10 border-l-2 border-[#3b82f6]' : ''}`}>
+                  {editingCard === card.id ? (
+                    <div className="space-y-1.5">
+                      <Input value={editQuery} onChange={(e) => setEditQuery(e.target.value)} className="bg-[#0a0a0a] border-[#1a1a1a] text-white text-xs h-7" data-testid="edit-card-input" />
+                      <Input value={editNotes} onChange={(e) => setEditNotes(e.target.value)} placeholder="Notas" className="bg-[#0a0a0a] border-[#1a1a1a] text-white text-xs h-7" />
+                      <div className="flex gap-1">
+                        <Button size="sm" onClick={handleSaveEdit} className="bg-[#22c55e] h-6 px-2 text-xs"><Check className="w-3 h-3" /></Button>
+                        <Button size="sm" variant="ghost" onClick={handleCancelEdit} className="h-6 px-2"><X className="w-3 h-3" /></Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleStartEdit(card)}
-                        className="text-gray-500 hover:text-white p-1 h-auto"
-                      >
-                        <Edit2 className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveCard(card.id)}
-                        className="text-red-500 hover:text-red-400 p-1 h-auto"
-                        data-testid={`remove-card-${card.id}`}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
+                  ) : (
+                    <div className="flex items-start justify-between gap-1">
+                      <div className="flex-1 cursor-pointer min-w-0" onClick={() => setSelectedCard(selectedCard === card.id ? null : card.id)}>
+                        <p className="text-xs text-white font-medium truncate">{card.search_query}</p>
+                        {card.notes && <p className="text-[10px] text-gray-600 truncate">{card.notes}</p>}
+                        <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-600">
+                          <span>{card.listings_found} listings</span>
+                          {card.last_searched && <span><Clock className="w-2.5 h-2.5 inline mr-0.5" />{new Date(card.last_searched).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-0.5 flex-shrink-0">
+                        <button onClick={() => handleStartEdit(card)} className="text-gray-600 hover:text-white p-1"><Edit2 className="w-3 h-3" /></button>
+                        <button onClick={() => handleRemoveCard(card.id)} className="text-red-500 hover:text-red-400 p-1" data-testid={`remove-card-${card.id}`}><Trash2 className="w-3 h-3" /></button>
+                      </div>
                     </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT: Listings */}
+      <div className="lg:col-span-3 space-y-3">
+        {/* Filter Tabs */}
+        <div className="flex gap-1">
+          {[
+            { value: 'new', label: 'Nuevos', icon: AlertCircle },
+            { value: 'interested', label: 'Favoritos', icon: Star },
+            { value: 'all', label: 'Todos', icon: Eye }
+          ].map(({ value, label, icon: Icon }) => (
+            <button key={value} onClick={() => setStatusFilter(value)}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
+                statusFilter === value ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
+              }`} data-testid={`filter-${value}`}>
+              <Icon className="w-3.5 h-3.5" />{label}
+            </button>
+          ))}
+        </div>
+
+        {/* Listings Content */}
+        <div className="space-y-3">
+          {loadingListings ? (
+            <div className="text-center py-8 text-gray-600"><Loader2 className="w-5 h-5 animate-spin mx-auto mb-1" /><p className="text-xs">Cargando...</p></div>
+          ) : listings.length === 0 ? (
+            <div className="text-center py-8 text-gray-600 bg-[#111] border border-[#1a1a1a] rounded-lg">
+              <Search className="w-6 h-6 mx-auto mb-1 opacity-50" /><p className="text-xs">No hay listings</p>
+            </div>
+          ) : (
+            Object.entries(listingsByCard).map(([cardName, cardListings]) => (
+              <div key={cardName} className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
+                <button onClick={() => setExpandedListings(prev => ({ ...prev, [cardName]: !prev[cardName] }))}
+                  className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5" data-testid={`expand-${cardName}`}>
+                  <div className="flex items-center gap-2">
+                    <Tag className="w-3.5 h-3.5 text-[#3b82f6]" />
+                    <span className="text-sm font-medium text-white">{cardName}</span>
+                    <span className="text-xs text-gray-600">{cardListings.length}</span>
                   </div>
-                )}
+                  {expandedListings[cardName] ? <ChevronUp className="w-4 h-4 text-gray-600" /> : <ChevronDown className="w-4 h-4 text-gray-600" />}
+                </button>
+
+                <AnimatePresence>
+                  {(expandedListings[cardName] !== false) && (
+                    <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
+                      <div className="divide-y divide-[#1a1a1a]">
+                        {cardListings.map((listing) => (
+                          <div key={listing.id} className={`p-3 hover:bg-white/5 ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
+                            <div className="flex gap-3">
+                              <div className="w-14 h-14 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
+                                <img src={listing.image_url} alt="" className="w-full h-full object-cover"
+                                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect fill="%23121212"/></svg>'; }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-white font-medium line-clamp-1 mb-1">{listing.title}</p>
+                                <div className="flex flex-wrap gap-1 mb-1.5">
+                                  <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-[10px] px-1.5 py-0">
+                                    <DollarSign className="w-2.5 h-2.5 mr-0.5" />{listing.price}
+                                  </Badge>
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
+                                    {listing.listing_type === 'auction' ? <><Gavel className="w-2.5 h-2.5 mr-0.5" />Subasta{listing.bids !== null && ` (${listing.bids})`}</> : <><DollarSign className="w-2.5 h-2.5 mr-0.5" />BIN</>}
+                                  </Badge>
+                                  {listing.time_left && <Badge variant="outline" className="border-gray-600 text-gray-500 text-[10px] px-1.5 py-0"><Clock className="w-2.5 h-2.5 mr-0.5" />{listing.time_left}</Badge>}
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
+                                  <a href={listing.listing_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
+                                    <ExternalLink className="w-2.5 h-2.5" />eBay</a>
+                                  {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')} className="text-[#eab308] hover:underline inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}><Star className="w-2.5 h-2.5" />Fav</button>}
+                                  {listing.status !== 'seen' && listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')} className="text-gray-500 hover:underline inline-flex items-center gap-0.5"><Eye className="w-2.5 h-2.5" />Visto</button>}
+                                  {listing.status === 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')} className="text-gray-500 hover:underline inline-flex items-center gap-0.5"><XCircle className="w-2.5 h-2.5" />Quitar</button>}
+                                  {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)} className="text-[#22c55e] hover:underline inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}><Search className="w-2.5 h-2.5" />Analizar</button>}
+                                  <button onClick={() => handleDeleteListing(listing.id)} className="text-red-500 hover:text-red-400 hover:underline inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}><Trash2 className="w-2.5 h-2.5" />Borrar</button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             ))
           )}
         </div>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-1">
-        {[
-          { value: 'new', label: 'Nuevos', icon: AlertCircle },
-          { value: 'interested', label: 'Interesantes', icon: Star },
-          { value: 'all', label: 'Todos', icon: Eye }
-        ].map(({ value, label, icon: Icon }) => (
-          <button
-            key={value}
-            onClick={() => setStatusFilter(value)}
-            className={`flex-1 min-w-[80px] flex items-center justify-center gap-1 sm:gap-1.5 py-2 px-2 sm:px-3 rounded-lg text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap ${
-              statusFilter === value
-                ? 'bg-[#3b82f6] text-white'
-                : 'bg-[#121212] text-gray-400 hover:text-white border border-[#27272a]'
-            }`}
-            data-testid={`filter-${value}`}
-          >
-            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
-            <span className="hidden xs:inline sm:inline">{label}</span>
-            <span className="xs:hidden sm:hidden">{value === 'interested' ? 'Fav' : label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Listings */}
-      <div className="space-y-4">
-        {loadingListings ? (
-          <div className="text-center py-8 text-gray-500">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-            Cargando listings...
-          </div>
-        ) : listings.length === 0 ? (
-          <div className="text-center py-8 text-gray-500 bg-[#121212] border border-[#27272a] rounded-lg">
-            <Search className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="text-sm">No hay listings {statusFilter !== 'all' ? statusFilter === 'new' ? 'nuevos' : 'interesantes' : ''}</p>
-            <p className="text-xs mt-1">Haz clic en "Buscar Nuevos Listings" para actualizar</p>
-          </div>
-        ) : (
-          Object.entries(listingsByCard).map(([cardName, cardListings]) => (
-            <div key={cardName} className="bg-[#121212] border border-[#27272a] rounded-lg overflow-hidden">
-              {/* Card Header */}
-              <button
-                onClick={() => setExpandedListings(prev => ({ ...prev, [cardName]: !prev[cardName] }))}
-                className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors"
-                data-testid={`expand-${cardName}`}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-[#3b82f6]/20 rounded flex items-center justify-center">
-                    <Tag className="w-4 h-4 text-[#3b82f6]" />
-                  </div>
-                  <div className="text-left">
-                    <p className="text-sm font-medium text-white">{cardName}</p>
-                    <p className="text-xs text-gray-500">{cardListings.length} listings</p>
-                  </div>
-                </div>
-                {expandedListings[cardName] ? (
-                  <ChevronUp className="w-5 h-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-500" />
-                )}
-              </button>
-
-              {/* Listings */}
-              <AnimatePresence>
-                {(expandedListings[cardName] !== false) && (
-                  <motion.div
-                    initial={{ height: 0 }}
-                    animate={{ height: 'auto' }}
-                    exit={{ height: 0 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="divide-y divide-[#27272a]">
-                      {cardListings.map((listing) => (
-                        <div
-                          key={listing.id}
-                          className={`p-3 sm:p-4 hover:bg-white/5 transition-colors ${
-                            listing.status === 'interested' ? 'bg-[#eab308]/5' : ''
-                          }`}
-                          data-testid={`listing-${listing.id}`}
-                        >
-                          <div className="flex gap-3 sm:gap-4">
-                            {/* Image */}
-                            <div className="w-16 h-16 sm:w-20 sm:h-20 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
-                              <img
-                                src={listing.image_url}
-                                alt={listing.title}
-                                className="w-full h-full object-cover"
-                                onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80"><rect fill="%23121212"/></svg>'; }}
-                              />
-                            </div>
-
-                            {/* Info */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs sm:text-sm text-white font-medium line-clamp-2 mb-1.5 sm:mb-2">
-                                {listing.title}
-                              </p>
-                              
-                              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-2">
-                                {/* Price */}
-                                <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-[10px] sm:text-xs px-1.5 py-0.5">
-                                  <DollarSign className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
-                                  {listing.price}
-                                </Badge>
-
-                                {/* Type */}
-                                <Badge 
-                                  variant="outline" 
-                                  className={`text-[10px] sm:text-xs px-1.5 py-0.5 ${listing.listing_type === 'auction' 
-                                    ? 'border-[#f59e0b] text-[#f59e0b]' 
-                                    : 'border-[#3b82f6] text-[#3b82f6]'
-                                  }`}
-                                >
-                                  {listing.listing_type === 'auction' ? (
-                                    <>
-                                      <Gavel className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
-                                      <span className="hidden sm:inline">Subasta</span>
-                                      <span className="sm:hidden">Sub</span>
-                                      {listing.bids !== null && ` (${listing.bids})`}
-                                    </>
-                                  ) : (
-                                    <>
-                                      <DollarSign className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
-                                      <span className="hidden sm:inline">Compra Directa</span>
-                                      <span className="sm:hidden">BIN</span>
-                                    </>
-                                  )}
-                                </Badge>
-
-                                {/* Time Left */}
-                                {listing.time_left && (
-                                  <Badge variant="outline" className="border-gray-500 text-gray-400 text-[10px] sm:text-xs px-1.5 py-0.5">
-                                    <Clock className="w-2.5 h-2.5 sm:w-3 sm:h-3 mr-0.5" />
-                                    {listing.time_left}
-                                  </Badge>
-                                )}
-                              </div>
-
-                              {/* Actions - Stack on mobile */}
-                              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] sm:text-xs">
-                                <a
-                                  href={listing.listing_url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-[#3b82f6] hover:underline"
-                                  data-testid={`view-listing-${listing.id}`}
-                                >
-                                  <ExternalLink className="w-3 h-3" />
-                                  <span className="hidden sm:inline">Ver en eBay</span>
-                                  <span className="sm:hidden">eBay</span>
-                                </a>
-
-                                <span className="text-gray-600 hidden sm:inline">|</span>
-
-                                {listing.status !== 'interested' && (
-                                  <button
-                                    onClick={() => handleUpdateStatus(listing.id, 'interested')}
-                                    className="inline-flex items-center gap-1 text-[#eab308] hover:underline"
-                                    data-testid={`mark-interested-${listing.id}`}
-                                  >
-                                    <Star className="w-3 h-3" />
-                                    <span className="hidden sm:inline">Interesante</span>
-                                    <span className="sm:hidden">Fav</span>
-                                  </button>
-                                )}
-
-                                {listing.status !== 'seen' && listing.status !== 'interested' && (
-                                  <button
-                                    onClick={() => handleUpdateStatus(listing.id, 'seen')}
-                                    className="inline-flex items-center gap-1 text-gray-500 hover:underline"
-                                  >
-                                    <Eye className="w-3 h-3" />
-                                    <span className="hidden sm:inline">Visto</span>
-                                  </button>
-                                )}
-
-                                {listing.status === 'interested' && (
-                                  <button
-                                    onClick={() => handleUpdateStatus(listing.id, 'seen')}
-                                    className="inline-flex items-center gap-1 text-gray-500 hover:underline"
-                                  >
-                                    <XCircle className="w-3 h-3" />
-                                    <span className="hidden sm:inline">Quitar</span>
-                                  </button>
-                                )}
-
-                                {onAnalyzeCard && (
-                                  <>
-                                    <span className="text-gray-600 hidden sm:inline">|</span>
-                                    <button
-                                      onClick={() => onAnalyzeCard(listing)}
-                                      className="inline-flex items-center gap-1 text-[#22c55e] hover:underline"
-                                      data-testid={`analyze-listing-${listing.id}`}
-                                    >
-                                      <Search className="w-3 h-3" />
-                                      <span className="hidden sm:inline">Analizar</span>
-                                    </button>
-                                  </>
-                                )}
-
-                                <span className="text-gray-600 hidden sm:inline">|</span>
-                                <button
-                                  onClick={() => handleDeleteListing(listing.id)}
-                                  className="inline-flex items-center gap-1 text-red-500 hover:text-red-400 hover:underline"
-                                  data-testid={`delete-listing-${listing.id}`}
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span className="hidden sm:inline">Borrar</span>
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          ))
-        )}
       </div>
     </div>
   );
