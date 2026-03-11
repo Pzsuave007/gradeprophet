@@ -705,8 +705,6 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         result = json.loads(cleaned_response)
         
         # === PSA CALIBRATION: Enforce real PSA grading rules ===
-        # OpenAI Vision consistently overestimates by 2-3 grades.
-        # This calibration enforces mathematical rules based on PSA standards.
         try:
             centering = result.get("centering", {}).get("score", 10)
             corners = result.get("corners", {}).get("score", 10)
@@ -716,54 +714,35 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
             
             subcategories = [centering, corners, surface, edges]
             lowest_sub = min(subcategories)
-            second_lowest = sorted(subcategories)[1]
-            avg_sub = sum(subcategories) / 4
             
-            # Step 1: First reduce inflated subcategory scores
-            # If AI says all 4 categories are 8+, it's likely overestimating
-            all_high = all(s >= 8 for s in subcategories)
-            if all_high and ai_grade >= 8:
-                # Apply skepticism factor - reduce each by 1.5 points
-                centering = max(1, centering - 1.5)
-                corners = max(1, corners - 1.5)
-                surface = max(1, surface - 1.0)
-                edges = max(1, edges - 1.5)
-                subcategories = [centering, corners, surface, edges]
-                lowest_sub = min(subcategories)
-                second_lowest = sorted(subcategories)[1]
-                avg_sub = sum(subcategories) / 4
-                logger.info(f"Applied skepticism: subcats reduced to C={centering} Co={corners} S={surface} E={edges}")
+            # Rule 1: Overall cannot be more than 1 point above the LOWEST subcategory
+            max_allowed = lowest_sub + 1.0
             
-            # Step 2: Overall grade = weighted by lowest categories
-            # PSA grades on weakest aspect, not average
-            calibrated_grade = (lowest_sub * 0.4) + (second_lowest * 0.3) + (avg_sub * 0.3)
+            # Rule 2: If any subcategory is below 8, overall cannot exceed 8
+            if lowest_sub < 8:
+                max_allowed = min(max_allowed, 8.0)
             
-            # Step 3: Cannot be more than 0.5 above the lowest subcategory
-            calibrated_grade = min(calibrated_grade, lowest_sub + 0.5)
+            # Rule 3: If any subcategory is below 7, maximum 7.5
+            if lowest_sub < 7:
+                max_allowed = min(max_allowed, 7.5)
             
-            # Step 4: If 2+ subcategories below 7, cap at 7
-            below_7_count = sum(1 for s in subcategories if s < 7)
-            if below_7_count >= 2:
-                calibrated_grade = min(calibrated_grade, 7.0)
+            # Rule 4: If 2+ subcategories are below 8, grade = lowest + 0.5
+            below_8_count = sum(1 for s in subcategories if s < 8)
+            if below_8_count >= 2:
+                max_allowed = min(max_allowed, lowest_sub + 0.5)
             
-            # Step 5: If any subcategory below 6, cap at 6.5
-            if lowest_sub < 6:
-                calibrated_grade = min(calibrated_grade, 6.5)
+            # Apply calibration
+            calibrated_grade = min(ai_grade, max_allowed)
             
             # Round to nearest 0.5
             calibrated_grade = round(calibrated_grade * 2) / 2
             calibrated_grade = max(1.0, calibrated_grade)
             
-            logger.info(f"PSA Calibration: AI={ai_grade}, Calibrated={calibrated_grade} (subs: C={centering} Co={corners} S={surface} E={edges})")
+            if calibrated_grade != ai_grade:
+                logger.info(f"PSA Calibration: AI={ai_grade}, Calibrated={calibrated_grade} (C={centering} Co={corners} S={surface} E={edges})")
             
             result["overall_grade"] = calibrated_grade
             result["send_to_psa"] = calibrated_grade >= 8.0
-            
-            # Update subcategory scores in result
-            result["centering"]["score"] = round(centering * 2) / 2
-            result["corners"]["score"] = round(corners * 2) / 2
-            result["surface"]["score"] = round(surface * 2) / 2
-            result["edges"]["score"] = round(edges * 2) / 2
             
         except Exception as e:
             logger.warning(f"Calibration failed: {e}")
