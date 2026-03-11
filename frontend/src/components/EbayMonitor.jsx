@@ -187,6 +187,16 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
     }
   };
 
+  // Delete individual listing
+  const handleDeleteListing = async (listingId) => {
+    try {
+      await axios.delete(`${apiBase}/listings/${listingId}`);
+      loadListings();
+    } catch (error) {
+      console.error('Error deleting listing:', error);
+    }
+  };
+
   // Group listings by card
   const listingsByCard = listings.reduce((acc, listing) => {
     const key = listing.search_query;
@@ -616,6 +626,16 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                                     </button>
                                   </>
                                 )}
+
+                                <span className="text-gray-600 hidden sm:inline">|</span>
+                                <button
+                                  onClick={() => handleDeleteListing(listing.id)}
+                                  className="inline-flex items-center gap-1 text-red-500 hover:text-red-400 hover:underline"
+                                  data-testid={`delete-listing-${listing.id}`}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span className="hidden sm:inline">Borrar</span>
+                                </button>
                               </div>
                             </div>
                           </div>
