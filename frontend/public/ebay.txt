@@ -32,7 +32,7 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
 # Scrape.do API Key (optional - for eBay imports)
-SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY', '')
+SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY', 'SCRAPEDO_KEY_REMOVED')
 
 # Initialize OpenAI client
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
