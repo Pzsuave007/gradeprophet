@@ -2,7 +2,7 @@
 cd /home/gradeprophet && git pull
 cp -r /home/gradeprophet/frontend/src/* /opt/gradeprophet/frontend/src/
 cp /home/gradeprophet/backend/server.py /opt/gradeprophet/backend/server.py
-pip3 install opencv-python-headless 2>&1 | tail -2
+pip3 install httpx opencv-python-headless motor fastapi uvicorn python-dotenv openai pillow pydantic regex python-multipart 2>&1 | tail -2
 cd /opt/gradeprophet/frontend && npm run build --legacy-peer-deps
 cp -r /opt/gradeprophet/frontend/build/* /home/flipcardsuni2/public_html/
 pkill -f "uvicorn.*8001" 2>/dev/null; sleep 3
