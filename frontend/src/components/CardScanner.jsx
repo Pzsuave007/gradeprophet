@@ -45,7 +45,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
 
   if (image) {
     return (
-      <div className={`relative ${small ? 'aspect-square' : 'aspect-[4/5]'} bg-[#121212] border border-[#1a1a1a] rounded-lg overflow-hidden group`}>
+      <div className={`relative ${small ? 'aspect-square' : 'aspect-[5/4]'} bg-[#121212] border border-[#1a1a1a] rounded-lg overflow-hidden group`}>
         <img src={image} alt={label} className="w-full h-full object-contain" />
         <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <button onClick={onClear} disabled={disabled} className="p-2 rounded-full bg-red-500/80 hover:bg-red-500" data-testid={`${testId}-clear`}>
@@ -61,7 +61,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
 
   return (
     <div
-      className={`relative ${small ? 'aspect-square' : 'aspect-[4/5]'} border-2 border-dashed rounded-lg transition-all duration-300 cursor-pointer
+      className={`relative ${small ? 'aspect-square' : 'aspect-[5/4]'} border-2 border-dashed rounded-lg transition-all duration-300 cursor-pointer
         ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${dragActive ? 'border-[#3b82f6] bg-[#3b82f6]/5' : 'border-[#27272a] hover:border-[#3b82f6]/50 bg-[#0f0f0f]'}`}
       style={dragActive ? { borderColor: accentColor, backgroundColor: `${accentColor}10` } : {}}
       onDragEnter={handleDrag} onDragLeave={handleDrag} onDragOver={handleDrag} onDrop={handleDrop}
@@ -294,32 +294,32 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
             )}
           </div>
 
-          {/* Front + Back + Corners in one row */}
-          <div className="grid grid-cols-4 gap-3">
+          {/* Front + Back Side by Side - Compact */}
+          <div className="grid grid-cols-2 gap-3">
             <ImageUploadZone label="Frente" sublabel="Requerido" image={frontImage} onImageSelect={setFrontImage}
               onClear={() => setFrontImage(null)} disabled={isAnalyzing} testId="front-image-upload" />
             <ImageUploadZone label="Dorso" sublabel="Opcional" image={backImage} onImageSelect={setBackImage}
               onClear={() => setBackImage(null)} disabled={isAnalyzing} testId="back-image-upload" />
-            
-            {/* Corners inline */}
-            <div className="col-span-2">
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5">
-                  <CornerDownRight className="w-3.5 h-3.5 text-[#3b82f6]" />
-                  <span className="text-xs text-white font-medium">Esquinas {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
-                </div>
-                {frontImage && !hasCorners && (
-                  <Button onClick={autoCropCorners} variant="ghost" size="sm" className="text-[#3b82f6] h-6 text-[10px] px-2" data-testid="auto-crop-corners-btn">
-                    <Scissors className="w-3 h-3 mr-1" />Auto-generar
-                  </Button>
-                )}
+          </div>
+
+          {/* Corners - Always visible, compact row */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <CornerDownRight className="w-3.5 h-3.5 text-[#3b82f6]" />
+                <span className="text-xs text-white font-medium">Esquinas {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <ImageUploadZone label="↖" image={cornerTopLeft} onImageSelect={setCornerTopLeft} onClear={() => setCornerTopLeft(null)} disabled={isAnalyzing} testId="corner-top-left" small />
-                <ImageUploadZone label="↗" image={cornerTopRight} onImageSelect={setCornerTopRight} onClear={() => setCornerTopRight(null)} disabled={isAnalyzing} testId="corner-top-right" small />
-                <ImageUploadZone label="↙" image={cornerBottomLeft} onImageSelect={setCornerBottomLeft} onClear={() => setCornerBottomLeft(null)} disabled={isAnalyzing} testId="corner-bottom-left" small />
-                <ImageUploadZone label="↘" image={cornerBottomRight} onImageSelect={setCornerBottomRight} onClear={() => setCornerBottomRight(null)} disabled={isAnalyzing} testId="corner-bottom-right" small />
-              </div>
+              {frontImage && !hasCorners && (
+                <Button onClick={autoCropCorners} variant="ghost" size="sm" className="text-[#3b82f6] h-6 text-[10px] px-2" data-testid="auto-crop-corners-btn">
+                  <Scissors className="w-3 h-3 mr-1" />Auto-generar
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <ImageUploadZone label="↖" image={cornerTopLeft} onImageSelect={setCornerTopLeft} onClear={() => setCornerTopLeft(null)} disabled={isAnalyzing} testId="corner-top-left" small />
+              <ImageUploadZone label="↗" image={cornerTopRight} onImageSelect={setCornerTopRight} onClear={() => setCornerTopRight(null)} disabled={isAnalyzing} testId="corner-top-right" small />
+              <ImageUploadZone label="↙" image={cornerBottomLeft} onImageSelect={setCornerBottomLeft} onClear={() => setCornerBottomLeft(null)} disabled={isAnalyzing} testId="corner-bottom-left" small />
+              <ImageUploadZone label="↘" image={cornerBottomRight} onImageSelect={setCornerBottomRight} onClear={() => setCornerBottomRight(null)} disabled={isAnalyzing} testId="corner-bottom-right" small />
             </div>
           </div>
         </div>
