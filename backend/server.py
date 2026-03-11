@@ -143,6 +143,71 @@ class LearningStats(BaseModel):
     predictions_low: int  # Times we predicted lower
     predictions_accurate: int  # Within 0.5
 
+# ============================================
+# WATCHLIST & EBAY MONITOR MODELS
+# ============================================
+
+class WatchlistCard(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    search_query: str  # e.g., "1996 Topps Kobe Bryant #138"
+    notes: Optional[str] = None  # User notes about this card
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_searched: Optional[datetime] = None
+    listings_found: int = 0  # Total listings found for this card
+
+class WatchlistCardCreate(BaseModel):
+    search_query: str
+    notes: Optional[str] = None
+
+class WatchlistCardResponse(BaseModel):
+    id: str
+    search_query: str
+    notes: Optional[str] = None
+    created_at: str
+    last_searched: Optional[str] = None
+    listings_found: int = 0
+
+class EbayListing(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    watchlist_card_id: str  # Reference to the watchlist card
+    ebay_item_id: str  # eBay's unique listing ID
+    title: str
+    price: str  # Current price as string (could be bid or BIN)
+    price_value: float  # Numeric price for sorting
+    listing_type: str  # "auction" or "buy_now"
+    time_left: Optional[str] = None  # For auctions
+    image_url: str
+    listing_url: str
+    bids: Optional[int] = None  # For auctions
+    found_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    status: str = "new"  # new, seen, interested, ignored
+    search_query: str  # The query used to find this
+
+class EbayListingResponse(BaseModel):
+    id: str
+    watchlist_card_id: str
+    ebay_item_id: str
+    title: str
+    price: str
+    price_value: float
+    listing_type: str
+    time_left: Optional[str] = None
+    image_url: str
+    listing_url: str
+    bids: Optional[int] = None
+    found_at: str
+    status: str
+    search_query: str
+
+class SearchResultSummary(BaseModel):
+    total_cards_searched: int
+    new_listings_found: int
+    cards_with_results: List[str]  # Card names that had new listings
+
 
 # PSA Grading Analysis Prompt
 PSA_ANALYSIS_PROMPT_SINGLE = """You are an expert sports card grader with 20+ years of hands-on experience at PSA. You grade cards like a HUMAN EXPERT would - using your trained eye to distinguish between ACTUAL card defects and IMAGE/SCAN ARTIFACTS.
@@ -1387,6 +1452,420 @@ async def crop_corners(data: CornerCropRequest):
         raise
     except Exception as e:
         logger.error(f"Corner crop failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# WATCHLIST ENDPOINTS
+# ============================================
+
+@api_router.post("/watchlist", response_model=WatchlistCardResponse)
+async def add_to_watchlist(card: WatchlistCardCreate):
+    """Add a card to the watchlist for monitoring"""
+    try:
+        watchlist_card = WatchlistCard(
+            search_query=card.search_query.strip(),
+            notes=card.notes
+        )
+        
+        card_dict = watchlist_card.model_dump()
+        card_dict['created_at'] = card_dict['created_at'].isoformat()
+        if card_dict.get('last_searched'):
+            card_dict['last_searched'] = card_dict['last_searched'].isoformat()
+        
+        await db.watchlist_cards.insert_one(card_dict)
+        
+        return WatchlistCardResponse(
+            id=watchlist_card.id,
+            search_query=watchlist_card.search_query,
+            notes=watchlist_card.notes,
+            created_at=card_dict['created_at'],
+            last_searched=card_dict.get('last_searched'),
+            listings_found=0
+        )
+    except Exception as e:
+        logger.error(f"Error adding to watchlist: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/watchlist", response_model=List[WatchlistCardResponse])
+async def get_watchlist():
+    """Get all cards in the watchlist"""
+    try:
+        cards = await db.watchlist_cards.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        return [WatchlistCardResponse(**card) for card in cards]
+    except Exception as e:
+        logger.error(f"Error getting watchlist: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/watchlist/{card_id}")
+async def remove_from_watchlist(card_id: str):
+    """Remove a card from the watchlist and its associated listings"""
+    try:
+        result = await db.watchlist_cards.delete_one({"id": card_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Card not found in watchlist")
+        
+        # Also delete associated listings
+        await db.ebay_listings.delete_many({"watchlist_card_id": card_id})
+        
+        return {"success": True, "message": "Card removed from watchlist"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error removing from watchlist: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/watchlist/{card_id}")
+async def update_watchlist_card(card_id: str, card: WatchlistCardCreate):
+    """Update a card in the watchlist"""
+    try:
+        result = await db.watchlist_cards.update_one(
+            {"id": card_id},
+            {"$set": {
+                "search_query": card.search_query.strip(),
+                "notes": card.notes
+            }}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Card not found in watchlist")
+        
+        return {"success": True, "message": "Card updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating watchlist card: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================
+# EBAY LISTINGS ENDPOINTS
+# ============================================
+
+async def search_ebay_for_card(search_query: str) -> List[dict]:
+    """Search eBay for a specific card and return listings"""
+    if not SCRAPEDO_API_KEY:
+        raise HTTPException(status_code=400, detail="Scrape.do API key not configured")
+    
+    # Build eBay search URL - searching for raw cards (not graded)
+    # Using urllib for proper encoding
+    from urllib.parse import quote_plus
+    encoded_query = quote_plus(f"{search_query} -PSA -BGS -SGC -graded")
+    # Sort by newest, used condition ok for cards
+    ebay_search_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=10"
+    
+    scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={ebay_search_url}&render=true"
+    
+    logger.info(f"Searching eBay for: {search_query}")
+    
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.get(scrape_url)
+        html_content = response.text
+    
+    listings = []
+    seen_ids = set()
+    
+    # Find all item IDs first
+    item_ids = re.findall(r'/itm/(\d{10,})', html_content)
+    item_ids = list(dict.fromkeys(item_ids))  # Remove duplicates while preserving order
+    
+    logger.info(f"Found {len(item_ids)} unique item IDs")
+    
+    for item_id in item_ids[:15]:  # Limit to 15 results
+        if item_id in seen_ids or item_id == '123456':  # Skip placeholder
+            continue
+        seen_ids.add(item_id)
+        
+        try:
+            # Find the complete listing block for this item
+            # eBay uses <li> elements with data-listingid attribute
+            li_pattern = rf'<li[^>]*data-listingid="{item_id}"[^>]*>.*?</li>'
+            li_match = re.search(li_pattern, html_content, re.DOTALL)
+            
+            if li_match:
+                item_html = li_match.group(0)
+            else:
+                # Fallback: Extract a window around the item ID
+                start_idx = html_content.find(f'data-listingid="{item_id}"')
+                if start_idx == -1:
+                    start_idx = html_content.find(f'/itm/{item_id}')
+                if start_idx == -1:
+                    continue
+                # Get surrounding context
+                start = max(0, start_idx - 500)
+                end = min(len(html_content), start_idx + 8000)
+                item_html = html_content[start:end]
+            
+            # Extract title from the listing HTML
+            # Look for text content that looks like a card title
+            title = "Unknown"
+            
+            # Pattern 1: Find text between > and < that looks like a title
+            text_contents = re.findall(r'>([^<]{20,120})<', item_html)
+            for text in text_contents:
+                text = text.strip()
+                # Skip common non-title texts
+                skip_patterns = [
+                    'opens in a new', 'out of 5 stars', 'product rating',
+                    'delivery', 'located in', 'positive', 'watch', 
+                    'add to cart', 'buy it now', 'see more', 'similar items'
+                ]
+                if any(skip in text.lower() for skip in skip_patterns):
+                    continue
+                # Check if it looks like a card listing title
+                if any(keyword in text.upper() for keyword in ['MICHAEL', 'JORDAN', 'KOBE', 'BRYANT', 'ROOKIE', 'RC', '19']):
+                    title = text
+                    break
+                # Or if it has common card descriptors
+                if re.search(r'\b(fleer|topps|upper deck|hoops|skybox)\b', text, re.IGNORECASE):
+                    title = text
+                    break
+            
+            # Fallback: Use first substantial text that's not a skip pattern
+            if title == "Unknown":
+                for text in text_contents:
+                    text = text.strip()
+                    if len(text) > 20 and not any(skip in text.lower() for skip in ['opens', 'stars', 'rating', 'delivery', 'located', 'positive', 'watch', 'cart', 'buy', 'similar', 'sponsored']):
+                        title = text
+                        break
+            
+            # Skip if title contains grading company names
+            title_upper = title.upper()
+            if any(x in title_upper for x in ['PSA ', 'BGS ', 'SGC ', 'CGC ', ' PSA', ' BGS', ' SGC', 'GRADED']):
+                continue
+            
+            # Extract price
+            price_str = "$0.00"
+            price_value = 0.0
+            price_patterns = [
+                r'class="[^"]*s-item__price[^"]*"[^>]*>\$?([\d,]+\.?\d*)',
+                r'>\$([\d,]+\.?\d*)<',
+                r'\$([\d,]+\.?\d*)',
+            ]
+            for pattern in price_patterns:
+                match = re.search(pattern, item_html)
+                if match:
+                    try:
+                        price_value = float(match.group(1).replace(',', ''))
+                        price_str = f"${price_value:,.2f}"
+                        break
+                    except:
+                        pass
+            
+            # Determine listing type and time left
+            listing_type = "buy_now"
+            bids = None
+            time_left = None
+            
+            # Check for bid indicators
+            bid_match = re.search(r'(\d+)\s*bid', item_html.lower())
+            if bid_match:
+                listing_type = "auction"
+                bids = int(bid_match.group(1))
+            
+            # Check for time left
+            time_patterns = [
+                r'(\d+[hmd]\s*\d*[hmd]?)\s*left',
+                r'class="[^"]*time[^"]*"[^>]*>([^<]+)<',
+            ]
+            for pattern in time_patterns:
+                match = re.search(pattern, item_html.lower())
+                if match:
+                    time_left = match.group(1).strip()
+                    listing_type = "auction"
+                    break
+            
+            # Extract image URL
+            image_url = ""
+            img_patterns = [
+                r'src="(https://i\.ebayimg\.com/[^"]+\.(?:jpg|jpeg|png|webp))"',
+                r'data-src="(https://i\.ebayimg\.com/[^"]+)"',
+            ]
+            for pattern in img_patterns:
+                match = re.search(pattern, item_html)
+                if match:
+                    image_url = match.group(1)
+                    if 'gif' not in image_url.lower():
+                        break
+            
+            if not image_url:
+                continue
+            
+            listing_url = f"https://www.ebay.com/itm/{item_id}"
+            
+            listings.append({
+                "ebay_item_id": item_id,
+                "title": title[:200],  # Limit title length
+                "price": price_str,
+                "price_value": price_value,
+                "listing_type": listing_type,
+                "time_left": time_left,
+                "image_url": image_url,
+                "listing_url": listing_url,
+                "bids": bids
+            })
+            
+            logger.info(f"Extracted listing: {item_id} - {title[:50]}... - {price_str}")
+            
+        except Exception as e:
+            logger.warning(f"Error parsing item {item_id}: {e}")
+            continue
+    
+    logger.info(f"Total listings extracted: {len(listings)}")
+    return listings
+
+@api_router.post("/watchlist/search", response_model=SearchResultSummary)
+async def search_all_watchlist():
+    """Search eBay for all cards in the watchlist and save new listings"""
+    try:
+        watchlist = await db.watchlist_cards.find({}, {"_id": 0}).to_list(100)
+        
+        if not watchlist:
+            return SearchResultSummary(
+                total_cards_searched=0,
+                new_listings_found=0,
+                cards_with_results=[]
+            )
+        
+        total_new_listings = 0
+        cards_with_results = []
+        
+        for card in watchlist:
+            card_id = card['id']
+            search_query = card['search_query']
+            
+            try:
+                # Search eBay for this card
+                listings = await search_ebay_for_card(search_query)
+                
+                new_count = 0
+                for listing_data in listings:
+                    # Check if we already have this listing
+                    existing = await db.ebay_listings.find_one({
+                        "ebay_item_id": listing_data["ebay_item_id"]
+                    })
+                    
+                    if not existing:
+                        # Save new listing
+                        ebay_listing = EbayListing(
+                            watchlist_card_id=card_id,
+                            search_query=search_query,
+                            **listing_data
+                        )
+                        
+                        listing_dict = ebay_listing.model_dump()
+                        listing_dict['found_at'] = listing_dict['found_at'].isoformat()
+                        
+                        await db.ebay_listings.insert_one(listing_dict)
+                        new_count += 1
+                
+                if new_count > 0:
+                    cards_with_results.append(search_query)
+                    total_new_listings += new_count
+                
+                # Update the watchlist card with search info
+                total_listings = await db.ebay_listings.count_documents({"watchlist_card_id": card_id})
+                await db.watchlist_cards.update_one(
+                    {"id": card_id},
+                    {"$set": {
+                        "last_searched": datetime.now(timezone.utc).isoformat(),
+                        "listings_found": total_listings
+                    }}
+                )
+                
+            except Exception as e:
+                logger.error(f"Error searching for card '{search_query}': {e}")
+                continue
+        
+        return SearchResultSummary(
+            total_cards_searched=len(watchlist),
+            new_listings_found=total_new_listings,
+            cards_with_results=cards_with_results
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in watchlist search: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/listings", response_model=List[EbayListingResponse])
+async def get_listings(status: Optional[str] = None, watchlist_card_id: Optional[str] = None):
+    """Get eBay listings, optionally filtered by status or watchlist card"""
+    try:
+        query = {}
+        if status:
+            query["status"] = status
+        if watchlist_card_id:
+            query["watchlist_card_id"] = watchlist_card_id
+        
+        listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).to_list(500)
+        return [EbayListingResponse(**listing) for listing in listings]
+    except Exception as e:
+        logger.error(f"Error getting listings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.put("/listings/{listing_id}/status")
+async def update_listing_status(listing_id: str, status: str):
+    """Update the status of a listing (new, seen, interested, ignored)"""
+    try:
+        valid_statuses = ["new", "seen", "interested", "ignored"]
+        if status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
+        
+        result = await db.ebay_listings.update_one(
+            {"id": listing_id},
+            {"$set": {"status": status}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        
+        return {"success": True, "message": f"Listing marked as {status}"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating listing status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/listings/{listing_id}")
+async def delete_listing(listing_id: str):
+    """Delete a specific listing"""
+    try:
+        result = await db.ebay_listings.delete_one({"id": listing_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Listing not found")
+        return {"success": True, "message": "Listing deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting listing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.delete("/listings")
+async def clear_all_listings(watchlist_card_id: Optional[str] = None):
+    """Clear all listings or listings for a specific watchlist card"""
+    try:
+        query = {}
+        if watchlist_card_id:
+            query["watchlist_card_id"] = watchlist_card_id
+        
+        result = await db.ebay_listings.delete_many(query)
+        return {"success": True, "deleted_count": result.deleted_count}
+    except Exception as e:
+        logger.error(f"Error clearing listings: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/listings/stats")
+async def get_listings_stats():
+    """Get statistics about the listings"""
+    try:
+        total = await db.ebay_listings.count_documents({})
+        new_count = await db.ebay_listings.count_documents({"status": "new"})
+        interested_count = await db.ebay_listings.count_documents({"status": "interested"})
+        
+        return {
+            "total_listings": total,
+            "new_listings": new_count,
+            "interested_listings": interested_count
+        }
+    except Exception as e:
+        logger.error(f"Error getting listing stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 # Include the router in the main app

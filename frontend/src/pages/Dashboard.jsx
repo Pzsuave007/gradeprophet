@@ -7,12 +7,15 @@ import {
   Shield,
   ChevronLeft,
   Menu,
-  X
+  X,
+  Search,
+  ShoppingBag
 } from 'lucide-react';
 import CardScanner from '../components/CardScanner';
 import AnalysisResult from '../components/AnalysisResult';
 import HistoryPanel from '../components/HistoryPanel';
 import LearningPanel from '../components/LearningPanel';
+import EbayMonitor from '../components/EbayMonitor';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 
@@ -25,6 +28,7 @@ const Dashboard = () => {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('history');
+  const [mainTab, setMainTab] = useState('scanner'); // scanner | monitor
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
@@ -67,6 +71,15 @@ const Dashboard = () => {
     }
   }, [currentView, handleNewAnalysis]);
 
+  // Handle analyze from eBay monitor
+  const handleAnalyzeFromEbay = useCallback((listing) => {
+    // Switch to scanner tab and open with the listing URL
+    setMainTab('scanner');
+    setCurrentView('scanner');
+    // The user can copy the URL and use the eBay import feature
+    window.open(listing.listing_url, '_blank');
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] grid-background">
       {/* Header */}
@@ -88,8 +101,36 @@ const Dashboard = () => {
               </div>
             </div>
 
+            {/* Main Navigation Tabs - Desktop */}
+            <div className="hidden md:flex items-center gap-1 bg-[#0a0a0a] p-1 rounded-lg border border-[#27272a]">
+              <button
+                onClick={() => { setMainTab('scanner'); setCurrentView('scanner'); }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  mainTab === 'scanner' 
+                    ? 'bg-[#3b82f6] text-white' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+                data-testid="tab-scanner"
+              >
+                <Scan className="w-4 h-4" />
+                Analizar
+              </button>
+              <button
+                onClick={() => setMainTab('monitor')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  mainTab === 'monitor' 
+                    ? 'bg-[#3b82f6] text-white' 
+                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                }`}
+                data-testid="tab-monitor"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                Monitor eBay
+              </button>
+            </div>
+
             {/* Desktop Stats */}
-            <div className="hidden md:flex items-center gap-6">
+            <div className="hidden lg:flex items-center gap-6">
               <div className="flex items-center gap-2 text-sm">
                 <Shield className="w-4 h-4 text-[#22c55e]" />
                 <span className="text-gray-400">PSA Standards</span>
@@ -126,6 +167,32 @@ const Dashboard = () => {
             className="md:hidden bg-[#121212] border-b border-[#27272a]"
           >
             <div className="p-4">
+              {/* Mobile Navigation Tabs */}
+              <div className="flex gap-2 mb-4">
+                <button
+                  onClick={() => { setMainTab('scanner'); setCurrentView('scanner'); setMobileMenuOpen(false); }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium ${
+                    mainTab === 'scanner' 
+                      ? 'bg-[#3b82f6] text-white' 
+                      : 'bg-[#0a0a0a] text-gray-400 border border-[#27272a]'
+                  }`}
+                >
+                  <Scan className="w-4 h-4" />
+                  Analizar
+                </button>
+                <button
+                  onClick={() => { setMainTab('monitor'); setMobileMenuOpen(false); }}
+                  className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium ${
+                    mainTab === 'monitor' 
+                      ? 'bg-[#3b82f6] text-white' 
+                      : 'bg-[#0a0a0a] text-gray-400 border border-[#27272a]'
+                  }`}
+                >
+                  <ShoppingBag className="w-4 h-4" />
+                  Monitor
+                </button>
+              </div>
+              
               <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-gray-400 mb-3">
                 Historial Reciente
               </h3>
@@ -144,7 +211,8 @@ const Dashboard = () => {
           {/* Main Panel */}
           <div className="lg:col-span-2">
             <AnimatePresence mode="wait">
-              {currentView === 'scanner' && (
+              {/* Scanner Tab Content */}
+              {mainTab === 'scanner' && currentView === 'scanner' && (
                 <motion.div
                   key="scanner"
                   initial={{ opacity: 0, y: 20 }}
@@ -210,7 +278,8 @@ const Dashboard = () => {
                 </motion.div>
               )}
 
-              {(currentView === 'result' || currentView === 'history-detail') && currentAnalysis && (
+              {/* Analysis Result */}
+              {mainTab === 'scanner' && (currentView === 'result' || currentView === 'history-detail') && currentAnalysis && (
                 <motion.div
                   key="result"
                   initial={{ opacity: 0, y: 20 }}
@@ -236,6 +305,32 @@ const Dashboard = () => {
                     onDelete={() => setHistoryRefresh(prev => prev + 1)}
                     onRefresh={() => setHistoryRefresh(prev => prev + 1)}
                   />
+                </motion.div>
+              )}
+
+              {/* eBay Monitor Tab Content */}
+              {mainTab === 'monitor' && (
+                <motion.div
+                  key="monitor"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                >
+                  {/* Monitor Header */}
+                  <div className="text-center mb-8">
+                    <h2 className="font-heading text-4xl sm:text-5xl font-black uppercase tracking-tighter text-white mb-4">
+                      Monitor de<br />
+                      <span className="text-[#3b82f6]">Tarjetas en eBay</span>
+                    </h2>
+                    <p className="text-gray-400 max-w-xl mx-auto">
+                      Agrega las tarjetas que buscas y el sistema encontrará 
+                      automáticamente los nuevos listings disponibles. Nunca 
+                      pierdas una oportunidad de compra.
+                    </p>
+                  </div>
+
+                  {/* eBay Monitor Component */}
+                  <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} />
                 </motion.div>
               )}
             </AnimatePresence>
