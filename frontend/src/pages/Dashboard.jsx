@@ -29,6 +29,7 @@ const Dashboard = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [sidebarTab, setSidebarTab] = useState('history');
   const [mainTab, setMainTab] = useState('scanner'); // scanner | monitor
+  const [ebayUrlToImport, setEbayUrlToImport] = useState(null); // URL to auto-import from eBay
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
@@ -71,13 +72,19 @@ const Dashboard = () => {
     }
   }, [currentView, handleNewAnalysis]);
 
-  // Handle analyze from eBay monitor
+  // Handle analyze from eBay monitor - auto-import the listing
   const handleAnalyzeFromEbay = useCallback((listing) => {
-    // Switch to scanner tab and open with the listing URL
+    console.log('handleAnalyzeFromEbay called with listing:', listing);
+    console.log('Setting ebayUrlToImport to:', listing.listing_url);
+    // Switch to scanner tab and trigger auto-import
     setMainTab('scanner');
     setCurrentView('scanner');
-    // The user can copy the URL and use the eBay import feature
-    window.open(listing.listing_url, '_blank');
+    setEbayUrlToImport(listing.listing_url);
+  }, []);
+
+  // Clear the eBay URL after it's been processed
+  const handleEbayImportComplete = useCallback(() => {
+    setEbayUrlToImport(null);
   }, []);
 
   return (
@@ -237,6 +244,8 @@ const Dashboard = () => {
                     onAnalysisComplete={handleAnalysisComplete}
                     isAnalyzing={isAnalyzing}
                     setIsAnalyzing={setIsAnalyzing}
+                    ebayUrlToImport={ebayUrlToImport}
+                    onEbayImportComplete={handleEbayImportComplete}
                   />
 
                   {/* Info Cards */}

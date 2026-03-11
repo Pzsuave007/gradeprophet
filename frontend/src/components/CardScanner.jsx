@@ -140,7 +140,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
   );
 };
 
-const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
+const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlToImport, onEbayImportComplete }) => {
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
   const [referenceImage, setReferenceImage] = useState(null);
@@ -187,6 +187,56 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing }) => {
   useEffect(() => {
     fetchReferences();
   }, [fetchReferences]);
+
+  // Auto-import from eBay when URL is passed from Monitor
+  useEffect(() => {
+    if (ebayUrlToImport) {
+      console.log('Auto-importing from eBay:', ebayUrlToImport);
+      // Open the eBay import section
+      setShowEbayImport(true);
+      // Set the URL
+      setEbayUrl(ebayUrlToImport);
+      // Trigger the import
+      const autoImport = async () => {
+        setEbayLoading(true);
+        setEbayError(null);
+        setEbayImages([]);
+        
+        try {
+          const response = await fetch(`${API}/ebay/import`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: ebayUrlToImport })
+          });
+          
+          const data = await response.json();
+          console.log('eBay import response:', data);
+          
+          if (data.success && data.images.length > 0) {
+            setEbayImages(data.images);
+            setEbayTitle(data.title || '');
+          } else {
+            setEbayError(data.error || 'No se encontraron imágenes en el listing');
+          }
+        } catch (err) {
+          setEbayError('Error al importar desde eBay');
+          console.error('eBay import failed:', err);
+        } finally {
+          setEbayLoading(false);
+        }
+      };
+      
+      autoImport();
+      
+      // Clear the URL in parent after a delay to prevent re-triggering
+      // but don't reset our local state
+      if (onEbayImportComplete) {
+        setTimeout(() => {
+          onEbayImportComplete();
+        }, 100);
+      }
+    }
+  }, [ebayUrlToImport, API, onEbayImportComplete]);
 
   // eBay Import Functions
   const importFromEbay = async () => {
