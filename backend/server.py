@@ -218,66 +218,69 @@ IMAGE vs CARD DEFECTS:
 
 === OFFICIAL PSA GRADING STANDARDS ===
 
-PSA 10 - GEM MINT:
-- Centering: 55/45 front, 75/25 back or better
-- Corners: Perfectly sharp to the naked eye and under magnification
-- Edges: No chipping, no whitening, no roughness whatsoever
-- Surface: No print defects, no scratches, no stains, perfect gloss
-- A virtually perfect card. Less than 2% of cards submitted receive this grade.
+PSA 10 GEM MINT (GEM-MT): Virtually perfect card. Four perfectly sharp corners, 55/45 or better centering (front) and 75/25 (reverse), full original gloss, no visible flaws. A microscopic printing imperfection is allowed. Less than 2% of cards achieve this.
 
-PSA 9 - MINT:
-- Centering: 60/40 front, 90/10 back or better
-- ONE minor flaw is allowed (one slightly soft corner, one tiny edge nick, minor print spot)
-- Corners: Sharp to the naked eye. Under 10x magnification, one corner may show minimal wear
-- Edges: Nearly perfect with perhaps one tiny rough spot
-- Surface: Clean with possibly one minor print imperfection
+PSA 9 MINT: Superb condition, appears Mint 10 at a glance. May have ONE minor flaw: very slight wax stain, slight printing imperfection, slightly off-white borders, or barely noticeable corner wear. Centering 60/40 front, 90/10 reverse.
 
-PSA 8 - NM-MT (Near Mint to Mint):
-- Centering: 65/35 front, 90/10 back or better
-- Corners: Slightly soft but NOT rounded. Minor fraying visible under magnification
-- Edges: Minor chipping or whitening visible on close inspection (not naked eye from arm's length)
-- Surface: May have minor print spots or slight loss of original gloss
-- Overall very attractive card with only minor flaws
+PSA 8 NEAR MINT-MINT (NM-MT): High-end card with visible minor flaws. Can have slight fraying on 1-2 corners, slight edge wear or minor whitening, or minor printing defects. Centering 65/35 front, 90/10 back. Looks like a 9 at first glance.
 
-PSA 7 - NEAR MINT:
-- Centering: 70/30 front, 90/10 back or better
-- Corners: Slight fuzzing or minor rounding. Visible to naked eye but not distracting
-- Edges: Minor chipping and/or whitening visible to naked eye
-- Surface: Minor surface wear, light scratches possible, slight print defects
-- A desirable card with noticeable but minor flaws
+PSA 7 NEAR MINT (NM): Sharp but with visible surface wear or printing imperfections. Minor corner wear with slight rounding or white fraying. Edge wear and light scratches visible. Centering 70/30 front.
 
-PSA 6 - EX-MT (Excellent to Mint):
-- Centering: 75/25 front, 90/10 back or better
-- Corners: Visible rounding or fraying on 2+ corners
-- Edges: Noticeable chipping and/or whitening on multiple edges
-- Surface: May have light scratches, minor staining, or print defects
-- Card shows wear but is still presentable
+PSA 6 EXCELLENT-MINT (EX-MT): Noticeable surface wear, edge chipping, and less-than-sharp corners. Light scratches or slight white marks on edges. Centering 75/25 front.
 
-PSA 5 - EXCELLENT:
-- Centering: 80/20 front, 90/10 back or better
-- Corners: Moderate rounding on most corners
-- Edges: Moderate chipping/whitening across multiple edges
-- Surface: May have light creases, noticeable scratches, or staining
-- Card has obvious wear but no major damage
+PSA 5 EXCELLENT (EX): Visible surface wear, rounded corners, and potentially a minor crease. Noticeable centering issues. Centering 80/20 front.
 
-PSA 4 and below: Heavy wear, creases, staining, or significant damage.
+PSA 4 VERY GOOD-EXCELLENT (VG-EX): Heavy wear, rounded corners, surface damage like scratches or creases. Centering 85/15 front.
 
-=== KEY GRADING RULES ===
-1. The LOWEST subcategory score heavily influences the overall grade. A card with PSA 9 corners but PSA 6 edges is NOT a PSA 8 - it's closer to PSA 6-7.
-2. Dark-bordered cards (black, dark blue, dark green) show edge wear as white specks/lines. Be EXTRA careful.
-3. Vintage cards (pre-2000) are graded by the SAME standards as modern cards. Age is NOT an excuse for wear.
-4. Foil/chrome/refractor cards show surface scratches more easily. Look carefully.
-5. The back of the card matters EQUALLY. Many collectors only photograph the front but the back can have significant wear.
-6. Edge whitening/chipping is the #1 reason cards don't get PSA 10. Look at EVERY edge carefully.
-7. Corner wear is cumulative - if 3 out of 4 corners show slight wear, that's worse than 1 corner with moderate wear.
+PSA 3 VERY GOOD (VG): Significant noticeable wear including major creases, surface stains, and rounding corners.
 
-BE HONEST AND ACCURATE. Users rely on your assessment to decide whether to pay $20-50 to submit cards to PSA for professional grading. An inflated grade wastes their money. An accurate grade saves them money and builds trust.
+PSA 2 GOOD (GD): Substantial damage - heavy creasing, surface wear, loss of gloss, edge chipping.
+
+PSA 1 POOR (PR): Extreme damage including major creases, whitening, stains, and potential missing pieces.
+
+=== SPECIFIC DEFECT SCORING ===
+
+CORNERS:
+- PSA 10: 4 perfectly sharp corners, no fraying
+- PSA 9: Barely noticeable wear on one corner (needs magnification to see)
+- PSA 8: Slight fraying on 1-2 corners
+- PSA 7: Visible rounding or white fraying on 2+ corners
+- PSA 6 and below: Noticeable rounding on multiple corners
+
+EDGES:
+- PSA 10: Crisp, clean edges with no chipping
+- PSA 9: Minor light white speck or tiny edge nick
+- PSA 8-7: Noticeable whitening along edges
+- PSA 6 and below: Visible chipping on multiple edges
+
+CENTERING:
+- 55/45 or better = PSA 10 eligible
+- 60/40 = PSA 9 maximum
+- 65/35 = PSA 8 maximum
+- 70/30 = PSA 7 maximum
+- 75/25 = PSA 6 maximum
+
+SURFACE:
+- PSA 10: Full original gloss, no scratches, no stains
+- PSA 9: One minor print spot allowed
+- PSA 8: Minor surface marks, slight gloss loss
+- PSA 7: Light scratches visible
+- PSA 6 and below: Noticeable scratches, wear, or staining
+
+=== KEY RULES ===
+1. The LOWEST subcategory score heavily pulls down the overall grade. PSA grades on the WEAKEST aspect.
+2. Dark-bordered cards show edge wear as white specks - be EXTRA careful examining all edges.
+3. Vintage cards (pre-2000) are graded by the SAME standards. Age does NOT excuse wear.
+4. Foil/chrome/refractor cards show surface scratches more easily.
+5. A PSA 10 can sometimes have one or two barely visible minor imperfections, but NOT significant ones.
+
+BE HONEST AND ACCURATE. Users pay $20-50 to submit to PSA. Inflated grades waste their money. Accurate grades save money and build trust.
 
 Provide your response in the following JSON format ONLY (no additional text):
 {
     "centering": {
         "score": <float 1-10>,
-        "description": "<brief assessment with estimated ratio like 55/45 or 60/40>",
+        "description": "<assessment with estimated ratio like 55/45 or 60/40>",
         "issues": ["<all visible issues>"]
     },
     "corners": {
@@ -287,13 +290,13 @@ Provide your response in the following JSON format ONLY (no additional text):
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<brief assessment>",
+        "description": "<assess gloss, scratches, stains, print defects>",
         "issues": ["<all visible surface issues>"]
     },
     "edges": {
         "score": <float 1-10>,
         "description": "<assess each edge: top, bottom, left, right>",
-        "issues": ["<all visible edge issues>"]
+        "issues": ["<all visible edge issues including whitening/chipping>"]
     },
     "overall_grade": <float 1-10>,
     "psa_recommendation": "<honest recommendation>",
@@ -420,31 +423,38 @@ IMAGE vs CARD DEFECTS:
 
 === OFFICIAL PSA GRADING STANDARDS ===
 
-PSA 10 - GEM MINT: Virtually perfect on BOTH sides. Centering 55/45 front, 75/25 back. All 8 corners razor sharp. Zero edge wear. Pristine surfaces. Less than 2% achieve this.
-PSA 9 - MINT: One minor flaw on either side. Centering 60/40 front, 90/10 back. One corner may show minimal wear under magnification.
-PSA 8 - NM-MT: Minor flaws on close inspection. Centering 65/35 front. Slightly soft corners (not rounded). Minor edge chipping visible on inspection.
-PSA 7 - NEAR MINT: Noticeable minor wear. Centering 70/30 front. Slight corner fuzzing/rounding. Minor edge chipping/whitening visible to naked eye.
-PSA 6 - EX-MT: Noticeable wear. Centering 75/25 front. Visible corner rounding on 2+ corners. Edge whitening on multiple edges.
-PSA 5 - EXCELLENT: Moderate wear. Centering 80/20 front. Moderate corner rounding. Moderate edge chipping. Light creases possible.
-PSA 4 and below: Heavy wear, creases, staining, or significant damage.
+PSA 10 GEM MINT: Virtually perfect. Four perfectly sharp corners, 55/45 centering front, 75/25 reverse, full original gloss, no visible flaws. Microscopic printing imperfection allowed. Less than 2% achieve this.
+PSA 9 MINT: Appears Mint 10 at a glance. ONE minor flaw: very slight wax stain, slight printing imperfection, slightly off-white borders. Barely noticeable corner wear needs magnification. Centering 60/40 front, 90/10 reverse.
+PSA 8 NM-MT: High-end with visible minor flaws. Slight fraying 1-2 corners, slight edge wear/whitening, minor printing defects. Looks like a 9 at first glance. Centering 65/35 front, 90/10 back.
+PSA 7 NM: Visible surface wear/printing imperfections. Minor corner wear with slight rounding or white fraying. Edge wear visible. Centering 70/30 front.
+PSA 6 EX-MT: Noticeable surface wear, edge chipping, less-than-sharp corners. Light scratches or white marks. Centering 75/25 front.
+PSA 5 EX: Visible surface wear, rounded corners, potentially minor crease. Centering 80/20 front.
+PSA 4 VG-EX: Heavy wear, rounded corners, surface damage.
+PSA 3 VG: Major creases, surface stains, rounding corners.
+PSA 2 GD: Heavy creasing, loss of gloss, edge chipping.
+PSA 1 PR: Extreme damage, missing pieces.
 
-=== KEY GRADING RULES ===
-1. The LOWEST subcategory heavily influences overall grade. PSA 9 corners + PSA 6 edges = closer to PSA 6-7, NOT PSA 8.
-2. The BACK matters EQUALLY. Edge wear on the back lowers the grade just as much as the front.
-3. Dark-bordered cards show edge wear as white specks/lines. Be EXTRA careful.
-4. Vintage cards (pre-2000) are graded by SAME standards. Age is not an excuse.
-5. Edge whitening is the #1 reason cards don't get PSA 10. Check EVERY edge on BOTH sides.
-6. Corner wear is cumulative - 3 corners with slight wear is worse than 1 with moderate wear.
-7. Foil/chrome cards show surface scratches more easily.
+=== SPECIFIC DEFECT SCORING ===
+CORNERS: 10=perfectly sharp | 9=barely noticeable wear (magnification) | 8=slight fraying 1-2 corners | 7=visible rounding 2+ corners | 6+=noticeable rounding
+EDGES: 10=crisp clean | 9=minor light white speck | 8-7=noticeable whitening | 6+=visible chipping multiple edges
+CENTERING: 55/45=10 | 60/40=9 max | 65/35=8 max | 70/30=7 max | 75/25=6 max
+SURFACE: 10=full gloss no flaws | 9=one minor print spot | 8=minor marks/slight gloss loss | 7=light scratches | 6+=noticeable wear
 
-BE HONEST. Users pay $20-50 to submit to PSA. Inflated grades waste their money.
+=== KEY RULES ===
+1. LOWEST subcategory heavily pulls down overall grade. PSA grades on the WEAKEST aspect.
+2. The BACK matters EQUALLY. Edge wear on the back lowers grade just as much as front.
+3. Dark-bordered cards show edge wear as white specks - be EXTRA careful.
+4. Vintage cards (pre-2000) graded by SAME standards. Age does NOT excuse wear.
+5. Foil/chrome cards show surface scratches more easily.
+
+BE HONEST. Users pay $20-50 to submit. Inflated grades waste their money.
 
 Provide your response in the following JSON format ONLY (no additional text):
 {
     "centering": {
         "score": <float 1-10>,
         "description": "<assess BOTH sides with estimated ratios>",
-        "issues": ["<all centering issues on either side>"]
+        "issues": ["<all centering issues>"]
     },
     "corners": {
         "score": <float 1-10>,
@@ -453,13 +463,13 @@ Provide your response in the following JSON format ONLY (no additional text):
     },
     "surface": {
         "score": <float 1-10>,
-        "description": "<assess BOTH surfaces>",
-        "issues": ["<all surface issues on either side>"]
+        "description": "<assess BOTH surfaces for gloss, scratches, stains>",
+        "issues": ["<all surface issues>"]
     },
     "edges": {
         "score": <float 1-10>,
-        "description": "<assess all edges on BOTH sides: front top/bottom/left/right and back>",
-        "issues": ["<all edge issues on either side>"]
+        "description": "<assess all edges on BOTH sides for whitening/chipping>",
+        "issues": ["<all edge issues>"]
     },
     "overall_grade": <float 1-10>,
     "psa_recommendation": "<honest recommendation>",
