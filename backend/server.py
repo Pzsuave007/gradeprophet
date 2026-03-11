@@ -2003,6 +2003,84 @@ async def get_listings_stats():
         logger.error(f"Error getting listing stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+# ============================================
+# DIAGNOSTIC / TEST ENDPOINT
+# ============================================
+
+@api_router.get("/test-ebay")
+async def test_ebay_search():
+    """Test endpoint to verify eBay search is working. Hit this in your browser to check."""
+    import traceback
+    results = {
+        "step_1_env_check": {},
+        "step_2_scrape_test": {},
+        "step_3_parse_test": {},
+        "overall": "PENDING"
+    }
+    
+    # Step 1: Check environment variables
+    scrapedo_key = os.environ.get('SCRAPEDO_API_KEY', '')
+    results["step_1_env_check"] = {
+        "SCRAPEDO_API_KEY_present": bool(scrapedo_key),
+        "SCRAPEDO_API_KEY_length": len(scrapedo_key),
+        "OPENAI_API_KEY_present": bool(os.environ.get('OPENAI_API_KEY', '')),
+        "MONGO_URL_present": bool(os.environ.get('MONGO_URL', '')),
+    }
+    
+    if not scrapedo_key:
+        results["overall"] = "FAIL - SCRAPEDO_API_KEY not found in environment"
+        return results
+    
+    # Step 2: Test Scrape.do API with a simple eBay search
+    try:
+        from urllib.parse import quote_plus
+        test_query = "baseball card"
+        encoded_query = quote_plus(test_query)
+        ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=10"
+        scrape_url = f"https://api.scrape.do/?token={scrapedo_key}&url={ebay_url}&render=true"
+        
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.get(scrape_url)
+            
+        results["step_2_scrape_test"] = {
+            "status_code": response.status_code,
+            "response_length": len(response.text),
+            "has_ebay_content": "ebay" in response.text.lower(),
+            "has_item_ids": bool(re.findall(r'/itm/(\d{10,})', response.text)),
+        }
+        
+        if response.status_code != 200:
+            results["overall"] = f"FAIL - Scrape.do returned status {response.status_code}"
+            return results
+            
+        if len(response.text) < 1000:
+            results["overall"] = "FAIL - Scrape.do returned very short response (possible block or bad key)"
+            results["step_2_scrape_test"]["first_500_chars"] = response.text[:500]
+            return results
+        
+        # Step 3: Try to parse listings
+        item_ids = re.findall(r'/itm/(\d{10,})', response.text)
+        item_ids = list(dict.fromkeys(item_ids))[:5]
+        
+        results["step_3_parse_test"] = {
+            "item_ids_found": len(item_ids),
+            "sample_ids": item_ids[:3],
+        }
+        
+        if item_ids:
+            results["overall"] = f"SUCCESS - Found {len(item_ids)} eBay listings. Everything is working!"
+        else:
+            results["overall"] = "PARTIAL - Got eBay page but could not find item IDs in HTML"
+            
+    except Exception as e:
+        results["step_2_scrape_test"] = {
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }
+        results["overall"] = f"FAIL - Error during search: {str(e)}"
+    
+    return results
+
 # Include the router in the main app
 app.include_router(api_router)
 
