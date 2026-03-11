@@ -225,22 +225,22 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                         {cardListings.map((listing) => (
                           <div key={listing.id} className={`p-3 hover:bg-white/5 ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
                             <div className="flex gap-3">
-                              <div className="w-14 h-14 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
+                              <div className="w-16 h-16 flex-shrink-0 bg-[#0a0a0a] rounded overflow-hidden">
                                 <img src={listing.image_url} alt="" className="w-full h-full object-cover"
                                   onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56"><rect fill="%23121212"/></svg>'; }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-white font-medium line-clamp-1 mb-1">{listing.title}</p>
+                                <p className="text-sm text-white font-medium line-clamp-2 mb-1">{listing.title}</p>
                                 <div className="flex flex-wrap gap-1 mb-1.5">
-                                  <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-[10px] px-1.5 py-0">
-                                    <DollarSign className="w-2.5 h-2.5 mr-0.5" />{listing.price}
+                                  <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] text-xs px-2 py-0.5">
+                                    <DollarSign className="w-3 h-3 mr-0.5" />{listing.price}
                                   </Badge>
-                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
-                                    {listing.listing_type === 'auction' ? <><Gavel className="w-2.5 h-2.5 mr-0.5" />Subasta{listing.bids !== null && ` (${listing.bids})`}</> : <><DollarSign className="w-2.5 h-2.5 mr-0.5" />BIN</>}
+                                  <Badge variant="outline" className={`text-xs px-2 py-0.5 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
+                                    {listing.listing_type === 'auction' ? <><Gavel className="w-3 h-3 mr-0.5" />Subasta{listing.bids !== null && ` (${listing.bids})`}</> : <><DollarSign className="w-3 h-3 mr-0.5" />BIN</>}
                                   </Badge>
-                                  {listing.time_left && <Badge variant="outline" className="border-gray-600 text-gray-500 text-[10px] px-1.5 py-0"><Clock className="w-2.5 h-2.5 mr-0.5" />{listing.time_left}</Badge>}
+                                  {listing.time_left && <Badge variant="outline" className="border-gray-600 text-gray-500 text-xs px-2 py-0.5"><Clock className="w-3 h-3 mr-0.5" />{listing.time_left}</Badge>}
                                 </div>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px]">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                                   <a href={listing.listing_url} target="_blank" rel="noopener noreferrer" className="text-[#3b82f6] hover:underline inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
                                     <ExternalLink className="w-2.5 h-2.5" />eBay</a>
                                   {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')} className="text-[#eab308] hover:underline inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}><Star className="w-2.5 h-2.5" />Fav</button>}
