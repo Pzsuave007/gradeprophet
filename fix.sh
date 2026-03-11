@@ -3,9 +3,9 @@ cd /home/gradeprophet && git pull
 cp -r frontend/src /opt/gradeprophet/frontend/src
 cp backend/server.py /opt/gradeprophet/backend/server.py
 cd /opt/gradeprophet/frontend && npm run build --legacy-peer-deps
+pip3 install --upgrade motor pymongo
 pkill -f "uvicorn.*8001" 2>/dev/null
 sleep 3
-source /opt/gradeprophet/venv/bin/activate
 cd /opt/gradeprophet/backend
 nohup python3 -m uvicorn server:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
 echo "Esperando 10 segundos..."
