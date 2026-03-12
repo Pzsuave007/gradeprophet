@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
-  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle
+  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
+  Edit2, Save, X
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -54,6 +55,156 @@ const DURATIONS_AUCTION = [
   { id: 'Days_7', label: '7 Days' },
   { id: 'Days_10', label: '10 Days' },
 ];
+
+
+// =========== EDIT LISTING MODAL ===========
+const EditListingModal = ({ isOpen, onClose, listing, onSuccess }) => {
+  const [form, setForm] = useState({ title: '', price: '', quantity: 1 });
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  useEffect(() => {
+    if (listing) {
+      setForm({
+        title: listing.title || '',
+        price: listing.price || '',
+        quantity: listing.quantity_available || 1,
+      });
+      setDirty(false);
+    }
+  }, [listing]);
+
+  const handleChange = (field, value) => {
+    setForm(f => ({ ...f, [field]: value }));
+    setDirty(true);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const payload = { item_id: listing.item_id };
+      if (form.title !== listing.title) payload.title = form.title;
+      if (parseFloat(form.price) !== listing.price) payload.price = parseFloat(form.price);
+      if (parseInt(form.quantity) !== (listing.quantity_available || 1)) payload.quantity = parseInt(form.quantity);
+
+      const res = await axios.post(`${API}/api/ebay/sell/revise`, payload);
+      if (res.data.success) {
+        toast.success('Listing updated on eBay!');
+        if (res.data.warnings?.length > 0) {
+          res.data.warnings.forEach(w => toast.warning(w, { duration: 5000 }));
+        }
+        onSuccess?.();
+        onClose();
+      } else {
+        toast.error(res.data.message || 'Failed to update');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update listing');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!isOpen || !listing) return null;
+
+  const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
+  const labelCls = "block text-[11px] uppercase tracking-wider text-gray-500 mb-1 font-medium";
+
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto" onClick={onClose}>
+        <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="bg-[#111] border border-[#1a1a1a] rounded-xl w-full max-w-lg mb-8 shadow-2xl" onClick={e => e.stopPropagation()}>
+
+          {/* Header */}
+          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1a1a1a]">
+            <div className="flex items-center gap-2">
+              <Edit2 className="w-4 h-4 text-[#3b82f6]" />
+              <h2 className="text-sm font-bold text-white">Edit Listing</h2>
+            </div>
+            <button onClick={onClose} className="p-1 hover:bg-white/5 rounded" data-testid="close-edit-modal"><X className="w-4 h-4 text-gray-500" /></button>
+          </div>
+
+          <div className="p-5 space-y-4">
+            {/* Listing Image + Info */}
+            <div className="flex gap-4">
+              <div className="w-24 h-24 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
+                {listing.image_url ? (
+                  <img src={listing.image_url} alt="" className="w-full h-full object-cover" />
+                ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-6 h-6 text-gray-700" /></div>}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-0.5">eBay Item ID</p>
+                <p className="text-xs text-gray-400 font-mono mb-2">{listing.item_id}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 uppercase">
+                    {listing.listing_type === 'FixedPriceItem' ? 'Buy It Now' : 'Auction'}
+                  </span>
+                  {listing.watch_count > 0 && (
+                    <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Eye className="w-3 h-3" />{listing.watch_count} watchers</span>
+                  )}
+                  <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(listing.time_left)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Editable Title */}
+            <div>
+              <label className={labelCls}>Title</label>
+              <input className={inputCls} value={form.title} onChange={e => handleChange('title', e.target.value)} maxLength={80} data-testid="edit-listing-title" />
+              <p className="text-[10px] text-gray-600 mt-0.5 text-right">{form.title.length}/80</p>
+            </div>
+
+            {/* Price + Quantity */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls}>Price ($)</label>
+                <input className={inputCls} type="number" step="0.01" min="0.99" value={form.price} onChange={e => handleChange('price', e.target.value)} data-testid="edit-listing-price" />
+              </div>
+              <div>
+                <label className={labelCls}>Quantity</label>
+                <input className={inputCls} type="number" min="1" value={form.quantity} onChange={e => handleChange('quantity', e.target.value)} data-testid="edit-listing-quantity" />
+              </div>
+            </div>
+
+            {/* Current Price Display */}
+            <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-gray-500">Current eBay Price:</span>
+                <span className="text-sm font-bold text-emerald-400">${listing.price}</span>
+              </div>
+              {dirty && parseFloat(form.price) !== listing.price && (
+                <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-[#1a1a1a]">
+                  <span className="text-[11px] text-gray-500">New Price:</span>
+                  <span className="text-sm font-bold text-[#3b82f6]">${parseFloat(form.price).toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-between pt-2">
+              <a href={listing.url} target="_blank" rel="noopener noreferrer"
+                className="px-4 py-2 rounded-lg text-sm text-[#3b82f6] hover:bg-[#3b82f6]/10 flex items-center gap-1.5 transition-colors"
+                data-testid="edit-view-on-ebay">
+                <ExternalLink className="w-3.5 h-3.5" />View on eBay
+              </a>
+              <div className="flex gap-2">
+                <button onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
+                <button onClick={handleSave} disabled={saving || !dirty}
+                  className="px-5 py-2 rounded-lg text-sm font-bold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-40 transition-colors flex items-center gap-2"
+                  data-testid="save-listing-btn">
+                  {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {saving ? 'Saving...' : 'Apply Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
 
 
 // =========== CREATE LISTING MODAL ===========
@@ -368,6 +519,7 @@ const ListingsModule = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [editListing, setEditListing] = useState(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -458,7 +610,8 @@ const ListingsModule = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {eb.active.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`active-listing-${i}`}>
+                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#3b82f6]/40 transition-colors group cursor-pointer"
+                onClick={() => setEditListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
                   {item.image_url ? (
                     <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -469,6 +622,11 @@ const ListingsModule = () => {
                   <span className="absolute top-2 right-2 text-[8px] px-1.5 py-0.5 rounded bg-black/70 text-gray-300 uppercase">
                     {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
                   </span>
+                  <div className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <span className="text-[9px] px-2 py-1 rounded bg-[#3b82f6] text-white font-semibold flex items-center gap-1">
+                      <Edit2 className="w-2.5 h-2.5" />Edit
+                    </span>
+                  </div>
                 </div>
                 <div className="p-2.5">
                   <p className="text-[11px] font-semibold text-white line-clamp-2 leading-relaxed mb-1.5">{item.title}</p>
@@ -477,7 +635,7 @@ const ListingsModule = () => {
                       {item.watch_count > 0 && <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
                       <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
                     </div>
-                    <a href={item.url} target="_blank" rel="noopener noreferrer"
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
                       className="p-1 hover:bg-white/10 rounded transition-colors">
                       <ExternalLink className="w-3 h-3 text-gray-600 hover:text-[#3b82f6]" />
                     </a>
@@ -490,7 +648,8 @@ const ListingsModule = () => {
           <div className="space-y-1.5">
             {eb.active.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-[#2a2a2a] transition-colors" data-testid={`active-listing-${i}`}>
+                className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-[#3b82f6]/40 transition-colors cursor-pointer"
+                onClick={() => setEditListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="w-12 h-12 rounded bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
                 </div>
@@ -505,7 +664,11 @@ const ListingsModule = () => {
                 <div className="text-right flex-shrink-0">
                   <p className="text-sm font-bold text-emerald-400">${item.price}</p>
                 </div>
-                <a href={item.url} target="_blank" rel="noopener noreferrer" className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+                <button onClick={e => { e.stopPropagation(); setEditListing(item); }}
+                  className="p-1.5 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
                   <ExternalLink className="w-3.5 h-3.5 text-gray-600 hover:text-[#3b82f6]" />
                 </a>
               </motion.div>
@@ -566,6 +729,14 @@ const ListingsModule = () => {
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         inventoryItems={inventoryItems}
+        onSuccess={fetchData}
+      />
+
+      {/* Edit Listing Modal */}
+      <EditListingModal
+        isOpen={!!editListing}
+        onClose={() => setEditListing(null)}
+        listing={editListing}
         onSuccess={fetchData}
       />
     </div>

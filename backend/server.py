@@ -3790,6 +3790,124 @@ async def get_created_listings():
     return {"listings": listings, "total": len(listings)}
 
 
+class ReviseListingRequest(BaseModel):
+    item_id: str
+    title: Optional[str] = None
+    price: Optional[float] = None
+    quantity: Optional[int] = None
+    description: Optional[str] = None
+
+
+@api_router.post("/ebay/sell/revise")
+async def revise_ebay_listing(data: ReviseListingRequest):
+    """Revise an active eBay listing (change price, title, quantity, description)"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected.")
+
+    # Build only the fields that changed
+    fields_xml = ""
+    if data.title:
+        import html as html_mod
+        fields_xml += f"<Title>{html_mod.escape(data.title[:80])}</Title>\n"
+    if data.price is not None:
+        fields_xml += f'<StartPrice currencyID="USD">{data.price:.2f}</StartPrice>\n'
+    if data.quantity is not None:
+        fields_xml += f"<Quantity>{data.quantity}</Quantity>\n"
+    if data.description:
+        import html as html_mod
+        fields_xml += f"<Description>{html_mod.escape(data.description)}</Description>\n"
+
+    if not fields_xml.strip():
+        return {"success": False, "message": "No changes provided"}
+
+    # Use ReviseFixedPriceItem (works for both BIN and auction with active bids check)
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <Item>
+    <ItemID>{data.item_id}</ItemID>
+    {fields_xml}
+  </Item>
+</ReviseFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml",
+                },
+                content=xml_body,
+            )
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+
+        ack = root.find("e:Ack", ns)
+        ack_text = ack.text if ack is not None else "Unknown"
+
+        if ack_text in ("Success", "Warning"):
+            # Collect warnings
+            warnings = []
+            for err in root.findall(".//e:Errors", ns):
+                sev = err.find("e:SeverityCode", ns)
+                if sev is not None and sev.text == "Warning":
+                    msg_el = err.find("e:LongMessage", ns)
+                    if msg_el is not None:
+                        warnings.append(msg_el.text)
+
+            return {
+                "success": True,
+                "message": "Listing updated successfully",
+                "warnings": warnings,
+            }
+        else:
+            # If ReviseFixedPriceItem fails (auction item), try ReviseItem
+            xml_body2 = xml_body.replace("ReviseFixedPriceItemRequest", "ReviseItemRequest").replace("ReviseFixedPriceItem", "ReviseItem")
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                resp2 = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={
+                        "X-EBAY-API-SITEID": "0",
+                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "ReviseItem",
+                        "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": "text/xml",
+                    },
+                    content=xml_body2,
+                )
+            root2 = ET.fromstring(resp2.text)
+            ack2 = root2.find("e:Ack", ns)
+            if ack2 is not None and ack2.text in ("Success", "Warning"):
+                return {"success": True, "message": "Listing updated successfully", "warnings": []}
+
+            errors = []
+            for err in root.findall(".//e:Errors", ns):
+                msg_el = err.find("e:LongMessage", ns)
+                code_el = err.find("e:ErrorCode", ns)
+                if msg_el is not None:
+                    errors.append({"code": code_el.text if code_el is not None else "", "message": msg_el.text})
+
+            logger.error(f"eBay revise failed: {errors}")
+            return {
+                "success": False,
+                "errors": errors,
+                "message": errors[0]["message"] if errors else "Failed to update listing",
+            }
+    except Exception as e:
+        logger.error(f"Revise eBay listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 app.include_router(api_router)
 
 app.add_middleware(
