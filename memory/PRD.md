@@ -1,162 +1,111 @@
-# GradeProphet - AI Sports Card Grading Predictor
+# FlipSlab Engine - Operating System for Sports Card Traders
 
 ## Original Problem Statement
-El usuario quiere crear una webapp para analizar fotos de tarjetas deportivas (sports cards) y predecir el grado que recibirían de PSA (Professional Sports Authenticator). El sistema necesita basarse en los estándares de PSA y usar AI para el análisis. El objetivo es un negocio de grading donde solo se envían tarjetas con buen potencial de grado.
+El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de trading llamada "FlipSlab Engine". El objetivo es crear un sistema operativo centralizado para traders de tarjetas deportivas que permite: rastrear colecciones, monitorear valores de mercado reales desde eBay, detectar flips rentables, automatizar listings en eBay, y monitorear cambios de precios.
 
 ## User Personas
-- **Coleccionistas de tarjetas deportivas**: Quieren saber el valor potencial de sus tarjetas antes de enviarlas a PSA
-- **Revendedores**: Buscan maximizar ROI enviando solo tarjetas que obtendrán buenos grados
-- **Nuevos coleccionistas**: Necesitan aprender qué buscar en una tarjeta de calidad
+- **Coleccionistas de tarjetas deportivas**: Quieren saber el valor potencial de sus tarjetas
+- **Revendedores/Flippers**: Buscan maximizar ROI detectando oportunidades de compra/venta
+- **Nuevos coleccionistas**: Necesitan aprender qué buscar en tarjetas de calidad
 
-## Core Requirements (Static)
-1. Upload de imágenes de tarjetas deportivas (JPEG, PNG, WEBP)
-2. Análisis AI usando OpenAI GPT-4o Vision
-3. Evaluación basada en estándares PSA:
-   - Centering (Centrado)
-   - Corners (Esquinas)
-   - Surface (Superficie)
-   - Edges (Bordes)
-4. Grado estimado PSA (1-10)
-5. Recomendación de enviar o no a PSA
-6. Historial de tarjetas analizadas
-7. Tema oscuro profesional
-8. Análisis de frente y dorso de la tarjeta
-9. Fotos de esquinas opcionales para análisis detallado
-10. Biblioteca de referencias PSA 10 para comparación
-11. Sistema de aprendizaje con feedback de grados reales
-12. **Consideración de antigüedad de la tarjeta** - La IA ajusta estándares según el año
-13. **Importar desde eBay** - Funcionalidad completa implementada
-14. **Monitor de eBay** - Sistema de watchlist y búsqueda de nuevos listings
+## Platform Structure
+1. **Dashboard** - Vista general del negocio (KPIs, cards escaneadas, movers, oportunidades)
+2. **Inventory** - Administrar coleccion de tarjetas (PENDIENTE)
+3. **Market** - Precios en tiempo real, tendencias (PENDIENTE)
+4. **Flip Finder** - Scanner AI + Monitor eBay (COMPLETO)
+5. **Listings** - Publicar en eBay, administrar listings (PENDIENTE)
+6. **Account** - Configuracion de cuenta (PENDIENTE)
 
 ## What's Been Implemented
 
-### Marzo 2026 (Actual)
-- ✅ **Monitor de eBay COMPLETO**:
-  - Nueva pestaña "Monitor eBay" en la navegación principal
-  - Crear watchlist de tarjetas específicas (ej: "1996 Topps Kobe Bryant #138")
-  - Botón "Buscar Nuevos Listings" que busca en eBay todas las tarjetas
-  - Muestra listings con: imagen, título, precio, tipo (Subasta/Compra Directa)
-  - Marcar listings como "Interesante" o "Visto"
-  - Filtros: Nuevos, Interesantes, Todos
-  - Enlace directo a eBay para ver el listing
-  - Stats: total tarjetas, nuevos listings, interesantes
-  - Parser HTML mejorado para extraer títulos correctamente de eBay
-- ✅ **Mobile Responsive Design**:
-  - Menú hamburguesa con navegación Analizar/Monitor
-  - Stats compactos en grid de 3 columnas
-  - Filtros adaptados ("Fav" en lugar de "Interesantes")
-  - Listings con imágenes 64x64, títulos truncados
-  - Touch targets adecuados (36px+ para botones)
-  - Acciones condensadas con iconos en móvil
+### Marzo 2026 - Dashboard Module
+- Dashboard con 4 KPI cards (Estimated Value, Cards Scanned, eBay Listings, Flip Opportunities)
+- Widget "Recently Scanned" - ultimas tarjetas analizadas con imagenes y grados PSA
+- Widget "Price Movers" - mayores cambios de precio de tarjetas en watchlist
+- Widget "Flip Opportunities" - listings interesantes con enlaces a eBay
+- Integracion con eBay Browse API (OAuth client credentials) para datos de mercado en vivo
+- Endpoint GET /api/dashboard/ebay-market para busquedas de mercado en tiempo real
+- Navegacion por defecto al Dashboard al abrir la app
+- Boton de refresh en Dashboard
+- Links "View All" y "Monitor" para navegar entre modulos
 
-### Febrero 2026
-- ✅ **Importador de eBay COMPLETO**:
-  - Pegar URL de listing de eBay (soporta URLs completas y cortas ebay.us)
-  - Descarga automática de imágenes usando Scrape.do API
-  - Grid de miniaturas con sugerencias de tipo (Frente?/Dorso?)
-  - Menú de asignación al hacer clic en una miniatura
-  - Asignar imágenes a Frente/Dorso/4 Esquinas
-  - Botón "Limpiar" para eliminar imágenes importadas
-  - Auto-generar crops de esquinas desde la foto frontal
+### Marzo 2026 - Platform Restructure
+- Reestructuracion de GradeProphet → FlipSlab Engine
+- Sidebar navigation con todos los modulos
+- Branding actualizado
+- Paginas placeholder para modulos futuros
 
-### Enero 2026
-- ✅ Dashboard principal con zona de upload drag & drop
-- ✅ Integración con OpenAI GPT-4o Vision para análisis
-- ✅ Desglose detallado de grados por categoría
-- ✅ Recomendación de envío a PSA con explicación
-- ✅ Historial de análisis con MongoDB
-- ✅ CRUD completo de tarjetas analizadas
-- ✅ UI responsive con tema oscuro profesional
-- ✅ Animación de escaneo durante análisis
-- ✅ Upload de imagen frontal y dorso de la tarjeta
-- ✅ Fotos opcionales de las 4 esquinas para análisis detallado
-- ✅ Biblioteca de referencias PSA 10 con lectura automática del label
-- ✅ Sistema de aprendizaje: feedback de grados reales de PSA
-- ✅ Panel de estadísticas de precisión del AI
-- ✅ Eliminación de análisis innecesarios
-- ✅ Consideración de antigüedad de tarjetas (vintage adjustment)
-- ✅ Detección automática de año desde referencia o por IA
+### Febrero 2026 - Core Features
+- AI Card Scanner con GPT-4o Vision
+- Monitor de eBay con watchlist
+- Importador de imagenes desde eBay
+- Auto-crop con OpenCV
+- Calibracion de grados PSA
+- Sistema de aprendizaje con feedback
+- Mobile responsive design
 
 ## Technical Architecture
 - **Frontend**: React + TailwindCSS + Framer Motion + Shadcn UI
 - **Backend**: FastAPI + Motor (MongoDB async)
-- **AI**: OpenAI GPT-4o Vision (standard `openai` library)
-- **Web Scraping**: Scrape.do API for eBay imports
+- **AI**: OpenAI GPT-4o Vision
+- **Web Scraping**: Scrape.do API
+- **Market Data**: eBay Browse API (OAuth 2.0 client credentials)
 - **Database**: MongoDB
 
+## 3rd Party Integrations
+- OpenAI GPT-4o Vision (card analysis)
+- Scrape.do (eBay scraping)
+- eBay Browse API (market data) - Credentials: App ID, Client Secret, Dev ID configured
+
 ## API Endpoints
-- `POST /api/cards/analyze` - Analiza imagen de tarjeta
-- `GET /api/cards/history` - Historial de análisis
-- `GET /api/cards/{id}` - Detalle de análisis
-- `DELETE /api/cards/{id}` - Eliminar análisis
-- `PUT /api/cards/{id}/feedback` - Agregar grado real de PSA
-- `PUT /api/cards/{id}/status` - Actualizar estado
-- `POST /api/references` - Guardar referencia PSA 10
-- `GET /api/references` - Obtener biblioteca de referencias
-- `DELETE /api/references/{id}` - Eliminar referencia
-- `POST /api/ebay/import` - Importar imágenes desde URL de eBay
-- `POST /api/corners/crop` - Auto-generar crops de esquinas
-- **`POST /api/watchlist`** - Agregar tarjeta a watchlist
-- **`GET /api/watchlist`** - Obtener watchlist
-- **`DELETE /api/watchlist/{id}`** - Eliminar tarjeta de watchlist
-- **`PUT /api/watchlist/{id}`** - Actualizar tarjeta de watchlist
-- **`POST /api/watchlist/search`** - Buscar nuevos listings en eBay
-- **`GET /api/listings`** - Obtener listings encontrados
-- **`PUT /api/listings/{id}/status`** - Actualizar estado de listing
-- **`DELETE /api/listings/{id}`** - Eliminar listing
-- **`GET /api/listings/stats`** - Estadísticas de listings
+### Dashboard
+- `GET /api/dashboard/stats` - KPIs principales
+- `GET /api/dashboard/recent` - Tarjetas escaneadas recientemente
+- `GET /api/dashboard/movers` - Movimientos de precios
+- `GET /api/dashboard/opportunities` - Oportunidades de flip
+- `GET /api/dashboard/ebay-market` - Datos de mercado eBay en vivo
+
+### Flip Finder (existing)
+- `POST /api/cards/analyze` - Analizar tarjeta
+- `GET /api/cards/history` - Historial
+- `POST /api/watchlist` - Agregar a watchlist
+- `POST /api/watchlist/search` - Buscar en eBay
+- `GET /api/listings` - Obtener listings
+- Plus 15+ more endpoints
 
 ## Database Collections
-- **`card_analyses`**: Historial de análisis de tarjetas
-- **`psa_references`**: Biblioteca de referencias PSA 10
-- **`watchlist_cards`**: Tarjetas a monitorear en eBay
-- **`ebay_listings`**: Listings encontrados en eBay
+- `card_analyses` - Historial de analisis
+- `psa10_references` - Referencias PSA 10
+- `watchlist_cards` - Watchlist del monitor
+- `ebay_listings` - Listings encontrados
+
+## Key Files
+- `/app/frontend/src/components/DashboardHome.jsx` - Dashboard UI
+- `/app/frontend/src/pages/Dashboard.jsx` - Layout principal con sidebar
+- `/app/frontend/src/components/FlipFinder.jsx` - Modulo Flip Finder
+- `/app/backend/server.py` - Todos los endpoints API
+- `/app/fix.sh` - Script de deployment
 
 ## Prioritized Backlog
 
-### P0 (Critical) - Completed ✅
-- Análisis de tarjetas con AI
-- Historial persistente
-- UI funcional
-- Upload frente/dorso
-- Fotos de esquinas
-- Referencias PSA 10
-- Sistema de aprendizaje
-- Consideración de antigüedad de tarjetas
-- **Importador de eBay COMPLETO**
-- **Monitor de eBay COMPLETO**
+### P0 (Critical) - Completed
+- AI Card Scanner, Historial, Monitor eBay, Dashboard Module
 
-### P1 (High Priority)
-- Autenticación de usuarios
-- Búsqueda automática diaria (scheduled job)
-- Export de reportes (PDF)
-- Dashboard de estadísticas avanzadas
-- Asignación automática por IA (detectar qué imagen es frente/dorso)
+### P1 (High Priority) - Next
+- **Inventory Module**: Administrar coleccion, costos, valores actuales
+- **Market Module**: Precios en tiempo real, tendencias, comparaciones
 
 ### P2 (Medium Priority)
-- API de precios en tiempo real (eBay, COMC)
-- Integración con PSA submission
-- Notificaciones de cambios de precio
+- **Listings Module**: Publicar en eBay, administrar listings activos
+- **Account Module**: Configuracion, integraciones, preferencias
+- eBay OAuth user token flow para acceder a listings del vendedor
 
 ### P3 (Nice to Have)
-- App móvil nativa
-- Scanning batch de múltiples tarjetas
-- Marketplace integrado
-- Predicción de tendencias de precio
+- Busqueda automatica diaria (scheduled job)
+- Export de reportes (PDF)
+- Notificaciones de cambios de precio
+- App movil nativa
 
-## Known Issues
-- Scrape.do API tiene errores 502 intermitentes (~30% de requests). Reintentar usualmente funciona.
-- El proceso de búsqueda puede tomar 30-60 segundos por tarjeta debido a render=true del scraping
-
-## Key Files
-- `/app/frontend/src/components/CardScanner.jsx` - Componente de análisis con importador de eBay
-- `/app/frontend/src/components/EbayMonitor.jsx` - Componente del monitor de eBay (NUEVO)
-- `/app/frontend/src/pages/Dashboard.jsx` - Dashboard con pestañas Analizar/Monitor
-- `/app/backend/server.py` - Todos los endpoints API
-- `/app/frontend/.env` - REACT_APP_BACKEND_URL
-- `/app/backend/.env` - MONGO_URL, OPENAI_API_KEY, SCRAPEDO_API_KEY
-
-## Deployment Notes
-- La aplicación es auto-hosteable sin dependencias de Emergent
-- Usa la librería estándar `openai` de Python
-- Scripts de instalación disponibles para cPanel/WHM (AlmaLinux)
+## Deployment
+- Changes deployed via `fix.sh` script (git pull → copy files → build → restart)
+- eBay API credentials auto-added to server .env by fix.sh

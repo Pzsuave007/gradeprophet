@@ -2,6 +2,12 @@
 cd /home/gradeprophet && git pull
 cp -r /home/gradeprophet/frontend/src/* /opt/gradeprophet/frontend/src/
 cp /home/gradeprophet/backend/server.py /opt/gradeprophet/backend/server.py
+# Copy eBay API credentials to backend .env (only add if not present)
+grep -q "EBAY_CLIENT_ID" /opt/gradeprophet/backend/.env || cat >> /opt/gradeprophet/backend/.env << 'ENVEOF'
+EBAY_CLIENT_ID=EBAY_CLIENT_ID_REMOVED
+EBAY_CLIENT_SECRET=EBAY_SECRET_REMOVED
+EBAY_DEV_ID=EBAY_DEV_ID_REMOVED
+ENVEOF
 pip3 install httpx opencv-python-headless motor fastapi uvicorn python-dotenv openai pillow pydantic regex python-multipart 2>&1 | tail -2
 cd /opt/gradeprophet/frontend && npm run build --legacy-peer-deps
 cp -r /opt/gradeprophet/frontend/build/* /home/flipcardsuni2/public_html/
