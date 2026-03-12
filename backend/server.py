@@ -4218,17 +4218,6 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
     sport = data.sport or item.get("sport") or "Basketball"
     specifics.append(f'<NameValueList><Name>Sport</Name><Value>{html.escape(sport)}</Value></NameValueList>')
     
-    # Grade and Professional Grader (required for graded cards, provide defaults for raw)
-    grading_co = data.grading_company or item.get("grading_company") or ""
-    grade_val = data.grade or (str(item.get("grade")) if item.get("grade") else "")
-    
-    if grading_co and grade_val:
-        specifics.append(f'<NameValueList><Name>Professional Grader</Name><Value>{html.escape(grading_co)}</Value></NameValueList>')
-        specifics.append(f'<NameValueList><Name>Grade</Name><Value>{html.escape(str(grade_val))}</Value></NameValueList>')
-    else:
-        specifics.append('<NameValueList><Name>Professional Grader</Name><Value>Not Professionally Graded</Value></NameValueList>')
-        specifics.append('<NameValueList><Name>Grade</Name><Value>Ungraded</Value></NameValueList>')
-    
     # Player/athlete
     player = item.get("player")
     if player:
@@ -4249,10 +4238,51 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
     if card_number:
         specifics.append(f'<NameValueList><Name>Card Number</Name><Value>{html.escape(str(card_number))}</Value></NameValueList>')
 
-    # Card Condition Descriptor (required for sports trading cards)
-    condition_descriptor_map = {1000: "400010", 2750: "400010", 3000: "400012", 4000: "400012", 5000: "400013", 6000: "400013"}
-    card_condition_value = condition_descriptor_map.get(data.condition_id, "400012")
-    condition_descriptors_xml = f"""
+    # Build ConditionDescriptors based on graded vs ungraded
+    grading_co = data.grading_company or item.get("grading_company") or ""
+    grade_val = data.grade or (str(item.get("grade")) if item.get("grade") else "")
+    is_graded = bool(grading_co and grade_val)
+
+    # Grader name -> eBay value ID mapping
+    GRADER_IDS = {
+        "PSA": "275010", "BCCG": "275011", "BVG": "275012", "BGS": "275013",
+        "CSG": "275014", "CGC": "275015", "SGC": "275016", "KSA": "275017",
+        "GMA": "275018", "HGA": "275019", "ISA": "2750110", "Other": "2750123",
+    }
+    # Grade -> eBay value ID mapping
+    GRADE_IDS = {
+        "10": "275020", "9.5": "275021", "9": "275022", "8.5": "275023",
+        "8": "275024", "7.5": "275025", "7": "275026", "6.5": "275027",
+        "6": "275028", "5.5": "275029", "5": "2750210", "4.5": "2750211",
+        "4": "2750212", "3.5": "2750213", "3": "2750214", "2.5": "2750215",
+        "2": "2750216", "1.5": "2750217", "1": "2750218",
+        "Authentic": "2750219",
+    }
+
+    if is_graded:
+        # Force ConditionID to 2750 for graded cards
+        actual_condition_id = 2750
+        grader_id = GRADER_IDS.get(grading_co, "2750123")  # default to "Other"
+        # Normalize grade: "9.0" -> "9", "9.5" -> "9.5"
+        grade_normalized = str(grade_val).rstrip('0').rstrip('.') if '.' in str(grade_val) else str(grade_val)
+        grade_id = GRADE_IDS.get(grade_normalized, GRADE_IDS.get(str(int(float(grade_val))), "275022"))
+        condition_descriptors_xml = f"""
+    <ConditionDescriptors>
+      <ConditionDescriptor>
+        <Name>27501</Name>
+        <Value>{grader_id}</Value>
+      </ConditionDescriptor>
+      <ConditionDescriptor>
+        <Name>27502</Name>
+        <Value>{grade_id}</Value>
+      </ConditionDescriptor>
+    </ConditionDescriptors>"""
+    else:
+        # Ungraded card - use Card Condition descriptor (40001)
+        actual_condition_id = data.condition_id
+        condition_descriptor_map = {1000: "400010", 2750: "400010", 3000: "400012", 4000: "400012", 5000: "400013", 6000: "400013"}
+        card_condition_value = condition_descriptor_map.get(data.condition_id, "400012")
+        condition_descriptors_xml = f"""
     <ConditionDescriptors>
       <ConditionDescriptor>
         <Name>40001</Name>
@@ -4278,7 +4308,7 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
     </PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
-    <ConditionID>{data.condition_id}</ConditionID>
+    <ConditionID>{actual_condition_id}</ConditionID>
     {condition_descriptors_xml}
     <Country>US</Country>
     <Currency>USD</Currency>
