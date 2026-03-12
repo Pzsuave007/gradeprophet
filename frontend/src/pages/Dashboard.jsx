@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import FlipFinder from '../components/FlipFinder';
 import DashboardHome from '../components/DashboardHome';
+import InventoryModule from '../components/InventoryModule';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -26,10 +27,6 @@ const PlaceholderModule = ({ title, description, icon: Icon }) => (
       Proximamente
     </div>
   </div>
-);
-
-const Inventory = () => (
-  <PlaceholderModule title="Inventory" description="Administra tu coleccion de tarjetas, costos, y valores actuales." icon={Package} />
 );
 
 const Market = () => (
@@ -60,7 +57,7 @@ const Dashboard = () => {
   const renderModule = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
-      case 'inventory': return <Inventory />;
+      case 'inventory': return <InventoryModule />;
       case 'market': return <Market />;
       case 'flipfinder': return <FlipFinder />;
       case 'listings': return <Listings />;

@@ -2559,6 +2559,256 @@ async def get_ebay_market_data(query: str = "sports card PSA"):
         return {"items": [], "total": 0, "error": str(e)}
 
 
+# ============================================
+# INVENTORY MODULE
+# ============================================
+
+class InventoryItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    card_name: str
+    player: Optional[str] = None
+    year: Optional[int] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    variation: Optional[str] = None
+    condition: Optional[str] = "Raw"  # Raw, Graded
+    grading_company: Optional[str] = None  # PSA, BGS, SGC, CGC
+    grade: Optional[float] = None
+    purchase_price: Optional[float] = None
+    quantity: int = 1
+    notes: Optional[str] = None
+    image: Optional[str] = None  # base64 thumbnail
+    listed: bool = False
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class InventoryItemCreate(BaseModel):
+    card_name: str
+    player: Optional[str] = None
+    year: Optional[int] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    variation: Optional[str] = None
+    condition: Optional[str] = "Raw"
+    grading_company: Optional[str] = None
+    grade: Optional[float] = None
+    purchase_price: Optional[float] = None
+    quantity: int = 1
+    notes: Optional[str] = None
+    image_base64: Optional[str] = None
+
+
+class InventoryItemUpdate(BaseModel):
+    card_name: Optional[str] = None
+    player: Optional[str] = None
+    year: Optional[int] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    variation: Optional[str] = None
+    condition: Optional[str] = None
+    grading_company: Optional[str] = None
+    grade: Optional[float] = None
+    purchase_price: Optional[float] = None
+    quantity: Optional[int] = None
+    notes: Optional[str] = None
+    image_base64: Optional[str] = None
+    listed: Optional[bool] = None
+
+
+@api_router.post("/inventory")
+async def create_inventory_item(data: InventoryItemCreate):
+    """Add a card to inventory"""
+    try:
+        image_thumb = None
+        if data.image_base64:
+            img = data.image_base64
+            if ',' in img:
+                img = img.split(',')[1]
+            image_thumb = create_thumbnail(img, max_size=400)
+
+        item = InventoryItem(
+            card_name=data.card_name,
+            player=data.player,
+            year=data.year,
+            set_name=data.set_name,
+            card_number=data.card_number,
+            variation=data.variation,
+            condition=data.condition,
+            grading_company=data.grading_company,
+            grade=data.grade,
+            purchase_price=data.purchase_price,
+            quantity=data.quantity,
+            notes=data.notes,
+            image=image_thumb,
+        )
+
+        doc = item.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.inventory.insert_one(doc)
+
+        doc.pop('_id', None)
+        return doc
+    except Exception as e:
+        logger.error(f"Create inventory item failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/inventory")
+async def get_inventory(
+    search: Optional[str] = None,
+    player: Optional[str] = None,
+    year: Optional[int] = None,
+    set_name: Optional[str] = None,
+    condition: Optional[str] = None,
+    listed: Optional[str] = None,
+    sort_by: Optional[str] = "created_at",
+    sort_dir: Optional[str] = "desc",
+    skip: int = 0,
+    limit: int = 50,
+):
+    """Get inventory with search and filters"""
+    try:
+        query = {}
+
+        if search:
+            query["$or"] = [
+                {"card_name": {"$regex": search, "$options": "i"}},
+                {"player": {"$regex": search, "$options": "i"}},
+                {"set_name": {"$regex": search, "$options": "i"}},
+                {"card_number": {"$regex": search, "$options": "i"}},
+                {"variation": {"$regex": search, "$options": "i"}},
+            ]
+        if player:
+            query["player"] = {"$regex": player, "$options": "i"}
+        if year:
+            query["year"] = year
+        if set_name:
+            query["set_name"] = {"$regex": set_name, "$options": "i"}
+        if condition and condition in ("Raw", "Graded"):
+            query["condition"] = condition
+        if listed is not None and listed != "":
+            query["listed"] = listed.lower() == "true"
+
+        sort_order = -1 if sort_dir == "desc" else 1
+        valid_sorts = ["created_at", "card_name", "player", "year", "purchase_price", "grade"]
+        if sort_by not in valid_sorts:
+            sort_by = "created_at"
+
+        total = await db.inventory.count_documents(query)
+        items = await db.inventory.find(query, {"_id": 0}).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
+
+        return {"items": items, "total": total}
+    except Exception as e:
+        logger.error(f"Get inventory failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/inventory/stats")
+async def get_inventory_stats():
+    """Get inventory summary statistics"""
+    try:
+        total = await db.inventory.count_documents({})
+        graded = await db.inventory.count_documents({"condition": "Graded"})
+        raw = await db.inventory.count_documents({"condition": "Raw"})
+        listed = await db.inventory.count_documents({"listed": True})
+        not_listed = await db.inventory.count_documents({"listed": False})
+
+        pipeline = [
+            {"$match": {"purchase_price": {"$gt": 0}}},
+            {"$group": {
+                "_id": None,
+                "total_invested": {"$sum": {"$multiply": ["$purchase_price", "$quantity"]}},
+                "avg_price": {"$avg": "$purchase_price"},
+                "total_quantity": {"$sum": "$quantity"},
+            }}
+        ]
+        agg = await db.inventory.aggregate(pipeline).to_list(1)
+        inv_agg = agg[0] if agg else {}
+
+        return {
+            "total_cards": total,
+            "total_quantity": inv_agg.get("total_quantity", total),
+            "graded": graded,
+            "raw": raw,
+            "listed": listed,
+            "not_listed": not_listed,
+            "total_invested": round(inv_agg.get("total_invested", 0), 2),
+            "avg_price": round(inv_agg.get("avg_price", 0), 2),
+        }
+    except Exception as e:
+        logger.error(f"Inventory stats failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/inventory/{item_id}")
+async def get_inventory_item(item_id: str):
+    """Get a single inventory item"""
+    try:
+        item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+        if not item:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return item
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Get inventory item failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.put("/inventory/{item_id}")
+async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
+    """Update an inventory item"""
+    try:
+        update_fields = {}
+        for field, value in data.model_dump(exclude_unset=True).items():
+            if field == "image_base64" and value is not None:
+                img = value
+                if ',' in img:
+                    img = img.split(',')[1]
+                update_fields["image"] = create_thumbnail(img, max_size=400)
+            elif field != "image_base64":
+                update_fields[field] = value
+
+        if not update_fields:
+            raise HTTPException(status_code=400, detail="No fields to update")
+
+        update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+
+        result = await db.inventory.update_one(
+            {"id": item_id},
+            {"$set": update_fields}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Item not found")
+
+        updated = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+        return updated
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Update inventory item failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.delete("/inventory/{item_id}")
+async def delete_inventory_item(item_id: str):
+    """Delete an inventory item"""
+    try:
+        result = await db.inventory.delete_one({"id": item_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Item not found")
+        return {"success": True, "message": "Item deleted"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Delete inventory item failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Include the router in the main app
 app.include_router(api_router)
 
