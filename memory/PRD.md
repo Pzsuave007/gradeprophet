@@ -20,12 +20,14 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 
 ### Marzo 2026 - Inventory Module
 - Full CRUD for card collection management (add, edit, delete, search)
-- Fields: Card Name, Player, Year, Set, Card Number, Variation, Condition (Raw/Graded), Grading Company, Grade, Purchase Price, Quantity, Notes, Image Upload
+- Two categories: **Collection** (personal cards) and **For Sale** (cards to sell)
+- "Add to Inventory" button on scan results to import analyzed cards with one click
+- Duplicate import protection (same card can't be imported twice)
+- Fields: Card Name, Player, Year, Set, Card Number, Variation, Condition (Raw/Graded), Grading Company, Grade, Purchase Price, Quantity, Notes, Image Upload, Category
 - Search by name, player, set, card number, variation
-- Filters: Condition (Raw/Graded), Listed/Not Listed
+- Filters: Category tabs (All/Collection/For Sale), Condition (Raw/Graded), Listed/Not Listed
 - Stats cards: Total Cards, Total Invested, Graded count, Listed count
-- Modal form with conditional fields (grading fields shown only when Graded)
-- Image upload with thumbnail generation
+- Category badges on each card (blue=Collection, green=For Sale)
 
 ### Marzo 2026 - Dashboard Module
 - Dashboard con 4 KPI cards (Estimated Value, Cards Scanned, eBay Listings, Flip Opportunities)
