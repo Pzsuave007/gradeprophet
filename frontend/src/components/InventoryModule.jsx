@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw,
-  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers
+  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -11,6 +11,7 @@ import CardScanner from './CardScanner';
 import AnalysisResult from './AnalysisResult';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
+import CreateListingView from './CreateListingView';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -158,6 +159,11 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const [total, setTotal] = useState(0);
   const searchTimeout = useRef(null);
 
+  // Multi-select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [showCreateListing, setShowCreateListing] = useState(false);
+
   const fetchInventory = useCallback(async (searchVal) => {
     try {
       const params = new URLSearchParams();
@@ -186,6 +192,39 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
   const openEdit = (item) => { setEditItem(item); setModalOpen(true); };
   const openAdd = () => { setEditItem(null); setModalOpen(true); };
+
+  const toggleSelect = (id) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const selectAll = () => {
+    if (selected.size === items.length) setSelected(new Set());
+    else setSelected(new Set(items.map(i => i.id)));
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); };
+  const startListOnEbay = () => {
+    if (selected.size === 0) { toast.error('Select at least one card'); return; }
+    setShowCreateListing(true);
+  };
+  const listSingleItem = (item) => {
+    setSelected(new Set([item.id]));
+    setShowCreateListing(true);
+  };
+
+  // Show Create Listing view
+  if (showCreateListing) {
+    const selectedItems = items.filter(i => selected.has(i.id));
+    return (
+      <CreateListingView
+        items={selectedItems}
+        onBack={() => { setShowCreateListing(false); exitSelectMode(); }}
+        onSuccess={() => { setShowCreateListing(false); exitSelectMode(); fetchInventory(search); }}
+      />
+    );
+  }
   const s = stats || {};
 
   const categoryTabs = [
@@ -230,7 +269,23 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
           <Filter className="w-4 h-4" />
         </button>
         <ViewToggle view={viewMode} onChange={setViewMode} />
-        <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>
+        {!selectMode ? (
+          <>
+            <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>
+            <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>
+          </>
+        ) : (
+          <>
+            <button onClick={selectAll} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-all-btn">
+              {selected.size === items.length ? 'Deselect All' : 'Select All'}
+            </button>
+            <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="cancel-select-btn">Cancel</button>
+            <button onClick={startListOnEbay} disabled={selected.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
+              <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
+            </button>
+          </>
+        )}
       </div>
 
       <AnimatePresence>
@@ -261,17 +316,27 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {items.map((item, i) => (
             <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-              className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`inventory-item-${i}`}>
+              onClick={() => selectMode && toggleSelect(item.id)}
+              className={`bg-[#111] border rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#1a1a1a]'}`} data-testid={`inventory-item-${i}`}>
               <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
                 {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
                 {item.listed && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
-                <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(item)} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
-                  <button onClick={() => handleDelete(item.id)} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>
-                </div>
+                {/* Select checkbox */}
+                {selectMode && (
+                  <div className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected.has(item.id) ? 'bg-[#3b82f6] border-[#3b82f6]' : 'bg-black/50 border-gray-500'}`}>
+                    {selected.has(item.id) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                )}
+                {!selectMode && (
+                  <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1 rounded bg-emerald-600/80 text-white hover:bg-emerald-500" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3 h-3" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>
+                  </div>
+                )}
               </div>
               <div className="p-2.5">
                 <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
@@ -289,7 +354,14 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         <div className="space-y-1.5">
           {items.map((item, i) => (
             <motion.div key={item.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-              className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-[#2a2a2a] transition-colors group" data-testid={`inventory-item-${i}`}>
+              onClick={() => selectMode && toggleSelect(item.id)}
+              className={`bg-[#111] border rounded-xl p-3 flex items-center gap-3 hover:border-[#2a2a2a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#1a1a1a]'}`} data-testid={`inventory-item-${i}`}>
+              {/* Select checkbox */}
+              {selectMode && (
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected.has(item.id) ? 'bg-[#3b82f6] border-[#3b82f6]' : 'bg-transparent border-gray-600'}`}>
+                  {selected.has(item.id) && <Check className="w-3 h-3 text-white" />}
+                </div>
+              )}
               <div className="w-12 h-16 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                 {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
               </div>
@@ -307,10 +379,13 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 {item.condition === 'Graded' && item.grade ? <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"><span className="text-[9px] uppercase tracking-wider text-amber-400 block">{item.grading_company || 'Graded'}</span><span className="text-sm font-bold text-amber-300">{item.grade}</span></div> : <span className="text-[10px] px-2 py-1 rounded bg-[#1a1a1a] text-gray-500 uppercase">Raw</span>}
               </div>
               <div className="text-right flex-shrink-0 w-20"><p className="text-sm font-bold text-white">{formatPrice(item.purchase_price)}</p>{item.quantity > 1 && <p className="text-[10px] text-gray-600">x{item.quantity}</p>}</div>
-              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                <button onClick={() => openEdit(item)} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3.5 h-3.5" /></button>
-                <button onClick={() => handleDelete(item.id)} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>
-              </div>
+              {!selectMode && (
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                  <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3.5 h-3.5" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3.5 h-3.5" /></button>
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              )}
             </motion.div>
           ))}
         </div>

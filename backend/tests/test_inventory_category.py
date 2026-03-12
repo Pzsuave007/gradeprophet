@@ -16,7 +16,7 @@ import uuid
 # Get backend URL from environment
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL')
 if not BASE_URL:
-    BASE_URL = "https://flipslab-engine.preview.emergentagent.com"
+    BASE_URL = "https://flip-finder-hub.preview.emergentagent.com"
 BASE_URL = BASE_URL.rstrip('/')
 
 

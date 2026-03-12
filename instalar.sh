@@ -14,7 +14,7 @@ echo ""
 # Configuracion
 PUBLIC_HTML="/home/flipcardsuni2/public_html"
 BACKEND_DIR="/opt/gradeprophet/backend"
-DOWNLOAD_URL="https://flipslab-engine.preview.emergentagent.com/api/download-code"
+DOWNLOAD_URL="https://flip-finder-hub.preview.emergentagent.com/api/download-code"
 
 # Crear carpeta backend si no existe
 mkdir -p "$BACKEND_DIR"
