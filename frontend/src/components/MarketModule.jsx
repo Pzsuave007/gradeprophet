@@ -365,6 +365,8 @@ const SearchTab = () => {
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
                 <Layers className="w-4 h-4 text-[#3b82f6]" /><h3 className="text-sm font-semibold text-white">{primary.label || 'Primary'}</h3>
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{primaryStats.count || 0}</span>
+                {marketData?.data_source === 'sold' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold ml-auto">Sold Data</span>}
+                {marketData?.data_source === 'active' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-bold ml-auto">Active Listings</span>}
               </div>
               <div className="p-3">
                 {primaryStats.count > 0 ? (
@@ -379,8 +381,11 @@ const SearchTab = () => {
                         <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`primary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
-                          <p className="text-[10px] text-gray-400 truncate flex-1 group-hover:text-white">{item.title}</p>
-                          <span className="text-[11px] font-bold text-white">${item.price}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{item.title}</p>
+                            {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
+                          </div>
+                          <span className="text-[11px] font-bold text-white flex-shrink-0">${item.price}</span>
                         </a>
                       ))}
                     </div>
@@ -406,8 +411,11 @@ const SearchTab = () => {
                         <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`secondary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
-                          <p className="text-[10px] text-gray-400 truncate flex-1 group-hover:text-white">{item.price}</p>
-                          <span className="text-[11px] font-bold text-amber-400">${item.price}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{item.title}</p>
+                            {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-400 flex-shrink-0">${item.price}</span>
                         </a>
                       ))}
                     </div>

@@ -2878,10 +2878,8 @@ async def market_search(query: str, limit: int = 20):
 
 @api_router.get("/market/card-value")
 async def get_card_market_value(query: str):
-    """Get market value for a card - intelligently searches based on whether the card is graded or raw"""
+    """Get market value for a card based on REAL SOLD prices from eBay completed listings"""
     try:
-        token = await get_ebay_app_token()
-
         import re as _re
 
         # Step 1: Detect if the listing is graded and extract grade info
@@ -2897,24 +2895,96 @@ async def get_card_market_value(query: str):
         clean_q = query
         clean_q = _re.sub(r'\b(PSA|BGS|SGC|CGC|HGA|GMA|CSG)\s*\d+\.?\d*\b', '', clean_q, flags=_re.IGNORECASE)
         clean_q = _re.sub(r'\b(GEM\s*MINT|MINT|PRISTINE|NEAR\s*MINT|NM-MT|NM|LOW\s*POP|POP\s*\d+)\b', '', clean_q, flags=_re.IGNORECASE)
-        clean_q = _re.sub(r'\s+', ' ', clean_q).strip()
-        clean_q = clean_q.strip(' ,-')
+        clean_q = _re.sub(r'\s+', ' ', clean_q).strip().strip(' ,-')
 
         logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}' graded={is_graded} grade={detected_company} {detected_grade}")
 
-        async def search_ebay(q, lim=10):
-            async with httpx.AsyncClient(timeout=15.0) as http_client:
-                resp = await http_client.get(
-                    "https://api.ebay.com/buy/browse/v1/item_summary/search",
-                    headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
-                    params={"q": q, "limit": lim, "sort": "price"}
-                )
-            if resp.status_code != 200:
+        async def scrape_ebay_sold(search_q: str, limit: int = 12) -> list:
+            """Scrape eBay sold/completed listings via Jina Reader API (free, no key needed)"""
+            from urllib.parse import quote_plus
+            import asyncio
+
+            def _sync_scrape():
+                encoded = quote_plus(search_q)
+                ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&LH_Sold=1&LH_Complete=1&_sop=13"
+                jina_url = f"https://r.jina.ai/{ebay_url}"
+
+                try:
+                    resp = httpx.get(jina_url, headers={
+                        "Accept": "text/plain",
+                        "X-Return-Format": "text"
+                    }, timeout=30.0, follow_redirects=True)
+                    if resp.status_code != 200:
+                        return []
+                except Exception:
+                    return []
+
+                lines = resp.text.split('\n')
+                items = []
+                i = 0
+                while i < len(lines):
+                    line = lines[i].strip()
+                    sold_m = _re.match(r'Sold\s+(\w+\s+\d+,?\s*\d*)', line)
+                    if sold_m:
+                        date_sold = sold_m.group(1).strip()
+                        title = lines[i + 1].strip() if i + 1 < len(lines) else ''
+                        price = 0
+                        image_url = ''
+                        for j in range(i + 2, min(i + 15, len(lines))):
+                            l = lines[j].strip()
+                            if not price:
+                                pm = _re.match(r'\$?([\d,]+\.\d+)', l)
+                                if pm:
+                                    price = float(pm.group(1).replace(',', ''))
+                            if not image_url and 'ebayimg.com' in l:
+                                img_m = _re.search(r'(https://i\.ebayimg\.com/[^\s\)]+)', l)
+                                image_url = img_m.group(1).split('?')[0] if img_m else ''
+                        if title and len(title) > 10 and 0 < price < 100000:
+                            items.append({
+                                "title": title, "price": price,
+                                "image_url": image_url, "date_sold": date_sold,
+                                "url": "", "source": "sold"
+                            })
+                        if len(items) >= limit:
+                            break
+                    i += 1
+                return items
+
+            try:
+                items = await asyncio.to_thread(_sync_scrape)
+                logger.info(f"Jina scraped {len(items)} sold items for '{search_q}'")
+                if items:
+                    return items
+                return await _browse_api_search(search_q, limit)
+            except Exception as e:
+                logger.warning(f"Jina scrape failed for '{search_q}': {e}")
+                return await _browse_api_search(search_q, limit)
+
+        async def _browse_api_search(q, lim=10):
+            """Fallback: search active listings via Browse API"""
+            try:
+                token = await get_ebay_app_token()
+                async with httpx.AsyncClient(timeout=15.0) as http_client:
+                    resp = await http_client.get(
+                        "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                        headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+                        params={"q": q, "limit": lim, "sort": "price"}
+                    )
+                if resp.status_code != 200:
+                    return []
+                return [{
+                    "title": i.get("title", ""),
+                    "price": float(i.get("price", {}).get("value", 0)),
+                    "image_url": i.get("image", {}).get("imageUrl", ""),
+                    "url": i.get("itemWebUrl", ""),
+                    "date_sold": "",
+                    "source": "active"
+                } for i in resp.json().get("itemSummaries", [])]
+            except Exception:
                 return []
-            return resp.json().get("itemSummaries", [])
 
         def calc_stats(items):
-            prices = sorted([float(i.get("price", {}).get("value", 0)) for i in items if float(i.get("price", {}).get("value", 0)) > 0])
+            prices = sorted([i["price"] for i in items if i.get("price", 0) > 0])
             if not prices:
                 return {"count": 0, "avg": 0, "median": 0, "min": 0, "max": 0}
             mid = len(prices) // 2
@@ -2927,53 +2997,40 @@ async def get_card_market_value(query: str):
                 "max": prices[-1],
             }
 
-        def parse_items(items):
-            return [{
-                "title": item.get("title", ""),
-                "price": float(item.get("price", {}).get("value", 0)),
-                "condition": item.get("condition", ""),
-                "image_url": item.get("image", {}).get("imageUrl", ""),
-                "url": item.get("itemWebUrl", ""),
-                "seller": item.get("seller", {}).get("username", ""),
-            } for item in items]
-
         import asyncio
 
         if is_graded:
-            # GRADED CARD: Search for same grade + raw for reference
             grade_str = f"{detected_company} {detected_grade}"
             same_grade_items, raw_items = await asyncio.gather(
-                search_ebay(f'{clean_q} {grade_str}', 10),
-                search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
+                scrape_ebay_sold(f'{clean_q} {grade_str}', 12),
+                scrape_ebay_sold(f'{clean_q} -PSA -BGS -SGC -CGC -graded -slab', 8),
             )
             return {
-                "query": query,
-                "clean_query": clean_q,
-                "is_graded": True,
-                "detected_grade": grade_str,
-                "primary": {"label": grade_str, "items": parse_items(same_grade_items), "stats": calc_stats(same_grade_items)},
-                "secondary": {"label": "Raw / Ungraded", "items": parse_items(raw_items), "stats": calc_stats(raw_items)},
+                "query": query, "clean_query": clean_q,
+                "is_graded": True, "detected_grade": grade_str,
+                "data_source": "sold" if any(i.get("source") == "sold" for i in same_grade_items) else "active",
+                "primary": {"label": grade_str, "items": same_grade_items, "stats": calc_stats(same_grade_items)},
+                "secondary": {"label": "Raw / Ungraded", "items": raw_items, "stats": calc_stats(raw_items)},
             }
         else:
-            # RAW CARD: Search for raw + PSA 10 for potential upside
             raw_items, psa10_items = await asyncio.gather(
-                search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
-                search_ebay(f'{clean_q} PSA 10', 10),
+                scrape_ebay_sold(f'{clean_q} -PSA -BGS -SGC -CGC -graded -slab', 12),
+                scrape_ebay_sold(f'{clean_q} PSA 10', 8),
             )
             return {
-                "query": query,
-                "clean_query": clean_q,
-                "is_graded": False,
-                "detected_grade": None,
-                "primary": {"label": "Raw / Ungraded", "items": parse_items(raw_items), "stats": calc_stats(raw_items)},
-                "secondary": {"label": "PSA 10 (potential value)", "items": parse_items(psa10_items), "stats": calc_stats(psa10_items)},
+                "query": query, "clean_query": clean_q,
+                "is_graded": False, "detected_grade": None,
+                "data_source": "sold" if any(i.get("source") == "sold" for i in raw_items) else "active",
+                "primary": {"label": "Raw / Ungraded", "items": raw_items, "stats": calc_stats(raw_items)},
+                "secondary": {"label": "PSA 10 (potential value)", "items": psa10_items, "stats": calc_stats(psa10_items)},
             }
     except Exception as e:
         logger.error(f"Card value failed: {e}")
         return {
             "query": query, "is_graded": False, "detected_grade": None,
-            "primary": {"label": "Raw", "items": [], "stats": {}},
-            "secondary": {"label": "PSA 10", "items": [], "stats": {}},
+            "data_source": "error",
+            "primary": {"label": "Raw", "items": [], "stats": {"count": 0}},
+            "secondary": {"label": "PSA 10", "items": [], "stats": {"count": 0}},
             "error": str(e),
         }
 
