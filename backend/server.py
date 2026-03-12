@@ -2699,6 +2699,124 @@ async def get_seller_orders(limit: int = 20):
         return {"orders": [], "total": 0}
 
 
+@api_router.get("/ebay/seller/my-listings")
+async def get_my_ebay_listings(limit: int = 50):
+    """Get seller's active eBay listings using Trading API (GetMyeBaySelling)"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected.")
+
+    try:
+        import xml.etree.ElementTree as ET
+
+        xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <ActiveList>
+    <Sort>TimeLeft</Sort>
+    <Pagination>
+      <EntriesPerPage>{limit}</EntriesPerPage>
+      <PageNumber>1</PageNumber>
+    </Pagination>
+  </ActiveList>
+  <SoldList>
+    <Sort>EndTime</Sort>
+    <Pagination>
+      <EntriesPerPage>20</EntriesPerPage>
+      <PageNumber>1</PageNumber>
+    </Pagination>
+  </SoldList>
+</GetMyeBaySellingRequest>'''
+
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml",
+                },
+                content=xml_body,
+            )
+
+        if resp.status_code != 200:
+            logger.error(f"Trading API error: {resp.status_code}")
+            return {"active": [], "sold": [], "active_total": 0, "sold_total": 0}
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+
+        # Parse active listings
+        active_items = []
+        active_list = root.find(".//e:ActiveList", ns)
+        active_total = 0
+        if active_list is not None:
+            total_el = active_list.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+            active_total = int(total_el.text) if total_el is not None else 0
+            for item in active_list.findall(".//e:Item", ns):
+                title_el = item.find("e:Title", ns)
+                price_el = item.find("e:SellingStatus/e:CurrentPrice", ns)
+                time_left_el = item.find("e:TimeLeft", ns)
+                item_id_el = item.find("e:ItemID", ns)
+                gallery_el = item.find(".//e:GalleryURL", ns)
+                url_el = item.find(".//e:ViewItemURL", ns)
+                qty_el = item.find("e:QuantityAvailable", ns)
+                listing_type_el = item.find("e:ListingType", ns)
+                watch_el = item.find("e:WatchCount", ns)
+
+                active_items.append({
+                    "item_id": item_id_el.text if item_id_el is not None else "",
+                    "title": title_el.text if title_el is not None else "",
+                    "price": float(price_el.text) if price_el is not None else 0,
+                    "currency": price_el.get("currencyID", "USD") if price_el is not None else "USD",
+                    "time_left": time_left_el.text if time_left_el is not None else "",
+                    "image_url": (gallery_el.text if gallery_el is not None else "").replace("s-l140", "s-l500"),
+                    "url": url_el.text if url_el is not None else "",
+                    "quantity_available": int(qty_el.text) if qty_el is not None else 0,
+                    "listing_type": listing_type_el.text if listing_type_el is not None else "",
+                    "watch_count": int(watch_el.text) if watch_el is not None else 0,
+                })
+
+        # Parse sold items
+        sold_items = []
+        sold_list = root.find(".//e:SoldList", ns)
+        sold_total = 0
+        if sold_list is not None:
+            total_el = sold_list.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+            sold_total = int(total_el.text) if total_el is not None else 0
+            for order in sold_list.findall(".//e:OrderTransaction", ns):
+                title_el = order.find(".//e:Title", ns)
+                price_el = order.find(".//e:TransactionPrice", ns)
+                item_id_el = order.find(".//e:ItemID", ns)
+                buyer_el = order.find(".//e:Buyer/e:UserID", ns)
+                paid_el = order.find(".//e:OrderStatus/e:CheckoutStatus/e:Status", ns)
+                gallery_el = order.find(".//e:GalleryURL", ns)
+
+                sold_items.append({
+                    "item_id": item_id_el.text if item_id_el is not None else "",
+                    "title": title_el.text if title_el is not None else "",
+                    "price": float(price_el.text) if price_el is not None else 0,
+                    "currency": price_el.get("currencyID", "USD") if price_el is not None else "USD",
+                    "buyer": buyer_el.text if buyer_el is not None else "",
+                    "paid_status": paid_el.text if paid_el is not None else "",
+                    "image_url": (gallery_el.text if gallery_el is not None else "").replace("s-l140", "s-l500"),
+                })
+
+        return {
+            "active": active_items,
+            "sold": sold_items,
+            "active_total": active_total,
+            "sold_total": sold_total,
+        }
+    except Exception as e:
+        logger.error(f"My eBay listings failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============================================
 # DASHBOARD ENDPOINTS
 # ============================================
