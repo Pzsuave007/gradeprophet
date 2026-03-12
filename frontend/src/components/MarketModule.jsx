@@ -54,30 +54,35 @@ const MarketValueCard = ({ query, onClose }) => {
     <div className="p-4 flex items-center gap-2 text-gray-500"><RefreshCw className="w-4 h-4 animate-spin" /><span className="text-xs">Loading market data...</span></div>
   );
 
-  const raw = data?.raw?.stats || {};
-  const psa10 = data?.psa10?.stats || {};
+  const primary = data?.primary || {};
+  const secondary = data?.secondary || {};
+  const primaryStats = primary.stats || {};
+  const secondaryStats = secondary.stats || {};
 
   return (
     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
       className="border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">
+      {data?.is_graded && data?.detected_grade && (
+        <p className="text-[10px] text-amber-400 mb-2">Comparing with <span className="font-bold">{data.detected_grade}</span> sales</p>
+      )}
       <div className="grid grid-cols-2 gap-3 mb-2">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Raw Market</p>
-          {raw.count > 0 ? (
+          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{primary.label || 'Primary'}</p>
+          {primaryStats.count > 0 ? (
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-white">{formatPrice(raw.median)}</span>
-              <span className="text-[10px] text-gray-500">median ({raw.count} listings)</span>
+              <span className="text-sm font-bold text-white">{formatPrice(primaryStats.median)}</span>
+              <span className="text-[10px] text-gray-500">median ({primaryStats.count} listings)</span>
             </div>
-          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas raw recientes</span>}
+          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas recientes</span>}
         </div>
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">PSA 10 Market</p>
-          {psa10.count > 0 ? (
+          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
+          {secondaryStats.count > 0 ? (
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-amber-400">{formatPrice(psa10.median)}</span>
-              <span className="text-[10px] text-gray-500">median ({psa10.count} listings)</span>
+              <span className="text-sm font-bold text-amber-400">{formatPrice(secondaryStats.median)}</span>
+              <span className="text-[10px] text-gray-500">median ({secondaryStats.count} listings)</span>
             </div>
-          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas PSA 10 recientes</span>}
+          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas recientes</span>}
         </div>
       </div>
       <button onClick={onClose} className="text-[10px] text-gray-600 hover:text-gray-400">Close</button>
@@ -302,8 +307,10 @@ const SearchTab = () => {
     finally { setLoading(false); }
   };
 
-  const raw = marketData?.raw?.stats || {};
-  const psa10 = marketData?.psa10?.stats || {};
+  const primary = marketData?.primary || {};
+  const secondary = marketData?.secondary || {};
+  const primaryStats = primary.stats || {};
+  const secondaryStats = secondary.stats || {};
   const fp = flipData || {};
 
   return (
@@ -328,6 +335,13 @@ const SearchTab = () => {
 
       {!loading && marketData && (
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+          {/* Grade detection indicator */}
+          {marketData.is_graded && marketData.detected_grade && (
+            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+              <Tag className="w-3.5 h-3.5 text-amber-400" />
+              <span className="text-xs text-amber-300">Graded card: <span className="font-bold">{marketData.detected_grade}</span> — showing same grade sales</span>
+            </div>
+          )}
           {/* Flip Calc */}
           {fp.raw_price > 0 && fp.psa10_value > 0 && (
             <div className={`bg-[#111] border rounded-xl p-4 ${fp.potential_profit > 0 ? 'border-emerald-500/30' : 'border-[#1a1a1a]'}`}>
@@ -345,25 +359,25 @@ const SearchTab = () => {
               </div>
             </div>
           )}
-          {/* Raw vs PSA 10 */}
+          {/* Primary vs Secondary Market */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="bg-[#111] border border-[#1a1a1a] rounded-xl">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                <Layers className="w-4 h-4 text-[#3b82f6]" /><h3 className="text-sm font-semibold text-white">Raw / Ungraded</h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{raw.count || 0}</span>
+                <Layers className="w-4 h-4 text-[#3b82f6]" /><h3 className="text-sm font-semibold text-white">{primary.label || 'Primary'}</h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{primaryStats.count || 0}</span>
               </div>
               <div className="p-3">
-                {raw.count > 0 ? (
+                {primaryStats.count > 0 ? (
                   <>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      <StatBox label="Median" value={formatPrice(raw.median)} color="text-white" />
-                      <StatBox label="Avg" value={formatPrice(raw.avg)} color="text-gray-300" />
-                      <StatBox label="Range" value={`${formatPrice(raw.min)}-${formatPrice(raw.max)}`} color="text-gray-400" />
+                      <StatBox label="Median" value={formatPrice(primaryStats.median)} color="text-white" />
+                      <StatBox label="Avg" value={formatPrice(primaryStats.avg)} color="text-gray-300" />
+                      <StatBox label="Range" value={`${formatPrice(primaryStats.min)}-${formatPrice(primaryStats.max)}`} color="text-gray-400" />
                     </div>
                     <div className="space-y-1">
-                      {(marketData.raw?.items || []).slice(0, 4).map((item, i) => (
+                      {(primary.items || []).slice(0, 4).map((item, i) => (
                         <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`raw-item-${i}`}>
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`primary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
                           <p className="text-[10px] text-gray-400 truncate flex-1 group-hover:text-white">{item.title}</p>
                           <span className="text-[11px] font-bold text-white">${item.price}</span>
@@ -371,34 +385,34 @@ const SearchTab = () => {
                       ))}
                     </div>
                   </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas raw recientes</p>}
+                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
               </div>
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-xl">
               <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                <Tag className="w-4 h-4 text-amber-500" /><h3 className="text-sm font-semibold text-white">PSA 10</h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{psa10.count || 0}</span>
+                <Tag className="w-4 h-4 text-amber-500" /><h3 className="text-sm font-semibold text-white">{secondary.label || 'Secondary'}</h3>
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{secondaryStats.count || 0}</span>
               </div>
               <div className="p-3">
-                {psa10.count > 0 ? (
+                {secondaryStats.count > 0 ? (
                   <>
                     <div className="grid grid-cols-3 gap-2 mb-3">
-                      <StatBox label="Median" value={formatPrice(psa10.median)} color="text-amber-400" />
-                      <StatBox label="Avg" value={formatPrice(psa10.avg)} color="text-gray-300" />
-                      <StatBox label="Range" value={`${formatPrice(psa10.min)}-${formatPrice(psa10.max)}`} color="text-gray-400" />
+                      <StatBox label="Median" value={formatPrice(secondaryStats.median)} color="text-amber-400" />
+                      <StatBox label="Avg" value={formatPrice(secondaryStats.avg)} color="text-gray-300" />
+                      <StatBox label="Range" value={`${formatPrice(secondaryStats.min)}-${formatPrice(secondaryStats.max)}`} color="text-gray-400" />
                     </div>
                     <div className="space-y-1">
-                      {(marketData.psa10?.items || []).slice(0, 4).map((item, i) => (
+                      {(secondary.items || []).slice(0, 4).map((item, i) => (
                         <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`psa10-item-${i}`}>
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`secondary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
-                          <p className="text-[10px] text-gray-400 truncate flex-1 group-hover:text-white">{item.title}</p>
+                          <p className="text-[10px] text-gray-400 truncate flex-1 group-hover:text-white">{item.price}</p>
                           <span className="text-[11px] font-bold text-amber-400">${item.price}</span>
                         </a>
                       ))}
                     </div>
                   </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas PSA 10 recientes</p>}
+                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
               </div>
             </div>
           </div>

@@ -2878,23 +2878,29 @@ async def market_search(query: str, limit: int = 20):
 
 @api_router.get("/market/card-value")
 async def get_card_market_value(query: str):
-    """Get market value for a card - searches raw and graded versions"""
+    """Get market value for a card - intelligently searches based on whether the card is graded or raw"""
     try:
         token = await get_ebay_app_token()
 
-        # Clean the query - remove grading references so we get the base card name
         import re as _re
+
+        # Step 1: Detect if the listing is graded and extract grade info
+        grade_match = _re.search(
+            r'\b(PSA|BGS|SGC|CGC|HGA|GMA|CSG)\s*(\d+\.?\d*)\b',
+            query, flags=_re.IGNORECASE
+        )
+        detected_company = grade_match.group(1).upper() if grade_match else None
+        detected_grade = grade_match.group(2) if grade_match else None
+        is_graded = grade_match is not None
+
+        # Step 2: Clean the query to get the base card name (no grading info)
         clean_q = query
-        # Remove PSA/BGS/SGC/CGC grade references
         clean_q = _re.sub(r'\b(PSA|BGS|SGC|CGC|HGA|GMA|CSG)\s*\d+\.?\d*\b', '', clean_q, flags=_re.IGNORECASE)
-        # Remove common grading terms
-        clean_q = _re.sub(r'\b(GEM\s*MINT|MINT|PRISTINE|NEAR\s*MINT|LOW\s*POP|POP\s*\d+)\b', '', clean_q, flags=_re.IGNORECASE)
-        # Remove extra whitespace
+        clean_q = _re.sub(r'\b(GEM\s*MINT|MINT|PRISTINE|NEAR\s*MINT|NM-MT|NM|LOW\s*POP|POP\s*\d+)\b', '', clean_q, flags=_re.IGNORECASE)
         clean_q = _re.sub(r'\s+', ' ', clean_q).strip()
-        # Remove trailing commas or dashes
         clean_q = clean_q.strip(' ,-')
 
-        logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}'")
+        logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}' graded={is_graded} grade={detected_company} {detected_grade}")
 
         async def search_ebay(q, lim=10):
             async with httpx.AsyncClient(timeout=15.0) as http_client:
@@ -2932,22 +2938,44 @@ async def get_card_market_value(query: str):
             } for item in items]
 
         import asyncio
-        raw_items, psa10_items, graded_items = await asyncio.gather(
-            search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
-            search_ebay(f'{clean_q} PSA 10', 10),
-            search_ebay(f'{clean_q} PSA BGS SGC graded', 10),
-        )
 
-        return {
-            "query": query,
-            "clean_query": clean_q,
-            "raw": {"items": parse_items(raw_items), "stats": calc_stats(raw_items)},
-            "psa10": {"items": parse_items(psa10_items), "stats": calc_stats(psa10_items)},
-            "graded": {"stats": calc_stats(graded_items)},
-        }
+        if is_graded:
+            # GRADED CARD: Search for same grade + raw for reference
+            grade_str = f"{detected_company} {detected_grade}"
+            same_grade_items, raw_items = await asyncio.gather(
+                search_ebay(f'{clean_q} {grade_str}', 10),
+                search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
+            )
+            return {
+                "query": query,
+                "clean_query": clean_q,
+                "is_graded": True,
+                "detected_grade": grade_str,
+                "primary": {"label": grade_str, "items": parse_items(same_grade_items), "stats": calc_stats(same_grade_items)},
+                "secondary": {"label": "Raw / Ungraded", "items": parse_items(raw_items), "stats": calc_stats(raw_items)},
+            }
+        else:
+            # RAW CARD: Search for raw + PSA 10 for potential upside
+            raw_items, psa10_items = await asyncio.gather(
+                search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
+                search_ebay(f'{clean_q} PSA 10', 10),
+            )
+            return {
+                "query": query,
+                "clean_query": clean_q,
+                "is_graded": False,
+                "detected_grade": None,
+                "primary": {"label": "Raw / Ungraded", "items": parse_items(raw_items), "stats": calc_stats(raw_items)},
+                "secondary": {"label": "PSA 10 (potential value)", "items": parse_items(psa10_items), "stats": calc_stats(psa10_items)},
+            }
     except Exception as e:
         logger.error(f"Card value failed: {e}")
-        return {"query": query, "raw": {"items": [], "stats": {}}, "psa10": {"items": [], "stats": {}}, "graded": {"stats": {}}, "error": str(e)}
+        return {
+            "query": query, "is_graded": False, "detected_grade": None,
+            "primary": {"label": "Raw", "items": [], "stats": {}},
+            "secondary": {"label": "PSA 10", "items": [], "stats": {}},
+            "error": str(e),
+        }
 
 
 @api_router.get("/market/flip-calc")

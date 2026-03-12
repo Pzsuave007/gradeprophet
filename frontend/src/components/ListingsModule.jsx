@@ -119,10 +119,14 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
     }
   };
 
-  const raw = marketData?.raw?.stats || {};
-  const psa10 = marketData?.psa10?.stats || {};
-  const rawItems = marketData?.raw?.items || [];
-  const psa10Items = marketData?.psa10?.items || [];
+  const primary = marketData?.primary || {};
+  const secondary = marketData?.secondary || {};
+  const primaryStats = primary.stats || {};
+  const secondaryStats = secondary.stats || {};
+  const primaryItems = primary.items || [];
+  const secondaryItems = secondary.items || [];
+  const isGraded = marketData?.is_graded || false;
+  const detectedGrade = marketData?.detected_grade || '';
 
   const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
   const labelCls = "block text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 font-medium";
@@ -205,34 +209,41 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
               <div className="p-4 flex items-center gap-2 text-gray-500"><RefreshCw className="w-4 h-4 animate-spin" /><span className="text-xs">Loading market data...</span></div>
             ) : (
               <div className="p-4 space-y-4">
+                {/* Grade detection indicator */}
+                {isGraded && (
+                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                    <Tag className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-xs text-amber-300">Graded card detected: <span className="font-bold">{detectedGrade}</span> — comparing with same grade sales</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Raw / Ungraded</p>
-                    {raw.count > 0 ? (
+                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{primary.label || 'Primary'}</p>
+                    {primaryStats.count > 0 ? (
                       <>
-                        <p className="text-lg font-bold text-white">{formatPrice(raw.median)}</p>
-                        <p className="text-[10px] text-gray-500">{raw.count} sold &middot; Avg {formatPrice(raw.avg)}</p>
-                        <p className="text-[10px] text-gray-600">Range: {formatPrice(raw.min)} - {formatPrice(raw.max)}</p>
+                        <p className="text-lg font-bold text-white">{formatPrice(primaryStats.median)}</p>
+                        <p className="text-[10px] text-gray-500">{primaryStats.count} sold &middot; Avg {formatPrice(primaryStats.avg)}</p>
+                        <p className="text-[10px] text-gray-600">Range: {formatPrice(primaryStats.min)} - {formatPrice(primaryStats.max)}</p>
                       </>
                     ) : <p className="text-xs text-gray-600 italic">Sin ventas recientes</p>}
                   </div>
                   <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">PSA 10</p>
-                    {psa10.count > 0 ? (
+                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
+                    {secondaryStats.count > 0 ? (
                       <>
-                        <p className="text-lg font-bold text-amber-400">{formatPrice(psa10.median)}</p>
-                        <p className="text-[10px] text-gray-500">{psa10.count} sold &middot; Avg {formatPrice(psa10.avg)}</p>
-                        <p className="text-[10px] text-gray-600">Range: {formatPrice(psa10.min)} - {formatPrice(psa10.max)}</p>
+                        <p className="text-lg font-bold text-amber-400">{formatPrice(secondaryStats.median)}</p>
+                        <p className="text-[10px] text-gray-500">{secondaryStats.count} sold &middot; Avg {formatPrice(secondaryStats.avg)}</p>
+                        <p className="text-[10px] text-gray-600">Range: {formatPrice(secondaryStats.min)} - {formatPrice(secondaryStats.max)}</p>
                       </>
                     ) : <p className="text-xs text-gray-600 italic">Sin ventas recientes</p>}
                   </div>
                 </div>
                 {/* Recent Sales */}
-                {(rawItems.length > 0 || psa10Items.length > 0) && (
+                {(primaryItems.length > 0 || secondaryItems.length > 0) && (
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-2">Recent Sales</p>
                     <div className="space-y-1 max-h-36 overflow-y-auto">
-                      {[...rawItems.slice(0, 3), ...psa10Items.slice(0, 3)].map((sale, i) => (
+                      {[...primaryItems.slice(0, 4), ...secondaryItems.slice(0, 2)].map((sale, i) => (
                         <a key={i} href={sale.url} target="_blank" rel="noopener noreferrer"
                           className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.03] group">
                           {sale.image_url && <img src={sale.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
@@ -244,12 +255,12 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
                   </div>
                 )}
                 {/* Price position indicator */}
-                {(raw.count > 0 || psa10.count > 0) && (
+                {(primaryStats.count > 0 || secondaryStats.count > 0) && (
                   <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#1a1a1a]">
                     <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price vs Market</p>
                     {(() => {
-                      const median = raw.count > 0 ? raw.median : psa10.count > 0 ? psa10.median : 0;
-                      const label = raw.count > 0 ? 'raw' : 'PSA 10';
+                      const median = primaryStats.count > 0 ? primaryStats.median : secondaryStats.median;
+                      const label = primaryStats.count > 0 ? (primary.label || 'market') : (secondary.label || 'market');
                       if (!median) return null;
                       if (listing.price > median * 1.2) return <p className="text-xs text-amber-400"><TrendingUp className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">above</span> {label} median ({formatPrice(median)})</p>;
                       if (listing.price < median * 0.8) return <p className="text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">below</span> {label} median ({formatPrice(median)}) - great deal!</p>;
