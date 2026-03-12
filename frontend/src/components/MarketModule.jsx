@@ -3,10 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, TrendingUp, DollarSign, BarChart3, ExternalLink,
   RefreshCw, Layers, Tag, Package, Eye, Clock, ArrowRight,
-  ShoppingBag, Heart, ArrowUpRight
+  ShoppingBag, Heart, ArrowUpRight, Image as ImageIcon
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { ViewToggle } from './ViewToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -67,7 +68,7 @@ const MarketValueCard = ({ query, onClose }) => {
               <span className="text-sm font-bold text-white">{formatPrice(raw.median)}</span>
               <span className="text-[10px] text-gray-500">median ({raw.count} listings)</span>
             </div>
-          ) : <span className="text-[10px] text-gray-600">No data</span>}
+          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas raw recientes</span>}
         </div>
         <div>
           <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">PSA 10 Market</p>
@@ -76,7 +77,7 @@ const MarketValueCard = ({ query, onClose }) => {
               <span className="text-sm font-bold text-amber-400">{formatPrice(psa10.median)}</span>
               <span className="text-[10px] text-gray-500">median ({psa10.count} listings)</span>
             </div>
-          ) : <span className="text-[10px] text-gray-600">No data</span>}
+          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas PSA 10 recientes</span>}
         </div>
       </div>
       <button onClick={onClose} className="text-[10px] text-gray-600 hover:text-gray-400">Close</button>
@@ -88,52 +89,91 @@ const MarketValueCard = ({ query, onClose }) => {
 // =========== MY EBAY LISTINGS TAB ===========
 const MyListingsTab = ({ listings, totalValue }) => {
   const [expandedId, setExpandedId] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
 
   return (
     <div className="space-y-3">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatBox label="Active Listings" value={listings.length} color="text-[#3b82f6]" />
-        <StatBox label="Total Asking" value={formatPrice(totalValue)} color="text-emerald-400" />
-        <StatBox label="Avg Price" value={formatPrice(listings.length > 0 ? totalValue / listings.length : 0)} color="text-gray-300" />
+      {/* Summary + Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-3 gap-3 flex-1 mr-3">
+          <StatBox label="Active Listings" value={listings.length} color="text-[#3b82f6]" />
+          <StatBox label="Total Asking" value={formatPrice(totalValue)} color="text-emerald-400" />
+          <StatBox label="Avg Price" value={formatPrice(listings.length > 0 ? totalValue / listings.length : 0)} color="text-gray-300" />
+        </div>
+        <ViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
-      {/* List */}
-      <div className="space-y-1">
-        {listings.map((item, i) => (
-          <div key={item.item_id} className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors">
-            <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setExpandedId(expandedId === item.item_id ? null : item.item_id)}
-              data-testid={`listing-${i}`}>
-              {item.image_url ? (
-                <img src={item.image_url} alt="" className="w-11 h-11 rounded object-cover flex-shrink-0" />
-              ) : <div className="w-11 h-11 rounded bg-[#1a1a1a] flex-shrink-0" />}
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-medium text-white truncate">{item.title}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 uppercase">{item.listing_type === 'FixedPriceItem' ? 'Buy Now' : 'Auction'}</span>
-                  {item.watch_count > 0 && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
-                  <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
+      {viewMode === 'grid' ? (
+        /* GRID VIEW */
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {listings.map((item, i) => (
+            <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`listing-${i}`}>
+              <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
+                {item.image_url ? (
+                  <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">
+                  ${item.price}
+                </span>
+                <span className="absolute top-2 right-2 text-[8px] px-1.5 py-0.5 rounded bg-black/70 text-gray-300 uppercase">
+                  {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
+                </span>
+              </div>
+              <div className="p-2.5">
+                <p className="text-[11px] font-semibold text-white line-clamp-2 leading-relaxed mb-1.5">{item.title}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
+                    {item.watch_count > 0 && <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
+                    <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
+                  </div>
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                    className="p-1 hover:bg-white/10 rounded transition-colors">
+                    <ExternalLink className="w-3 h-3 text-gray-600 hover:text-[#3b82f6]" />
+                  </a>
                 </div>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-emerald-400">${item.price}</p>
-                <button className="text-[9px] text-[#3b82f6] hover:text-[#60a5fa] mt-0.5">
-                  {expandedId === item.item_id ? 'Hide' : 'Market Value'}
-                </button>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        /* LIST VIEW */
+        <div className="space-y-1">
+          {listings.map((item, i) => (
+            <div key={item.item_id} className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors">
+              <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setExpandedId(expandedId === item.item_id ? null : item.item_id)}
+                data-testid={`listing-${i}`}>
+                {item.image_url ? (
+                  <img src={item.image_url} alt="" className="w-11 h-11 rounded object-cover flex-shrink-0" />
+                ) : <div className="w-11 h-11 rounded bg-[#1a1a1a] flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-medium text-white truncate">{item.title}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 uppercase">{item.listing_type === 'FixedPriceItem' ? 'Buy Now' : 'Auction'}</span>
+                    {item.watch_count > 0 && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
+                    <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-emerald-400">${item.price}</p>
+                  <button className="text-[9px] text-[#3b82f6] hover:text-[#60a5fa] mt-0.5">
+                    {expandedId === item.item_id ? 'Hide' : 'Market Value'}
+                  </button>
+                </div>
+                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                  className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-600 hover:text-[#3b82f6]" />
+                </a>
               </div>
-              <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
-                <ExternalLink className="w-3.5 h-3.5 text-gray-600 hover:text-[#3b82f6]" />
-              </a>
+              <AnimatePresence>
+                {expandedId === item.item_id && (
+                  <MarketValueCard query={item.title} onClose={() => setExpandedId(null)} />
+                )}
+              </AnimatePresence>
             </div>
-            <AnimatePresence>
-              {expandedId === item.item_id && (
-                <MarketValueCard query={item.title} onClose={() => setExpandedId(null)} />
-              )}
-            </AnimatePresence>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 };
@@ -142,15 +182,19 @@ const MyListingsTab = ({ listings, totalValue }) => {
 // =========== MY COLLECTION TAB ===========
 const MyCollectionTab = ({ items }) => {
   const [expandedId, setExpandedId] = useState(null);
+  const [viewMode, setViewMode] = useState('list');
   const totalInvested = items.reduce((s, i) => s + ((i.purchase_price || 0) * (i.quantity || 1)), 0);
 
   return (
     <div className="space-y-3">
-      {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
-        <StatBox label="Cards" value={items.length} color="text-amber-400" />
-        <StatBox label="Total Invested" value={formatPrice(totalInvested)} color="text-emerald-400" />
-        <StatBox label="Avg Cost" value={formatPrice(items.length > 0 ? totalInvested / items.length : 0)} color="text-gray-300" />
+      {/* Summary + Toggle */}
+      <div className="flex items-center justify-between">
+        <div className="grid grid-cols-3 gap-3 flex-1 mr-3">
+          <StatBox label="Cards" value={items.length} color="text-amber-400" />
+          <StatBox label="Total Invested" value={formatPrice(totalInvested)} color="text-emerald-400" />
+          <StatBox label="Avg Cost" value={formatPrice(items.length > 0 ? totalInvested / items.length : 0)} color="text-gray-300" />
+        </div>
+        <ViewToggle view={viewMode} onChange={setViewMode} />
       </div>
 
       {items.length === 0 ? (
@@ -158,7 +202,37 @@ const MyCollectionTab = ({ items }) => {
           <Package className="w-8 h-8 text-gray-700 mx-auto mb-2" />
           <p className="text-sm text-gray-500">No cards in inventory</p>
         </div>
+      ) : viewMode === 'grid' ? (
+        /* GRID VIEW */
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          {items.map((item, i) => (
+            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
+              className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`collection-${i}`}>
+              <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
+                {item.image ? (
+                  <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                {item.category === 'for_sale' ? (
+                  <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
+                ) : (
+                  <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>
+                )}
+              </div>
+              <div className="p-2.5">
+                <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
+                <div className="flex items-center justify-between mt-1.5">
+                  {item.condition === 'Graded' && item.grade ? (
+                    <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span>
+                  ) : <span className="text-[10px] text-gray-600">Raw</span>}
+                  <span className="text-[11px] font-bold text-white">{formatPrice(item.purchase_price)}</span>
+                </div>
+                {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
+              </div>
+            </motion.div>
+          ))}
+        </div>
       ) : (
+        /* LIST VIEW */
         <div className="space-y-1">
           {items.map((item, i) => (
             <div key={item.id} className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors">
@@ -297,7 +371,7 @@ const SearchTab = () => {
                       ))}
                     </div>
                   </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">No raw listings found</p>}
+                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas raw recientes</p>}
               </div>
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-xl">
@@ -324,7 +398,7 @@ const SearchTab = () => {
                       ))}
                     </div>
                   </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">No PSA 10 listings found</p>}
+                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas PSA 10 recientes</p>}
               </div>
             </div>
           </div>

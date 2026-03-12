@@ -9,6 +9,7 @@ import {
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
+import { ViewToggle } from './ViewToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -29,6 +30,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
   const [editQuery, setEditQuery] = useState('');
   const [editNotes, setEditNotes] = useState('');
   const [expandedListings, setExpandedListings] = useState({});
+  const [viewMode, setViewMode] = useState('grid');
 
   const loadWatchlist = useCallback(async () => {
     try { setLoadingWatchlist(true); const r = await axios.get(`${apiBase}/watchlist`); setWatchlist(r.data); }
@@ -181,20 +183,23 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
 
       {/* RIGHT: Listings */}
       <div className="lg:col-span-3 space-y-3">
-        {/* Filter Tabs */}
-        <div className="flex gap-1">
-          {[
-            { value: 'new', label: 'Nuevos', icon: AlertCircle },
-            { value: 'interested', label: 'Favoritos', icon: Star },
-            { value: 'all', label: 'Todos', icon: Eye }
-          ].map(({ value, label, icon: Icon }) => (
-            <button key={value} onClick={() => setStatusFilter(value)}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
-                statusFilter === value ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
-              }`} data-testid={`filter-${value}`}>
-              <Icon className="w-3.5 h-3.5" />{label}
-            </button>
-          ))}
+        {/* Filter Tabs + View Toggle */}
+        <div className="flex gap-2 items-center">
+          <div className="flex gap-1 flex-1">
+            {[
+              { value: 'new', label: 'Nuevos', icon: AlertCircle },
+              { value: 'interested', label: 'Favoritos', icon: Star },
+              { value: 'all', label: 'Todos', icon: Eye }
+            ].map(({ value, label, icon: Icon }) => (
+              <button key={value} onClick={() => setStatusFilter(value)}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
+                  statusFilter === value ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
+                }`} data-testid={`filter-${value}`}>
+                <Icon className="w-3.5 h-3.5" />{label}
+              </button>
+            ))}
+          </div>
+          <ViewToggle view={viewMode} onChange={setViewMode} />
         </div>
 
         {/* Listings Content */}
@@ -221,51 +226,92 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                 <AnimatePresence>
                   {(expandedListings[cardName] !== false) && (
                     <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3">
-                        {cardListings.map((listing) => (
-                          <div key={listing.id} className={`bg-[#0a0a0a] border rounded-lg overflow-hidden hover:border-[#3b82f6]/30 transition-all ${listing.status === 'interested' ? 'border-[#eab308]/30' : 'border-[#1a1a1a]'}`} data-testid={`listing-${listing.id}`}>
-                            {/* Image */}
-                            <div className="aspect-square bg-[#0a0a0a] relative">
-                              <img src={listing.image_url} alt="" className="w-full h-full object-contain"
-                                onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23121212" width="200" height="200"/></svg>'; }} />
-                              {/* Price Badge */}
-                              <div className="absolute top-1.5 left-1.5">
-                                <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] bg-black/70 text-xs px-2 py-0.5">
-                                  <DollarSign className="w-3 h-3 mr-0.5" />{listing.price}
-                                </Badge>
+                      {viewMode === 'grid' ? (
+                        /* GRID VIEW */
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3">
+                          {cardListings.map((listing) => (
+                            <div key={listing.id} className={`bg-[#0a0a0a] border rounded-lg overflow-hidden hover:border-[#3b82f6]/30 transition-all ${listing.status === 'interested' ? 'border-[#eab308]/30' : 'border-[#1a1a1a]'}`} data-testid={`listing-${listing.id}`}>
+                              <div className="aspect-square bg-[#0a0a0a] relative">
+                                <img src={listing.image_url} alt="" className="w-full h-full object-contain"
+                                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23121212" width="200" height="200"/></svg>'; }} />
+                                <div className="absolute top-1.5 left-1.5">
+                                  <Badge variant="outline" className="border-[#22c55e] text-[#22c55e] bg-black/70 text-xs px-2 py-0.5">
+                                    <DollarSign className="w-3 h-3 mr-0.5" />{listing.price}
+                                  </Badge>
+                                </div>
+                                <div className="absolute top-1.5 right-1.5">
+                                  <Badge variant="outline" className={`bg-black/70 text-xs px-1.5 py-0.5 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
+                                    {listing.listing_type === 'auction' ? <><Gavel className="w-3 h-3" />{listing.bids !== null && <span className="ml-0.5">{listing.bids}</span>}</> : 'BIN'}
+                                  </Badge>
+                                </div>
                               </div>
-                              {/* Type Badge */}
-                              <div className="absolute top-1.5 right-1.5">
-                                <Badge variant="outline" className={`bg-black/70 text-xs px-1.5 py-0.5 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
-                                  {listing.listing_type === 'auction' ? <><Gavel className="w-3 h-3" />{listing.bids !== null && <span className="ml-0.5">{listing.bids}</span>}</> : 'BIN'}
-                                </Badge>
+                              <div className="p-2.5">
+                                <p className="text-xs text-white font-medium line-clamp-2 mb-2 leading-relaxed">{listing.title}</p>
+                                {listing.time_left && <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{listing.time_left}</p>}
+                                <div className="flex flex-wrap gap-1.5">
+                                  <a href={listing.listing_url} target="_blank" rel="noopener noreferrer"
+                                    className="text-[10px] bg-[#3b82f6]/10 text-[#3b82f6] px-2 py-1 rounded hover:bg-[#3b82f6]/20 inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
+                                    <ExternalLink className="w-2.5 h-2.5" />eBay</a>
+                                  {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')}
+                                    className="text-[10px] bg-[#eab308]/10 text-[#eab308] px-2 py-1 rounded hover:bg-[#eab308]/20 inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}>
+                                    <Star className="w-2.5 h-2.5" />Fav</button>}
+                                  {listing.status === 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')}
+                                    className="text-[10px] bg-gray-500/10 text-gray-400 px-2 py-1 rounded hover:bg-gray-500/20 inline-flex items-center gap-0.5">
+                                    <XCircle className="w-2.5 h-2.5" />Quitar</button>}
+                                  {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
+                                    className="text-[10px] bg-[#22c55e]/10 text-[#22c55e] px-2 py-1 rounded hover:bg-[#22c55e]/20 inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}>
+                                    <Search className="w-2.5 h-2.5" />Analizar</button>}
+                                  <button onClick={() => handleDeleteListing(listing.id)}
+                                    className="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded hover:bg-red-500/20 inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}>
+                                    <Trash2 className="w-2.5 h-2.5" />Borrar</button>
+                                </div>
                               </div>
                             </div>
-                            {/* Info */}
-                            <div className="p-2.5">
-                              <p className="text-xs text-white font-medium line-clamp-2 mb-2 leading-relaxed">{listing.title}</p>
-                              {listing.time_left && <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{listing.time_left}</p>}
-                              <div className="flex flex-wrap gap-1.5">
+                          ))}
+                        </div>
+                      ) : (
+                        /* LIST VIEW */
+                        <div className="divide-y divide-[#1a1a1a]">
+                          {cardListings.map((listing) => (
+                            <div key={listing.id} className={`flex items-center gap-3 p-3 hover:bg-white/[0.02] transition-colors ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
+                              <div className="w-12 h-12 rounded bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
+                                <img src={listing.image_url} alt="" className="w-full h-full object-contain"
+                                  onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23121212" width="200" height="200"/></svg>'; }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-white font-medium truncate">{listing.title}</p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
+                                    {listing.listing_type === 'auction' ? 'Auction' : 'BIN'}
+                                  </Badge>
+                                  {listing.time_left && <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{listing.time_left}</span>}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-sm font-bold text-[#22c55e]">${listing.price}</p>
+                                {listing.bids !== null && listing.listing_type === 'auction' && <p className="text-[10px] text-gray-500">{listing.bids} bids</p>}
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0">
                                 <a href={listing.listing_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-[10px] bg-[#3b82f6]/10 text-[#3b82f6] px-2 py-1 rounded hover:bg-[#3b82f6]/20 inline-flex items-center gap-0.5" data-testid={`view-listing-${listing.id}`}>
-                                  <ExternalLink className="w-2.5 h-2.5" />eBay</a>
+                                  className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`view-listing-${listing.id}`}>
+                                  <ExternalLink className="w-3.5 h-3.5" /></a>
                                 {listing.status !== 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'interested')}
-                                  className="text-[10px] bg-[#eab308]/10 text-[#eab308] px-2 py-1 rounded hover:bg-[#eab308]/20 inline-flex items-center gap-0.5" data-testid={`mark-interested-${listing.id}`}>
-                                  <Star className="w-2.5 h-2.5" />Fav</button>}
+                                  className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#eab308]" data-testid={`mark-interested-${listing.id}`}>
+                                  <Star className="w-3.5 h-3.5" /></button>}
                                 {listing.status === 'interested' && <button onClick={() => handleUpdateStatus(listing.id, 'seen')}
-                                  className="text-[10px] bg-gray-500/10 text-gray-400 px-2 py-1 rounded hover:bg-gray-500/20 inline-flex items-center gap-0.5">
-                                  <XCircle className="w-2.5 h-2.5" />Quitar</button>}
+                                  className="p-1.5 rounded hover:bg-white/5 text-[#eab308] hover:text-gray-400">
+                                  <Star className="w-3.5 h-3.5 fill-current" /></button>}
                                 {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
-                                  className="text-[10px] bg-[#22c55e]/10 text-[#22c55e] px-2 py-1 rounded hover:bg-[#22c55e]/20 inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}>
-                                  <Search className="w-2.5 h-2.5" />Analizar</button>}
+                                  className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#22c55e]" data-testid={`analyze-listing-${listing.id}`}>
+                                  <Search className="w-3.5 h-3.5" /></button>}
                                 <button onClick={() => handleDeleteListing(listing.id)}
-                                  className="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded hover:bg-red-500/20 inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}>
-                                  <Trash2 className="w-2.5 h-2.5" />Borrar</button>
+                                  className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-listing-${listing.id}`}>
+                                  <Trash2 className="w-3.5 h-3.5" /></button>
                               </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
