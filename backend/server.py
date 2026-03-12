@@ -3629,7 +3629,8 @@ class InventoryItem(BaseModel):
     purchase_price: Optional[float] = None
     quantity: int = 1
     notes: Optional[str] = None
-    image: Optional[str] = None  # base64 thumbnail
+    image: Optional[str] = None  # base64 thumbnail (front)
+    back_image: Optional[str] = None  # base64 thumbnail (back)
     listed: bool = False
     category: str = "collection"  # collection, for_sale
     source_analysis_id: Optional[str] = None  # link to card_analyses if imported from scan
@@ -3651,7 +3652,8 @@ class InventoryItemCreate(BaseModel):
     quantity: int = 1
     notes: Optional[str] = None
     image_base64: Optional[str] = None
-    category: str = "collection"  # collection, for_sale
+    back_image_base64: Optional[str] = None
+    category: str = "collection"
 
 
 class InventoryItemUpdate(BaseModel):
@@ -3668,6 +3670,7 @@ class InventoryItemUpdate(BaseModel):
     quantity: Optional[int] = None
     notes: Optional[str] = None
     image_base64: Optional[str] = None
+    back_image_base64: Optional[str] = None
     listed: Optional[bool] = None
     category: Optional[str] = None
 
@@ -3683,6 +3686,13 @@ async def create_inventory_item(data: InventoryItemCreate):
                 img = img.split(',')[1]
             image_thumb = create_thumbnail(img, max_size=400)
 
+        back_image_thumb = None
+        if data.back_image_base64:
+            bimg = data.back_image_base64
+            if ',' in bimg:
+                bimg = bimg.split(',')[1]
+            back_image_thumb = create_thumbnail(bimg, max_size=400)
+
         item = InventoryItem(
             card_name=data.card_name,
             player=data.player,
@@ -3697,6 +3707,7 @@ async def create_inventory_item(data: InventoryItemCreate):
             quantity=data.quantity,
             notes=data.notes,
             image=image_thumb,
+            back_image=back_image_thumb,
             category=data.category,
         )
 
@@ -3832,7 +3843,12 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
                 if ',' in img:
                     img = img.split(',')[1]
                 update_fields["image"] = create_thumbnail(img, max_size=400)
-            elif field != "image_base64":
+            elif field == "back_image_base64" and value is not None:
+                bimg = value
+                if ',' in bimg:
+                    bimg = bimg.split(',')[1]
+                update_fields["back_image"] = create_thumbnail(bimg, max_size=400)
+            elif field not in ("image_base64", "back_image_base64"):
                 update_fields[field] = value
 
         if not update_fields:

@@ -99,12 +99,13 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Key dependency: Jina Reader API (`https://r.jina.ai/`) for eBay sold items scraping (no API key needed)
 - `created_listings`, `inventory`, `card_analyses`, `psa10_references`, `watchlist_cards`, `ebay_listings`, `ebay_tokens`
 
-### Marzo 2026 - AI Card Auto-Identification + Inline Form
+### Marzo 2026 - AI Card Auto-Identification + Inline Form + Back Image
 - **AI Auto-Fill**: Upload a card photo → AI (gpt-4o via Emergent LLM Key) identifies card_name, player, year, set, card#, variation, condition, grade → all form fields auto-fill
 - **No More Popup**: Replaced modal/popup Add/Edit form with inline view (mobile-friendly)
-- **Emergent LLM Migration**: All OpenAI SDK usage replaced with emergentintegrations library (analyze_card_with_ai, read_psa_label, identify_card_from_image)
+- **Front + Back Image**: Add Card form now supports both front and back card images side by side
+- **Emergent LLM Migration**: All OpenAI SDK usage replaced with emergentintegrations library
 - New endpoint: `POST /api/cards/identify` returns structured JSON card identification
-- Tested: 100% pass rate (7 backend + all frontend flows verified)
+- DB schema: `inventory` collection now has `back_image` field (base64 thumbnail)
 
 ### Marzo 2026 - Create Listing from Inventory (Complete Flow)
 - **Bug Fix**: Fixed response check in CreateListingView.jsx (`res.data.success` instead of `res.data.status === 'success'`)

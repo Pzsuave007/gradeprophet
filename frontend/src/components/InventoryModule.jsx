@@ -28,12 +28,14 @@ const formatPrice = (v) => {
 // =========== ADD/EDIT INLINE VIEW ===========
 const CardFormView = ({ onBack, onSave, editItem }) => {
   const fileRef = useRef(null);
+  const backFileRef = useRef(null);
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
     variation: '', condition: 'Raw', grading_company: '', grade: '',
-    purchase_price: '', quantity: 1, notes: '', image_base64: null, category: 'collection',
+    purchase_price: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection',
   });
   const [imagePreview, setImagePreview] = useState(null);
+  const [backImagePreview, setBackImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
   const [identifying, setIdentifying] = useState(false);
 
@@ -44,9 +46,10 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
         condition: editItem.condition || 'Raw', grading_company: editItem.grading_company || '', grade: editItem.grade || '',
         purchase_price: editItem.purchase_price || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
-        image_base64: null, category: editItem.category || 'collection',
+        image_base64: null, back_image_base64: null, category: editItem.category || 'collection',
       });
       setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
+      setBackImagePreview(editItem.back_image ? `data:image/jpeg;base64,${editItem.back_image}` : null);
     }
   }, [editItem]);
 
@@ -86,6 +89,17 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
     reader.readAsDataURL(file);
   };
 
+  const handleBackImage = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setForm(f => ({ ...f, back_image_base64: ev.target.result }));
+      setBackImagePreview(ev.target.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.card_name.trim()) { toast.error('Card name is required'); return; }
@@ -97,6 +111,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       payload.purchase_price = payload.purchase_price ? parseFloat(payload.purchase_price) : null;
       payload.quantity = parseInt(payload.quantity) || 1;
       if (!payload.image_base64) delete payload.image_base64;
+      if (!payload.back_image_base64) delete payload.back_image_base64;
       if (payload.condition === 'Raw') { payload.grading_company = null; payload.grade = null; }
       await onSave(payload, editItem?.id);
       onBack();
@@ -116,7 +131,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         </button>
         <div>
           <h1 className="text-xl font-bold text-white">{editItem ? 'Edit Card' : 'Add Card to Inventory'}</h1>
-          <p className="text-xs text-gray-500">{editItem ? 'Update card details' : 'Upload a photo to auto-identify with AI'}</p>
+          <p className="text-xs text-gray-500">{editItem ? 'Update card details' : 'Upload front photo to auto-identify with AI'}</p>
         </div>
       </div>
 
@@ -132,23 +147,37 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
           </div>
         </div>
 
-        {/* Image + AI Identify */}
+        {/* Front + Back images side by side */}
         <div className="flex items-start gap-4">
+          {/* Front image */}
           <div className="relative flex-shrink-0">
+            <label className={`${labelCls} text-center mb-1.5`}>Front</label>
             <div onClick={() => fileRef.current?.click()}
               className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
               data-testid="image-upload-area">
-              {imagePreview ? <img src={imagePreview} alt="Card" className="w-full h-full object-cover" />
-                : <div className="text-center p-2"><Upload className="w-6 h-6 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Upload Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
+              {imagePreview ? <img src={imagePreview} alt="Front" className="w-full h-full object-cover" />
+                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Front Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
             </div>
             {identifying && (
-              <div className="absolute inset-0 bg-black/70 rounded-xl flex flex-col items-center justify-center">
+              <div className="absolute inset-0 mt-5 bg-black/70 rounded-xl flex flex-col items-center justify-center">
                 <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mb-1" />
                 <span className="text-[9px] text-[#3b82f6] font-medium">Identifying...</span>
               </div>
             )}
           </div>
+          {/* Back image */}
+          <div className="flex-shrink-0">
+            <label className={`${labelCls} text-center mb-1.5`}>Back</label>
+            <div onClick={() => backFileRef.current?.click()}
+              className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-amber-500/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
+              data-testid="back-image-upload-area">
+              {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-cover" />
+                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span></div>}
+              <input ref={backFileRef} type="file" accept="image/*" onChange={handleBackImage} className="hidden" />
+            </div>
+          </div>
+          {/* Card name + player + year */}
           <div className="flex-1 space-y-3">
             <div><label className={labelCls}>Card Name *</label><input className={inputCls} placeholder="e.g. 1996 Topps Kobe Bryant #138" value={form.card_name} onChange={e => setForm(f => ({ ...f, card_name: e.target.value }))} data-testid="input-card-name" /></div>
             <div className="grid grid-cols-2 gap-3">
