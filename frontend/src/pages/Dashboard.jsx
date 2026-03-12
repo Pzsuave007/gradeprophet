@@ -1,264 +1,171 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Scan, 
-  History, 
-  Brain, 
-  Shield,
-  ChevronLeft,
+import {
+  LayoutDashboard,
+  Package,
+  TrendingUp,
+  Search,
+  Tag,
+  User,
   Menu,
   X,
-  ShoppingBag
+  Zap
 } from 'lucide-react';
-import CardScanner from '../components/CardScanner';
-import AnalysisResult from '../components/AnalysisResult';
-import HistoryPanel from '../components/HistoryPanel';
-import LearningPanel from '../components/LearningPanel';
-import EbayMonitor from '../components/EbayMonitor';
-import { Button } from '../components/ui/button';
+import FlipFinder from '../components/FlipFinder';
+
+// Placeholder components for future modules
+const PlaceholderModule = ({ title, description, icon: Icon }) => (
+  <div className="flex flex-col items-center justify-center py-20">
+    <div className="w-16 h-16 rounded-xl bg-[#3b82f6]/10 flex items-center justify-center mb-4">
+      <Icon className="w-8 h-8 text-[#3b82f6]" />
+    </div>
+    <h2 className="text-xl font-bold text-white mb-2">{title}</h2>
+    <p className="text-gray-500 text-sm text-center max-w-md">{description}</p>
+    <div className="mt-6 px-4 py-2 bg-[#111] border border-[#1a1a1a] rounded-lg text-xs text-gray-600 uppercase tracking-wider">
+      Proximamente
+    </div>
+  </div>
+);
+
+const DashboardHome = () => (
+  <PlaceholderModule title="Dashboard" description="Vista general de tu negocio: inventario, ventas, ganancias, y oportunidades." icon={LayoutDashboard} />
+);
+
+const Inventory = () => (
+  <PlaceholderModule title="Inventory" description="Administra tu coleccion de tarjetas, costos, y valores actuales." icon={Package} />
+);
+
+const Market = () => (
+  <PlaceholderModule title="Market" description="Precios en tiempo real del mercado, tendencias, y comparaciones." icon={TrendingUp} />
+);
+
+const Listings = () => (
+  <PlaceholderModule title="Listings" description="Publica tarjetas directamente en eBay y administra tus listings activos." icon={Tag} />
+);
+
+const Account = () => (
+  <PlaceholderModule title="Account" description="Configuracion de tu cuenta, integraciones, y preferencias." icon={User} />
+);
+
+const modules = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'inventory', label: 'Inventory', icon: Package },
+  { id: 'market', label: 'Market', icon: TrendingUp },
+  { id: 'flipfinder', label: 'Flip Finder', icon: Search },
+  { id: 'listings', label: 'Listings', icon: Tag },
+  { id: 'account', label: 'Account', icon: User },
+];
 
 const Dashboard = () => {
-  const [currentView, setCurrentView] = useState('scanner');
-  const [currentAnalysis, setCurrentAnalysis] = useState(null);
-  const [frontImage, setFrontImage] = useState(null);
-  const [backImage, setBackImage] = useState(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [historyRefresh, setHistoryRefresh] = useState(0);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [mainTab, setMainTab] = useState('scanner');
-  const [ebayUrlToImport, setEbayUrlToImport] = useState(null);
+  const [activeModule, setActiveModule] = useState('flipfinder');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const handleAnalysisComplete = useCallback((analysis, front, back) => {
-    setCurrentAnalysis(analysis);
-    setFrontImage(front);
-    setBackImage(back);
-    setCurrentView('result');
-    setHistoryRefresh(prev => prev + 1);
-  }, []);
-
-  const handleSelectFromHistory = useCallback((card) => {
-    const front = card.front_image_preview 
-      ? `data:image/jpeg;base64,${card.front_image_preview}`
-      : null;
-    const back = card.back_image_preview 
-      ? `data:image/jpeg;base64,${card.back_image_preview}`
-      : null;
-    setCurrentAnalysis(card);
-    setFrontImage(front);
-    setBackImage(back);
-    setMainTab('scanner');
-    setCurrentView('history-detail');
-    setMobileMenuOpen(false);
-  }, []);
-
-  const handleNewAnalysis = useCallback(() => {
-    setCurrentAnalysis(null);
-    setFrontImage(null);
-    setBackImage(null);
-    setCurrentView('scanner');
-  }, []);
-
-  const handleBack = useCallback(() => {
-    setCurrentAnalysis(null);
-    setFrontImage(null);
-    setBackImage(null);
-    setCurrentView('scanner');
-  }, []);
-
-  const handleAnalyzeFromEbay = useCallback((listing) => {
-    setMainTab('scanner');
-    setCurrentView('scanner');
-    setEbayUrlToImport(listing.listing_url);
-  }, []);
-
-  const handleEbayImportComplete = useCallback(() => {
-    setEbayUrlToImport(null);
-  }, []);
-
-  const tabs = [
-    { id: 'scanner', label: 'Analizar', shortLabel: 'Analizar', icon: Scan },
-    { id: 'monitor', label: 'Monitor eBay', shortLabel: 'Monitor', icon: ShoppingBag },
-    { id: 'history', label: 'Historial', shortLabel: 'Historial', icon: History },
-    { id: 'learning', label: 'Aprendizaje', shortLabel: 'AI', icon: Brain },
-  ];
+  const renderModule = () => {
+    switch (activeModule) {
+      case 'dashboard': return <DashboardHome />;
+      case 'inventory': return <Inventory />;
+      case 'market': return <Market />;
+      case 'flipfinder': return <FlipFinder />;
+      case 'listings': return <Listings />;
+      case 'account': return <Account />;
+      default: return <FlipFinder />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      {/* Header - Slim */}
-      <header className="sticky top-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1a1a1a]">
-        <div className="w-full px-4 sm:px-6">
-          <div className="flex items-center justify-between h-12">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-[#3b82f6] rounded flex items-center justify-center">
-                <Scan className="w-4 h-4 text-white" />
-              </div>
-              <h1 className="font-heading text-base font-bold uppercase tracking-wider text-white">
-                GradeProphet
-              </h1>
+    <div className="min-h-screen bg-[#0a0a0a] flex">
+      {/* Sidebar - Desktop */}
+      <aside className="hidden lg:flex flex-col w-56 bg-[#0a0a0a] border-r border-[#1a1a1a] fixed h-full z-40">
+        {/* Logo */}
+        <div className="px-4 py-4 border-b border-[#1a1a1a]">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-[#3b82f6] rounded flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-0.5">
-              {tabs.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => { setMainTab(id); if (id === 'scanner') setCurrentView('scanner'); }}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 rounded text-sm font-medium transition-all ${
-                    mainTab === id 
-                      ? 'bg-[#3b82f6] text-white' 
-                      : 'text-gray-500 hover:text-white hover:bg-white/5'
-                  }`}
-                  data-testid={`tab-${id}`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  {label}
-                </button>
-              ))}
+            <div>
+              <h1 className="text-sm font-bold text-white tracking-wide">FlipSlab</h1>
+              <p className="text-[9px] text-gray-600 uppercase tracking-widest">Engine</p>
             </div>
-
-            {/* Mobile Menu */}
-            <button
-              className="md:hidden p-1.5 hover:bg-white/5 rounded"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              data-testid="mobile-menu-toggle"
-            >
-              {mobileMenuOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
-            </button>
           </div>
+        </div>
+
+        {/* Nav Links */}
+        <nav className="flex-1 py-3 px-2 space-y-0.5">
+          {modules.map(({ id, label, icon: Icon }) => (
+            <button key={id} onClick={() => setActiveModule(id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeModule === id
+                  ? 'bg-[#3b82f6] text-white'
+                  : 'text-gray-500 hover:text-white hover:bg-white/5'
+              }`} data-testid={`nav-${id}`}>
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
+        </nav>
+
+        {/* Sidebar Footer */}
+        <div className="px-4 py-3 border-t border-[#1a1a1a]">
+          <p className="text-[9px] text-gray-700 uppercase tracking-widest">Analyze. Track. Flip. Sell.</p>
+        </div>
+      </aside>
+
+      {/* Mobile Header */}
+      <header className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-md border-b border-[#1a1a1a]">
+        <div className="flex items-center justify-between px-4 h-12">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 bg-[#3b82f6] rounded flex items-center justify-center">
+              <Zap className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-sm font-bold text-white">FlipSlab Engine</span>
+          </div>
+          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="p-1.5 hover:bg-white/5 rounded" data-testid="mobile-menu-toggle">
+            {sidebarOpen ? <X className="w-5 h-5 text-white" /> : <Menu className="w-5 h-5 text-white" />}
+          </button>
         </div>
       </header>
 
-      {/* Mobile Menu */}
+      {/* Mobile Sidebar Overlay */}
       <AnimatePresence>
-        {mobileMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-[#121212] border-b border-[#1a1a1a]"
-          >
-            <div className="p-2 grid grid-cols-4 gap-1">
-              {tabs.map(({ id, shortLabel, icon: Icon }) => (
-                <button
-                  key={id}
-                  onClick={() => { setMainTab(id); if (id === 'scanner') setCurrentView('scanner'); setMobileMenuOpen(false); }}
-                  className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded text-xs font-medium ${
-                    mainTab === id 
-                      ? 'bg-[#3b82f6] text-white' 
-                      : 'bg-[#0a0a0a] text-gray-400 border border-[#1a1a1a]'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {shortLabel}
-                </button>
-              ))}
-            </div>
-          </motion.div>
+        {sidebarOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="lg:hidden fixed inset-0 bg-black/60 z-40" onClick={() => setSidebarOpen(false)} />
+            <motion.aside initial={{ x: -256 }} animate={{ x: 0 }} exit={{ x: -256 }} transition={{ type: 'tween', duration: 0.2 }}
+              className="lg:hidden fixed left-0 top-0 h-full w-56 bg-[#0a0a0a] border-r border-[#1a1a1a] z-50">
+              <div className="px-4 py-4 border-b border-[#1a1a1a] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-7 h-7 bg-[#3b82f6] rounded flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-white" />
+                  </div>
+                  <span className="text-sm font-bold text-white">FlipSlab</span>
+                </div>
+                <button onClick={() => setSidebarOpen(false)} className="p-1"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <nav className="py-3 px-2 space-y-0.5">
+                {modules.map(({ id, label, icon: Icon }) => (
+                  <button key={id} onClick={() => { setActiveModule(id); setSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                      activeModule === id ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'
+                    }`}>
+                    <Icon className="w-4 h-4" />{label}
+                  </button>
+                ))}
+              </nav>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
 
-      {/* Main Content - Full Width, No Max Width */}
-      <main className="w-full px-4 sm:px-6 py-4">
-        <AnimatePresence mode="wait">
-          {/* Scanner Tab */}
-          {mainTab === 'scanner' && currentView === 'scanner' && (
-            <motion.div
-              key="scanner"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <CardScanner
-                onAnalysisComplete={handleAnalysisComplete}
-                isAnalyzing={isAnalyzing}
-                setIsAnalyzing={setIsAnalyzing}
-                ebayUrlToImport={ebayUrlToImport}
-                onEbayImportComplete={handleEbayImportComplete}
-              />
+      {/* Main Content */}
+      <main className="flex-1 lg:ml-56 min-h-screen">
+        <div className="pt-14 lg:pt-0 px-4 sm:px-6 py-4">
+          <AnimatePresence mode="wait">
+            <motion.div key={activeModule} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+              {renderModule()}
             </motion.div>
-          )}
-
-          {/* Analysis Result */}
-          {mainTab === 'scanner' && (currentView === 'result' || currentView === 'history-detail') && currentAnalysis && (
-            <motion.div
-              key="result"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full"
-            >
-              <Button
-                variant="ghost"
-                onClick={handleBack}
-                className="mb-3 text-gray-400 hover:text-white"
-                data-testid="back-btn"
-              >
-                <ChevronLeft className="w-4 h-4 mr-1" />
-                {currentView === 'history-detail' ? 'Volver' : 'Nuevo Análisis'}
-              </Button>
-              <AnalysisResult
-                analysis={currentAnalysis}
-                frontImage={frontImage}
-                backImage={backImage}
-                onNewAnalysis={handleNewAnalysis}
-                onDelete={() => setHistoryRefresh(prev => prev + 1)}
-                onRefresh={() => setHistoryRefresh(prev => prev + 1)}
-              />
-            </motion.div>
-          )}
-
-          {/* Monitor Tab */}
-          {mainTab === 'monitor' && (
-            <motion.div
-              key="monitor"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full"
-            >
-              <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} />
-            </motion.div>
-          )}
-
-          {/* History Tab */}
-          {mainTab === 'history' && (
-            <motion.div
-              key="history"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full"
-            >
-              <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
-                Historial de Análisis
-              </h2>
-              <div className="bg-[#121212] border border-[#1a1a1a] rounded-lg p-4">
-                <HistoryPanel 
-                  onSelectCard={handleSelectFromHistory}
-                  refreshTrigger={historyRefresh}
-                />
-              </div>
-            </motion.div>
-          )}
-
-          {/* Learning Tab */}
-          {mainTab === 'learning' && (
-            <motion.div
-              key="learning"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="w-full"
-            >
-              <h2 className="font-heading text-xl font-bold uppercase tracking-tighter text-white mb-4">
-                Sistema de <span className="text-[#eab308]">Aprendizaje</span>
-              </h2>
-              <div className="bg-[#121212] border border-[#1a1a1a] rounded-lg p-4">
-                <LearningPanel refreshTrigger={historyRefresh} />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+          </AnimatePresence>
+        </div>
       </main>
     </div>
   );

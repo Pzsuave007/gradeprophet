@@ -1,115 +1,68 @@
 <analysis>**original_problem_statement:**
-The user wants to build a web app, GradeProphet, to help them decide which sports cards to send for professional grading by PSA.
+The user wants to expand their web app, GradeProphet, into a full-fledged trading platform named FlipSlab Engine. The new vision is to create an Operating System for Sports Card Traders.
 
 **PRODUCT REQUIREMENTS:**
-1.  **Core Functionality:** Upload photos of sports cards (front, back, corners) for an AI to analyze based on PSA's grading standards (centering, corners, surface, edges) and predict a grade.
-2.  **AI Integration:** Use OpenAI's Vision API. The user provides their own API key.
-3.  **PSA 10 Reference Library:** Upload a reference image of a PSA 10 graded version of the same card. The app should read the card details from the PSA slab's label, store the image in a library, and use it for comparison during analysis.
-4.  **Analysis History & Feedback Loop:** Keep a history of all analyses and allow the user to input the actual grade received from PSA to create a feedback loop for the AI.
-5.  **Card Age Consideration:** The AI must account for the card's age, applying more lenient standards for vintage cards, mimicking real-world PSA grading. This can be detected automatically from a PSA 10 reference, estimated by the AI, or entered manually.
-6.  **eBay Integration (New):**
-    *   Allow the user to paste an eBay listing URL (both full and short share links).
-    *   The system must automatically scrape all images from the listing and display them as thumbnails in the UI.
-    *   The user must be able to assign the imported images to the correct slots (Front, Back, Corners).
-    *   **Bonus:** If the listing doesn't include corner photos, provide a button to auto-generate corner/edge crops from the main front image.
+1.  **New Platform Structure:** The application will be reorganized with a new sidebar navigation structure:
+    *   Dashboard
+    *   Inventory
+    *   Market
+    *   Flip Finder
+    *   Listings
+    *   Account
+2.  **Modular Development:** The user wants to build the new modules one by one.
+3.  **Core Goal:** FlipSlabEngine will be a central dashboard to track collections, monitor real market values from eBay, detect profitable flips, automate eBay listings, and monitor market price changes.
+4.  **Flip Finder Module:** All existing functionality of GradeProphet (the AI grade analysis and eBay monitor) will be preserved and moved into this new, dedicated module.
 
 **User's preferred language**: Spanish. The next agent MUST respond in Spanish only.
 
 **what currently exists?**
-A full-stack application (React/FastAPI/MongoDB) is deployed and running on the user's own GoDaddy VPS. The application, GradeProphet, allows users to get AI-powered grade predictions for sports cards. It includes a multi-image uploader, a PSA 10 reference library, an analysis history panel, and a Learning dashboard for AI feedback.
-
-The most recent additions are:
-1.  A system that factors in the card's age during analysis.
-2.  An eBay listing importer that scrapes images using the Scrape.do API. Users can paste a URL, view thumbnails of the listing's images, and assign them.
-3.  A feature to auto-generate corner crops from the main image.
-4.  A suite of installation scripts () and documentation () to help the user deploy and manage the application on their cPanel/WHM server.
+The application's architecture and UI have been fundamentally restructured to match the new FlipSlab Engine vision.
+-   A new sidebar navigation layout has been implemented with placeholders for all the new modules (Dashboard, Inventory, Market, etc.).
+-   All previous features, including the AI Card Scanner and the eBay Monitor, have been successfully migrated into the  component, accessible via the Flip Finder navigation link.
+-   The application's branding (title, logos) has been updated to FlipSlab Engine.
+-   The backend has been significantly enhanced with stricter AI grading prompts, an automatic post-analysis grade calibration system, an auto-crop feature for eBay images using OpenCV, and a soft-delete mechanism for eBay listings.
+-   A crucial deployment script, , has been created and refined. This script is now the sole method for the user to deploy changes to their complex, non-standard live server environment.
 
 **Last working item**:
-- **Last item agent was working:** Fixing a bug in the new eBay importer feature where the user could see the scraped image thumbnails but could not click or assign them to the upload slots (Front, Back, etc.). The agent replaced the hover-based UI with a click-based pop-up menu for image assignment.
-- **Status:** IN PROGRESS
-- **Agent Testing Done:** N
-- **Which testing method agent to use?** Frontend testing agent to verify the new click-based UI for assigning images and ensure it works correctly end-to-end.
-- **User Testing Done:** N
+-   **Last item agent was working:** Implementing the major architectural and UI refactor to transform GradeProphet into FlipSlab Engine. This involved creating the new sidebar navigation, moving all existing functionality into the Flip Finder module, and setting up placeholder pages for all future modules.
+-   **Status:** USER VERIFICATION PENDING
+-   **Agent Testing Done:** Y (Verified new structure and functionality in the preview environment via screenshots)
+-   **Which testing method agent to use?** Manual testing by the user on their live server. The agent needs to guide the user to save the changes to GitHub and then run the  script.
+-   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-  - **Issue 1 (P0):** The fix for assigning imported eBay images is incomplete and unverified.
-     - **Attempted fixes:** The agent replaced the non-functional hover-based assignment with a new click-based menu. Screenshots confirm the menu appears, but the final step of verifying that the image is successfully placed into the Front upload slot was inconclusive (the final screenshot was blank).
-     - **Next debug checklist:**
-        1.  In the UI, click on an imported eBay thumbnail to open the new assignment menu.
-        2.  Click the Frente button.
-        3.  Scroll down and verify that the selected image now appears in the Frente de la Tarjeta upload area.
-        4.  If it fails, inspect the  function in  to debug the state update and file conversion logic.
-        5.  Perform a full end-to-end test: import from eBay, assign images, and submit for analysis to confirm the data is passed correctly.
-     - **Why fix this issue and what will be achieved with the fix?** This is the final step to make the entire eBay importer feature usable. Without it, users can see images but cannot use them for analysis.
-     - **Status:** IN PROGRESS
-     - **Is recurring issue?** N
-     - **Should Test frontend/backend/both after fix?** Frontend primarily, then a full end-to-end test involving both.
-     - **Blocked on other issue:** None.
+None. All previous critical issues have been resolved.
 
 **In progress Task List**:
-  - **Task 1 (P0):** Complete and verify the eBay image importer feature.
-     - **Where to resume:** Resume at the point of testing the newly implemented image assignment menu in .
-     - **What will be achieved with this?** A fully functional eBay importer that allows users to scrape images from a URL and use them directly for AI analysis, fulfilling a major user request.
-     - **Status:** IN PROGRESS
-     - **Should Test frontend/backend/both after fix?** Both.
-     - **Blocked on something:** None.
+-   **Task 1: Full Platform Restructure Deployment & Verification (P0)**
+    -   **Where to resume:** The structural changes are complete in the agent's environment. The immediate next step is to guide the user to deploy these changes to their live server () using the  script.
+    -   **What will be achieved with this?** This will establish the foundational structure for the new FlipSlab Engine platform on the user's live server, enabling module-by-module development.
+    -   **Status:** IN PROGRESS
+    -   **Should Test frontend/backend/both after fix?** Both. The user needs to verify the new frontend layout and confirm that all existing Flip Finder features still work correctly after the refactor.
+    -   **Blocked on something:** User action to deploy the changes.
 
 **Upcoming and Future Tasks**
-- **P1: Test Auto-generate Corners Feature:** The button to auto-generate corner crops from the main image has been implemented but not tested end-to-end. This needs to be verified.
-- **P2: AI-Powered Image Assignment:** As a future enhancement, the user suggested the AI could automatically detect and assign which image is the front, back, etc., from the imported eBay images.
+-   **Upcoming Tasks:**
+    -   **P0: Build the Dashboard Module:** This will likely be the first new module to build after the new structure is verified.
+    -   **P1: Build the Inventory Module:** To allow users to track their card collections.
+    -   **P2: Build the Market Module:** To track market prices of cards.
+    -   **P3: Build the Listings Module:** To automate the process of listing cards on eBay.
+    -   **P4: Build the Account Module:** For user account management.
+-   **Future Tasks:**
+    -   Flesh out the specific features within each of the new modules based on user requirements.
 
 **Completed work in this session**
-- **eBay Importer Feature:**
-    - Implemented UI to paste an eBay URL ().
-    - Created a backend endpoint () to scrape images using the Scrape.do API and handle both full and short  URLs.
-    - Added a button and backend endpoint () to auto-generate corner crops.
-    - Implemented a fix for the image selection UI (currently in progress).
-- **Deployment and Self-Hosting:**
-    - **Removed Emergent Dependencies:** Replaced the proprietary  library with the standard usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
-              [-o ORGANIZATION] [-t {openai,azure}]
-              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
-              [--azure-ad-token AZURE_AD_TOKEN] [-V]
-              {api,tools,migrate,grit} ...
-
-positional arguments:
-  {api,tools,migrate,grit}
-    api                 Direct API calls
-    tools               Client side tools for convenience
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Set verbosity.
-  -b API_BASE, --api-base API_BASE
-                        What API base url to use.
-  -k API_KEY, --api-key API_KEY
-                        What API key to use.
-  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
-                        What proxy to use.
-  -o ORGANIZATION, --organization ORGANIZATION
-                        Which organization to run as (will use your default
-                        organization if not specified)
-  -t {openai,azure}, --api-type {openai,azure}
-                        The backend API to call, must be `openai` or `azure`
-  --api-version API_VERSION
-                        The Azure API version, e.g.
-                        'https://learn.microsoft.com/en-us/azure/ai-
-                        services/openai/reference#rest-api-versioning'
-  --azure-endpoint AZURE_ENDPOINT
-                        The Azure endpoint, e.g.
-                        'https://endpoint.openai.azure.com'
-  --azure-ad-token AZURE_AD_TOKEN
-                        A token from Azure Active Directory,
-                        https://www.microsoft.com/en-
-                        us/security/business/identity-access/microsoft-entra-
-                        id
-  -V, --version         show program's version number and exit library, making the project fully self-hostable.
-    - **Created Installation Scripts:** Generated multiple shell scripts (, ) and documentation () to automate deployment on the user's specific GoDaddy VPS (AlmaLinux 9 with cPanel/WHM).
-    - **Live Server Troubleshooting:** Guided the user through numerous on-server issues, including:
-        - Using the WHM terminal and cPanel File Manager.
-        - Resolving GitHub authentication errors (password vs. token).
-        - Fixing  by creating a secure workflow for the user to update their OpenAI API key on the server, bypassing the terminal's lack of copy-paste.
-        - Correcting file format issues (Windows  characters).
-- **Card Age Feature:** Implemented and refined logic for the AI to consider a card's age in its analysis, with detection from PSA 10 references or AI estimation.
+-   **Live Server Deployment Fix:** Successfully debugged and resolved the eBay search failure on the user's live server by fixing a typo in an API key and creating a robust, reusable deployment script ().
+-   **Major UI/UX Redesign:**
+    -   Restructured the entire app from a tabbed layout to a modern sidebar navigation.
+    -   Redesigned the eBay Monitor to use a responsive card grid instead of a list.
+    -   Redesigned the Analizar (Card Scanner) section for better space utilization, fitting all image uploaders on a single screen without scrolling.
+    -   Added a Delete button to eBay monitor results.
+-   **Significant Backend Enhancements:**
+    -   **AI Grade Accuracy:** Massively improved the AI grading logic by incorporating detailed PSA standards into the prompts and adding a post-analysis calibration function to counteract the AI's optimistic tendencies and provide more realistic grades.
+    -   **Auto-Crop Feature:** Implemented an automatic cropping function using OpenCV () that isolates the card from its background in images imported from eBay.
+    -   **High-Resolution Images:** Ensured that images fetched from eBay and saved in the history are high-resolution.
+    -   **Soft Deletes:** Modified the eBay listing deletion logic to mark items as deleted instead of removing them, preventing them from being re-fetched in subsequent searches.
 
 **Earlier issues found/mentioned but not fixed**
 None.
@@ -121,222 +74,68 @@ None.
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, Pydantic, MongoDB (motor), Pillow, ,  (for parsing), usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
-              [-o ORGANIZATION] [-t {openai,azure}]
-              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
-              [--azure-ad-token AZURE_AD_TOKEN] [-V]
-              {api,tools,migrate,grit} ...
-
-positional arguments:
-  {api,tools,migrate,grit}
-    api                 Direct API calls
-    tools               Client side tools for convenience
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Set verbosity.
-  -b API_BASE, --api-base API_BASE
-                        What API base url to use.
-  -k API_KEY, --api-key API_KEY
-                        What API key to use.
-  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
-                        What proxy to use.
-  -o ORGANIZATION, --organization ORGANIZATION
-                        Which organization to run as (will use your default
-                        organization if not specified)
-  -t {openai,azure}, --api-type {openai,azure}
-                        The backend API to call, must be `openai` or `azure`
-  --api-version API_VERSION
-                        The Azure API version, e.g.
-                        'https://learn.microsoft.com/en-us/azure/ai-
-                        services/openai/reference#rest-api-versioning'
-  --azure-endpoint AZURE_ENDPOINT
-                        The Azure endpoint, e.g.
-                        'https://endpoint.openai.azure.com'
-  --azure-ad-token AZURE_AD_TOKEN
-                        A token from Azure Active Directory,
-                        https://www.microsoft.com/en-
-                        us/security/business/identity-access/microsoft-entra-
-                        id
-  -V, --version         show program's version number and exit.
-- **Frontend:** React, , , Tailwind CSS, shadcn/ui.
-- **AI:** OpenAI Vision API ().
-- **Web Scraping:** Using a third-party API (Scrape.do) to fetch content from eBay.
-- **Deployment:** Self-hosting on a Linux VPS (AlmaLinux), managing services with , and configuring reverse proxy rules in Apache ().
+-   **Backend:** FastAPI, MongoDB (motor),  for image processing.
+-   **Frontend:** React, , Tailwind CSS, shadcn/ui.
+-   **Deployment:** All changes are deployed to the user's non-standard GoDaddy VPS via a custom  script that handles git pulls, dependency installs, frontend builds, and file copying between different directories.
 
 **key DB schema**
-- ** collection:**
-    - 
-- ** collection:**
-    - 
+-   **:** The  field is now used to manage soft deletes (e.g., ).
+-   New schemas will be required for the upcoming modules (Inventory, Market, etc.).
 
 **changes in tech stack**
-- The project was successfully migrated from the internal  library to the standard public usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
-              [-o ORGANIZATION] [-t {openai,azure}]
-              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
-              [--azure-ad-token AZURE_AD_TOKEN] [-V]
-              {api,tools,migrate,grit} ...
-
-positional arguments:
-  {api,tools,migrate,grit}
-    api                 Direct API calls
-    tools               Client side tools for convenience
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Set verbosity.
-  -b API_BASE, --api-base API_BASE
-                        What API base url to use.
-  -k API_KEY, --api-key API_KEY
-                        What API key to use.
-  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
-                        What proxy to use.
-  -o ORGANIZATION, --organization ORGANIZATION
-                        Which organization to run as (will use your default
-                        organization if not specified)
-  -t {openai,azure}, --api-type {openai,azure}
-                        The backend API to call, must be `openai` or `azure`
-  --api-version API_VERSION
-                        The Azure API version, e.g.
-                        'https://learn.microsoft.com/en-us/azure/ai-
-                        services/openai/reference#rest-api-versioning'
-  --azure-endpoint AZURE_ENDPOINT
-                        The Azure endpoint, e.g.
-                        'https://endpoint.openai.azure.com'
-  --azure-ad-token AZURE_AD_TOKEN
-                        A token from Azure Active Directory,
-                        https://www.microsoft.com/en-
-                        us/security/business/identity-access/microsoft-entra-
-                        id
-  -V, --version         show program's version number and exit library.
-- Added a dependency on an external scraping service: **Scrape.do**.
+-   Added  to the backend for image auto-cropping capabilities.
 
 **All files of reference**
-- : The single backend file containing all API logic, including the new eBay scraping and image cropping endpoints.
-- : The primary frontend component, heavily modified to include the eBay importer UI and logic.
-- : The final installation script created specifically for the user's cPanel environment.
-- : The product requirements document, updated with the new features.
+-   **/app/fix.sh**: **CRITICAL SCRIPT.** This is the exclusive method for deploying changes. All future updates (backend dependencies, frontend builds) MUST be managed through this script.
+-   **/app/frontend/src/pages/Dashboard.jsx**: The new root component for the application layout.
+-   **/app/frontend/src/pages/FlipFinder.jsx**: Contains all the pre-existing functionality of the app.
+-   **/app/backend/server.py**: Contains the enhanced logic for AI grading, auto-cropping, and soft deletes.
+-   **/app/backend/requirements.txt**: Updated to include .
 
 **Areas that need refactoring**:
-- The  component has become extremely large and complex, managing state for manual uploads, corner uploads, reference selection, and the new eBay importer. It should be broken down into smaller, more manageable components and custom hooks (e.g., ).
+-    is now extremely large. As new modules are built, it is critical to begin splitting the logic into separate API routers (e.g., , ) to maintain scalability and organization. The agent created placeholder comments for this but has not yet implemented it.
 
 **key api endpoints**
-- : Submits card images for AI analysis.
-- : Retrieves the list of all past analyses.
-- : Uploads a new PSA 10 reference image.
-- : Retrieves the library of saved PSA 10 references.
-- ****: (New) Scrapes an eBay URL for images and listing title.
-- ****: (New) Generates four corner crops from a provided image.
+-   : Now performs a soft delete by updating the listing's .
+-   : Now applies the auto-crop function to newly imported images.
+-   : Now uses heavily revised AI prompts and applies a post-processing calibration to the grade.
 
 **Critical Info for New Agent**
-- The user is now self-hosting the application on a GoDaddy VPS running **AlmaLinux 9 with cPanel/WHM**. All future deployment advice and scripts must be compatible with this environment (e.g., use  instead of apt 2.6.1 (arm64)
-Usage: apt [options] command
-
-apt is a commandline package manager and provides commands for
-searching and managing as well as querying information about packages.
-It provides the same functionality as the specialized APT tools,
-like apt-get and apt-cache, but enables options more suitable for
-interactive use by default.
-
-Most used commands:
-  list - list packages based on package names
-  search - search in package descriptions
-  show - show package details
-  install - install packages
-  reinstall - reinstall packages
-  remove - remove packages
-  autoremove - automatically remove all unused packages
-  update - update list of available packages
-  upgrade - upgrade the system by installing/upgrading packages
-  full-upgrade - upgrade the system by removing/installing/upgrading packages
-  edit-sources - edit the source information file
-  satisfy - satisfy dependency strings
-
-See apt(8) for more information about the available commands.
-Configuration options and syntax is detailed in apt.conf(5).
-Information about how to configure sources can be found in sources.list(5).
-Package and version choices can be expressed via apt_preferences(5).
-Security details are available in apt-secure(8).
-                                        This APT has Super Cow Powers., configure Apache  for proxying).
-- The project is now fully open-source and **independent of any Emergent-specific libraries**.
-- The user **cannot copy-paste into their WHM terminal**. The established workflow is to create shell scripts that the user can edit in the cPanel File Manager and then execute in the terminal.
-- After implementing any code changes that need to go to the user's server, you **must instruct the user to Push to GitHub first**, then guide them to  on their server.
+-   **The user's workflow is now standardized:** 1. Agent makes changes. 2. User clicks Save to Github. 3. User runs Requirement already satisfied: sniffio in /root/.venv/lib/python3.11/site-packages (from openai) (1.3.1)
+Requirement already satisfied: tqdm>4 in /root/.venv/lib/python3.11/site-packages (from openai) (4.67.3)
+Esperando 10 segundos...
+LISTO! Todo funciona! on their server. **Adhere to this strictly.** The user gets frustrated by manual command-line instructions.
+-   **The  script is sacred.** Any changes that require new dependencies (, yarn add v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/add for documentation about this command.) or affect the build process MUST be correctly added to this script.
+-   **Start by deploying the new structure.** The immediate next step is to have the user run the  script to get the new FlipSlab Engine layout live. After they confirm it works, ask which module they want to build first.
+-   **AI grading is a sensitive topic.** The user is very focused on accuracy. Expect to continue tweaking the AI prompts and calibration logic based on their feedback. The last approved calibration logic was a set of four simple rules applied post-analysis.
 
 **documents and test reports created in this job**
--  (updated)
-- 
-- 
-- 
-- 
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Can you add a feature to import images by pasting an eBay URL? (PENDING)
-2.  **Agent:** Yes, I can. Proposed a plan including using a scraping API.
-3.  **User:** Yes, go ahead and use the scraping API. (IN PROGRESS)
-4.  **Agent:** Implemented the feature.
-5.  **User:** Can you make it work with eBay's short share links? Here is an example: . (IN PROGRESS)
-6.  **Agent:** Implemented support for share links. Discovered scraping is blocked and requires an API key.
-7.  **User:** Here is my Scrape.do API key: . (IN PROGRESS)
-8.  **Agent:** Integrated the API key and fixed issues with eBay's anti-bot measures. The image import now works.
-9.  **User:** I can see the images, but I can't select them. Please fix it. (PENDING)
-10. **Agent:** Started fixing the image selection bug by implementing a new UI.
+1.  **User:** Asks to start the project expansion into FlipSlab Engine, outlining the new modules.
+2.  **User:** Confirms they want to work module-by-module, that GradeProphet becomes Flip Finder, and asks the agent to create the new navigation structure.
+3.  **Agent:** Presents the plan to create the new navigation and move existing content.
+The subsequent messages are the agent implementing the structural changes, which are now complete and pending user deployment.
 
 **Project Health Check:**
-- **Working:** The core application is deployed and functional on the user's server. Manual uploads, analysis, and reference library are working.
-- **Broken:** The final step of the eBay importer feature (assigning scraped images to upload slots) is broken. A fix has been implemented but requires verification.
-- **Mocked:** None.
+-   **Working (in preview):** The new FlipSlab Engine structure with the Flip Finder module is fully functional in the preview environment.
+-   **Broken/Unknown (on live server):** The user's live server is running the old version of the app. Its status with the new code is unknown until the user runs the  deployment script.
 
 **3rd Party Integrations**
-- **OpenAI Vision API:** Uses the official usage: openai [-h] [-v] [-b API_BASE] [-k API_KEY] [-p PROXY [PROXY ...]]
-              [-o ORGANIZATION] [-t {openai,azure}]
-              [--api-version API_VERSION] [--azure-endpoint AZURE_ENDPOINT]
-              [--azure-ad-token AZURE_AD_TOKEN] [-V]
-              {api,tools,migrate,grit} ...
-
-positional arguments:
-  {api,tools,migrate,grit}
-    api                 Direct API calls
-    tools               Client side tools for convenience
-
-options:
-  -h, --help            show this help message and exit
-  -v, --verbose         Set verbosity.
-  -b API_BASE, --api-base API_BASE
-                        What API base url to use.
-  -k API_KEY, --api-key API_KEY
-                        What API key to use.
-  -p PROXY [PROXY ...], --proxy PROXY [PROXY ...]
-                        What proxy to use.
-  -o ORGANIZATION, --organization ORGANIZATION
-                        Which organization to run as (will use your default
-                        organization if not specified)
-  -t {openai,azure}, --api-type {openai,azure}
-                        The backend API to call, must be `openai` or `azure`
-  --api-version API_VERSION
-                        The Azure API version, e.g.
-                        'https://learn.microsoft.com/en-us/azure/ai-
-                        services/openai/reference#rest-api-versioning'
-  --azure-endpoint AZURE_ENDPOINT
-                        The Azure endpoint, e.g.
-                        'https://endpoint.openai.azure.com'
-  --azure-ad-token AZURE_AD_TOKEN
-                        A token from Azure Active Directory,
-                        https://www.microsoft.com/en-
-                        us/security/business/identity-access/microsoft-entra-
-                        id
-  -V, --version         show program's version number and exit Python library with a user-provided key for card analysis.
-- **Scrape.do:** Uses a REST API with a user-provided key to scrape eBay listings.
+-   **OpenAI Vision API:** Used for card grade analysis.
+-   **Scrape.do:** Used for scraping eBay listings.
 
 **Testing status**
-- **Testing agent used after significant changes:** NO
-- **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None.
-- **Known regressions:** None.
+-   **Testing agent used after significant changes:** NO (Recent changes were primarily architectural and UI refactoring, tested with screenshots).
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** None.
+-   **Known regressions:** None.
 
 **Credentials to test flow:**
-- **OpenAI API Key:** Must be provided by the user for their self-hosted instance. The next agent should ask for a temporary key for testing if needed.
-- **Scrape.do API Key:** The user provided a key which is present in the message history: . This can be used for testing in the preview environment.
+-   The Scrape.do API key is managed by the  script and the  file on the user's server.
 
 **What agent forgot to execute**
-- The agent did not complete the final verification step for the eBay image selection fix. The last screenshot to confirm the image was assigned was blank, and the agent did not follow up.
-- The agent did not provide final instructions to the user to update their server with the latest fix for the selection bug. After fixing the bug, the agent needs to tell the user to Push to GitHub and then run the update commands on their server.</analysis>
+-   The agent created the new application structure but has not yet prompted the user to deploy it to their live server. This is the critical next step.
+-   The planned refactoring of  into smaller, manageable routers has not been started. This should be prioritized as new backend functionality is added.</analysis>
