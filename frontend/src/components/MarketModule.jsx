@@ -89,7 +89,7 @@ const MarketValueCard = ({ query, onClose }) => {
 // =========== MY EBAY LISTINGS TAB ===========
 const MyListingsTab = ({ listings, totalValue }) => {
   const [expandedId, setExpandedId] = useState(null);
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('grid');
 
   return (
     <div className="space-y-3">
@@ -182,7 +182,7 @@ const MyListingsTab = ({ listings, totalValue }) => {
 // =========== MY COLLECTION TAB ===========
 const MyCollectionTab = ({ items }) => {
   const [expandedId, setExpandedId] = useState(null);
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('grid');
   const totalInvested = items.reduce((s, i) => s + ((i.purchase_price || 0) * (i.quantity || 1)), 0);
 
   return (

@@ -150,7 +150,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [viewMode, setViewMode] = useState('list');
+  const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({ condition: '', listed: '' });
   const [showFilters, setShowFilters] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -267,6 +267,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                   : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
+                {item.listed && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
                 <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => openEdit(item)} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
                   <button onClick={() => handleDelete(item.id)} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>

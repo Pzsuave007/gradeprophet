@@ -16,6 +16,7 @@ import DashboardHome from '../components/DashboardHome';
 import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
 import MarketModule from '../components/MarketModule';
+import ListingsModule from '../components/ListingsModule';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -58,7 +59,7 @@ const Dashboard = () => {
       case 'inventory': return <InventoryModule />;
       case 'market': return <MarketModule />;
       case 'flipfinder': return <FlipFinder />;
-      case 'listings': return <Listings />;
+      case 'listings': return <ListingsModule />;
       case 'account': return <AccountModule />;
       default: return <DashboardHome onNavigate={setActiveModule} />;
     }

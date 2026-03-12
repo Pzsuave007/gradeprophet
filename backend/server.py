@@ -3467,6 +3467,329 @@ async def import_from_scan(analysis_id: str, data: ImportFromScanRequest):
 
 
 # Include the router in the main app
+# ============================================
+# EBAY LISTING CREATION MODULE
+# ============================================
+
+class EbayListingPreviewRequest(BaseModel):
+    inventory_item_id: str
+
+class EbayListingCreateRequest(BaseModel):
+    inventory_item_id: str
+    title: str
+    description: str
+    price: float
+    listing_format: str = "FixedPriceItem"  # FixedPriceItem or Chinese (Auction)
+    duration: str = "GTC"  # GTC, Days_3, Days_5, Days_7, Days_10
+    condition_id: int = 3000  # 1000=New, 2750=Like New, 3000=Very Good, 4000=Good
+    condition_description: Optional[str] = None
+    shipping_option: str = "USPSFirstClass"  # USPSFirstClass, USPSPriority, FreeShipping
+    shipping_cost: float = 0.0
+    category_id: str = "261328"  # Sports Trading Cards
+
+
+def generate_listing_title(item: dict) -> str:
+    """Auto-generate eBay listing title from inventory item data"""
+    # Start with card_name as it usually has the best complete title
+    base = item.get("card_name", "")
+    
+    # If card_name is comprehensive, use it directly
+    if base and len(base) > 15:
+        title = base
+        # Add grade info if not already in title
+        if item.get("condition") == "Graded" and item.get("grade"):
+            company = item.get("grading_company", "PSA")
+            grade_str = f"{company} {item['grade']}"
+            if grade_str.lower() not in title.lower():
+                title = f"{title} {grade_str}"
+        return title[:80]
+    
+    # Build from individual fields
+    parts = []
+    if item.get("year"):
+        parts.append(str(item["year"]))
+    if item.get("set_name"):
+        parts.append(item["set_name"])
+    if item.get("player"):
+        parts.append(item["player"])
+    if item.get("variation"):
+        parts.append(item["variation"])
+    if item.get("card_number"):
+        parts.append(f"#{item['card_number']}")
+    if item.get("condition") == "Graded" and item.get("grade"):
+        company = item.get("grading_company", "PSA")
+        parts.append(f"{company} {item['grade']}")
+    
+    title = " ".join(parts)
+    if not title.strip():
+        title = base or "Sports Card"
+    
+    return title[:80]
+
+
+def generate_listing_description(item: dict) -> str:
+    """Auto-generate eBay listing description from inventory item data"""
+    lines = []
+    card_name = item.get("card_name", "")
+    if card_name:
+        lines.append(card_name)
+        lines.append("")
+    if item.get("player"):
+        lines.append(f"Player: {item['player']}")
+    if item.get("year"):
+        lines.append(f"Year: {item['year']}")
+    if item.get("set_name"):
+        lines.append(f"Set: {item['set_name']}")
+    if item.get("card_number"):
+        lines.append(f"Card Number: {item['card_number']}")
+    if item.get("variation"):
+        lines.append(f"Variation: {item['variation']}")
+    if item.get("condition") == "Graded" and item.get("grade"):
+        company = item.get("grading_company", "PSA")
+        lines.append(f"Grade: {company} {item['grade']}")
+    else:
+        lines.append("Condition: Raw / Ungraded")
+    
+    lines.append("")
+    lines.append("Ships securely in penny sleeve and top loader.")
+    lines.append("Ships within 1 business day.")
+    
+    if item.get("notes"):
+        lines.append(f"\nNotes: {item['notes']}")
+    
+    return "\n".join(lines)
+
+
+def get_condition_id_for_card(item: dict) -> int:
+    """Map card condition to eBay condition ID"""
+    if item.get("condition") == "Graded":
+        return 2750  # Like New
+    return 4000  # Good (for raw cards)
+
+
+@api_router.post("/ebay/sell/preview")
+async def preview_ebay_listing(data: EbayListingPreviewRequest):
+    """Generate a preview of the eBay listing from an inventory item"""
+    item = await db.inventory.find_one({"id": data.inventory_item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    
+    title = generate_listing_title(item)
+    description = generate_listing_description(item)
+    condition_id = get_condition_id_for_card(item)
+    
+    suggested_price = item.get("purchase_price", 0) or 0
+    
+    return {
+        "title": title,
+        "description": description,
+        "condition_id": condition_id,
+        "suggested_price": round(suggested_price * 1.3, 2) if suggested_price > 0 else 9.99,
+        "item": {
+            "card_name": item.get("card_name"),
+            "player": item.get("player"),
+            "year": item.get("year"),
+            "condition": item.get("condition"),
+            "grade": item.get("grade"),
+            "grading_company": item.get("grading_company"),
+            "image": item.get("image"),
+        }
+    }
+
+
+@api_router.post("/ebay/sell/create")
+async def create_ebay_listing(data: EbayListingCreateRequest):
+    """Create and publish an eBay listing from an inventory item using Trading API"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected. Please connect your eBay account first.")
+    
+    # Get inventory item
+    item = await db.inventory.find_one({"id": data.inventory_item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    
+    # Build shipping XML based on option
+    if data.shipping_option == "FreeShipping":
+        shipping_xml = """
+    <ShippingDetails>
+      <ShippingType>Flat</ShippingType>
+      <ShippingServiceOptions>
+        <ShippingServicePriority>1</ShippingServicePriority>
+        <ShippingService>USPSFirstClass</ShippingService>
+        <FreeShipping>true</FreeShipping>
+        <ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost>
+      </ShippingServiceOptions>
+    </ShippingDetails>"""
+    else:
+        shipping_cost = data.shipping_cost if data.shipping_cost > 0 else (4.50 if data.shipping_option == "USPSFirstClass" else 8.50)
+        shipping_xml = f"""
+    <ShippingDetails>
+      <ShippingType>Flat</ShippingType>
+      <ShippingServiceOptions>
+        <ShippingServicePriority>1</ShippingServicePriority>
+        <ShippingService>{data.shipping_option}</ShippingService>
+        <ShippingServiceCost currencyID="USD">{shipping_cost:.2f}</ShippingServiceCost>
+      </ShippingServiceOptions>
+    </ShippingDetails>"""
+
+    # Build condition description
+    cond_desc_xml = ""
+    if data.condition_description:
+        cond_desc_xml = f"<ConditionDescription>{data.condition_description}</ConditionDescription>"
+
+    # Determine API call based on listing type
+    if data.listing_format == "FixedPriceItem":
+        api_call = "AddFixedPriceItem"
+        duration = data.duration if data.duration else "GTC"
+    else:
+        api_call = "AddItem"
+        duration = data.duration if data.duration in ["Days_3", "Days_5", "Days_7", "Days_10"] else "Days_7"
+    
+    # Escape XML special chars in title and description
+    import html
+    safe_title = html.escape(data.title[:80])
+    safe_desc = html.escape(data.description)
+
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<{api_call}Request xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <Item>
+    <Title>{safe_title}</Title>
+    <Description>{safe_desc}</Description>
+    <PrimaryCategory>
+      <CategoryID>{data.category_id}</CategoryID>
+    </PrimaryCategory>
+    <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
+    <CategoryMappingAllowed>true</CategoryMappingAllowed>
+    <ConditionID>{data.condition_id}</ConditionID>
+    {cond_desc_xml}
+    <Country>US</Country>
+    <Currency>USD</Currency>
+    <DispatchTimeMax>1</DispatchTimeMax>
+    <ListingDuration>{duration}</ListingDuration>
+    <ListingType>{data.listing_format}</ListingType>
+    <PaymentMethods>PayPal</PaymentMethods>
+    {shipping_xml}
+    <ReturnPolicy>
+      <ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption>
+      <RefundOption>MoneyBack</RefundOption>
+      <ReturnsWithinOption>Days_30</ReturnsWithinOption>
+      <ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption>
+    </ReturnPolicy>
+  </Item>
+</{api_call}Request>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": api_call,
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml",
+                },
+                content=xml_body,
+            )
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        
+        ack = root.find("e:Ack", ns)
+        ack_text = ack.text if ack is not None else "Unknown"
+        
+        if ack_text in ("Success", "Warning"):
+            item_id_el = root.find("e:ItemID", ns)
+            ebay_item_id = item_id_el.text if item_id_el is not None else ""
+            
+            fees_el = root.find(".//e:Fees", ns)
+            total_fee = 0
+            if fees_el is not None:
+                for fee in fees_el.findall("e:Fee", ns):
+                    fee_amount = fee.find("e:Fee", ns)
+                    if fee_amount is not None and fee_amount.text:
+                        total_fee += float(fee_amount.text)
+            
+            # Update inventory item as listed
+            await db.inventory.update_one(
+                {"id": data.inventory_item_id},
+                {"$set": {
+                    "listed": True,
+                    "ebay_item_id": ebay_item_id,
+                    "listed_price": data.price,
+                    "listed_at": datetime.now(timezone.utc).isoformat(),
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }}
+            )
+            
+            # Store listing record
+            await db.created_listings.insert_one({
+                "id": str(uuid.uuid4()),
+                "inventory_item_id": data.inventory_item_id,
+                "ebay_item_id": ebay_item_id,
+                "title": data.title,
+                "price": data.price,
+                "listing_format": data.listing_format,
+                "shipping_option": data.shipping_option,
+                "status": "active",
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            
+            ebay_url = f"https://www.ebay.com/itm/{ebay_item_id}"
+            
+            # Collect warnings if any
+            warnings = []
+            for err in root.findall(".//e:Errors", ns):
+                sev = err.find("e:SeverityCode", ns)
+                if sev is not None and sev.text == "Warning":
+                    msg_el = err.find("e:LongMessage", ns)
+                    if msg_el is not None:
+                        warnings.append(msg_el.text)
+            
+            return {
+                "success": True,
+                "ebay_item_id": ebay_item_id,
+                "url": ebay_url,
+                "fees": total_fee,
+                "warnings": warnings,
+                "message": f"Listing created successfully! Item ID: {ebay_item_id}"
+            }
+        else:
+            # Extract error messages
+            errors = []
+            for err in root.findall(".//e:Errors", ns):
+                msg_el = err.find("e:LongMessage", ns)
+                code_el = err.find("e:ErrorCode", ns)
+                if msg_el is not None:
+                    errors.append({
+                        "code": code_el.text if code_el is not None else "",
+                        "message": msg_el.text
+                    })
+            
+            logger.error(f"eBay listing creation failed: {errors}")
+            return {
+                "success": False,
+                "errors": errors,
+                "message": errors[0]["message"] if errors else "Unknown error creating listing"
+            }
+    except Exception as e:
+        logger.error(f"Create eBay listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/ebay/sell/created-listings")
+async def get_created_listings():
+    """Get listings created through the app"""
+    listings = await db.created_listings.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return {"listings": listings, "total": len(listings)}
+
+
 app.include_router(api_router)
 
 app.add_middleware(
