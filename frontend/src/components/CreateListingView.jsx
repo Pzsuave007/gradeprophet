@@ -37,6 +37,10 @@ const SHIPPING_OPTIONS = [
   { id: 'UPSGround', label: 'UPS Ground', cost: 9.99, desc: 'UPS standard delivery' },
 ];
 
+const SPORTS = ['Basketball', 'Baseball', 'Football', 'Soccer', 'Hockey', 'Wrestling', 'Racing', 'Golf', 'Tennis', 'Boxing', 'MMA', 'Other'];
+const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA', 'CSG', 'BVG', 'BCCG', 'KSA', 'GMA', 'ISA'];
+const GRADE_OPTIONS = ['10', '9.5', '9', '8.5', '8', '7.5', '7', '6.5', '6', '5.5', '5', '4.5', '4', '3.5', '3', '2.5', '2', '1.5', '1', 'Authentic'];
+
 const CONDITIONS = [
   { id: 1000, label: 'New', desc: 'Brand new, never opened' },
   { id: 2750, label: 'Like New', desc: 'Opened but barely used' },
@@ -130,6 +134,87 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                   <option key={c.id} value={c.id}>{c.label} — {c.desc}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* eBay Required Item Specifics */}
+          <div className="border border-[#1a1a1a] rounded-lg overflow-hidden">
+            <div className="px-3 py-2 bg-[#0d0d0d] border-b border-[#1a1a1a]">
+              <p className="text-[10px] uppercase tracking-widest text-amber-400 font-bold">eBay Required Details</p>
+            </div>
+            <div className="p-3 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Sport *</label>
+                  <select className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none"
+                    value={f.sport || ''} onChange={e => update('sport', e.target.value)}
+                    data-testid={`sport-select-${index}`}>
+                    <option value="">Select sport...</option>
+                    {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Player *</label>
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    value={f.player || ''} onChange={e => update('player', e.target.value)}
+                    placeholder="Player name"
+                    data-testid={`player-input-${index}`} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Season / Year</label>
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    value={f.season || ''} onChange={e => update('season', e.target.value)}
+                    placeholder="2012"
+                    data-testid={`season-input-${index}`} />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Set / Brand</label>
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    value={f.set_name || ''} onChange={e => update('set_name', e.target.value)}
+                    placeholder="Panini Prizm"
+                    data-testid={`set-input-${index}`} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Card #</label>
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    value={f.card_number || ''} onChange={e => update('card_number', e.target.value)}
+                    placeholder="#97"
+                    data-testid={`card-number-input-${index}`} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Graded?</label>
+                  <select className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none"
+                    value={f.is_graded ? 'yes' : 'no'} onChange={e => update('is_graded', e.target.value === 'yes')}
+                    data-testid={`graded-select-${index}`}>
+                    <option value="no">No (Raw)</option>
+                    <option value="yes">Yes (Graded)</option>
+                  </select>
+                </div>
+              </div>
+              {f.is_graded && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Grading Company *</label>
+                    <select className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none"
+                      value={f.grading_company || ''} onChange={e => update('grading_company', e.target.value)}
+                      data-testid={`grading-company-${index}`}>
+                      <option value="">Select...</option>
+                      {GRADING_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Grade *</label>
+                    <select className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none"
+                      value={f.grade || ''} onChange={e => update('grade', e.target.value)}
+                      data-testid={`grade-select-${index}`}>
+                      <option value="">Select...</option>
+                      {GRADE_OPTIONS.map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -239,6 +324,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
       const defaultShipping = userSettings.default_shipping || 'USPSFirstClass';
       const shippingCosts = { FreeShipping: 0, USPSFirstClass: 4.50, USPSPriority: 8.50 };
 
+      const defaultSport = userSettings.default_sport || '';
+
       const newForms = [];
       for (const item of items) {
         try {
@@ -266,6 +353,14 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             shipping_cost: shippingCosts[defaultShipping] || 4.50,
             postal_code: defaultPostal,
             location: defaultLocation,
+            sport: item.sport || defaultSport,
+            player: item.player || '',
+            season: item.year ? String(item.year) : '',
+            set_name: item.set_name || '',
+            card_number: item.card_number || '',
+            is_graded: item.condition === 'Graded',
+            grading_company: item.grading_company || '',
+            grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
             status: null, error: null, ebay_item_id: null,
           });
         } catch {
@@ -276,6 +371,11 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             condition_id: 3000, condition_description: '',
             shipping_option: defaultShipping, shipping_cost: shippingCosts[defaultShipping] || 4.50,
             postal_code: defaultPostal, location: defaultLocation,
+            sport: item.sport || defaultSport, player: item.player || '',
+            season: item.year ? String(item.year) : '', set_name: item.set_name || '',
+            card_number: item.card_number || '', is_graded: item.condition === 'Graded',
+            grading_company: item.grading_company || '',
+            grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
             status: null, error: null, ebay_item_id: null,
           });
         }
@@ -319,11 +419,15 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           shipping_option: form.shipping_option,
           shipping_cost: form.shipping_cost,
           category_id: '261328',
-          postal_code: form.postal_code || '90210',
-          location: form.location || 'US',
-          sport: item.sport || 'Basketball',
-          grading_company: item.grading_company || null,
-          grade: item.grade ? String(item.grade) : null,
+          postal_code: form.postal_code || '',
+          location: form.location || '',
+          sport: form.sport || '',
+          player: form.player || '',
+          season: form.season || '',
+          set_name: form.set_name || '',
+          card_number: form.card_number || '',
+          grading_company: form.is_graded ? (form.grading_company || null) : null,
+          grade: form.is_graded ? (form.grade || null) : null,
         });
 
         if (res.data.success) {

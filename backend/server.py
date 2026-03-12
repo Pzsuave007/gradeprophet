@@ -3973,9 +3973,13 @@ class EbayListingCreateRequest(BaseModel):
     shipping_option: str = "USPSFirstClass"
     shipping_cost: float = 0.0
     category_id: str = "261328"
-    postal_code: str = "90210"
-    location: str = "US"
+    postal_code: str = ""
+    location: str = ""
     sport: Optional[str] = None
+    player: Optional[str] = None
+    season: Optional[str] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
     grading_company: Optional[str] = None
     grade: Optional[str] = None
 
@@ -4214,27 +4218,27 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
     import html
     specifics = []
     
-    # Sport (required)
+    # Sport (required) - from form, fallback to inventory, then default
     sport = data.sport or item.get("sport") or "Basketball"
     specifics.append(f'<NameValueList><Name>Sport</Name><Value>{html.escape(sport)}</Value></NameValueList>')
     
-    # Player/athlete
-    player = item.get("player")
+    # Player/athlete - from form, fallback to inventory
+    player = data.player or item.get("player")
     if player:
         specifics.append(f'<NameValueList><Name>Player/Athlete</Name><Value>{html.escape(player)}</Value></NameValueList>')
     
-    # Year
-    year = item.get("year")
-    if year:
-        specifics.append(f'<NameValueList><Name>Season</Name><Value>{year}</Value></NameValueList>')
+    # Year/Season - from form, fallback to inventory
+    season = data.season or (str(item.get("year")) if item.get("year") else None)
+    if season:
+        specifics.append(f'<NameValueList><Name>Season</Name><Value>{html.escape(str(season))}</Value></NameValueList>')
     
-    # Set
-    set_name = item.get("set_name")
+    # Set - from form, fallback to inventory
+    set_name = data.set_name or item.get("set_name")
     if set_name:
         specifics.append(f'<NameValueList><Name>Set</Name><Value>{html.escape(set_name)}</Value></NameValueList>')
     
-    # Card number
-    card_number = item.get("card_number")
+    # Card number - from form, fallback to inventory
+    card_number = data.card_number or item.get("card_number")
     if card_number:
         specifics.append(f'<NameValueList><Name>Card Number</Name><Value>{html.escape(str(card_number))}</Value></NameValueList>')
 
