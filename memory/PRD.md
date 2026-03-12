@@ -99,6 +99,13 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Key dependency: Jina Reader API (`https://r.jina.ai/`) for eBay sold items scraping (no API key needed)
 - `created_listings`, `inventory`, `card_analyses`, `psa10_references`, `watchlist_cards`, `ebay_listings`, `ebay_tokens`
 
+### Marzo 2026 - User Profile + AI Listing Optimization
+- **User Profile/Settings**: Account module now has Seller Profile with display name, ZIP code, location, default shipping, default sport
+- **AI-Generated Listings**: New `POST /api/ebay/sell/ai-listing` endpoint generates SEO-optimized 80-char titles and compelling descriptions using gpt-4o
+- **Auto-fill from Profile**: Create Listing form auto-loads user's ZIP/location/shipping defaults from profile
+- New endpoints: `GET/PUT /api/settings` for user preferences
+- DB: `user_settings` collection stores seller profile data
+
 ### Marzo 2026 - eBay Listing Creation Bug Fix
 - **Fixed 5 eBay API errors** that prevented listing creation:
   1. Removed deprecated PayPal payment method (managed payments)

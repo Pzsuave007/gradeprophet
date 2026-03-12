@@ -222,27 +222,50 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
   const [publishing, setPublishing] = useState(false);
   const [publishProgress, setPublishProgress] = useState(0);
 
-  // Load preview data for all items
+  // Load preview data for all items + user settings + AI descriptions
   useEffect(() => {
     const loadPreviews = async () => {
       setLoadingPreviews(true);
+
+      // Load user settings for location defaults
+      let userSettings = {};
+      try {
+        const settingsRes = await axios.get(`${API}/api/settings`);
+        userSettings = settingsRes.data || {};
+      } catch {}
+
+      const defaultPostal = userSettings.postal_code || '';
+      const defaultLocation = userSettings.location || '';
+      const defaultShipping = userSettings.default_shipping || 'USPSFirstClass';
+      const shippingCosts = { FreeShipping: 0, USPSFirstClass: 4.50, USPSPriority: 8.50 };
+
       const newForms = [];
       for (const item of items) {
         try {
-          const res = await axios.post(`${API}/api/ebay/sell/preview`, { inventory_item_id: item.id });
-          const p = res.data;
+          // Load preview + AI listing in parallel
+          const [previewRes, aiRes] = await Promise.allSettled([
+            axios.post(`${API}/api/ebay/sell/preview`, { inventory_item_id: item.id }),
+            axios.post(`${API}/api/ebay/sell/ai-listing`, {
+              card_name: item.card_name, player: item.player, year: item.year,
+              set_name: item.set_name, card_number: item.card_number, variation: item.variation,
+              condition: item.condition, grading_company: item.grading_company,
+              grade: item.grade, sport: item.sport,
+            }),
+          ]);
+          const p = previewRes.status === 'fulfilled' ? previewRes.value.data : {};
+          const ai = aiRes.status === 'fulfilled' ? aiRes.value.data : {};
           newForms.push({
-            title: p.title || item.card_name || '',
-            description: p.description || '',
+            title: ai.title || p.title || item.card_name || '',
+            description: ai.description || p.description || '',
             price: p.suggested_price || (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99'),
             listing_format: 'FixedPriceItem',
             duration: 'GTC',
             condition_id: p.condition_id || 3000,
             condition_description: '',
-            shipping_option: 'USPSFirstClass',
-            shipping_cost: 4.50,
-            postal_code: '90210',
-            location: 'Los Angeles, CA',
+            shipping_option: defaultShipping,
+            shipping_cost: shippingCosts[defaultShipping] || 4.50,
+            postal_code: defaultPostal,
+            location: defaultLocation,
             status: null, error: null, ebay_item_id: null,
           });
         } catch {
@@ -251,8 +274,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             price: item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99',
             listing_format: 'FixedPriceItem', duration: 'GTC',
             condition_id: 3000, condition_description: '',
-            shipping_option: 'USPSFirstClass', shipping_cost: 4.50,
-            postal_code: '90210', location: 'Los Angeles, CA',
+            shipping_option: defaultShipping, shipping_cost: shippingCosts[defaultShipping] || 4.50,
+            postal_code: defaultPostal, location: defaultLocation,
             status: null, error: null, ebay_item_id: null,
           });
         }

@@ -4623,6 +4623,103 @@ async def revise_ebay_listing(data: ReviseListingRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============================================
+# USER SETTINGS / PROFILE
+# ============================================
+
+class UserSettings(BaseModel):
+    display_name: Optional[str] = None
+    postal_code: Optional[str] = None
+    location: Optional[str] = None
+    default_shipping: Optional[str] = "USPSFirstClass"
+    default_sport: Optional[str] = "Basketball"
+
+@api_router.get("/settings")
+async def get_user_settings():
+    """Get user settings/profile"""
+    settings = await db.user_settings.find_one({"user_id": "default"}, {"_id": 0})
+    if not settings:
+        return {"user_id": "default", "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball"}
+    return settings
+
+@api_router.put("/settings")
+async def update_user_settings(data: UserSettings):
+    """Update user settings/profile"""
+    update = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    update["user_id"] = "default"
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.user_settings.update_one({"user_id": "default"}, {"$set": update}, upsert=True)
+    settings = await db.user_settings.find_one({"user_id": "default"}, {"_id": 0})
+    return settings
+
+# ============================================
+# AI LISTING DESCRIPTION GENERATOR
+# ============================================
+
+class ListingAIRequest(BaseModel):
+    card_name: str
+    player: Optional[str] = None
+    year: Optional[int] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    variation: Optional[str] = None
+    condition: Optional[str] = None
+    grading_company: Optional[str] = None
+    grade: Optional[float] = None
+    sport: Optional[str] = None
+
+@api_router.post("/ebay/sell/ai-listing")
+async def generate_ai_listing(data: ListingAIRequest):
+    """Generate an AI-optimized eBay title and description for a card"""
+    from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+    card_details = f"Card: {data.card_name}"
+    if data.player: card_details += f"\nPlayer: {data.player}"
+    if data.year: card_details += f"\nYear: {data.year}"
+    if data.set_name: card_details += f"\nSet: {data.set_name}"
+    if data.card_number: card_details += f"\nCard #: {data.card_number}"
+    if data.variation: card_details += f"\nVariation: {data.variation}"
+    if data.grading_company and data.grade:
+        card_details += f"\nGraded: {data.grading_company} {data.grade}"
+    elif data.condition:
+        card_details += f"\nCondition: {data.condition}"
+    if data.sport: card_details += f"\nSport: {data.sport}"
+
+    prompt = f"""You are an expert eBay listing creator for sports trading cards. Generate an optimized listing for this card:
+
+{card_details}
+
+Return ONLY valid JSON with these fields:
+{{
+  "title": "<eBay title, MAX 80 chars. Include: year, brand/set, player name, card number, variation/parallel if any, grade if graded. Use keywords buyers search for. Example: '2012 Panini Prizm Kobe Bryant #97 PSA 9 Mint Basketball Card'>",
+  "description": "<Compelling 3-5 sentence description. Mention card highlights, player significance, condition details, set info. End with shipping/handling note. Use professional tone but enthusiastic. NO HTML tags.>"
+}}
+
+IMPORTANT: Title must be EXACTLY 80 characters or less. Pack it with searchable keywords."""
+
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"ai-listing-{uuid.uuid4()}",
+            system_message="You are an expert eBay listing optimizer. Respond only with valid JSON."
+        ).with_model("openai", "gpt-4o")
+
+        response_text = await chat.send_message(UserMessage(text=prompt))
+        cleaned = response_text.strip()
+        if cleaned.startswith("```json"): cleaned = cleaned[7:]
+        if cleaned.startswith("```"): cleaned = cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        import json
+        result = json.loads(cleaned.strip())
+        # Enforce 80 char limit on title
+        if len(result.get("title", "")) > 80:
+            result["title"] = result["title"][:80]
+        return result
+    except Exception as e:
+        logger.error(f"AI listing generation failed: {e}")
+        return {"title": data.card_name[:80], "description": f"{data.card_name}. Ships fast with tracking."}
+
+
 app.include_router(api_router)
 
 app.add_middleware(
