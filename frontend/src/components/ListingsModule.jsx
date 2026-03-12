@@ -244,16 +244,17 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
                   </div>
                 )}
                 {/* Price position indicator */}
-                {raw.count > 0 && (
+                {(raw.count > 0 || psa10.count > 0) && (
                   <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#1a1a1a]">
                     <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price vs Market</p>
-                    {listing.price > raw.median * 1.2 ? (
-                      <p className="text-xs text-amber-400"><TrendingUp className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">above</span> market median ({formatPrice(raw.median)})</p>
-                    ) : listing.price < raw.median * 0.8 ? (
-                      <p className="text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">below</span> market median ({formatPrice(raw.median)}) - great deal!</p>
-                    ) : (
-                      <p className="text-xs text-gray-400">Your price is <span className="font-bold">in range</span> with market median ({formatPrice(raw.median)})</p>
-                    )}
+                    {(() => {
+                      const median = raw.count > 0 ? raw.median : psa10.count > 0 ? psa10.median : 0;
+                      const label = raw.count > 0 ? 'raw' : 'PSA 10';
+                      if (!median) return null;
+                      if (listing.price > median * 1.2) return <p className="text-xs text-amber-400"><TrendingUp className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">above</span> {label} median ({formatPrice(median)})</p>;
+                      if (listing.price < median * 0.8) return <p className="text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">below</span> {label} median ({formatPrice(median)}) - great deal!</p>;
+                      return <p className="text-xs text-gray-400">Your price is <span className="font-bold">in range</span> with {label} median ({formatPrice(median)})</p>;
+                    })()}
                   </div>
                 )}
               </div>
