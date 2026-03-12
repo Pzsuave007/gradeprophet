@@ -158,6 +158,24 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
               data-testid={`description-input-${index}`} />
           </div>
 
+          {/* Location */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">ZIP Code</label>
+              <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                value={f.postal_code || ''} onChange={e => update('postal_code', e.target.value)}
+                placeholder="90210"
+                data-testid={`postal-code-${index}`} />
+            </div>
+            <div>
+              <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Location</label>
+              <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                value={f.location || ''} onChange={e => update('location', e.target.value)}
+                placeholder="Los Angeles, CA"
+                data-testid={`location-${index}`} />
+            </div>
+          </div>
+
           {/* Condition Description (for graded cards) */}
           {item.condition === 'Graded' && (
             <div>
@@ -223,6 +241,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             condition_description: '',
             shipping_option: 'USPSFirstClass',
             shipping_cost: 4.50,
+            postal_code: '90210',
+            location: 'Los Angeles, CA',
             status: null, error: null, ebay_item_id: null,
           });
         } catch {
@@ -232,6 +252,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             listing_format: 'FixedPriceItem', duration: 'GTC',
             condition_id: 3000, condition_description: '',
             shipping_option: 'USPSFirstClass', shipping_cost: 4.50,
+            postal_code: '90210', location: 'Los Angeles, CA',
             status: null, error: null, ebay_item_id: null,
           });
         }
@@ -275,6 +296,11 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           shipping_option: form.shipping_option,
           shipping_cost: form.shipping_cost,
           category_id: '261328',
+          postal_code: form.postal_code || '90210',
+          location: form.location || 'US',
+          sport: item.sport || 'Basketball',
+          grading_company: item.grading_company || null,
+          grade: item.grade ? String(item.grade) : null,
         });
 
         if (res.data.success) {

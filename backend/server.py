@@ -3633,6 +3633,7 @@ class InventoryItem(BaseModel):
     back_image: Optional[str] = None  # base64 thumbnail (back)
     listed: bool = False
     category: str = "collection"  # collection, for_sale
+    sport: Optional[str] = None  # Basketball, Baseball, Football, etc.
     source_analysis_id: Optional[str] = None  # link to card_analyses if imported from scan
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -3654,6 +3655,7 @@ class InventoryItemCreate(BaseModel):
     image_base64: Optional[str] = None
     back_image_base64: Optional[str] = None
     category: str = "collection"
+    sport: Optional[str] = None
 
 
 class InventoryItemUpdate(BaseModel):
@@ -3673,6 +3675,7 @@ class InventoryItemUpdate(BaseModel):
     back_image_base64: Optional[str] = None
     listed: Optional[bool] = None
     category: Optional[str] = None
+    sport: Optional[str] = None
 
 
 @api_router.post("/inventory")
@@ -3684,14 +3687,14 @@ async def create_inventory_item(data: InventoryItemCreate):
             img = data.image_base64
             if ',' in img:
                 img = img.split(',')[1]
-            image_thumb = create_thumbnail(img, max_size=400)
+            image_thumb = create_thumbnail(img, max_size=600)
 
         back_image_thumb = None
         if data.back_image_base64:
             bimg = data.back_image_base64
             if ',' in bimg:
                 bimg = bimg.split(',')[1]
-            back_image_thumb = create_thumbnail(bimg, max_size=400)
+            back_image_thumb = create_thumbnail(bimg, max_size=600)
 
         item = InventoryItem(
             card_name=data.card_name,
@@ -3709,6 +3712,7 @@ async def create_inventory_item(data: InventoryItemCreate):
             image=image_thumb,
             back_image=back_image_thumb,
             category=data.category,
+            sport=data.sport,
         )
 
         doc = item.model_dump()
@@ -3842,12 +3846,12 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
                 img = value
                 if ',' in img:
                     img = img.split(',')[1]
-                update_fields["image"] = create_thumbnail(img, max_size=400)
+                update_fields["image"] = create_thumbnail(img, max_size=600)
             elif field == "back_image_base64" and value is not None:
                 bimg = value
                 if ',' in bimg:
                     bimg = bimg.split(',')[1]
-                update_fields["back_image"] = create_thumbnail(bimg, max_size=400)
+                update_fields["back_image"] = create_thumbnail(bimg, max_size=600)
             elif field not in ("image_base64", "back_image_base64"):
                 update_fields[field] = value
 
@@ -3962,13 +3966,18 @@ class EbayListingCreateRequest(BaseModel):
     title: str
     description: str
     price: float
-    listing_format: str = "FixedPriceItem"  # FixedPriceItem or Chinese (Auction)
-    duration: str = "GTC"  # GTC, Days_3, Days_5, Days_7, Days_10
-    condition_id: int = 3000  # 1000=New, 2750=Like New, 3000=Very Good, 4000=Good
+    listing_format: str = "FixedPriceItem"
+    duration: str = "GTC"
+    condition_id: int = 3000
     condition_description: Optional[str] = None
-    shipping_option: str = "USPSFirstClass"  # USPSFirstClass, USPSPriority, FreeShipping
+    shipping_option: str = "USPSFirstClass"
     shipping_cost: float = 0.0
-    category_id: str = "261328"  # Sports Trading Cards
+    category_id: str = "261328"
+    postal_code: str = "90210"
+    location: str = "US"
+    sport: Optional[str] = None
+    grading_company: Optional[str] = None
+    grade: Optional[str] = None
 
 
 def generate_listing_title(item: dict) -> str:
@@ -4129,8 +4138,130 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
         api_call = "AddItem"
         duration = data.duration if data.duration in ["Days_3", "Days_5", "Days_7", "Days_10"] else "Days_7"
     
-    # Escape XML special chars in title and description
+    # Upload card image to eBay if available
+    picture_xml = ""
+    card_image = item.get("image")
+    if card_image:
+        try:
+            import base64
+            image_bytes = base64.b64decode(card_image)
+            
+            # Ensure image meets eBay's 500px minimum
+            try:
+                img_pil = Image.open(BytesIO(image_bytes))
+                w, h = img_pil.size
+                if max(w, h) < 500:
+                    scale = 500 / max(w, h)
+                    new_w, new_h = int(w * scale), int(h * scale)
+                    img_pil = img_pil.resize((new_w, new_h), Image.LANCZOS)
+                    buf = BytesIO()
+                    img_pil.save(buf, format='JPEG', quality=90)
+                    image_bytes = buf.getvalue()
+            except Exception as e:
+                logger.warning(f"Image resize check failed: {e}")
+            upload_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <PictureName>{data.title[:50]}</PictureName>
+</UploadSiteHostedPicturesRequest>'''
+            
+            boundary = "MIME_boundary_EBAY"
+            body_parts = []
+            body_parts.append(f"--{boundary}\r\n")
+            body_parts.append("Content-Disposition: form-data; name=\"XML Payload\"\r\n")
+            body_parts.append("Content-Type: text/xml\r\n\r\n")
+            body_parts.append(upload_xml)
+            body_parts.append(f"\r\n--{boundary}\r\n")
+            body_parts.append("Content-Disposition: form-data; name=\"image\"; filename=\"card.jpg\"\r\n")
+            body_parts.append("Content-Type: image/jpeg\r\n")
+            body_parts.append(f"Content-Transfer-Encoding: binary\r\n\r\n")
+            
+            text_part = "".join(body_parts).encode('utf-8')
+            end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+            full_body = text_part + image_bytes + end_part
+            
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                upload_resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={
+                        "X-EBAY-API-SITEID": "0",
+                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                        "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    },
+                    content=full_body,
+                )
+            
+            import xml.etree.ElementTree as ET
+            upload_root = ET.fromstring(upload_resp.text)
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            pic_url_el = upload_root.find(".//e:FullURL", ns)
+            if pic_url_el is not None and pic_url_el.text:
+                picture_xml = f"""
+    <PictureDetails>
+      <PictureURL>{pic_url_el.text}</PictureURL>
+    </PictureDetails>"""
+                logger.info(f"Image uploaded to eBay: {pic_url_el.text}")
+            else:
+                logger.warning("eBay image upload returned no URL")
+        except Exception as e:
+            logger.warning(f"Failed to upload image to eBay: {e}")
+
+    # Build ItemSpecifics XML
     import html
+    specifics = []
+    
+    # Sport (required)
+    sport = data.sport or item.get("sport") or "Basketball"
+    specifics.append(f'<NameValueList><Name>Sport</Name><Value>{html.escape(sport)}</Value></NameValueList>')
+    
+    # Grade and Professional Grader (required for graded cards, provide defaults for raw)
+    grading_co = data.grading_company or item.get("grading_company") or ""
+    grade_val = data.grade or (str(item.get("grade")) if item.get("grade") else "")
+    
+    if grading_co and grade_val:
+        specifics.append(f'<NameValueList><Name>Professional Grader</Name><Value>{html.escape(grading_co)}</Value></NameValueList>')
+        specifics.append(f'<NameValueList><Name>Grade</Name><Value>{html.escape(str(grade_val))}</Value></NameValueList>')
+    else:
+        specifics.append('<NameValueList><Name>Professional Grader</Name><Value>Not Professionally Graded</Value></NameValueList>')
+        specifics.append('<NameValueList><Name>Grade</Name><Value>Ungraded</Value></NameValueList>')
+    
+    # Player/athlete
+    player = item.get("player")
+    if player:
+        specifics.append(f'<NameValueList><Name>Player/Athlete</Name><Value>{html.escape(player)}</Value></NameValueList>')
+    
+    # Year
+    year = item.get("year")
+    if year:
+        specifics.append(f'<NameValueList><Name>Season</Name><Value>{year}</Value></NameValueList>')
+    
+    # Set
+    set_name = item.get("set_name")
+    if set_name:
+        specifics.append(f'<NameValueList><Name>Set</Name><Value>{html.escape(set_name)}</Value></NameValueList>')
+    
+    # Card number
+    card_number = item.get("card_number")
+    if card_number:
+        specifics.append(f'<NameValueList><Name>Card Number</Name><Value>{html.escape(str(card_number))}</Value></NameValueList>')
+
+    # Card Condition Descriptor (required for sports trading cards)
+    condition_descriptor_map = {1000: "400010", 2750: "400010", 3000: "400012", 4000: "400012", 5000: "400013", 6000: "400013"}
+    card_condition_value = condition_descriptor_map.get(data.condition_id, "400012")
+    condition_descriptors_xml = f"""
+    <ConditionDescriptors>
+      <ConditionDescriptor>
+        <Name>40001</Name>
+        <Value>{card_condition_value}</Value>
+      </ConditionDescriptor>
+    </ConditionDescriptors>"""
+
+    item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
+
     safe_title = html.escape(data.title[:80])
     safe_desc = html.escape(data.description)
 
@@ -4148,14 +4279,17 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
     <ConditionID>{data.condition_id}</ConditionID>
-    {cond_desc_xml}
+    {condition_descriptors_xml}
     <Country>US</Country>
     <Currency>USD</Currency>
+    <PostalCode>{html.escape(data.postal_code)}</PostalCode>
+    <Location>{html.escape(data.location)}</Location>
     <DispatchTimeMax>1</DispatchTimeMax>
     <ListingDuration>{duration}</ListingDuration>
     <ListingType>{data.listing_format}</ListingType>
-    <PaymentMethods>PayPal</PaymentMethods>
+    {picture_xml}
     {shipping_xml}
+    {item_specifics_xml}
     <ReturnPolicy>
       <ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption>
       <RefundOption>MoneyBack</RefundOption>

@@ -32,7 +32,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
     variation: '', condition: 'Raw', grading_company: '', grade: '',
-    purchase_price: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection',
+    purchase_price: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [backImagePreview, setBackImagePreview] = useState(null);
@@ -46,7 +46,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
         condition: editItem.condition || 'Raw', grading_company: editItem.grading_company || '', grade: editItem.grade || '',
         purchase_price: editItem.purchase_price || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
-        image_base64: null, back_image_base64: null, category: editItem.category || 'collection',
+        image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
       });
       setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
       setBackImagePreview(editItem.back_image ? `data:image/jpeg;base64,${editItem.back_image}` : null);
@@ -70,6 +70,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         condition: d.is_graded ? 'Graded' : 'Raw',
         grading_company: d.grading_company || f.grading_company,
         grade: d.grade ? String(d.grade) : f.grade,
+        sport: d.sport || f.sport,
       }));
       toast.success('Card identified! Review the details below.');
     } catch { toast.error('AI identification failed'); }
@@ -112,6 +113,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       payload.quantity = parseInt(payload.quantity) || 1;
       if (!payload.image_base64) delete payload.image_base64;
       if (!payload.back_image_base64) delete payload.back_image_base64;
+      if (!payload.sport) delete payload.sport;
       if (payload.condition === 'Raw') { payload.grading_company = null; payload.grade = null; }
       await onSave(payload, editItem?.id);
       onBack();

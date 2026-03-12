@@ -99,6 +99,18 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Key dependency: Jina Reader API (`https://r.jina.ai/`) for eBay sold items scraping (no API key needed)
 - `created_listings`, `inventory`, `card_analyses`, `psa10_references`, `watchlist_cards`, `ebay_listings`, `ebay_tokens`
 
+### Marzo 2026 - eBay Listing Creation Bug Fix
+- **Fixed 5 eBay API errors** that prevented listing creation:
+  1. Removed deprecated PayPal payment method (managed payments)
+  2. Added PostalCode + Location fields
+  3. Added required ItemSpecifics: Sport, Grade, Professional Grader, Player, Season, Set, Card Number
+  4. Added ConditionDescriptors (40001) for Card Condition (required by eBay for trading cards)
+  5. Fixed image upload: upscale to 500px+ for eBay, uses UploadSiteHostedPictures API
+- Added `sport` field to inventory data model (auto-detected by AI)
+- Frontend: Added ZIP Code and Location fields to CreateListingView form
+- Thumbnails now stored at 600px (was 400px) to meet eBay minimum
+- Verified: Listing created successfully on eBay (Item ID: 397706895078)
+
 ### Marzo 2026 - AI Card Auto-Identification + Inline Form + Back Image
 - **AI Auto-Fill**: Upload a card photo → AI (gpt-4o via Emergent LLM Key) identifies card_name, player, year, set, card#, variation, condition, grade → all form fields auto-fill
 - **No More Popup**: Replaced modal/popup Add/Edit form with inline view (mobile-friendly)
