@@ -22,6 +22,18 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Graceful fallback to Browse API (active listings) with "Active Listings" badge when no sold data available
 - `data_source` field correctly reflects actual data origin (not tied to SCRAPEDO key)
 
+### Marzo 2026 - Market Intelligence Redesign
+- **Complete overhaul**: Market section transformed from simple search into "Market Intelligence" hub
+- **KPI Strip**: Collection (3 cards, $1.9k invested), Revenue ($587.53), Profit ($498.37), Avg Sale ($36.72)
+- **Sales Performance**: Stock-market style area chart showing cumulative Revenue + Profit
+- **Your Collection**: Sidebar showing inventory items with costs, clickable for instant price lookup
+- **Hot on the Market**: Trending cards auto-curated by user's sports interests (detected from inventory)
+- **My Watchlist**: CRUD system to track players/cards — add, lookup, remove. Stored in MongoDB
+- **Price Lookup**: Big search bar with large median prices, stats (count, avg, range), recent comparable sales with eBay links
+- **Monthly Performance**: Bar chart showing monthly revenue vs profit
+- New endpoints: `/api/market/watchlist` (GET/POST/DELETE), `/api/market/hot-cards`, `/api/market/portfolio-health`
+- Auto sport detection from card names (Basketball, Baseball, Football, Soccer, Hockey)
+
 ### Marzo 2026 - Dashboard Redesign (Epic Analytics Center)
 - **New Dashboard**: Complete redesign as "FlipSlab HQ" trading command center
 - 5 KPI cards: Revenue, Profit, Active Listings, Inventory, Avg Sale
