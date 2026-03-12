@@ -22,6 +22,21 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Graceful fallback to Browse API (active listings) with "Active Listings" badge when no sold data available
 - `data_source` field correctly reflects actual data origin (not tied to SCRAPEDO key)
 
+### Marzo 2026 - Dashboard Redesign (Epic Analytics Center)
+- **New Dashboard**: Complete redesign as "FlipSlab HQ" trading command center
+- 5 KPI cards: Revenue, Profit, Active Listings, Inventory, Avg Sale
+- **Sales Performance** area chart (stock-market style) with Revenue + Profit lines
+- **Monthly Revenue** bar chart showing growth trend
+- **By Sport** donut chart grouping inventory by sport (auto-detection from card names)
+- **Top Players** horizontal bar chart showing value by player
+- **Recent Sales** table (16 orders) with buyer, date, price, profit per sale
+- **Best Sale** highlight card
+- **Ending Soon** widget showing listings about to expire with countdown
+- **Date Range Filter** (30D / 90D / 180D / ALL) filters all charts and KPIs
+- Quick navigation buttons to Inventory and Listings
+- New backend endpoint: `/api/dashboard/analytics` aggregates eBay orders, inventory, active listings
+- Auto-detect sport from card names (Basketball, Baseball, Football, Soccer, Hockey)
+
 ### Marzo 2026 - Listing Market Comparison Fix
 - **Fixed**: Market data no longer disappears after loading in listing detail view
 - Split `useEffect` into separate form init and market fetch effects, using stable `listingId` dependency
