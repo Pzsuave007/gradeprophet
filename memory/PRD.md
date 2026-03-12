@@ -18,6 +18,20 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 
 ## What's Been Implemented
 
+### Marzo 2026 - Market Data & Flip Calculator
+- Market search with real-time eBay Browse API data
+- Shows Raw/Ungraded and PSA 10 prices separately with stats (median, avg, range)
+- Flip Calculator: Raw Price vs PSA 10 Value - Grading Cost = Potential Profit + ROI%
+- Individual listing details with images, prices, links to eBay
+- Endpoints: /api/market/search, /api/market/card-value, /api/market/flip-calc
+
+### Marzo 2026 - eBay Account Integration
+- Full OAuth 2.0 user token flow for eBay seller account (pazacap0)
+- Trading API integration for GetMyeBaySelling (active listings + sold items)
+- Token storage in MongoDB with auto-refresh
+- Account page with connection status
+- Dashboard shows real active listings (73), sold items (9), prices, time remaining
+
 ### Marzo 2026 - Inventory Module
 - Full CRUD for card collection management (add, edit, delete, search)
 - Two categories: **Collection** (personal cards) and **For Sale** (cards to sell)
@@ -100,11 +114,11 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 ## Prioritized Backlog
 
 ### P0 (Critical) - Completed
-- AI Card Scanner, Historial, Monitor eBay, Dashboard Module, Inventory Module
+- AI Card Scanner, Historial, Monitor eBay, Dashboard Module, Inventory Module, Market Data, Flip Calculator, eBay OAuth
 
 ### P1 (High Priority) - Next
-- **Inventory Module**: Administrar coleccion, costos, valores actuales
-- **Market Module**: Precios en tiempo real, tendencias, comparaciones
+- **Listings Module**: Administrar tus eBay listings activos desde la app, editar precios
+- Import eBay listings to inventory automatically
 
 ### P2 (Medium Priority)
 - **Listings Module**: Publicar en eBay, administrar listings activos
