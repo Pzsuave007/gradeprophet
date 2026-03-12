@@ -1,4 +1,5 @@
 from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
+from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -37,6 +38,7 @@ SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY')
 # eBay API Credentials
 EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID')
 EBAY_CLIENT_SECRET = os.environ.get('EBAY_CLIENT_SECRET')
+EBAY_RUNAME = os.environ.get('EBAY_RUNAME')
 
 # Initialize OpenAI client
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
@@ -2402,6 +2404,299 @@ async def ebay_browse_sold(query: str, limit: int = 10) -> list:
     except Exception as e:
         logger.warning(f"eBay Browse sold search failed: {e}")
         return []
+
+
+# ============================================
+# EBAY OAUTH USER TOKEN FLOW + SELLER API
+# ============================================
+
+EBAY_OAUTH_SCOPES = " ".join([
+    "https://api.ebay.com/oauth/api_scope",
+    "https://api.ebay.com/oauth/api_scope/sell.inventory",
+    "https://api.ebay.com/oauth/api_scope/sell.marketing",
+    "https://api.ebay.com/oauth/api_scope/sell.account",
+    "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+    "https://api.ebay.com/oauth/api_scope/commerce.identity.readonly",
+    "https://api.ebay.com/oauth/api_scope/sell.analytics.readonly",
+])
+
+
+@api_router.get("/ebay/oauth/authorize")
+async def ebay_oauth_authorize():
+    """Generate eBay authorization URL and redirect user"""
+    if not EBAY_CLIENT_ID or not EBAY_RUNAME:
+        raise HTTPException(status_code=500, detail="eBay credentials not configured")
+
+    auth_url = (
+        f"https://auth.ebay.com/oauth2/authorize"
+        f"?client_id={EBAY_CLIENT_ID}"
+        f"&redirect_uri={EBAY_RUNAME}"
+        f"&response_type=code"
+        f"&scope={EBAY_OAUTH_SCOPES}"
+    )
+    return {"auth_url": auth_url}
+
+
+@api_router.get("/ebay/oauth/callback")
+async def ebay_oauth_callback(code: str = None, error: str = None):
+    """Callback from eBay OAuth - exchange code for user token"""
+    if error:
+        logger.error(f"eBay OAuth error: {error}")
+        return RedirectResponse(url="/?ebay_auth=error")
+
+    if not code:
+        return RedirectResponse(url="/?ebay_auth=no_code")
+
+    try:
+        credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/identity/v1/oauth2/token",
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": f"Basic {credentials}"
+                },
+                data={
+                    "grant_type": "authorization_code",
+                    "code": code,
+                    "redirect_uri": EBAY_RUNAME,
+                }
+            )
+
+        if resp.status_code != 200:
+            logger.error(f"eBay token exchange failed: {resp.status_code} - {resp.text[:300]}")
+            return RedirectResponse(url="/?ebay_auth=token_error")
+
+        token_data = resp.json()
+
+        # Store tokens in DB
+        await db.ebay_tokens.update_one(
+            {"type": "user_token"},
+            {"$set": {
+                "type": "user_token",
+                "access_token": token_data["access_token"],
+                "refresh_token": token_data.get("refresh_token"),
+                "expires_in": token_data.get("expires_in", 7200),
+                "token_type": token_data.get("token_type", "User Access Token"),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            upsert=True
+        )
+
+        logger.info("eBay user token acquired and stored")
+        return RedirectResponse(url="/?ebay_auth=success")
+
+    except Exception as e:
+        logger.error(f"eBay OAuth callback failed: {e}")
+        return RedirectResponse(url="/?ebay_auth=error")
+
+
+async def get_ebay_user_token() -> str:
+    """Get stored eBay user access token, refresh if needed"""
+    token_doc = await db.ebay_tokens.find_one({"type": "user_token"}, {"_id": 0})
+    if not token_doc:
+        return None
+
+    # Check if token needs refresh
+    updated_at = token_doc.get("updated_at", "")
+    expires_in = token_doc.get("expires_in", 7200)
+    if updated_at:
+        from dateutil.parser import parse as parse_date
+        try:
+            token_time = parse_date(updated_at)
+            elapsed = (datetime.now(timezone.utc) - token_time).total_seconds()
+            if elapsed > (expires_in - 300) and token_doc.get("refresh_token"):
+                # Refresh the token
+                refreshed = await refresh_ebay_user_token(token_doc["refresh_token"])
+                if refreshed:
+                    return refreshed
+        except Exception:
+            pass
+
+    return token_doc.get("access_token")
+
+
+async def refresh_ebay_user_token(refresh_token: str) -> str:
+    """Refresh the eBay user access token"""
+    try:
+        credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/identity/v1/oauth2/token",
+                headers={
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Authorization": f"Basic {credentials}"
+                },
+                data={
+                    "grant_type": "refresh_token",
+                    "refresh_token": refresh_token,
+                    "scope": EBAY_OAUTH_SCOPES,
+                }
+            )
+
+        if resp.status_code != 200:
+            logger.error(f"eBay token refresh failed: {resp.status_code}")
+            return None
+
+        token_data = resp.json()
+
+        await db.ebay_tokens.update_one(
+            {"type": "user_token"},
+            {"$set": {
+                "access_token": token_data["access_token"],
+                "expires_in": token_data.get("expires_in", 7200),
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
+
+        logger.info("eBay user token refreshed")
+        return token_data["access_token"]
+    except Exception as e:
+        logger.error(f"eBay token refresh error: {e}")
+        return None
+
+
+@api_router.get("/ebay/oauth/status")
+async def ebay_oauth_status():
+    """Check if eBay account is connected"""
+    token_doc = await db.ebay_tokens.find_one({"type": "user_token"}, {"_id": 0})
+    if not token_doc:
+        return {"connected": False}
+
+    return {
+        "connected": True,
+        "updated_at": token_doc.get("updated_at"),
+        "token_type": token_doc.get("token_type"),
+    }
+
+
+@api_router.get("/ebay/seller/listings")
+async def get_seller_listings(limit: int = 50, offset: int = 0):
+    """Get seller's active eBay listings using Sell API"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected. Please authorize first.")
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/sell/inventory/v1/inventory_item",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                params={"limit": limit, "offset": offset}
+            )
+
+        if resp.status_code == 401:
+            # Token expired, try refresh
+            token_doc = await db.ebay_tokens.find_one({"type": "user_token"}, {"_id": 0})
+            if token_doc and token_doc.get("refresh_token"):
+                new_token = await refresh_ebay_user_token(token_doc["refresh_token"])
+                if new_token:
+                    async with httpx.AsyncClient(timeout=20.0) as http_client:
+                        resp = await http_client.get(
+                            "https://api.ebay.com/sell/inventory/v1/inventory_item",
+                            headers={"Authorization": f"Bearer {new_token}", "Content-Type": "application/json"},
+                            params={"limit": limit, "offset": offset}
+                        )
+                else:
+                    raise HTTPException(status_code=401, detail="Token expired. Please reconnect eBay.")
+
+        if resp.status_code != 200:
+            logger.error(f"eBay seller listings error: {resp.status_code} - {resp.text[:300]}")
+            raise HTTPException(status_code=resp.status_code, detail=f"eBay API error: {resp.status_code}")
+
+        data = resp.json()
+        return {
+            "items": data.get("inventoryItems", []),
+            "total": data.get("total", 0),
+            "limit": limit,
+            "offset": offset,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Seller listings failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/ebay/seller/active-listings")
+async def get_seller_active_listings(limit: int = 50, offset: int = 0):
+    """Get seller's active offers/listings via Sell Offer API"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected.")
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/sell/inventory/v1/offer",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                params={"limit": limit, "offset": offset}
+            )
+
+        if resp.status_code == 401:
+            token_doc = await db.ebay_tokens.find_one({"type": "user_token"}, {"_id": 0})
+            if token_doc and token_doc.get("refresh_token"):
+                new_token = await refresh_ebay_user_token(token_doc["refresh_token"])
+                if new_token:
+                    async with httpx.AsyncClient(timeout=20.0) as http_client:
+                        resp = await http_client.get(
+                            "https://api.ebay.com/sell/inventory/v1/offer",
+                            headers={"Authorization": f"Bearer {new_token}", "Content-Type": "application/json"},
+                            params={"limit": limit, "offset": offset}
+                        )
+
+        if resp.status_code != 200:
+            logger.error(f"eBay active listings error: {resp.status_code} - {resp.text[:300]}")
+            return {"offers": [], "total": 0}
+
+        data = resp.json()
+        return {
+            "offers": data.get("offers", []),
+            "total": data.get("total", 0),
+        }
+    except Exception as e:
+        logger.error(f"Active listings failed: {e}")
+        return {"offers": [], "total": 0}
+
+
+@api_router.get("/ebay/seller/orders")
+async def get_seller_orders(limit: int = 20):
+    """Get seller's recent orders/sales"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected.")
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/sell/fulfillment/v1/order",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+                params={"limit": limit}
+            )
+
+        if resp.status_code != 200:
+            logger.error(f"eBay orders error: {resp.status_code} - {resp.text[:300]}")
+            return {"orders": [], "total": 0}
+
+        data = resp.json()
+        return {
+            "orders": data.get("orders", []),
+            "total": data.get("total", 0),
+        }
+    except Exception as e:
+        logger.error(f"Seller orders failed: {e}")
+        return {"orders": [], "total": 0}
 
 
 # ============================================
