@@ -32,7 +32,7 @@ if not OPENAI_API_KEY:
     raise ValueError("OPENAI_API_KEY environment variable is required")
 
 # Scrape.do API Key (optional - for eBay imports)
-SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY', 'SCRAPEDO_KEY_REMOVED')
+SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY')
 
 # eBay API Credentials
 EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID')
