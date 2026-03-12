@@ -99,12 +99,22 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Key dependency: Jina Reader API (`https://r.jina.ai/`) for eBay sold items scraping (no API key needed)
 - `created_listings`, `inventory`, `card_analyses`, `psa10_references`, `watchlist_cards`, `ebay_listings`, `ebay_tokens`
 
+### Marzo 2026 - Create Listing from Inventory (Complete Flow)
+- **Bug Fix**: Fixed response check in CreateListingView.jsx (`res.data.success` instead of `res.data.status === 'success'`)
+- **Bug Fix**: Fixed "Total Cards" stat displaying `total_quantity` instead of `total_cards`
+- Full end-to-end flow: Select cards in Inventory → Create Listing form → Publish to eBay
+- Multi-select support: Select individual cards or "Select All"
+- Single card quick-list via hover shopping bag icon
+- Batch actions: Apply format/shipping to all listings at once
+- Preview API auto-generates title, description, condition, and suggested price
+- Tested: 100% pass rate (9 backend + 12 frontend tests)
+
 ## Prioritized Backlog
 
-### P0 (Critical) - RESOLVED
-- ~~Market value lookup uses active listings instead of sold items~~ → FIXED (Marzo 2026)
+### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next
+- **Refactor server.py**: Break monolithic file into modular routers (dashboard, market, ebay, inventory)
 - **Account Module**: Profile, settings, preferences
 - **Full Flip Calculator**: Complete profit analysis in Flip Finder
 
@@ -114,5 +124,4 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - End/relist listings from the app
 
 ### P3 (Nice to Have)
-- Refactorizar server.py en routers modulares
 - Scheduled daily searches, PDF reports, price notifications

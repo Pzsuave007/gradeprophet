@@ -237,7 +237,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
     <>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
-          { icon: Package, label: 'Total Cards', val: s.total_quantity || 0, color: 'bg-[#3b82f6]' },
+          { icon: Package, label: 'Total Cards', val: s.total_cards || 0, color: 'bg-[#3b82f6]' },
           { icon: DollarSign, label: 'Invested', val: formatPrice(s.total_invested), color: 'bg-emerald-600' },
           { icon: Award, label: 'Graded', val: s.graded || 0, color: 'bg-amber-600' },
           { icon: Tag, label: 'Listed', val: `${s.listed || 0} / ${s.not_listed || 0}`, color: 'bg-purple-600' },
