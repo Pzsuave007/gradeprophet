@@ -2882,6 +2882,20 @@ async def get_card_market_value(query: str):
     try:
         token = await get_ebay_app_token()
 
+        # Clean the query - remove grading references so we get the base card name
+        import re as _re
+        clean_q = query
+        # Remove PSA/BGS/SGC/CGC grade references
+        clean_q = _re.sub(r'\b(PSA|BGS|SGC|CGC|HGA|GMA|CSG)\s*\d+\.?\d*\b', '', clean_q, flags=_re.IGNORECASE)
+        # Remove common grading terms
+        clean_q = _re.sub(r'\b(GEM\s*MINT|MINT|PRISTINE|NEAR\s*MINT|LOW\s*POP|POP\s*\d+)\b', '', clean_q, flags=_re.IGNORECASE)
+        # Remove extra whitespace
+        clean_q = _re.sub(r'\s+', ' ', clean_q).strip()
+        # Remove trailing commas or dashes
+        clean_q = clean_q.strip(' ,-')
+
+        logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}'")
+
         async def search_ebay(q, lim=10):
             async with httpx.AsyncClient(timeout=15.0) as http_client:
                 resp = await http_client.get(
@@ -2907,42 +2921,28 @@ async def get_card_market_value(query: str):
                 "max": prices[-1],
             }
 
+        def parse_items(items):
+            return [{
+                "title": item.get("title", ""),
+                "price": float(item.get("price", {}).get("value", 0)),
+                "condition": item.get("condition", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+            } for item in items]
+
         import asyncio
-        # Search raw, PSA 10, and general graded versions
         raw_items, psa10_items, graded_items = await asyncio.gather(
-            search_ebay(f'{query} raw ungraded', 10),
-            search_ebay(f'{query} PSA 10', 10),
-            search_ebay(f'{query} PSA BGS SGC graded', 10),
+            search_ebay(f'{clean_q} raw -PSA -BGS -SGC -CGC', 10),
+            search_ebay(f'{clean_q} PSA 10', 10),
+            search_ebay(f'{clean_q} PSA BGS SGC graded', 10),
         )
-
-        raw_data = []
-        for item in raw_items:
-            p = float(item.get("price", {}).get("value", 0))
-            raw_data.append({
-                "title": item.get("title", ""),
-                "price": p,
-                "condition": item.get("condition", ""),
-                "image_url": item.get("image", {}).get("imageUrl", ""),
-                "url": item.get("itemWebUrl", ""),
-                "seller": item.get("seller", {}).get("username", ""),
-            })
-
-        psa10_data = []
-        for item in psa10_items:
-            p = float(item.get("price", {}).get("value", 0))
-            psa10_data.append({
-                "title": item.get("title", ""),
-                "price": p,
-                "condition": item.get("condition", ""),
-                "image_url": item.get("image", {}).get("imageUrl", ""),
-                "url": item.get("itemWebUrl", ""),
-                "seller": item.get("seller", {}).get("username", ""),
-            })
 
         return {
             "query": query,
-            "raw": {"items": raw_data, "stats": calc_stats(raw_items)},
-            "psa10": {"items": psa10_data, "stats": calc_stats(psa10_items)},
+            "clean_query": clean_q,
+            "raw": {"items": parse_items(raw_items), "stats": calc_stats(raw_items)},
+            "psa10": {"items": parse_items(psa10_items), "stats": calc_stats(psa10_items)},
             "graded": {"stats": calc_stats(graded_items)},
         }
     except Exception as e:
@@ -2971,6 +2971,7 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
 
         return {
             "query": query,
+            "clean_query": value_data.get("clean_query", query),
             "raw_price": raw_price,
             "psa10_value": psa10_value,
             "grading_cost": grading_cost,
