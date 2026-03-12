@@ -15,6 +15,7 @@ import FlipFinder from '../components/FlipFinder';
 import DashboardHome from '../components/DashboardHome';
 import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
+import MarketModule from '../components/MarketModule';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -28,10 +29,6 @@ const PlaceholderModule = ({ title, description, icon: Icon }) => (
       Proximamente
     </div>
   </div>
-);
-
-const Market = () => (
-  <PlaceholderModule title="Market" description="Precios en tiempo real del mercado, tendencias, y comparaciones." icon={TrendingUp} />
 );
 
 const Listings = () => (
@@ -59,7 +56,7 @@ const Dashboard = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
       case 'inventory': return <InventoryModule />;
-      case 'market': return <Market />;
+      case 'market': return <MarketModule />;
       case 'flipfinder': return <FlipFinder />;
       case 'listings': return <Listings />;
       case 'account': return <AccountModule />;

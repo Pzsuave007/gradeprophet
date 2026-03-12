@@ -2818,6 +2818,175 @@ async def get_my_ebay_listings(limit: int = 50):
 
 
 # ============================================
+# MARKET DATA MODULE
+# ============================================
+
+@api_router.get("/market/search")
+async def market_search(query: str, limit: int = 20):
+    """Search eBay market data for a card - active listings with pricing analysis"""
+    try:
+        token = await get_ebay_app_token()
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+                params={"q": query, "limit": limit, "sort": "price"}
+            )
+        if resp.status_code != 200:
+            return {"items": [], "stats": {}, "total": 0}
+
+        raw_items = resp.json().get("itemSummaries", [])
+        items = []
+        prices = []
+        for item in raw_items:
+            price_val = float(item.get("price", {}).get("value", 0))
+            img = item.get("image", {}).get("imageUrl", "")
+            parsed = {
+                "title": item.get("title", ""),
+                "price": price_val,
+                "currency": item.get("price", {}).get("currency", "USD"),
+                "condition": item.get("condition", ""),
+                "image_url": img.replace("s-l225", "s-l500") if img else "",
+                "item_url": item.get("itemWebUrl", ""),
+                "buying_options": item.get("buyingOptions", []),
+                "seller": item.get("seller", {}).get("username", ""),
+                "item_id": item.get("itemId", ""),
+            }
+            items.append(parsed)
+            if price_val > 0:
+                prices.append(price_val)
+
+        prices.sort()
+        stats = {}
+        if prices:
+            mid = len(prices) // 2
+            median = prices[mid] if len(prices) % 2 != 0 else (prices[mid - 1] + prices[mid]) / 2
+            stats = {
+                "count": len(prices),
+                "avg_price": round(sum(prices) / len(prices), 2),
+                "median_price": round(median, 2),
+                "min_price": prices[0],
+                "max_price": prices[-1],
+                "market_value": round(median, 2),
+            }
+
+        return {"items": items, "stats": stats, "total": len(items)}
+    except Exception as e:
+        logger.error(f"Market search failed: {e}")
+        return {"items": [], "stats": {}, "total": 0, "error": str(e)}
+
+
+@api_router.get("/market/card-value")
+async def get_card_market_value(query: str):
+    """Get market value for a card - searches raw and graded versions"""
+    try:
+        token = await get_ebay_app_token()
+
+        async def search_ebay(q, lim=10):
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.get(
+                    "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                    headers={"Authorization": f"Bearer {token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+                    params={"q": q, "limit": lim, "sort": "price"}
+                )
+            if resp.status_code != 200:
+                return []
+            return resp.json().get("itemSummaries", [])
+
+        def calc_stats(items):
+            prices = sorted([float(i.get("price", {}).get("value", 0)) for i in items if float(i.get("price", {}).get("value", 0)) > 0])
+            if not prices:
+                return {"count": 0, "avg": 0, "median": 0, "min": 0, "max": 0}
+            mid = len(prices) // 2
+            median = prices[mid] if len(prices) % 2 != 0 else (prices[mid - 1] + prices[mid]) / 2
+            return {
+                "count": len(prices),
+                "avg": round(sum(prices) / len(prices), 2),
+                "median": round(median, 2),
+                "min": prices[0],
+                "max": prices[-1],
+            }
+
+        import asyncio
+        # Search raw, PSA 10, and general graded versions
+        raw_items, psa10_items, graded_items = await asyncio.gather(
+            search_ebay(f'{query} raw ungraded', 10),
+            search_ebay(f'{query} PSA 10', 10),
+            search_ebay(f'{query} PSA BGS SGC graded', 10),
+        )
+
+        raw_data = []
+        for item in raw_items:
+            p = float(item.get("price", {}).get("value", 0))
+            raw_data.append({
+                "title": item.get("title", ""),
+                "price": p,
+                "condition": item.get("condition", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+            })
+
+        psa10_data = []
+        for item in psa10_items:
+            p = float(item.get("price", {}).get("value", 0))
+            psa10_data.append({
+                "title": item.get("title", ""),
+                "price": p,
+                "condition": item.get("condition", ""),
+                "image_url": item.get("image", {}).get("imageUrl", ""),
+                "url": item.get("itemWebUrl", ""),
+                "seller": item.get("seller", {}).get("username", ""),
+            })
+
+        return {
+            "query": query,
+            "raw": {"items": raw_data, "stats": calc_stats(raw_items)},
+            "psa10": {"items": psa10_data, "stats": calc_stats(psa10_items)},
+            "graded": {"stats": calc_stats(graded_items)},
+        }
+    except Exception as e:
+        logger.error(f"Card value failed: {e}")
+        return {"query": query, "raw": {"items": [], "stats": {}}, "psa10": {"items": [], "stats": {}}, "graded": {"stats": {}}, "error": str(e)}
+
+
+@api_router.get("/market/flip-calc")
+async def flip_calculator(query: str, grading_cost: float = 30.0):
+    """Calculate flip opportunity: raw price vs graded value minus grading cost"""
+    try:
+        value_data = await get_card_market_value(query)
+
+        raw_stats = value_data.get("raw", {}).get("stats", {})
+        psa10_stats = value_data.get("psa10", {}).get("stats", {})
+
+        raw_price = raw_stats.get("median", 0)
+        psa10_value = psa10_stats.get("median", 0)
+
+        if raw_price > 0 and psa10_value > 0:
+            potential_profit = psa10_value - raw_price - grading_cost
+            roi = ((potential_profit) / (raw_price + grading_cost)) * 100 if (raw_price + grading_cost) > 0 else 0
+        else:
+            potential_profit = 0
+            roi = 0
+
+        return {
+            "query": query,
+            "raw_price": raw_price,
+            "psa10_value": psa10_value,
+            "grading_cost": grading_cost,
+            "potential_profit": round(potential_profit, 2),
+            "roi_percent": round(roi, 1),
+            "raw_listings": raw_stats.get("count", 0),
+            "psa10_listings": psa10_stats.get("count", 0),
+            "raw_items": value_data.get("raw", {}).get("items", [])[:5],
+            "psa10_items": value_data.get("psa10", {}).get("items", [])[:5],
+        }
+    except Exception as e:
+        logger.error(f"Flip calc failed: {e}")
+        return {"query": query, "error": str(e)}
+
+
+# ============================================
 # DASHBOARD ENDPOINTS
 # ============================================
 
