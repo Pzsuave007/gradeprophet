@@ -13,6 +13,15 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 
 ## What's Been Implemented
 
+### Marzo 2026 - Sold Data Fix (P0 Critical Bug)
+- **Fixed market valuation**: Now uses REAL eBay sold/completed item prices instead of active listing prices
+- Implemented Jina Reader API (free, no key) to scrape eBay sold listings page
+- Each item now includes `date_sold` (e.g., "Mar 11, 2026") and `source: "sold"`
+- Frontend shows "SOLD DATA" green badge when data comes from actual sales
+- Frontend displays sold dates next to each comparable sale
+- Graceful fallback to Browse API (active listings) with "Active Listings" badge when no sold data available
+- `data_source` field correctly reflects actual data origin (not tied to SCRAPEDO key)
+
 ### Febrero 2026 - Smart Market Comparison
 - **Grade-aware search**: Detects PSA/BGS/SGC grades in listing titles automatically
 - Graded cards (e.g. PSA 8) → compares with same grade sales + raw reference
@@ -47,10 +56,17 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - `GET /api/ebay/seller/my-listings` - Active listings
 - Full CRUD: /api/inventory, /api/dashboard/*, /api/cards/analyze
 
-## Database Collections
+## Tech Stack
+- Backend: FastAPI, MongoDB (motor), Pydantic, httpx
+- Frontend: React, Tailwind CSS, shadcn/ui, lucide-react, framer-motion
+- Integrations: eBay OAuth/API, OpenAI Vision (Emergent LLM Key), Jina Reader API (free scraping)
+- Key dependency: Jina Reader API (`https://r.jina.ai/`) for eBay sold items scraping (no API key needed)
 - `created_listings`, `inventory`, `card_analyses`, `psa10_references`, `watchlist_cards`, `ebay_listings`, `ebay_tokens`
 
 ## Prioritized Backlog
+
+### P0 (Critical) - RESOLVED
+- ~~Market value lookup uses active listings instead of sold items~~ → FIXED (Marzo 2026)
 
 ### P1 (High Priority) - Next
 - **Account Module**: Profile, settings, preferences
