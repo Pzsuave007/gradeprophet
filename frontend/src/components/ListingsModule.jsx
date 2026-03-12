@@ -605,7 +605,7 @@ const ListingsModule = () => {
   const fetchData = useCallback(async () => {
     try {
       const [ebayRes, invRes] = await Promise.allSettled([
-        axios.get(`${API}/api/ebay/seller/my-listings?limit=50`),
+        axios.get(`${API}/api/ebay/seller/my-listings?limit=200`),
         axios.get(`${API}/api/inventory?limit=200`),
       ]);
       if (ebayRes.status === 'fulfilled') setEbayData(ebayRes.value.data);
@@ -648,11 +648,18 @@ const ListingsModule = () => {
           <h1 className="text-xl font-bold text-white tracking-tight">Listings</h1>
           <p className="text-xs text-gray-500 mt-0.5">Manage your eBay listings</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)}
-          className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
-          data-testid="create-listing-btn">
-          <Plus className="w-4 h-4" />Create Listing
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => { setLoading(true); fetchData(); }}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white hover:border-[#3b82f6]/30 transition-colors"
+            data-testid="refresh-listings-btn">
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
+            data-testid="create-listing-btn">
+            <Plus className="w-4 h-4" />Create Listing
+          </button>
+        </div>
       </div>
 
       {/* Stats */}

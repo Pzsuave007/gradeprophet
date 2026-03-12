@@ -2757,7 +2757,7 @@ async def get_my_ebay_listings(limit: int = 50):
     <eBayAuthToken>{token}</eBayAuthToken>
   </RequesterCredentials>
   <ActiveList>
-    <Sort>TimeLeft</Sort>
+    <Sort>StartTime</Sort>
     <Pagination>
       <EntriesPerPage>{limit}</EntriesPerPage>
       <PageNumber>1</PageNumber>
@@ -2849,7 +2849,7 @@ async def get_my_ebay_listings(limit: int = 50):
                 })
 
         return {
-            "active": active_items,
+            "active": list(reversed(active_items)),
             "sold": sold_items,
             "active_total": active_total,
             "sold_total": sold_total,
