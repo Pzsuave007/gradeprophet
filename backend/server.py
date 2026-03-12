@@ -1053,6 +1053,79 @@ async def analyze_card(data: CardAnalysisCreate):
         logger.error(f"Card analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+class CardIdentifyRequest(BaseModel):
+    image_base64: str
+
+CARD_IDENTIFY_PROMPT = """You are a sports card identification expert. Look at this card image and identify ALL details you can see.
+
+Return ONLY valid JSON with these fields (use null for anything you can't determine):
+{
+  "card_name": "<Full card name, e.g. '1996 Topps Chrome Kobe Bryant #138 Refractor'>",
+  "player": "<Player name>",
+  "year": <year as integer or null>,
+  "set_name": "<Set/brand name, e.g. 'Topps Chrome', 'Fleer', 'Upper Deck SP'>",
+  "card_number": "<Card number if visible, e.g. '138'>",
+  "variation": "<Variation/parallel if any, e.g. 'Refractor', 'Prizm Silver', null>",
+  "is_graded": <true if card is in a grading slab/case, false if raw>,
+  "grading_company": "<PSA, BGS, SGC, CGC, HGA, or null if raw>",
+  "grade": <numeric grade if graded, e.g. 9, 9.5, 10, or null if raw>,
+  "sport": "<Basketball, Baseball, Football, Soccer, Hockey, or Other>",
+  "estimated_condition": "<Mint, Near Mint, Excellent, Good, Fair - your visual assessment>"
+}
+
+Be precise. If you can read text on the card or slab, use that exact text. If the card is in a PSA/BGS/SGC slab, read the grade from the label."""
+
+@api_router.post("/cards/identify")
+async def identify_card_from_image(data: CardIdentifyRequest):
+    """Identify a card from an image and return structured data for form auto-fill"""
+    import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
+
+    try:
+        image = data.image_base64
+        if ',' in image:
+            image = image.split(',')[1]
+
+        emergent_key = os.environ.get('EMERGENT_LLM_KEY')
+        if not emergent_key:
+            raise HTTPException(status_code=500, detail="EMERGENT_LLM_KEY not configured")
+
+        chat = LlmChat(
+            api_key=emergent_key,
+            session_id=f"card-identify-{uuid.uuid4()}",
+            system_message="You are a sports card identification expert. Respond only with valid JSON."
+        ).with_model("openai", "gpt-4o")
+
+        image_content = ImageContent(image_base64=image)
+        user_msg = UserMessage(
+            text=CARD_IDENTIFY_PROMPT,
+            file_contents=[image_content]
+        )
+
+        response_text = await chat.send_message(user_msg)
+
+        cleaned = response_text.strip()
+        if cleaned.startswith("```json"):
+            cleaned = cleaned[7:]
+        if cleaned.startswith("```"):
+            cleaned = cleaned[3:]
+        if cleaned.endswith("```"):
+            cleaned = cleaned[:-3]
+        cleaned = cleaned.strip()
+
+        result = json.loads(cleaned)
+        return result
+
+    except json.JSONDecodeError:
+        logger.error("Failed to parse card identify AI response")
+        return {"error": "Could not identify card from image"}
+    except Exception as e:
+        logger.error(f"Card identify failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @api_router.get("/cards/history", response_model=List[CardAnalysisResponse])
 async def get_card_history():
     """Get history of analyzed cards"""

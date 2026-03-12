@@ -25,8 +25,8 @@ const formatPrice = (v) => {
   return `$${n.toFixed(2)}`;
 };
 
-// =========== ADD/EDIT MODAL ===========
-const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
+// =========== ADD/EDIT INLINE VIEW ===========
+const CardFormView = ({ onBack, onSave, editItem }) => {
   const fileRef = useRef(null);
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
@@ -35,6 +35,7 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
+  const [identifying, setIdentifying] = useState(false);
 
   useEffect(() => {
     if (editItem) {
@@ -46,17 +47,42 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
         image_base64: null, category: editItem.category || 'collection',
       });
       setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
-    } else {
-      setForm({ card_name: '', player: '', year: '', set_name: '', card_number: '', variation: '', condition: 'Raw', grading_company: '', grade: '', purchase_price: '', quantity: 1, notes: '', image_base64: null, category: 'collection' });
-      setImagePreview(null);
     }
-  }, [editItem, isOpen]);
+  }, [editItem]);
+
+  const identifyCard = async (imageData) => {
+    setIdentifying(true);
+    try {
+      const res = await axios.post(`${API}/api/cards/identify`, { image_base64: imageData });
+      const d = res.data;
+      if (d.error) { toast.error('Could not identify card'); return; }
+      setForm(f => ({
+        ...f,
+        card_name: d.card_name || f.card_name,
+        player: d.player || f.player,
+        year: d.year ? String(d.year) : f.year,
+        set_name: d.set_name || f.set_name,
+        card_number: d.card_number || f.card_number,
+        variation: d.variation || f.variation,
+        condition: d.is_graded ? 'Graded' : 'Raw',
+        grading_company: d.grading_company || f.grading_company,
+        grade: d.grade ? String(d.grade) : f.grade,
+      }));
+      toast.success('Card identified! Review the details below.');
+    } catch { toast.error('AI identification failed'); }
+    finally { setIdentifying(false); }
+  };
 
   const handleImage = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = (ev) => { setForm(f => ({ ...f, image_base64: ev.target.result })); setImagePreview(ev.target.result); };
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      setForm(f => ({ ...f, image_base64: dataUrl }));
+      setImagePreview(dataUrl);
+      identifyCard(dataUrl);
+    };
     reader.readAsDataURL(file);
   };
 
@@ -73,75 +99,97 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
       if (!payload.image_base64) delete payload.image_base64;
       if (payload.condition === 'Raw') { payload.grading_company = null; payload.grade = null; }
       await onSave(payload, editItem?.id);
-      onClose();
+      onBack();
     } catch (err) { toast.error(err.response?.data?.detail || 'Failed to save'); }
     finally { setSaving(false); }
   };
 
-  if (!isOpen) return null;
-  const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
+  const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
   const labelCls = "block text-[11px] uppercase tracking-wider text-gray-500 mb-1 font-medium";
 
   return (
-    <AnimatePresence>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center pt-8 sm:pt-16 px-4 overflow-y-auto" onClick={onClose}>
-        <motion.div initial={{ opacity: 0, y: 20, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
-          className="bg-[#111] border border-[#1a1a1a] rounded-xl w-full max-w-2xl mb-8 shadow-2xl" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1a1a1a]">
-            <h2 className="text-sm font-bold text-white">{editItem ? 'Edit Card' : 'Add Card to Inventory'}</h2>
-            <button onClick={onClose} className="p-1 hover:bg-white/5 rounded" data-testid="modal-close"><X className="w-4 h-4 text-gray-500" /></button>
+    <div className="space-y-4 pb-8" data-testid="card-form-view">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5" data-testid="form-back-btn">
+          <ChevronLeft className="w-5 h-5 text-gray-400" />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold text-white">{editItem ? 'Edit Card' : 'Add Card to Inventory'}</h1>
+          <p className="text-xs text-gray-500">{editItem ? 'Update card details' : 'Upload a photo to auto-identify with AI'}</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
+        {/* Category */}
+        <div><label className={labelCls}>Category</label>
+          <div className="flex gap-2">
+            {[{ val: 'collection', label: 'Collection', icon: Heart }, { val: 'for_sale', label: 'For Sale', icon: ShoppingBag }].map(({ val, label, icon: Icon }) => (
+              <button key={val} type="button" onClick={() => setForm(f => ({ ...f, category: val }))}
+                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${form.category === val ? (val === 'for_sale' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]') : 'bg-[#0a0a0a] border-[#222] text-gray-500 hover:text-white'}`}
+                data-testid={`category-${val}`}><Icon className="w-4 h-4" />{label}</button>
+            ))}
           </div>
-          <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            <div><label className={labelCls}>Category</label>
-              <div className="flex gap-2">
-                {[{ val: 'collection', label: 'Collection', icon: Heart }, { val: 'for_sale', label: 'For Sale', icon: ShoppingBag }].map(({ val, label, icon: Icon }) => (
-                  <button key={val} type="button" onClick={() => setForm(f => ({ ...f, category: val }))}
-                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${form.category === val ? (val === 'for_sale' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]') : 'bg-[#0a0a0a] border-[#222] text-gray-500 hover:text-white'}`}
-                    data-testid={`category-${val}`}><Icon className="w-4 h-4" />{label}</button>
-                ))}
+        </div>
+
+        {/* Image + AI Identify */}
+        <div className="flex items-start gap-4">
+          <div className="relative flex-shrink-0">
+            <div onClick={() => fileRef.current?.click()}
+              className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
+              data-testid="image-upload-area">
+              {imagePreview ? <img src={imagePreview} alt="Card" className="w-full h-full object-cover" />
+                : <div className="text-center p-2"><Upload className="w-6 h-6 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Upload Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
+            </div>
+            {identifying && (
+              <div className="absolute inset-0 bg-black/70 rounded-xl flex flex-col items-center justify-center">
+                <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mb-1" />
+                <span className="text-[9px] text-[#3b82f6] font-medium">Identifying...</span>
               </div>
+            )}
+          </div>
+          <div className="flex-1 space-y-3">
+            <div><label className={labelCls}>Card Name *</label><input className={inputCls} placeholder="e.g. 1996 Topps Kobe Bryant #138" value={form.card_name} onChange={e => setForm(f => ({ ...f, card_name: e.target.value }))} data-testid="input-card-name" /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><label className={labelCls}>Player</label><input className={inputCls} placeholder="Kobe Bryant" value={form.player} onChange={e => setForm(f => ({ ...f, player: e.target.value }))} data-testid="input-player" /></div>
+              <div><label className={labelCls}>Year</label><input className={inputCls} type="number" placeholder="1996" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} data-testid="input-year" /></div>
             </div>
-            <div className="flex items-start gap-4">
-              <div onClick={() => fileRef.current?.click()} className="w-24 h-32 rounded-lg border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden flex-shrink-0 transition-colors" data-testid="image-upload-area">
-                {imagePreview ? <img src={imagePreview} alt="Card" className="w-full h-full object-cover" /> : <div className="text-center"><Upload className="w-5 h-5 text-gray-600 mx-auto" /><span className="text-[9px] text-gray-600 mt-1 block">Photo</span></div>}
-                <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
-              </div>
-              <div className="flex-1 space-y-3">
-                <div><label className={labelCls}>Card Name *</label><input className={inputCls} placeholder="e.g. 1996 Topps Kobe Bryant #138" value={form.card_name} onChange={e => setForm(f => ({ ...f, card_name: e.target.value }))} data-testid="input-card-name" /></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><label className={labelCls}>Player</label><input className={inputCls} placeholder="Kobe Bryant" value={form.player} onChange={e => setForm(f => ({ ...f, player: e.target.value }))} data-testid="input-player" /></div>
-                  <div><label className={labelCls}>Year</label><input className={inputCls} type="number" placeholder="1996" value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} data-testid="input-year" /></div>
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className={labelCls}>Set</label><input className={inputCls} placeholder="Topps Chrome" value={form.set_name} onChange={e => setForm(f => ({ ...f, set_name: e.target.value }))} data-testid="input-set" /></div>
-              <div><label className={labelCls}>Card #</label><input className={inputCls} placeholder="#138" value={form.card_number} onChange={e => setForm(f => ({ ...f, card_number: e.target.value }))} data-testid="input-card-number" /></div>
-              <div><label className={labelCls}>Variation</label><input className={inputCls} placeholder="Refractor..." value={form.variation} onChange={e => setForm(f => ({ ...f, variation: e.target.value }))} data-testid="input-variation" /></div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className={labelCls}>Condition</label><select className={inputCls} value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))} data-testid="select-condition">{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-              {form.condition === 'Graded' && (<>
-                <div><label className={labelCls}>Grading Co.</label><select className={inputCls} value={form.grading_company} onChange={e => setForm(f => ({ ...f, grading_company: e.target.value }))} data-testid="select-grading-company"><option value="">Select...</option>{GRADING_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
-                <div><label className={labelCls}>Grade</label><select className={inputCls} value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} data-testid="select-grade"><option value="">Select...</option>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
-              </>)}
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div><label className={labelCls}>Purchase Price ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.purchase_price} onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))} data-testid="input-price" /></div>
-              <div><label className={labelCls}>Quantity</label><input className={inputCls} type="number" min="1" placeholder="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} data-testid="input-quantity" /></div>
-              <div><label className={labelCls}>Notes</label><input className={inputCls} placeholder="Optional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" /></div>
-            </div>
-            <div className="flex justify-end gap-2 pt-2">
-              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors">Cancel</button>
-              <button type="submit" disabled={saving} className="px-5 py-2 rounded-lg text-sm font-semibold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-50 transition-colors flex items-center gap-2" data-testid="save-card-btn">
-                {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}{editItem ? 'Update' : 'Add Card'}
-              </button>
-            </div>
-          </form>
-        </motion.div>
-      </motion.div>
-    </AnimatePresence>
+          </div>
+        </div>
+
+        {identifying && (
+          <div className="flex items-center gap-2 bg-[#3b82f6]/5 border border-[#3b82f6]/20 rounded-lg px-3 py-2">
+            <RefreshCw className="w-4 h-4 text-[#3b82f6] animate-spin flex-shrink-0" />
+            <p className="text-xs text-[#3b82f6]">AI is analyzing your card... fields will auto-fill momentarily</p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className={labelCls}>Set</label><input className={inputCls} placeholder="Topps Chrome" value={form.set_name} onChange={e => setForm(f => ({ ...f, set_name: e.target.value }))} data-testid="input-set" /></div>
+          <div><label className={labelCls}>Card #</label><input className={inputCls} placeholder="#138" value={form.card_number} onChange={e => setForm(f => ({ ...f, card_number: e.target.value }))} data-testid="input-card-number" /></div>
+          <div><label className={labelCls}>Variation</label><input className={inputCls} placeholder="Refractor..." value={form.variation} onChange={e => setForm(f => ({ ...f, variation: e.target.value }))} data-testid="input-variation" /></div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className={labelCls}>Condition</label><select className={inputCls} value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))} data-testid="select-condition">{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+          {form.condition === 'Graded' && (<>
+            <div><label className={labelCls}>Grading Co.</label><select className={inputCls} value={form.grading_company} onChange={e => setForm(f => ({ ...f, grading_company: e.target.value }))} data-testid="select-grading-company"><option value="">Select...</option>{GRADING_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+            <div><label className={labelCls}>Grade</label><select className={inputCls} value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} data-testid="select-grade"><option value="">Select...</option>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
+          </>)}
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div><label className={labelCls}>Purchase Price ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.purchase_price} onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))} data-testid="input-price" /></div>
+          <div><label className={labelCls}>Quantity</label><input className={inputCls} type="number" min="1" placeholder="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} data-testid="input-quantity" /></div>
+          <div><label className={labelCls}>Notes</label><input className={inputCls} placeholder="Optional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" /></div>
+        </div>
+        <div className="flex justify-end gap-2 pt-2">
+          <button type="button" onClick={onBack} className="px-4 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors" data-testid="form-cancel-btn">Cancel</button>
+          <button type="submit" disabled={saving || identifying} className="px-5 py-2.5 rounded-lg text-sm font-semibold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-50 transition-colors flex items-center gap-2" data-testid="save-card-btn">
+            {saving ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}{editItem ? 'Update' : 'Add Card'}
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };
 
@@ -154,7 +202,6 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const [viewMode, setViewMode] = useState('grid');
   const [filters, setFilters] = useState({ condition: '', listed: '' });
   const [showFilters, setShowFilters] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [total, setTotal] = useState(0);
   const searchTimeout = useRef(null);
@@ -163,6 +210,9 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [showCreateListing, setShowCreateListing] = useState(false);
+
+  // Add/Edit inline view state
+  const [showForm, setShowForm] = useState(false);
 
   const fetchInventory = useCallback(async (searchVal) => {
     try {
@@ -190,8 +240,8 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
     setEditItem(null); fetchInventory(search);
   };
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
-  const openEdit = (item) => { setEditItem(item); setModalOpen(true); };
-  const openAdd = () => { setEditItem(null); setModalOpen(true); };
+  const openEdit = (item) => { setEditItem(item); setShowForm(true); };
+  const openAdd = () => { setEditItem(null); setShowForm(true); };
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -222,6 +272,17 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         items={selectedItems}
         onBack={() => { setShowCreateListing(false); exitSelectMode(); }}
         onSuccess={() => { setShowCreateListing(false); exitSelectMode(); fetchInventory(search); }}
+      />
+    );
+  }
+
+  // Show Add/Edit form view (inline, no popup)
+  if (showForm) {
+    return (
+      <CardFormView
+        editItem={editItem}
+        onBack={() => { setShowForm(false); setEditItem(null); }}
+        onSave={handleSave}
       />
     );
   }
@@ -390,7 +451,6 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
           ))}
         </div>
       )}
-      <CardFormModal isOpen={modalOpen} onClose={() => { setModalOpen(false); setEditItem(null); }} onSave={handleSave} editItem={editItem} />
     </>
   );
 };
