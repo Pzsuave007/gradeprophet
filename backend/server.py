@@ -14,7 +14,6 @@ import base64
 import httpx
 import re
 from io import BytesIO
-from openai import AsyncOpenAI
 from PIL import Image
 
 ROOT_DIR = Path(__file__).parent
@@ -27,10 +26,9 @@ if not mongo_url:
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'test_database')]
 
-# OpenAI API Key
+# OpenAI API Key (fallback to Emergent LLM Key)
 OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-if not OPENAI_API_KEY:
-    raise ValueError("OPENAI_API_KEY environment variable is required")
+EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
 # Scrape.do API Key (optional - for eBay imports)
 SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY')
@@ -40,8 +38,7 @@ EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID')
 EBAY_CLIENT_SECRET = os.environ.get('EBAY_CLIENT_SECRET')
 EBAY_RUNAME = os.environ.get('EBAY_RUNAME')
 
-# Initialize OpenAI client
-openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+# OpenAI client no longer initialized globally - using emergentintegrations instead
 
 # Create the main app
 app = FastAPI(title="GradeProphet API", description="AI-powered PSA grading predictor for sports cards")
@@ -619,45 +616,28 @@ Include the detected year/era in your card_info field.
 async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str = None, reference_image_base64: str = None, corner_images: list = None, card_year: int = None, auto_detect_year: bool = False) -> dict:
     """Analyze a sports card image using OpenAI GPT-4o Vision"""
     import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
     
     try:
-        # Build the image content list for OpenAI
-        image_contents = []
+        # Build image contents for emergent LLM
+        image_list = []
         
         # Add front image
-        image_contents.append({
-            "type": "image_url",
-            "image_url": {
-                "url": f"data:image/jpeg;base64,{front_image_base64}",
-                "detail": "high"
-            }
-        })
+        image_list.append(ImageContent(image_base64=front_image_base64))
         
         # Get learning context from past predictions
         learning_context = await get_learning_context()
         
         # Determine which prompt to use based on images provided
         if back_image_base64 and reference_image_base64:
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{back_image_base64}", "detail": "high"}
-            })
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{reference_image_base64}", "detail": "high"}
-            })
+            image_list.append(ImageContent(image_base64=back_image_base64))
+            image_list.append(ImageContent(image_base64=reference_image_base64))
             prompt = PSA_ANALYSIS_PROMPT_DUAL_WITH_REFERENCE
         elif reference_image_base64:
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{reference_image_base64}", "detail": "high"}
-            })
+            image_list.append(ImageContent(image_base64=reference_image_base64))
             prompt = PSA_ANALYSIS_PROMPT_WITH_REFERENCE
         elif back_image_base64:
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:image/jpeg;base64,{back_image_base64}", "detail": "high"}
-            })
+            image_list.append(ImageContent(image_base64=back_image_base64))
             prompt = PSA_ANALYSIS_PROMPT_DUAL
         else:
             prompt = PSA_ANALYSIS_PROMPT_SINGLE
@@ -673,30 +653,22 @@ async def analyze_card_with_ai(front_image_base64: str, back_image_base64: str =
         if corner_images and len(corner_images) > 0:
             for corner_img in corner_images:
                 if corner_img:
-                    image_contents.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/jpeg;base64,{corner_img}", "detail": "high"}
-                    })
+                    image_list.append(ImageContent(image_base64=corner_img))
             prompt = prompt + CORNER_ANALYSIS_ADDITION
         
         # Add learning context to prompt if available
         if learning_context:
             prompt = learning_context + prompt
         
-        # Create the messages for OpenAI
-        messages = [
-            {"role": "system", "content": "You are an expert sports card grader. Respond only with valid JSON."},
-            {"role": "user", "content": [{"type": "text", "text": prompt}, *image_contents]}
-        ]
-        
-        # Call OpenAI API
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            max_tokens=2000
-        )
-        
-        response_text = response.choices[0].message.content
+        # Call via emergentintegrations
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"card-grade-{uuid.uuid4()}",
+            system_message="You are an expert sports card grader. Respond only with valid JSON."
+        ).with_model("openai", "gpt-4o")
+
+        user_msg = UserMessage(text=prompt, file_contents=image_list)
+        response_text = await chat.send_message(user_msg)
         
         # Parse JSON response
         cleaned_response = response_text.strip()
@@ -1332,23 +1304,20 @@ If you cannot read certain information, use "Unknown" for that field but try you
 async def read_psa_label(image_base64: str) -> dict:
     """Read PSA label information from a graded card image"""
     import json
+    from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
     
     try:
-        messages = [
-            {"role": "system", "content": "You are an expert at reading PSA graded card labels. Respond only with valid JSON."},
-            {"role": "user", "content": [
-                {"type": "text", "text": PSA_LABEL_READER_PROMPT},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_base64}", "detail": "high"}}
-            ]}
-        ]
-        
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            max_tokens=500
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"psa-label-{uuid.uuid4()}",
+            system_message="You are an expert at reading PSA graded card labels. Respond only with valid JSON."
+        ).with_model("openai", "gpt-4o")
+
+        user_msg = UserMessage(
+            text=PSA_LABEL_READER_PROMPT,
+            file_contents=[ImageContent(image_base64=image_base64)]
         )
-        
-        response_text = response.choices[0].message.content
+        response_text = await chat.send_message(user_msg)
         
         # Clean response
         cleaned = response_text.strip()
