@@ -2581,6 +2581,8 @@ class InventoryItem(BaseModel):
     notes: Optional[str] = None
     image: Optional[str] = None  # base64 thumbnail
     listed: bool = False
+    category: str = "collection"  # collection, for_sale
+    source_analysis_id: Optional[str] = None  # link to card_analyses if imported from scan
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -2599,6 +2601,7 @@ class InventoryItemCreate(BaseModel):
     quantity: int = 1
     notes: Optional[str] = None
     image_base64: Optional[str] = None
+    category: str = "collection"  # collection, for_sale
 
 
 class InventoryItemUpdate(BaseModel):
@@ -2616,6 +2619,7 @@ class InventoryItemUpdate(BaseModel):
     notes: Optional[str] = None
     image_base64: Optional[str] = None
     listed: Optional[bool] = None
+    category: Optional[str] = None
 
 
 @api_router.post("/inventory")
@@ -2643,6 +2647,7 @@ async def create_inventory_item(data: InventoryItemCreate):
             quantity=data.quantity,
             notes=data.notes,
             image=image_thumb,
+            category=data.category,
         )
 
         doc = item.model_dump()
@@ -2665,6 +2670,7 @@ async def get_inventory(
     set_name: Optional[str] = None,
     condition: Optional[str] = None,
     listed: Optional[str] = None,
+    category: Optional[str] = None,
     sort_by: Optional[str] = "created_at",
     sort_dir: Optional[str] = "desc",
     skip: int = 0,
@@ -2692,6 +2698,8 @@ async def get_inventory(
             query["condition"] = condition
         if listed is not None and listed != "":
             query["listed"] = listed.lower() == "true"
+        if category and category in ("collection", "for_sale"):
+            query["category"] = category
 
         sort_order = -1 if sort_dir == "desc" else 1
         valid_sorts = ["created_at", "card_name", "player", "year", "purchase_price", "grade"]
@@ -2716,6 +2724,8 @@ async def get_inventory_stats():
         raw = await db.inventory.count_documents({"condition": "Raw"})
         listed = await db.inventory.count_documents({"listed": True})
         not_listed = await db.inventory.count_documents({"listed": False})
+        collection_count = await db.inventory.count_documents({"category": "collection"})
+        for_sale_count = await db.inventory.count_documents({"category": "for_sale"})
 
         pipeline = [
             {"$match": {"purchase_price": {"$gt": 0}}},
@@ -2736,6 +2746,8 @@ async def get_inventory_stats():
             "raw": raw,
             "listed": listed,
             "not_listed": not_listed,
+            "collection_count": collection_count,
+            "for_sale_count": for_sale_count,
             "total_invested": round(inv_agg.get("total_invested", 0), 2),
             "avg_price": round(inv_agg.get("avg_price", 0), 2),
         }
@@ -2806,6 +2818,68 @@ async def delete_inventory_item(item_id: str):
         raise
     except Exception as e:
         logger.error(f"Delete inventory item failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ImportFromScanRequest(BaseModel):
+    category: str = "collection"
+    purchase_price: Optional[float] = None
+    notes: Optional[str] = None
+
+
+@api_router.post("/inventory/from-scan/{analysis_id}")
+async def import_from_scan(analysis_id: str, data: ImportFromScanRequest):
+    """Import a scanned card into inventory"""
+    try:
+        # Check if already imported
+        existing = await db.inventory.find_one({"source_analysis_id": analysis_id})
+        if existing:
+            raise HTTPException(status_code=400, detail="This card is already in your inventory")
+
+        # Get the card analysis
+        card = await db.card_analyses.find_one({"id": analysis_id}, {"_id": 0})
+        if not card:
+            raise HTTPException(status_code=404, detail="Card analysis not found")
+
+        grading_result = card.get("grading_result", {})
+        card_info = grading_result.get("card_info", "") or card.get("card_name", "")
+
+        # Parse card info to extract player, year, set
+        player = None
+        year = None
+        set_name = None
+        if card_info:
+            import re as _re
+            year_match = _re.search(r'(19|20)\d{2}', card_info)
+            if year_match:
+                year = int(year_match.group())
+
+        item = InventoryItem(
+            card_name=card_info or "Unknown Card",
+            player=player,
+            year=year,
+            set_name=set_name,
+            condition="Raw",
+            grade=None,
+            purchase_price=data.purchase_price,
+            quantity=1,
+            notes=data.notes,
+            image=card.get("front_image_preview"),
+            category=data.category,
+            source_analysis_id=analysis_id,
+        )
+
+        doc = item.model_dump()
+        doc['created_at'] = doc['created_at'].isoformat()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.inventory.insert_one(doc)
+
+        doc.pop('_id', None)
+        return doc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Import from scan failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

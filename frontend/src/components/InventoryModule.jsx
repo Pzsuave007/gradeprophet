@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
-  ChevronDown, Upload, Image as ImageIcon, Save, RefreshCw, Layers,
-  Award, Tag
+  Upload, Image as ImageIcon, Save, RefreshCw, Layers,
+  Award, Tag, ShoppingBag, Heart
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -26,7 +26,7 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
     variation: '', condition: 'Raw', grading_company: '', grade: '',
-    purchase_price: '', quantity: 1, notes: '', image_base64: null,
+    purchase_price: '', quantity: 1, notes: '', image_base64: null, category: 'collection',
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -47,13 +47,14 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
         quantity: editItem.quantity || 1,
         notes: editItem.notes || '',
         image_base64: null,
+        category: editItem.category || 'collection',
       });
       setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
     } else {
       setForm({
         card_name: '', player: '', year: '', set_name: '', card_number: '',
         variation: '', condition: 'Raw', grading_company: '', grade: '',
-        purchase_price: '', quantity: 1, notes: '', image_base64: null,
+        purchase_price: '', quantity: 1, notes: '', image_base64: null, category: 'collection',
       });
       setImagePreview(null);
     }
@@ -112,7 +113,29 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
           </div>
 
           <form onSubmit={handleSubmit} className="p-5 space-y-4">
-            {/* Image Upload */}
+            {/* Category Toggle */}
+            <div>
+              <label className={labelCls}>Category</label>
+              <div className="flex gap-2">
+                {[
+                  { val: 'collection', label: 'Collection', icon: Heart },
+                  { val: 'for_sale', label: 'For Sale', icon: ShoppingBag },
+                ].map(({ val, label, icon: Icon }) => (
+                  <button key={val} type="button"
+                    onClick={() => setForm(f => ({ ...f, category: val }))}
+                    className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${
+                      form.category === val
+                        ? val === 'for_sale' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]'
+                        : 'bg-[#0a0a0a] border-[#222] text-gray-500 hover:text-white'
+                    }`}
+                    data-testid={`category-${val}`}>
+                    <Icon className="w-4 h-4" />{label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Image Upload + Name/Player/Year */}
             <div className="flex items-start gap-4">
               <div
                 onClick={() => fileRef.current?.click()}
@@ -209,7 +232,7 @@ const CardFormModal = ({ isOpen, onClose, onSave, editItem }) => {
               )}
             </div>
 
-            {/* Row 4: Price / Qty */}
+            {/* Row 4: Price / Qty / Notes */}
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Purchase Price ($)</label>
@@ -258,6 +281,7 @@ const Inventory = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState('all'); // all, collection, for_sale
   const [filters, setFilters] = useState({ condition: '', listed: '' });
   const [showFilters, setShowFilters] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -271,6 +295,7 @@ const Inventory = () => {
       if (searchVal) params.append('search', searchVal);
       if (filters.condition) params.append('condition', filters.condition);
       if (filters.listed) params.append('listed', filters.listed);
+      if (activeCategory !== 'all') params.append('category', activeCategory);
       params.append('limit', '50');
 
       const [itemsRes, statsRes] = await Promise.all([
@@ -285,7 +310,7 @@ const Inventory = () => {
     } finally {
       setLoading(false);
     }
-  }, [filters]);
+  }, [filters, activeCategory]);
 
   useEffect(() => { fetchInventory(search); }, [fetchInventory]);
 
@@ -293,6 +318,10 @@ const Inventory = () => {
     setSearch(val);
     clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => fetchInventory(val), 300);
+  };
+
+  const handleCategoryChange = (cat) => {
+    setActiveCategory(cat);
   };
 
   const handleSave = async (payload, itemId) => {
@@ -321,6 +350,12 @@ const Inventory = () => {
   const openAdd = () => { setEditItem(null); setModalOpen(true); };
 
   const s = stats || {};
+
+  const categoryTabs = [
+    { id: 'all', label: 'All', count: s.total_cards || 0 },
+    { id: 'collection', label: 'Collection', icon: Heart, count: s.collection_count || 0 },
+    { id: 'for_sale', label: 'For Sale', icon: ShoppingBag, count: s.for_sale_count || 0 },
+  ];
 
   return (
     <div className="space-y-5 pb-8" data-testid="inventory-page">
@@ -357,6 +392,26 @@ const Inventory = () => {
         ))}
       </div>
 
+      {/* Category Tabs */}
+      <div className="flex gap-1 border-b border-[#1a1a1a] pb-px">
+        {categoryTabs.map(({ id, label, icon: Icon, count }) => (
+          <button key={id}
+            onClick={() => handleCategoryChange(id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              activeCategory === id
+                ? 'border-[#3b82f6] text-white'
+                : 'border-transparent text-gray-500 hover:text-gray-300'
+            }`}
+            data-testid={`tab-${id}`}>
+            {Icon && <Icon className="w-3.5 h-3.5" />}
+            {label}
+            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${
+              activeCategory === id ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'bg-[#1a1a1a] text-gray-600'
+            }`}>{count}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Search + Filters */}
       <div className="flex gap-2">
         <div className="flex-1 relative">
@@ -377,9 +432,6 @@ const Inventory = () => {
           }`} data-testid="filter-toggle">
           <Filter className="w-4 h-4" />
           <span className="hidden sm:inline">Filters</span>
-          {(filters.condition || filters.listed) && (
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
-          )}
         </button>
       </div>
 
@@ -424,8 +476,10 @@ const Inventory = () => {
       ) : items.length === 0 ? (
         <div className="text-center py-16 bg-[#111] border border-[#1a1a1a] rounded-xl">
           <Package className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-          <p className="text-sm text-gray-400 mb-1">No cards in inventory</p>
-          <p className="text-xs text-gray-600 mb-4">Add your first card to start tracking your collection</p>
+          <p className="text-sm text-gray-400 mb-1">
+            {activeCategory === 'for_sale' ? 'No cards for sale yet' : activeCategory === 'collection' ? 'No cards in collection' : 'No cards in inventory'}
+          </p>
+          <p className="text-xs text-gray-600 mb-4">Add your first card or scan one in Flip Finder</p>
           <button onClick={openAdd}
             className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors"
             data-testid="empty-add-card-btn">
@@ -453,7 +507,14 @@ const Inventory = () => {
 
               {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-semibold text-white truncate">{item.card_name}</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-white truncate">{item.card_name}</p>
+                  {item.category === 'for_sale' ? (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">For Sale</span>
+                  ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>
+                  )}
+                </div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {item.player && <span className="text-[11px] text-gray-400">{item.player}</span>}
                   {item.year && <span className="text-[11px] text-gray-600">{item.year}</span>}

@@ -1,0 +1,22 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.14, pytest-9.0.2, pluggy-1.6.0 -- /root/.venv/bin/python
+cachedir: .pytest_cache
+rootdir: /app
+plugins: anyio-4.12.1
+collecting ... collected 12 items
+
+backend/tests/test_inventory_category.py::TestInventoryCategory::test_create_item_with_collection_category PASSED [  8%]
+backend/tests/test_inventory_category.py::TestInventoryCategory::test_create_item_with_for_sale_category PASSED [ 16%]
+backend/tests/test_inventory_category.py::TestInventoryCategory::test_default_category_is_collection PASSED [ 25%]
+backend/tests/test_inventory_category.py::TestInventoryCategoryFilter::test_filter_by_collection_category PASSED [ 33%]
+backend/tests/test_inventory_category.py::TestInventoryCategoryFilter::test_filter_by_for_sale_category PASSED [ 41%]
+backend/tests/test_inventory_category.py::TestInventoryCategoryFilter::test_no_category_filter_returns_all PASSED [ 50%]
+backend/tests/test_inventory_category.py::TestInventoryStatsWithCategory::test_stats_has_category_counts PASSED [ 58%]
+backend/tests/test_inventory_category.py::TestImportFromScan::test_import_to_collection PASSED [ 66%]
+backend/tests/test_inventory_category.py::TestImportFromScan::test_import_to_for_sale PASSED [ 75%]
+backend/tests/test_inventory_category.py::TestImportFromScan::test_import_duplicate_returns_400 PASSED [ 83%]
+backend/tests/test_inventory_category.py::TestImportFromScan::test_import_nonexistent_analysis_returns_404 PASSED [ 91%]
+backend/tests/test_inventory_category.py::TestCleanupCategoryTests::test_cleanup_test_data PASSED [100%]
+
+------ generated xml file: /app/test_reports/pytest/category_results.xml -------
+============================== 12 passed in 5.04s ==============================

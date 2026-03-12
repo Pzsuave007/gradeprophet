@@ -69,6 +69,8 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
   const [certNumber, setCertNumber] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [addingToInventory, setAddingToInventory] = useState(false);
+  const [addedToInventory, setAddedToInventory] = useState(false);
   
   const hasBothSides = frontImage && backImage;
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
@@ -114,6 +116,27 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
       onRefresh?.();
     } catch (err) {
       console.error('Failed to update status:', err);
+    }
+  };
+
+  const handleAddToInventory = async (category) => {
+    setAddingToInventory(true);
+    try {
+      const resp = await fetch(`${API}/inventory/from-scan/${analysis.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category })
+      });
+      if (resp.ok) {
+        setAddedToInventory(true);
+      } else {
+        const err = await resp.json();
+        alert(err.detail || 'Failed to add');
+      }
+    } catch (err) {
+      console.error('Failed to add to inventory:', err);
+    } finally {
+      setAddingToInventory(false);
     }
   };
 
@@ -404,6 +427,42 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Add to Inventory */}
+      {!addedToInventory ? (
+        <div className="bg-[#121212] border border-[#27272a] rounded-lg p-5">
+          <h3 className="font-heading text-sm font-semibold uppercase tracking-wider text-white mb-1">
+            Add to Inventory
+          </h3>
+          <p className="text-xs text-gray-500 mb-4">Add this card to your collection or mark it for sale</p>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              onClick={() => handleAddToInventory('collection')}
+              disabled={addingToInventory}
+              className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white"
+              data-testid="add-to-collection-btn"
+            >
+              <Package className="w-4 h-4 mr-2" />
+              {addingToInventory ? 'Adding...' : 'My Collection'}
+            </Button>
+            <Button
+              onClick={() => handleAddToInventory('for_sale')}
+              disabled={addingToInventory}
+              variant="outline"
+              className="flex-1 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:text-emerald-300"
+              data-testid="add-for-sale-btn"
+            >
+              <Save className="w-4 h-4 mr-2" />
+              {addingToInventory ? 'Adding...' : 'For Sale'}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-4 flex items-center gap-3">
+          <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+          <p className="text-sm text-emerald-300">Card added to inventory</p>
         </div>
       )}
 
