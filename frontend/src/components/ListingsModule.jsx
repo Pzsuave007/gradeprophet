@@ -64,7 +64,9 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
   const [dirty, setDirty] = useState(false);
   const [marketData, setMarketData] = useState(null);
   const [loadingMarket, setLoadingMarket] = useState(true);
+  const listingId = listing?.item_id;
 
+  // Initialize form when listing changes
   useEffect(() => {
     if (listing) {
       setForm({
@@ -74,18 +76,27 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
         description: '',
       });
       setDirty(false);
-      // Fetch market data for comparison
-      const fetchMarket = async () => {
-        setLoadingMarket(true);
-        try {
-          const res = await axios.get(`${API}/api/market/card-value`, { params: { query: listing.title } });
-          setMarketData(res.data);
-        } catch { setMarketData(null); }
-        finally { setLoadingMarket(false); }
-      };
-      fetchMarket();
     }
-  }, [listing]);
+  }, [listingId]);
+
+  // Fetch market data separately - only when listing ID changes
+  useEffect(() => {
+    if (!listing?.title) return;
+    let cancelled = false;
+    const fetchMarket = async () => {
+      setLoadingMarket(true);
+      try {
+        const res = await axios.get(`${API}/api/market/card-value`, { params: { query: listing.title } });
+        if (!cancelled) setMarketData(res.data);
+      } catch {
+        if (!cancelled) setMarketData(null);
+      } finally {
+        if (!cancelled) setLoadingMarket(false);
+      }
+    };
+    fetchMarket();
+    return () => { cancelled = true; };
+  }, [listingId]);
 
   const handleChange = (field, value) => {
     setForm(f => ({ ...f, [field]: value }));
@@ -183,39 +194,85 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
         {/* RIGHT: Edit Fields + Market Data */}
         <div className="lg:col-span-3 space-y-4">
 
-          {/* Current Price - BIG */}
-          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4">
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] uppercase tracking-wider text-gray-600">Your Price</span>
-              {dirty && parseFloat(form.price) !== listing.price && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/10 text-[#3b82f6] font-medium">Changed</span>
-              )}
-            </div>
-            <div className="flex items-baseline gap-3">
-              <span className="text-3xl font-black text-white">${listing.price}</span>
-              {dirty && parseFloat(form.price) !== listing.price && (
-                <span className="text-xl font-bold text-[#3b82f6]">&rarr; ${parseFloat(form.price).toFixed(2)}</span>
-              )}
-            </div>
-          </div>
-
-          {/* Market Value Comparison */}
-          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+          {/* YOUR PRICE + MARKET COMPARISON - Combined prominent panel */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="market-comparison-panel">
             <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
               <BarChart3 className="w-4 h-4 text-[#3b82f6]" />
-              <h3 className="text-sm font-bold text-white">Market Comparison</h3>
+              <h3 className="text-sm font-bold text-white">Price & Market Comparison</h3>
+              {!loadingMarket && marketData?.data_source === 'sold' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold ml-auto">Sold Data</span>}
+              {!loadingMarket && marketData?.data_source === 'active' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-bold ml-auto">Active Listings</span>}
             </div>
-            {loadingMarket ? (
-              <div className="p-4 flex items-center gap-2 text-gray-500"><RefreshCw className="w-4 h-4 animate-spin" /><span className="text-xs">Loading market data...</span></div>
-            ) : (
-              <div className="p-4 space-y-4">
-                {/* Grade detection indicator */}
-                {isGraded && (
-                  <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                    <Tag className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-xs text-amber-300">Graded card detected: <span className="font-bold">{detectedGrade}</span> — comparing with same grade sales</span>
-                  </div>
-                )}
+
+            {/* Price Comparison Summary - Always visible when data is loaded */}
+            <div className="p-4 space-y-4">
+              {/* Your Price vs Market - BIG prominent comparison */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price</p>
+                  <p className="text-2xl font-black text-white" data-testid="your-price-display">${listing.price}</p>
+                  {dirty && parseFloat(form.price) !== listing.price && (
+                    <p className="text-sm font-bold text-[#3b82f6] mt-0.5">&rarr; ${parseFloat(form.price).toFixed(2)}</p>
+                  )}
+                </div>
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Market Median</p>
+                  {loadingMarket ? (
+                    <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mx-auto mt-1" />
+                  ) : primaryStats.count > 0 ? (
+                    <>
+                      <p className="text-2xl font-black text-emerald-400" data-testid="market-median-display">{formatPrice(primaryStats.median)}</p>
+                      <p className="text-[9px] text-gray-600">{primaryStats.count} sold &middot; {primary.label}</p>
+                    </>
+                  ) : secondaryStats.count > 0 ? (
+                    <>
+                      <p className="text-2xl font-black text-amber-400">{formatPrice(secondaryStats.median)}</p>
+                      <p className="text-[9px] text-gray-600">{secondaryStats.count} sold &middot; {secondary.label}</p>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-600 mt-1">No data</p>
+                  )}
+                </div>
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
+                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Status</p>
+                  {loadingMarket ? (
+                    <RefreshCw className="w-5 h-5 text-gray-600 animate-spin mx-auto mt-1" />
+                  ) : (() => {
+                    const median = primaryStats.count > 0 ? primaryStats.median : secondaryStats.median;
+                    if (!median) return <p className="text-sm text-gray-600 mt-1">-</p>;
+                    const diff = listing.price - median;
+                    const pct = Math.round((diff / median) * 100);
+                    if (listing.price > median * 1.2) return (
+                      <div data-testid="price-status">
+                        <p className="text-xl font-black text-amber-400">+{pct}%</p>
+                        <p className="text-[9px] text-amber-400">Above market</p>
+                      </div>
+                    );
+                    if (listing.price < median * 0.8) return (
+                      <div data-testid="price-status">
+                        <p className="text-xl font-black text-emerald-400">{pct}%</p>
+                        <p className="text-[9px] text-emerald-400">Below market</p>
+                      </div>
+                    );
+                    return (
+                      <div data-testid="price-status">
+                        <p className="text-xl font-black text-white">{pct > 0 ? '+' : ''}{pct}%</p>
+                        <p className="text-[9px] text-gray-400">Fair price</p>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Grade detection indicator */}
+              {isGraded && (
+                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                  <Tag className="w-3.5 h-3.5 text-amber-400" />
+                  <span className="text-xs text-amber-300">Graded card: <span className="font-bold">{detectedGrade}</span> — comparing with same grade sales</span>
+                </div>
+              )}
+
+              {/* Detailed stats */}
+              {!loadingMarket && (primaryStats.count > 0 || secondaryStats.count > 0) && (
                 <div className="grid grid-cols-2 gap-3">
                   <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
                     <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{primary.label || 'Primary'}</p>
@@ -225,7 +282,7 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
                         <p className="text-[10px] text-gray-500">{primaryStats.count} sold &middot; Avg {formatPrice(primaryStats.avg)}</p>
                         <p className="text-[10px] text-gray-600">Range: {formatPrice(primaryStats.min)} - {formatPrice(primaryStats.max)}</p>
                       </>
-                    ) : <p className="text-xs text-gray-600 italic">Sin ventas recientes</p>}
+                    ) : <p className="text-xs text-gray-600 italic">No recent sales</p>}
                   </div>
                   <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
                     <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
@@ -235,47 +292,37 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
                         <p className="text-[10px] text-gray-500">{secondaryStats.count} sold &middot; Avg {formatPrice(secondaryStats.avg)}</p>
                         <p className="text-[10px] text-gray-600">Range: {formatPrice(secondaryStats.min)} - {formatPrice(secondaryStats.max)}</p>
                       </>
-                    ) : <p className="text-xs text-gray-600 italic">Sin ventas recientes</p>}
+                    ) : <p className="text-xs text-gray-600 italic">No recent sales</p>}
                   </div>
                 </div>
-                {/* Recent Sales */}
-                {(primaryItems.length > 0 || secondaryItems.length > 0) && (
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <p className="text-[10px] uppercase tracking-wider text-gray-600">Recent Sold</p>
-                      {marketData?.data_source === 'sold' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold">Real Sales</span>}
-                    </div>
-                    <div className="space-y-1 max-h-44 overflow-y-auto">
-                      {[...primaryItems.slice(0, 5), ...secondaryItems.slice(0, 2)].map((sale, i) => (
-                        <a key={i} href={sale.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.03] group">
-                          {sale.image_url && <img src={sale.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{sale.title}</p>
-                            {sale.date_sold && <p className="text-[9px] text-gray-600">{sale.date_sold}</p>}
-                          </div>
-                          <span className="text-xs font-bold text-emerald-400 flex-shrink-0">${sale.price}</span>
-                        </a>
-                      ))}
-                    </div>
+              )}
+
+              {/* Recent Sales */}
+              {!loadingMarket && (primaryItems.length > 0 || secondaryItems.length > 0) && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-2">Recent Sales</p>
+                  <div className="space-y-1 max-h-52 overflow-y-auto">
+                    {[...primaryItems.slice(0, 5), ...secondaryItems.slice(0, 3)].map((sale, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.03] group">
+                        {sale.image_url && <img src={sale.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{sale.title}</p>
+                          {sale.date_sold && <p className="text-[9px] text-gray-600">Sold {sale.date_sold}</p>}
+                        </div>
+                        <span className="text-xs font-bold text-emerald-400 flex-shrink-0">${sale.price}</span>
+                      </div>
+                    ))}
                   </div>
-                )}
-                {/* Price position indicator */}
-                {(primaryStats.count > 0 || secondaryStats.count > 0) && (
-                  <div className="bg-[#0a0a0a] rounded-lg p-3 border border-[#1a1a1a]">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price vs Market</p>
-                    {(() => {
-                      const median = primaryStats.count > 0 ? primaryStats.median : secondaryStats.median;
-                      const label = primaryStats.count > 0 ? (primary.label || 'market') : (secondary.label || 'market');
-                      if (!median) return null;
-                      if (listing.price > median * 1.2) return <p className="text-xs text-amber-400"><TrendingUp className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">above</span> {label} median ({formatPrice(median)})</p>;
-                      if (listing.price < median * 0.8) return <p className="text-xs text-emerald-400"><ArrowUpRight className="w-3 h-3 inline mr-1" />Your price is <span className="font-bold">below</span> {label} median ({formatPrice(median)}) - great deal!</p>;
-                      return <p className="text-xs text-gray-400">Your price is <span className="font-bold">in range</span> with {label} median ({formatPrice(median)})</p>;
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
+                </div>
+              )}
+
+              {loadingMarket && (
+                <div className="flex items-center gap-2 text-gray-500 py-2">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span className="text-xs">Searching eBay sold listings...</span>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Edit Fields */}

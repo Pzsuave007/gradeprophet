@@ -22,6 +22,15 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Graceful fallback to Browse API (active listings) with "Active Listings" badge when no sold data available
 - `data_source` field correctly reflects actual data origin (not tied to SCRAPEDO key)
 
+### Marzo 2026 - Listing Market Comparison Fix
+- **Fixed**: Market data no longer disappears after loading in listing detail view
+- Split `useEffect` into separate form init and market fetch effects, using stable `listingId` dependency
+- Added cancellation token to prevent stale state updates
+- Redesigned into prominent **3-column Price & Market Comparison** panel:
+  - Your Price | Market Median | Status (% above/below/fair)
+- Shows "Sold Data" or "Active Listings" badge to indicate data source
+- Recent sales with sold dates always visible below stats
+
 ### Febrero 2026 - Smart Market Comparison
 - **Grade-aware search**: Detects PSA/BGS/SGC grades in listing titles automatically
 - Graded cards (e.g. PSA 8) → compares with same grade sales + raw reference
