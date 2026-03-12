@@ -3097,6 +3097,211 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
 # DASHBOARD ENDPOINTS
 # ============================================
 
+@api_router.get("/dashboard/analytics")
+async def get_dashboard_analytics():
+    """Comprehensive dashboard analytics: sales timeline, inventory breakdown, performance metrics"""
+    from datetime import datetime, timezone, timedelta
+    from collections import defaultdict
+
+    try:
+        token = await get_ebay_user_token()
+    except Exception:
+        token = None
+
+    # ---- 1. Sales Timeline from eBay Fulfillment API ----
+    sales_timeline = []
+    sales_by_month = defaultdict(lambda: {"revenue": 0, "fees": 0, "count": 0})
+    total_revenue = 0
+    total_fees = 0
+    total_profit = 0
+    top_sale = None
+
+    if token:
+        try:
+            async with httpx.AsyncClient(timeout=20.0) as http_client:
+                resp = await http_client.get(
+                    "https://api.ebay.com/sell/fulfillment/v1/order",
+                    headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+                    params={"limit": 100}
+                )
+            if resp.status_code == 200:
+                orders = resp.json().get("orders", [])
+                for o in orders:
+                    date_str = o.get("creationDate", "")[:10]
+                    pricing = o.get("pricingSummary", {})
+                    order_total = float(pricing.get("total", {}).get("value", 0))
+                    fee = float(o.get("totalMarketplaceFee", {}).get("value", 0))
+                    profit = order_total - fee
+                    line_items = o.get("lineItems", [])
+                    title = line_items[0].get("title", "Unknown") if line_items else "Unknown"
+                    img = ""
+                    if line_items and line_items[0].get("legacyItemId"):
+                        img = f"https://i.ebayimg.com/images/g/{line_items[0].get('legacyItemId', '')}/s-l140.jpg"
+
+                    sale = {
+                        "date": date_str,
+                        "total": order_total,
+                        "fee": fee,
+                        "profit": round(profit, 2),
+                        "title": title,
+                        "image": img,
+                        "status": o.get("orderFulfillmentStatus", ""),
+                        "buyer": o.get("buyer", {}).get("username", ""),
+                    }
+                    sales_timeline.append(sale)
+                    total_revenue += order_total
+                    total_fees += fee
+                    total_profit += profit
+
+                    if not top_sale or order_total > top_sale["total"]:
+                        top_sale = sale
+
+                    month_key = date_str[:7]  # YYYY-MM
+                    sales_by_month[month_key]["revenue"] += order_total
+                    sales_by_month[month_key]["fees"] += fee
+                    sales_by_month[month_key]["count"] += 1
+
+                sales_timeline.sort(key=lambda x: x["date"])
+        except Exception as e:
+            logger.warning(f"Analytics orders fetch failed: {e}")
+
+    # Build cumulative revenue chart data
+    cumulative_chart = []
+    running_total = 0
+    running_profit = 0
+    for sale in sales_timeline:
+        running_total += sale["total"]
+        running_profit += sale["profit"]
+        cumulative_chart.append({
+            "date": sale["date"],
+            "revenue": round(running_total, 2),
+            "profit": round(running_profit, 2),
+            "sale": sale["total"],
+        })
+
+    # Monthly chart
+    monthly_chart = []
+    for month in sorted(sales_by_month.keys()):
+        d = sales_by_month[month]
+        monthly_chart.append({
+            "month": month,
+            "revenue": round(d["revenue"], 2),
+            "fees": round(d["fees"], 2),
+            "profit": round(d["revenue"] - d["fees"], 2),
+            "count": d["count"],
+        })
+
+    # ---- 2. Inventory Breakdown ----
+    inventory_items = await db.inventory.find({}, {"_id": 0}).to_list(500)
+    inv_by_sport = defaultdict(lambda: {"count": 0, "value": 0})
+    inv_by_player = defaultdict(lambda: {"count": 0, "value": 0})
+    inv_by_category = defaultdict(lambda: {"count": 0, "value": 0})
+
+    for item in inventory_items:
+        price = float(item.get("purchase_price", 0) or 0)
+        sport = item.get("sport") or _detect_sport(item.get("card_name", ""))
+        player = item.get("player") or "Unknown"
+        category = item.get("category", "collection")
+        inv_by_sport[sport]["count"] += 1
+        inv_by_sport[sport]["value"] += price
+        inv_by_player[player]["count"] += 1
+        inv_by_player[player]["value"] += price
+        inv_by_category[category]["count"] += 1
+        inv_by_category[category]["value"] += price
+
+    sport_chart = [{"name": k, "count": v["count"], "value": round(v["value"], 2)} for k, v in sorted(inv_by_sport.items(), key=lambda x: -x[1]["value"])]
+    player_chart = [{"name": k, "count": v["count"], "value": round(v["value"], 2)} for k, v in sorted(inv_by_player.items(), key=lambda x: -x[1]["value"])][:10]
+    category_chart = [{"name": k, "count": v["count"], "value": round(v["value"], 2)} for k, v in inv_by_category.items()]
+
+    # ---- 3. Active Listings Summary ----
+    active_count = 0
+    active_value = 0
+    listings_ending_soon = []
+    if token:
+        try:
+            import xml.etree.ElementTree as ET
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ActiveList><Sort>TimeLeft</Sort><Pagination><EntriesPerPage>10</EntriesPerPage></Pagination></ActiveList>
+</GetMyeBaySellingRequest>'''
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={"X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                             "X-EBAY-API-CALL-NAME": "GetMyeBaySelling", "X-EBAY-API-IAF-TOKEN": token,
+                             "Content-Type": "text/xml"},
+                    content=xml_body
+                )
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            root = ET.fromstring(resp.text)
+            active_node = root.find(".//e:ActiveList", ns)
+            if active_node:
+                count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+                active_count = int(count_el.text) if count_el is not None else 0
+                for item_el in active_node.findall(".//e:Item", ns):
+                    title_el = item_el.find("e:Title", ns)
+                    price_el = item_el.find(".//e:CurrentPrice", ns)
+                    p = float(price_el.text) if price_el is not None else 0
+                    active_value += p
+                    tl = item_el.find("e:TimeLeft", ns)
+                    listings_ending_soon.append({
+                        "title": title_el.text[:50] if title_el is not None else "",
+                        "price": p,
+                        "time_left": tl.text if tl is not None else "",
+                    })
+        except Exception as e:
+            logger.warning(f"Analytics active listings failed: {e}")
+
+    return {
+        "sales": {
+            "timeline": sales_timeline,
+            "cumulative_chart": cumulative_chart,
+            "monthly_chart": monthly_chart,
+            "total_revenue": round(total_revenue, 2),
+            "total_fees": round(total_fees, 2),
+            "total_profit": round(total_profit, 2),
+            "total_orders": len(sales_timeline),
+            "top_sale": top_sale,
+            "avg_sale": round(total_revenue / len(sales_timeline), 2) if sales_timeline else 0,
+        },
+        "inventory": {
+            "by_sport": sport_chart,
+            "by_player": player_chart,
+            "by_category": category_chart,
+            "total_items": len(inventory_items),
+            "total_invested": round(sum(float(i.get("purchase_price", 0) or 0) for i in inventory_items), 2),
+        },
+        "listings": {
+            "active_count": active_count,
+            "active_value": round(active_value, 2),
+            "ending_soon": listings_ending_soon[:5],
+        },
+    }
+
+
+def _detect_sport(card_name: str) -> str:
+    """Auto-detect sport from card name"""
+    name_lower = (card_name or "").lower()
+    basketball_kw = ["nba", "basketball", "prizm", "hoops", "optic", "mosaic", "select", "lebron", "jordan", "kobe", "curry", "luka", "wembanyama", "panini"]
+    baseball_kw = ["mlb", "baseball", "topps", "bowman", "chrome", "trout", "ohtani", "jeter", "ruth"]
+    football_kw = ["nfl", "football", "mahomes", "brady", "touchdown", "score"]
+    soccer_kw = ["fifa", "soccer", "futbol", "world cup", "messi", "ronaldo", "premier league", "mbappe"]
+    hockey_kw = ["nhl", "hockey", "gretzky", "upper deck"]
+    for kw in basketball_kw:
+        if kw in name_lower: return "Basketball"
+    for kw in baseball_kw:
+        if kw in name_lower: return "Baseball"
+    for kw in football_kw:
+        if kw in name_lower: return "Football"
+    for kw in soccer_kw:
+        if kw in name_lower: return "Soccer"
+    for kw in hockey_kw:
+        if kw in name_lower: return "Hockey"
+    return "Other"
+
+
+
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
     """Get main dashboard KPI statistics"""
