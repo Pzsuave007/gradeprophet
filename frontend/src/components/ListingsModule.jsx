@@ -4,7 +4,7 @@ import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
-  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight
+  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -58,7 +58,7 @@ const DURATIONS_AUCTION = [
 
 
 // =========== LISTING DETAIL / EDIT VIEW (INLINE, NO POPUP) ===========
-const ListingDetail = ({ listing, onBack, onSuccess }) => {
+const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
   const [form, setForm] = useState({ title: '', price: '', quantity: 1, description: '' });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -188,6 +188,13 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
               data-testid="detail-view-on-ebay">
               <ExternalLink className="w-4 h-4" />View on eBay
             </a>
+            {onEndListing && (
+              <button onClick={() => onEndListing(listing.item_id)}
+                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-[#0a0a0a] border border-red-900/30 text-sm text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-colors"
+                data-testid="detail-end-listing-btn">
+                <Trash2 className="w-4 h-4" />End Listing
+              </button>
+            )}
           </div>
         </div>
 
@@ -616,6 +623,24 @@ const ListingsModule = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const endListing = async (itemId, e) => {
+    if (e) e.stopPropagation();
+    if (!window.confirm('End this listing on eBay? This cannot be undone.')) return;
+    try {
+      const res = await axios.delete(`${API}/api/ebay/sell/${itemId}`);
+      if (res.data.success) {
+        toast.success('Listing ended on eBay');
+        setSelectedListing(null);
+        setLoading(true);
+        fetchData();
+      } else {
+        toast.error(res.data.message || 'Failed to end listing');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to end listing');
+    }
+  };
+
   const eb = ebayData || { active: [], sold: [], active_total: 0, sold_total: 0 };
   const totalValue = eb.active.reduce((s, i) => s + (i.price || 0), 0);
   const totalSold = eb.sold.reduce((s, i) => s + (i.price || 0), 0);
@@ -635,6 +660,7 @@ const ListingsModule = () => {
           listing={selectedListing}
           onBack={() => setSelectedListing(null)}
           onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(); }}
+          onEndListing={endListing}
         />
       </div>
     );
@@ -722,11 +748,16 @@ const ListingsModule = () => {
                   <span className="absolute top-2 right-2 text-[9px] px-2 py-0.5 rounded bg-black/70 text-gray-200 uppercase font-bold">
                     {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
                   </span>
-                  {/* Edit overlay on hover */}
-                  <div className="absolute inset-0 bg-[#3b82f6]/0 group-hover:bg-[#3b82f6]/10 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  {/* Action overlay on hover */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     <span className="px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
-                      <Edit2 className="w-3.5 h-3.5" />Edit Listing
+                      <Edit2 className="w-3.5 h-3.5" />Edit
                     </span>
+                    <button onClick={(e) => endListing(item.item_id, e)}
+                      className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg hover:bg-red-500 transition-colors"
+                      data-testid={`end-listing-${i}`}>
+                      <Trash2 className="w-3.5 h-3.5" />End
+                    </button>
                   </div>
                 </div>
                 <div className="p-3">
@@ -768,6 +799,10 @@ const ListingsModule = () => {
                 <button onClick={e => { e.stopPropagation(); setSelectedListing(item); }}
                   className="p-2 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>
                   <Edit2 className="w-4 h-4" />
+                </button>
+                <button onClick={(e) => endListing(item.item_id, e)}
+                  className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-500" data-testid={`end-btn-${i}`}>
+                  <Trash2 className="w-4 h-4" />
                 </button>
                 <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
                   <ExternalLink className="w-4 h-4 text-gray-600 hover:text-[#3b82f6]" />

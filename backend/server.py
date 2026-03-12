@@ -4400,6 +4400,74 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@api_router.delete("/ebay/sell/{ebay_item_id}")
+async def end_ebay_listing(ebay_item_id: str, reason: str = "NotAvailable"):
+    """End/delete an active eBay listing using Trading API EndItem"""
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected")
+
+    # Valid reasons: NotAvailable, Incorrect, LostOrBroken, OtherListingError, SellToHighBidder
+    valid_reasons = ["NotAvailable", "Incorrect", "LostOrBroken", "OtherListingError"]
+    if reason not in valid_reasons:
+        reason = "NotAvailable"
+
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<EndItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID>
+  <EndingReason>{reason}</EndingReason>
+</EndItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "EndItem",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml",
+                },
+                content=xml_body,
+            )
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        ack = root.find("e:Ack", ns)
+        ack_text = ack.text if ack is not None else "Unknown"
+
+        if ack_text in ("Success", "Warning"):
+            # Update local records
+            await db.inventory.update_one(
+                {"ebay_item_id": ebay_item_id},
+                {"$set": {"listed": False, "ebay_item_id": None}}
+            )
+            await db.created_listings.update_one(
+                {"ebay_item_id": ebay_item_id},
+                {"$set": {"status": "ended"}}
+            )
+            return {"success": True, "message": f"Listing {ebay_item_id} ended successfully"}
+        else:
+            errors = []
+            for err in root.findall(".//e:Errors", ns):
+                msg_el = err.find("e:LongMessage", ns)
+                if msg_el is not None:
+                    errors.append(msg_el.text)
+            logger.error(f"EndItem failed: {errors}")
+            return {"success": False, "message": errors[0] if errors else "Failed to end listing"}
+
+    except Exception as e:
+        logger.error(f"End eBay listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @api_router.get("/ebay/sell/created-listings")
 async def get_created_listings():
     """Get listings created through the app"""
