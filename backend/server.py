@@ -34,6 +34,10 @@ if not OPENAI_API_KEY:
 # Scrape.do API Key (optional - for eBay imports)
 SCRAPEDO_API_KEY = os.environ.get('SCRAPEDO_API_KEY', 'SCRAPEDO_KEY_REMOVED')
 
+# eBay API Credentials
+EBAY_CLIENT_ID = os.environ.get('EBAY_CLIENT_ID')
+EBAY_CLIENT_SECRET = os.environ.get('EBAY_CLIENT_SECRET')
+
 # Initialize OpenAI client
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
@@ -2303,6 +2307,257 @@ async def test_ebay_search():
         results["overall"] = f"FAIL - Error during search: {str(e)}"
     
     return results
+
+# ============================================
+# EBAY BROWSE API - OAuth & Market Data
+# ============================================
+
+import time as _time
+
+_ebay_app_token = None
+_ebay_app_token_expiry = 0
+
+async def get_ebay_app_token() -> str:
+    """Get eBay application access token (client credentials grant)"""
+    global _ebay_app_token, _ebay_app_token_expiry
+    
+    if _ebay_app_token and _time.time() < _ebay_app_token_expiry - 300:
+        return _ebay_app_token
+    
+    if not EBAY_CLIENT_ID or not EBAY_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="eBay API credentials not configured")
+    
+    credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
+    
+    async with httpx.AsyncClient(timeout=15.0) as http_client:
+        resp = await http_client.post(
+            "https://api.ebay.com/identity/v1/oauth2/token",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Authorization": f"Basic {credentials}"
+            },
+            data={
+                "grant_type": "client_credentials",
+                "scope": "https://api.ebay.com/oauth/api_scope"
+            }
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    
+    _ebay_app_token = data["access_token"]
+    _ebay_app_token_expiry = _time.time() + data.get("expires_in", 7200)
+    logger.info("eBay application token acquired")
+    return _ebay_app_token
+
+
+async def ebay_browse_search(query: str, limit: int = 10, sort: str = "newlyListed") -> list:
+    """Search eBay Browse API for items"""
+    try:
+        token = await get_ebay_app_token()
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                },
+                params={
+                    "q": query,
+                    "limit": limit,
+                    "sort": sort,
+                    "filter": "buyingOptions:{FIXED_PRICE|AUCTION}"
+                }
+            )
+            if resp.status_code != 200:
+                logger.warning(f"eBay Browse API error: {resp.status_code} - {resp.text[:200]}")
+                return []
+            data = resp.json()
+            return data.get("itemSummaries", [])
+    except Exception as e:
+        logger.warning(f"eBay Browse search failed: {e}")
+        return []
+
+
+async def ebay_browse_sold(query: str, limit: int = 10) -> list:
+    """Search eBay for recently sold/completed items to get market values"""
+    try:
+        token = await get_ebay_app_token()
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                },
+                params={
+                    "q": query,
+                    "limit": limit,
+                    "filter": "conditionIds:{3000},buyingOptions:{FIXED_PRICE|AUCTION}"
+                }
+            )
+            if resp.status_code != 200:
+                return []
+            data = resp.json()
+            return data.get("itemSummaries", [])
+    except Exception as e:
+        logger.warning(f"eBay Browse sold search failed: {e}")
+        return []
+
+
+# ============================================
+# DASHBOARD ENDPOINTS
+# ============================================
+
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats():
+    """Get main dashboard KPI statistics"""
+    try:
+        # Cards analyzed (our "inventory" for now)
+        total_cards = await db.card_analyses.count_documents({})
+        
+        # Cards with high grades (PSA 8+) - potential value
+        high_grade_cards = await db.card_analyses.find(
+            {"grading_result.overall_grade": {"$gte": 8}},
+            {"_id": 0, "grading_result.overall_grade": 1, "card_name": 1}
+        ).to_list(1000)
+        
+        # eBay listings tracked
+        total_listings = await db.ebay_listings.count_documents({"status": {"$ne": "deleted"}})
+        new_listings = await db.ebay_listings.count_documents({"status": "new"})
+        interested_listings = await db.ebay_listings.count_documents({"status": "interested"})
+        
+        # Watchlist cards
+        watchlist_count = await db.watchlist_cards.count_documents({})
+        
+        # Cards not listed (analyzed but status pending)
+        not_listed = await db.card_analyses.count_documents({"status": "pending"})
+        
+        # Flip opportunities: cards marked interested or with good grades
+        flip_opportunities = interested_listings + len(high_grade_cards)
+        
+        # Estimate collection value from eBay listings prices
+        interested_or_new = await db.ebay_listings.find(
+            {"status": {"$in": ["new", "interested"]}},
+            {"_id": 0, "price_value": 1}
+        ).to_list(1000)
+        
+        estimated_value = sum(l.get("price_value", 0) for l in interested_or_new)
+        
+        return {
+            "total_cards": total_cards,
+            "high_grade_cards": len(high_grade_cards),
+            "total_listings": total_listings,
+            "new_listings": new_listings,
+            "interested_listings": interested_listings,
+            "watchlist_count": watchlist_count,
+            "not_listed": not_listed,
+            "flip_opportunities": flip_opportunities,
+            "estimated_value": round(estimated_value, 2)
+        }
+    except Exception as e:
+        logger.error(f"Dashboard stats failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/dashboard/recent")
+async def get_dashboard_recent():
+    """Get recently scanned/analyzed cards"""
+    try:
+        recent = await db.card_analyses.find(
+            {},
+            {"_id": 0, "front_image_preview": 1, "card_name": 1, 
+             "grading_result.overall_grade": 1, "created_at": 1, "id": 1, "status": 1}
+        ).sort("created_at", -1).to_list(8)
+        return recent
+    except Exception as e:
+        logger.error(f"Dashboard recent failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/dashboard/opportunities")
+async def get_dashboard_opportunities():
+    """Get flip opportunities - interesting listings with good potential"""
+    try:
+        # Get interested eBay listings (potential flips)
+        opportunities = await db.ebay_listings.find(
+            {"status": {"$in": ["new", "interested"]}, "price_value": {"$gt": 0}},
+            {"_id": 0}
+        ).sort("found_at", -1).to_list(10)
+        
+        return opportunities
+    except Exception as e:
+        logger.error(f"Dashboard opportunities failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/dashboard/movers")
+async def get_dashboard_movers():
+    """Get market movers - recently found listings showing price trends"""
+    try:
+        # Get watchlist cards with their listings for price comparison
+        watchlist = await db.watchlist_cards.find({}, {"_id": 0}).to_list(20)
+        
+        movers = []
+        for card in watchlist:
+            listings = await db.ebay_listings.find(
+                {"watchlist_card_id": card["id"], "status": {"$ne": "deleted"}},
+                {"_id": 0, "price_value": 1, "found_at": 1, "title": 1, "image_url": 1}
+            ).sort("found_at", -1).to_list(20)
+            
+            if len(listings) < 2:
+                continue
+            
+            prices = [l["price_value"] for l in listings if l.get("price_value", 0) > 0]
+            if not prices:
+                continue
+            
+            avg_price = sum(prices) / len(prices)
+            latest_price = prices[0]
+            price_change = ((latest_price - avg_price) / avg_price * 100) if avg_price > 0 else 0
+            
+            movers.append({
+                "search_query": card["search_query"],
+                "latest_price": latest_price,
+                "avg_price": round(avg_price, 2),
+                "price_change_pct": round(price_change, 1),
+                "listings_count": len(listings),
+                "image_url": listings[0].get("image_url", ""),
+                "title": listings[0].get("title", card["search_query"])
+            })
+        
+        # Sort by absolute price change
+        movers.sort(key=lambda x: abs(x["price_change_pct"]), reverse=True)
+        return movers[:8]
+    except Exception as e:
+        logger.error(f"Dashboard movers failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/dashboard/ebay-market")
+async def get_ebay_market_data(query: str = "sports card PSA"):
+    """Get live eBay market data using Browse API"""
+    try:
+        items = await ebay_browse_search(query, limit=6, sort="newlyListed")
+        
+        results = []
+        for item in items:
+            price_info = item.get("price", {})
+            image_info = item.get("image", {})
+            results.append({
+                "title": item.get("title", ""),
+                "price": price_info.get("value", "0"),
+                "currency": price_info.get("currency", "USD"),
+                "image_url": image_info.get("imageUrl", ""),
+                "item_web_url": item.get("itemWebUrl", ""),
+                "condition": item.get("condition", ""),
+                "buying_options": item.get("buyingOptions", []),
+            })
+        
+        return {"items": results, "total": len(results)}
+    except Exception as e:
+        logger.error(f"eBay market data failed: {e}")
+        return {"items": [], "total": 0, "error": str(e)}
+
 
 # Include the router in the main app
 app.include_router(api_router)

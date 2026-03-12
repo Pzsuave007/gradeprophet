@@ -12,6 +12,7 @@ import {
   Zap
 } from 'lucide-react';
 import FlipFinder from '../components/FlipFinder';
+import DashboardHome from '../components/DashboardHome';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -25,10 +26,6 @@ const PlaceholderModule = ({ title, description, icon: Icon }) => (
       Proximamente
     </div>
   </div>
-);
-
-const DashboardHome = () => (
-  <PlaceholderModule title="Dashboard" description="Vista general de tu negocio: inventario, ventas, ganancias, y oportunidades." icon={LayoutDashboard} />
 );
 
 const Inventory = () => (
@@ -57,18 +54,18 @@ const modules = [
 ];
 
 const Dashboard = () => {
-  const [activeModule, setActiveModule] = useState('flipfinder');
+  const [activeModule, setActiveModule] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const renderModule = () => {
     switch (activeModule) {
-      case 'dashboard': return <DashboardHome />;
+      case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
       case 'inventory': return <Inventory />;
       case 'market': return <Market />;
       case 'flipfinder': return <FlipFinder />;
       case 'listings': return <Listings />;
       case 'account': return <Account />;
-      default: return <FlipFinder />;
+      default: return <DashboardHome onNavigate={setActiveModule} />;
     }
   };
 
