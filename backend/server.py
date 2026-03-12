@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Body
 from fastapi.responses import RedirectResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
@@ -2874,6 +2874,120 @@ async def market_search(query: str, limit: int = 20):
     except Exception as e:
         logger.error(f"Market search failed: {e}")
         return {"items": [], "stats": {}, "total": 0, "error": str(e)}
+
+
+@api_router.get("/market/watchlist")
+async def get_market_watchlist():
+    """Get user's market watchlist items with live price data"""
+    watchlist = await db.market_watchlist.find({}, {"_id": 0}).to_list(50)
+    return {"items": watchlist}
+
+@api_router.post("/market/watchlist")
+async def add_to_watchlist(data: dict = Body(...)):
+    """Add a player or card to the market watchlist"""
+    name = data.get("name", "").strip()
+    wtype = data.get("type", "player")  # player or card
+    if not name:
+        raise HTTPException(400, "Name is required")
+    existing = await db.market_watchlist.find_one({"name": name, "type": wtype})
+    if existing:
+        return {"status": "already_exists"}
+    from datetime import datetime, timezone
+    doc = {"name": name, "type": wtype, "created_at": datetime.now(timezone.utc).isoformat()}
+    await db.market_watchlist.insert_one(doc)
+    return {"status": "added"}
+
+@api_router.delete("/market/watchlist/{name}")
+async def remove_from_watchlist(name: str):
+    """Remove from watchlist"""
+    from urllib.parse import unquote
+    decoded = unquote(name)
+    await db.market_watchlist.delete_many({"name": decoded})
+    return {"status": "removed"}
+
+@api_router.get("/market/portfolio-health")
+async def get_portfolio_health():
+    """Get portfolio health - inventory items with estimated market values"""
+    from datetime import datetime, timezone
+    inventory = await db.inventory.find({}, {"_id": 0}).to_list(200)
+
+    portfolio = []
+    total_invested = 0
+    for item in inventory:
+        cost = float(item.get("purchase_price", 0) or 0)
+        total_invested += cost
+        sport = _detect_sport(item.get("card_name", ""))
+        portfolio.append({
+            "card_name": item.get("card_name", ""),
+            "player": item.get("player", "Unknown"),
+            "sport": sport,
+            "grade": item.get("grade", ""),
+            "grading_company": item.get("grading_company", ""),
+            "condition": item.get("condition", "Raw"),
+            "purchase_price": cost,
+            "category": item.get("category", "collection"),
+            "image": bool(item.get("image")),
+        })
+
+    return {
+        "items": portfolio,
+        "total_invested": round(total_invested, 2),
+        "total_items": len(portfolio),
+    }
+
+@api_router.get("/market/hot-cards")
+async def get_hot_cards():
+    """Get trending/hot cards based on popular searches and user's sports interests"""
+    from datetime import datetime, timezone
+
+    # Determine user's sports interests from inventory
+    inventory = await db.inventory.find({}, {"_id": 0, "card_name": 1, "player": 1}).to_list(100)
+    sports = set()
+    for item in inventory:
+        sport = _detect_sport(item.get("card_name", ""))
+        if sport != "Other":
+            sports.add(sport)
+    if not sports:
+        sports = {"Basketball", "Baseball"}
+
+    # Build trending card queries based on current hot players per sport
+    hot_queries = {
+        "Basketball": [
+            {"name": "Victor Wembanyama", "query": "Victor Wembanyama Prizm PSA 10", "tag": "ROY Candidate"},
+            {"name": "LeBron James", "query": "LeBron James Prizm Silver", "tag": "GOAT Debate"},
+            {"name": "Luka Doncic", "query": "Luka Doncic Prizm Silver PSA 10", "tag": "Star Rising"},
+            {"name": "Anthony Edwards", "query": "Anthony Edwards Prizm Silver", "tag": "Hot Market"},
+        ],
+        "Baseball": [
+            {"name": "Shohei Ohtani", "query": "Shohei Ohtani Topps Chrome PSA 10", "tag": "MVP Race"},
+            {"name": "Elly De La Cruz", "query": "Elly De La Cruz Topps Chrome", "tag": "Rookie Star"},
+            {"name": "Mike Trout", "query": "Mike Trout Topps Chrome PSA 10", "tag": "Evergreen"},
+            {"name": "Gunnar Henderson", "query": "Gunnar Henderson Topps Chrome", "tag": "Breakout"},
+        ],
+        "Football": [
+            {"name": "Patrick Mahomes", "query": "Patrick Mahomes Prizm Silver PSA 10", "tag": "Dynasty"},
+            {"name": "CJ Stroud", "query": "CJ Stroud Prizm Silver", "tag": "Rookie Star"},
+            {"name": "Caleb Williams", "query": "Caleb Williams Prizm", "tag": "Highly Anticipated"},
+        ],
+        "Soccer": [
+            {"name": "Lionel Messi", "query": "Lionel Messi Prizm PSA 10", "tag": "Legend"},
+            {"name": "Kylian Mbappe", "query": "Kylian Mbappe Topps Chrome", "tag": "Transfer Buzz"},
+            {"name": "Jude Bellingham", "query": "Jude Bellingham Topps Chrome", "tag": "Rising Star"},
+        ],
+        "Hockey": [
+            {"name": "Connor McDavid", "query": "Connor McDavid Young Guns PSA 10", "tag": "Generational"},
+            {"name": "Connor Bedard", "query": "Connor Bedard Upper Deck", "tag": "Rookie Hype"},
+        ],
+    }
+
+    trending = []
+    for sport in sports:
+        if sport in hot_queries:
+            for q in hot_queries[sport]:
+                trending.append({**q, "sport": sport})
+
+    return {"trending": trending[:8], "user_sports": list(sports)}
+
 
 
 @api_router.get("/market/card-value")

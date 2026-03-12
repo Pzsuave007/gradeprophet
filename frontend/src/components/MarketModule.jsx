@@ -1,534 +1,500 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Search, TrendingUp, DollarSign, BarChart3, ExternalLink,
   RefreshCw, Layers, Tag, Package, Eye, Clock, ArrowRight,
-  ShoppingBag, Heart, ArrowUpRight, Image as ImageIcon
+  Heart, ArrowUpRight, ArrowDownRight, Plus, X, Flame,
+  Star, Target, Zap, ChevronRight, Bookmark
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { ViewToggle } from './ViewToggle';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, BarChart, Bar, Cell
+} from 'recharts';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const formatPrice = (v) => {
+const fmt = (v) => {
   const n = parseFloat(v);
   if (isNaN(n) || n === 0) return '-';
   return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(2)}`;
 };
 
-const parseTimeLeft = (iso) => {
-  if (!iso) return '';
-  const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
-  if (!m) return iso;
-  const d = parseInt(m[1] || 0), h = parseInt(m[2] || 0), min = parseInt(m[3] || 0);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${min}m`;
-  return `${min}m`;
+const SPORT_COLORS = {
+  Basketball: '#f59e0b', Baseball: '#3b82f6', Football: '#10b981',
+  Soccer: '#8b5cf6', Hockey: '#06b6d4', Other: '#6b7280',
 };
 
-const StatBox = ({ label, value, color }) => (
-  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
-    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{label}</p>
-    <p className={`text-lg font-bold ${color || 'text-white'}`}>{value}</p>
-  </div>
+const ChartTooltip = ({ active, payload, label }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-xs shadow-xl">
+      <p className="text-gray-400 mb-1">{label}</p>
+      {payload.map((p, i) => (
+        <p key={i} style={{ color: p.color }} className="font-bold">{p.name}: ${p.value?.toFixed(2)}</p>
+      ))}
+    </div>
+  );
+};
+
+// =========== HOT CARD ROW ===========
+const HotCardRow = ({ card, onLookup }) => (
+  <motion.div
+    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+    className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 hover:border-[#2a2a2a] transition-all group cursor-pointer"
+    onClick={() => onLookup(card.query)}
+    data-testid={`hot-card-${card.name.replace(/\s/g, '-').toLowerCase()}`}
+  >
+    <div className="flex items-center gap-3">
+      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+        style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}20` }}>
+        <Flame className="w-5 h-5" style={{ color: SPORT_COLORS[card.sport] || '#6b7280' }} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-bold text-white">{card.name}</p>
+        <p className="text-[10px] text-gray-500 truncate mt-0.5">{card.query}</p>
+      </div>
+      <div className="flex items-center gap-2 flex-shrink-0">
+        <span className="text-[9px] px-2 py-1 rounded-full font-bold uppercase tracking-wider"
+          style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}15`, color: SPORT_COLORS[card.sport] || '#6b7280' }}>
+          {card.tag}
+        </span>
+        <span className="text-[9px] px-2 py-1 rounded-full bg-[#1a1a1a] text-gray-500 uppercase">
+          {card.sport}
+        </span>
+        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[#3b82f6] transition-colors" />
+      </div>
+    </div>
+  </motion.div>
 );
 
-// =========== MARKET VALUE POPUP ===========
-const MarketValueCard = ({ query, onClose }) => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await axios.get(`${API}/api/market/card-value`, { params: { query } });
-        setData(res.data);
-      } catch { toast.error('Failed to load market data'); }
-      finally { setLoading(false); }
-    };
-    fetch();
-  }, [query]);
-
-  if (loading) return (
-    <div className="p-4 flex items-center gap-2 text-gray-500"><RefreshCw className="w-4 h-4 animate-spin" /><span className="text-xs">Loading market data...</span></div>
-  );
-
+// =========== PRICE LOOKUP RESULT ===========
+const PriceLookupResult = ({ data, query, onClose }) => {
   const primary = data?.primary || {};
   const secondary = data?.secondary || {};
-  const primaryStats = primary.stats || {};
-  const secondaryStats = secondary.stats || {};
+  const pStats = primary.stats || {};
+  const sStats = secondary.stats || {};
 
   return (
-    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-      className="border-t border-[#1a1a1a] bg-[#0a0a0a] px-4 py-3">
-      {data?.is_graded && data?.detected_grade && (
-        <p className="text-[10px] text-amber-400 mb-2">Comparing with <span className="font-bold">{data.detected_grade}</span> sales</p>
-      )}
-      <div className="grid grid-cols-2 gap-3 mb-2">
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+      className="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden" data-testid="price-lookup-result">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a1a]">
         <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{primary.label || 'Primary'}</p>
-          {primaryStats.count > 0 ? (
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-white">{formatPrice(primaryStats.median)}</span>
-              <span className="text-[10px] text-gray-500">median ({primaryStats.count} listings)</span>
-            </div>
-          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas recientes</span>}
+          <h3 className="text-base font-bold text-white">{query}</h3>
+          <div className="flex items-center gap-2 mt-1">
+            {data?.is_graded && <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold">{data.detected_grade}</span>}
+            {data?.data_source === 'sold' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-bold uppercase">Real Sold Prices</span>}
+            {data?.data_source === 'active' && <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-bold uppercase">Active Listings</span>}
+          </div>
         </div>
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
-          {secondaryStats.count > 0 ? (
-            <div className="flex items-baseline gap-2">
-              <span className="text-sm font-bold text-amber-400">{formatPrice(secondaryStats.median)}</span>
-              <span className="text-[10px] text-gray-500">median ({secondaryStats.count} listings)</span>
-            </div>
-          ) : <span className="text-[10px] text-gray-500 italic">Sin ventas recientes</span>}
+        <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5" data-testid="close-lookup"><X className="w-4 h-4 text-gray-500" /></button>
+      </div>
+
+      {/* Big Price Display */}
+      <div className="grid grid-cols-2 gap-0 border-b border-[#1a1a1a]">
+        <div className="p-5 border-r border-[#1a1a1a]">
+          <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-1">{primary.label || 'Primary'}</p>
+          {pStats.count > 0 ? (
+            <>
+              <p className="text-3xl font-black text-white" data-testid="primary-median">{fmt(pStats.median)}</p>
+              <p className="text-xs text-gray-500 mt-1">{pStats.count} sales &middot; Avg {fmt(pStats.avg)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">Range: {fmt(pStats.min)} &mdash; {fmt(pStats.max)}</p>
+            </>
+          ) : <p className="text-lg text-gray-600 mt-2">No recent data</p>}
+        </div>
+        <div className="p-5">
+          <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
+          {sStats.count > 0 ? (
+            <>
+              <p className="text-3xl font-black text-amber-400" data-testid="secondary-median">{fmt(sStats.median)}</p>
+              <p className="text-xs text-gray-500 mt-1">{sStats.count} sales &middot; Avg {fmt(sStats.avg)}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5">Range: {fmt(sStats.min)} &mdash; {fmt(sStats.max)}</p>
+            </>
+          ) : <p className="text-lg text-gray-600 mt-2">No recent data</p>}
         </div>
       </div>
-      <button onClick={onClose} className="text-[10px] text-gray-600 hover:text-gray-400">Close</button>
+
+      {/* Sales list - bigger items */}
+      {((primary.items || []).length > 0 || (secondary.items || []).length > 0) && (
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-bold text-white uppercase tracking-wider">Recent Comparable Sales</p>
+            {data?.sold_search_url && (
+              <a href={data.sold_search_url} target="_blank" rel="noopener noreferrer"
+                className="text-[10px] text-[#3b82f6] hover:text-[#60a5fa] flex items-center gap-1" data-testid="view-all-ebay-link">
+                View all on eBay <ExternalLink className="w-3 h-3" />
+              </a>
+            )}
+          </div>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {[...(primary.items || []).slice(0, 6), ...(secondary.items || []).slice(0, 4)].map((sale, i) => (
+              <a key={i} href={sale.url || data?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#0a0a0a] hover:bg-white/[0.03] group transition-colors"
+                data-testid={`sale-item-${i}`}>
+                {sale.image_url && <img src={sale.image_url} alt="" className="w-12 h-12 rounded-lg object-cover flex-shrink-0" />}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-gray-300 truncate group-hover:text-[#3b82f6] transition-colors">{sale.title}</p>
+                  {sale.date_sold && <p className="text-[10px] text-gray-600 mt-0.5">Sold {sale.date_sold}</p>}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-base font-black text-emerald-400">${sale.price}</p>
+                  <p className="text-[9px] text-gray-600">{sale.source === 'sold' ? 'Sold' : 'Listed'}</p>
+                </div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 };
 
-
-// =========== MY EBAY LISTINGS TAB ===========
-const MyListingsTab = ({ listings, totalValue }) => {
-  const [expandedId, setExpandedId] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
-
-  return (
-    <div className="space-y-3">
-      {/* Summary + Toggle */}
-      <div className="flex items-center justify-between">
-        <div className="grid grid-cols-3 gap-3 flex-1 mr-3">
-          <StatBox label="Active Listings" value={listings.length} color="text-[#3b82f6]" />
-          <StatBox label="Total Asking" value={formatPrice(totalValue)} color="text-emerald-400" />
-          <StatBox label="Avg Price" value={formatPrice(listings.length > 0 ? totalValue / listings.length : 0)} color="text-gray-300" />
-        </div>
-        <ViewToggle view={viewMode} onChange={setViewMode} />
+// =========== WATCHLIST ITEM ===========
+const WatchlistItem = ({ item, onLookup, onRemove }) => (
+  <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 hover:border-[#2a2a2a] transition-all group">
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-lg bg-[#3b82f6]/10 flex items-center justify-center flex-shrink-0">
+        {item.type === 'player' ? <Star className="w-4 h-4 text-[#3b82f6]" /> : <Tag className="w-4 h-4 text-amber-400" />}
       </div>
-
-      {viewMode === 'grid' ? (
-        /* GRID VIEW */
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {listings.map((item, i) => (
-            <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-              className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`listing-${i}`}>
-              <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
-                {item.image_url ? (
-                  <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
-                <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">
-                  ${item.price}
-                </span>
-                <span className="absolute top-2 right-2 text-[8px] px-1.5 py-0.5 rounded bg-black/70 text-gray-300 uppercase">
-                  {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
-                </span>
-              </div>
-              <div className="p-2.5">
-                <p className="text-[11px] font-semibold text-white line-clamp-2 leading-relaxed mb-1.5">{item.title}</p>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-[10px] text-gray-500">
-                    {item.watch_count > 0 && <span className="flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
-                    <span className="flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
-                  </div>
-                  <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                    className="p-1 hover:bg-white/10 rounded transition-colors">
-                    <ExternalLink className="w-3 h-3 text-gray-600 hover:text-[#3b82f6]" />
-                  </a>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      ) : (
-        /* LIST VIEW */
-        <div className="space-y-1">
-          {listings.map((item, i) => (
-            <div key={item.item_id} className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors">
-              <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setExpandedId(expandedId === item.item_id ? null : item.item_id)}
-                data-testid={`listing-${i}`}>
-                {item.image_url ? (
-                  <img src={item.image_url} alt="" className="w-11 h-11 rounded object-cover flex-shrink-0" />
-                ) : <div className="w-11 h-11 rounded bg-[#1a1a1a] flex-shrink-0" />}
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-medium text-white truncate">{item.title}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 uppercase">{item.listing_type === 'FixedPriceItem' ? 'Buy Now' : 'Auction'}</span>
-                    {item.watch_count > 0 && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Eye className="w-3 h-3" />{item.watch_count}</span>}
-                    <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-3 h-3" />{parseTimeLeft(item.time_left)}</span>
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-emerald-400">${item.price}</p>
-                  <button className="text-[9px] text-[#3b82f6] hover:text-[#60a5fa] mt-0.5">
-                    {expandedId === item.item_id ? 'Hide' : 'Market Value'}
-                  </button>
-                </div>
-                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                  className="p-1.5 hover:bg-white/5 rounded-lg transition-colors">
-                  <ExternalLink className="w-3.5 h-3.5 text-gray-600 hover:text-[#3b82f6]" />
-                </a>
-              </div>
-              <AnimatePresence>
-                {expandedId === item.item_id && (
-                  <MarketValueCard query={item.title} onClose={() => setExpandedId(null)} />
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
-
-// =========== MY COLLECTION TAB ===========
-const MyCollectionTab = ({ items }) => {
-  const [expandedId, setExpandedId] = useState(null);
-  const [viewMode, setViewMode] = useState('grid');
-  const totalInvested = items.reduce((s, i) => s + ((i.purchase_price || 0) * (i.quantity || 1)), 0);
-
-  return (
-    <div className="space-y-3">
-      {/* Summary + Toggle */}
-      <div className="flex items-center justify-between">
-        <div className="grid grid-cols-3 gap-3 flex-1 mr-3">
-          <StatBox label="Cards" value={items.length} color="text-amber-400" />
-          <StatBox label="Total Invested" value={formatPrice(totalInvested)} color="text-emerald-400" />
-          <StatBox label="Avg Cost" value={formatPrice(items.length > 0 ? totalInvested / items.length : 0)} color="text-gray-300" />
-        </div>
-        <ViewToggle view={viewMode} onChange={setViewMode} />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-white truncate">{item.name}</p>
+        <p className="text-[9px] text-gray-600 uppercase">{item.type}</p>
       </div>
-
-      {items.length === 0 ? (
-        <div className="text-center py-10 bg-[#111] border border-[#1a1a1a] rounded-xl">
-          <Package className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No cards in inventory</p>
-        </div>
-      ) : viewMode === 'grid' ? (
-        /* GRID VIEW */
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {items.map((item, i) => (
-            <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-              className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group" data-testid={`collection-${i}`}>
-              <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
-                {item.image ? (
-                  <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
-                {item.category === 'for_sale' ? (
-                  <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
-                ) : (
-                  <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>
-                )}
-              </div>
-              <div className="p-2.5">
-                <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
-                <div className="flex items-center justify-between mt-1.5">
-                  {item.condition === 'Graded' && item.grade ? (
-                    <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span>
-                  ) : <span className="text-[10px] text-gray-600">Raw</span>}
-                  <span className="text-[11px] font-bold text-white">{formatPrice(item.purchase_price)}</span>
-                </div>
-                {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      ) : (
-        /* LIST VIEW */
-        <div className="space-y-1">
-          {items.map((item, i) => (
-            <div key={item.id} className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors">
-              <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
-                data-testid={`collection-${i}`}>
-                <div className="w-11 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
-                  {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><Package className="w-3.5 h-3.5 text-gray-700" /></div>}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[11px] font-medium text-white truncate">{item.card_name}</p>
-                    {item.category === 'for_sale' ? (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase flex-shrink-0">Sale</span>
-                    ) : (
-                      <span className="text-[8px] px-1 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] uppercase flex-shrink-0">Col</span>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {item.player && <span className="text-[10px] text-gray-500">{item.player}</span>}
-                    {item.condition === 'Graded' && item.grade && (
-                      <span className="text-[10px] text-amber-400">{item.grading_company} {item.grade}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-white">{formatPrice(item.purchase_price)}</p>
-                  <button className="text-[9px] text-[#3b82f6] hover:text-[#60a5fa] mt-0.5">
-                    {expandedId === item.id ? 'Hide' : 'Market Value'}
-                  </button>
-                </div>
-              </div>
-              <AnimatePresence>
-                {expandedId === item.id && (
-                  <MarketValueCard query={item.card_name} onClose={() => setExpandedId(null)} />
-                )}
-              </AnimatePresence>
-            </div>
-          ))}
-        </div>
-      )}
+      <button onClick={(e) => { e.stopPropagation(); onLookup(item.name + (item.type === 'player' ? ' Prizm' : '')); }}
+        className="text-[9px] px-2 py-1 rounded bg-[#3b82f6]/10 text-[#3b82f6] hover:bg-[#3b82f6]/20 font-bold"
+        data-testid={`lookup-${item.name.replace(/\s/g, '-').toLowerCase()}`}>
+        Lookup
+      </button>
+      <button onClick={(e) => { e.stopPropagation(); onRemove(item.name); }}
+        className="p-1 rounded hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition-opacity"
+        data-testid={`remove-${item.name.replace(/\s/g, '-').toLowerCase()}`}>
+        <X className="w-3 h-3 text-red-400" />
+      </button>
     </div>
-  );
-};
-
-
-// =========== SEARCH TAB ===========
-const SearchTab = () => {
-  const [query, setQuery] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [marketData, setMarketData] = useState(null);
-  const [flipData, setFlipData] = useState(null);
-
-  const handleSearch = async (e) => {
-    e?.preventDefault();
-    if (!query.trim()) return;
-    setLoading(true);
-    setMarketData(null);
-    setFlipData(null);
-    try {
-      const [mRes, fRes] = await Promise.all([
-        axios.get(`${API}/api/market/card-value`, { params: { query: query.trim() } }),
-        axios.get(`${API}/api/market/flip-calc`, { params: { query: query.trim(), grading_cost: 30 } }),
-      ]);
-      setMarketData(mRes.data);
-      setFlipData(fRes.data);
-    } catch { toast.error('Search failed'); }
-    finally { setLoading(false); }
-  };
-
-  const primary = marketData?.primary || {};
-  const secondary = marketData?.secondary || {};
-  const primaryStats = primary.stats || {};
-  const secondaryStats = secondary.stats || {};
-  const fp = flipData || {};
-
-  return (
-    <div className="space-y-4">
-      <form onSubmit={handleSearch} className="flex gap-2">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-          <input className="w-full bg-[#111] border border-[#1a1a1a] rounded-lg pl-9 pr-3 py-3 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
-            placeholder='Search any card... e.g. "Luka Doncic Prizm Silver"' value={query} onChange={e => setQuery(e.target.value)}
-            data-testid="market-search-input" />
-        </div>
-        <button type="submit" disabled={loading || !query.trim()}
-          className="px-5 py-3 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] disabled:opacity-50 transition-colors flex items-center gap-2"
-          data-testid="market-search-btn">
-          {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-        </button>
-      </form>
-
-      {loading && (
-        <div className="text-center py-12"><RefreshCw className="w-6 h-6 text-[#3b82f6] animate-spin mx-auto mb-2" /><p className="text-xs text-gray-500">Searching eBay...</p></div>
-      )}
-
-      {!loading && marketData && (
-        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          {/* Grade detection indicator */}
-          {marketData.is_graded && marketData.detected_grade && (
-            <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-              <Tag className="w-3.5 h-3.5 text-amber-400" />
-              <span className="text-xs text-amber-300">Graded card: <span className="font-bold">{marketData.detected_grade}</span> — showing same grade sales</span>
-            </div>
-          )}
-          {/* Flip Calc */}
-          {fp.raw_price > 0 && fp.psa10_value > 0 && (
-            <div className={`bg-[#111] border rounded-xl p-4 ${fp.potential_profit > 0 ? 'border-emerald-500/30' : 'border-[#1a1a1a]'}`}>
-              <div className="flex items-center gap-2 mb-3">
-                <TrendingUp className={`w-4 h-4 ${fp.potential_profit > 0 ? 'text-emerald-400' : 'text-red-400'}`} />
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Flip Calculator</h3>
-                {fp.potential_profit > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 uppercase">Profitable</span>}
-              </div>
-              <div className="grid grid-cols-5 gap-2">
-                <StatBox label="Raw" value={formatPrice(fp.raw_price)} color="text-white" />
-                <StatBox label="PSA 10" value={formatPrice(fp.psa10_value)} color="text-amber-400" />
-                <StatBox label="Grading" value={`$${fp.grading_cost}`} color="text-gray-400" />
-                <StatBox label="Profit" value={formatPrice(fp.potential_profit)} color={fp.potential_profit > 0 ? 'text-emerald-400' : 'text-red-400'} />
-                <StatBox label="ROI" value={`${fp.roi_percent}%`} color={fp.roi_percent > 0 ? 'text-emerald-400' : 'text-red-400'} />
-              </div>
-            </div>
-          )}
-          {/* Primary vs Secondary Market */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                <Layers className="w-4 h-4 text-[#3b82f6]" /><h3 className="text-sm font-semibold text-white">{primary.label || 'Primary'}</h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{primaryStats.count || 0}</span>
-                {marketData?.data_source === 'sold' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold ml-auto">Sold Data</span>}
-                {marketData?.data_source === 'active' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-bold ml-auto">Active Listings</span>}
-              </div>
-              <div className="p-3">
-                {primaryStats.count > 0 ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <StatBox label="Median" value={formatPrice(primaryStats.median)} color="text-white" />
-                      <StatBox label="Avg" value={formatPrice(primaryStats.avg)} color="text-gray-300" />
-                      <StatBox label="Range" value={`${formatPrice(primaryStats.min)}-${formatPrice(primaryStats.max)}`} color="text-gray-400" />
-                    </div>
-                    <div className="space-y-1">
-                      {(primary.items || []).slice(0, 4).map((item, i) => (
-                        <a key={i} href={item.url || marketData?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.05] group cursor-pointer" data-testid={`primary-item-${i}`}>
-                          {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-400 truncate group-hover:text-[#3b82f6]">{item.title}</p>
-                            {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
-                          </div>
-                          <span className="text-[11px] font-bold text-white flex-shrink-0">${item.price}</span>
-                        </a>
-                      ))}
-                    </div>
-                    {marketData?.sold_search_url && (
-                      <a href={marketData.sold_search_url} target="_blank" rel="noopener noreferrer"
-                        className="block text-center text-[10px] text-[#3b82f6] hover:text-[#60a5fa] mt-2 py-1 transition-colors" data-testid="view-all-primary-link">
-                        View all on eBay &rarr;
-                      </a>
-                    )}
-                  </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
-              </div>
-            </div>
-            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                <Tag className="w-4 h-4 text-amber-500" /><h3 className="text-sm font-semibold text-white">{secondary.label || 'Secondary'}</h3>
-                <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500">{secondaryStats.count || 0}</span>
-              </div>
-              <div className="p-3">
-                {secondaryStats.count > 0 ? (
-                  <>
-                    <div className="grid grid-cols-3 gap-2 mb-3">
-                      <StatBox label="Median" value={formatPrice(secondaryStats.median)} color="text-amber-400" />
-                      <StatBox label="Avg" value={formatPrice(secondaryStats.avg)} color="text-gray-300" />
-                      <StatBox label="Range" value={`${formatPrice(secondaryStats.min)}-${formatPrice(secondaryStats.max)}`} color="text-gray-400" />
-                    </div>
-                    <div className="space-y-1">
-                      {(secondary.items || []).slice(0, 4).map((item, i) => (
-                        <a key={i} href={item.url || marketData?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.05] group cursor-pointer" data-testid={`secondary-item-${i}`}>
-                          {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-400 truncate group-hover:text-[#3b82f6]">{item.title}</p>
-                            {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
-                          </div>
-                          <span className="text-[11px] font-bold text-amber-400 flex-shrink-0">${item.price}</span>
-                        </a>
-                      ))}
-                    </div>
-                    {marketData?.sold_search_url && (
-                      <a href={marketData.sold_search_url} target="_blank" rel="noopener noreferrer"
-                        className="block text-center text-[10px] text-[#3b82f6] hover:text-[#60a5fa] mt-2 py-1 transition-colors" data-testid="view-all-secondary-link">
-                        View all on eBay &rarr;
-                      </a>
-                    )}
-                  </>
-                ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {!loading && !marketData && (
-        <div className="text-center py-12 bg-[#111] border border-[#1a1a1a] rounded-xl">
-          <BarChart3 className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">Search any card for market data</p>
-          <p className="text-[10px] text-gray-600 mt-1">Try: "Luka Doncic Prizm Silver" or "Michael Jordan Fleer #57"</p>
-        </div>
-      )}
-    </div>
-  );
-};
-
+  </div>
+);
 
 // =========== MAIN MARKET MODULE ===========
 const MarketModule = () => {
-  const [activeTab, setActiveTab] = useState('listings');
-  const [ebayData, setEbayData] = useState(null);
-  const [invItems, setInvItems] = useState([]);
+  const [hotCards, setHotCards] = useState([]);
+  const [watchlist, setWatchlist] = useState([]);
+  const [portfolio, setPortfolio] = useState(null);
+  const [salesData, setSalesData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const [ebayRes, invRes] = await Promise.allSettled([
-          axios.get(`${API}/api/ebay/seller/my-listings?limit=50`),
-          axios.get(`${API}/api/inventory?limit=100`),
-        ]);
-        if (ebayRes.status === 'fulfilled') setEbayData(ebayRes.value.data);
-        if (invRes.status === 'fulfilled') setInvItems(invRes.value.data.items || []);
-      } catch (e) { console.error(e); }
-      finally { setLoading(false); }
-    };
-    fetch();
+  // Search / Lookup state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [lookupResult, setLookupResult] = useState(null);
+  const [lookupQuery, setLookupQuery] = useState('');
+
+  // Watchlist add
+  const [showAddWatchlist, setShowAddWatchlist] = useState(false);
+  const [newWatchName, setNewWatchName] = useState('');
+  const [newWatchType, setNewWatchType] = useState('player');
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [hot, wl, pf, sales] = await Promise.allSettled([
+        axios.get(`${API}/api/market/hot-cards`),
+        axios.get(`${API}/api/market/watchlist`),
+        axios.get(`${API}/api/market/portfolio-health`),
+        axios.get(`${API}/api/dashboard/analytics`),
+      ]);
+      if (hot.status === 'fulfilled') setHotCards(hot.value.data.trending || []);
+      if (wl.status === 'fulfilled') setWatchlist(wl.value.data.items || []);
+      if (pf.status === 'fulfilled') setPortfolio(pf.value.data);
+      if (sales.status === 'fulfilled') setSalesData(sales.value.data.sales);
+    } catch (e) { console.error(e); }
+    finally { setLoading(false); }
   }, []);
 
-  const eb = ebayData || { active: [], sold: [], active_total: 0 };
-  const totalListingValue = eb.active.reduce((s, i) => s + (i.price || 0), 0);
-  const totalInvValue = invItems.reduce((s, i) => s + ((i.purchase_price || 0) * (i.quantity || 1)), 0);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  const tabs = [
-    { id: 'listings', label: `My Listings (${eb.active_total || 0})`, icon: Tag },
-    { id: 'collection', label: `My Collection (${invItems.length})`, icon: Heart },
-    { id: 'search', label: 'Search Market', icon: Search },
-  ];
+  const handleLookup = async (query) => {
+    if (!query?.trim()) return;
+    setSearchQuery(query);
+    setLookupQuery(query);
+    setSearchLoading(true);
+    setLookupResult(null);
+    try {
+      const res = await axios.get(`${API}/api/market/card-value`, { params: { query: query.trim() } });
+      setLookupResult(res.data);
+    } catch { toast.error('Failed to load market data'); }
+    finally { setSearchLoading(false); }
+  };
 
-  if (loading) return <div className="flex items-center justify-center py-20"><RefreshCw className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>;
+  const handleSearch = (e) => {
+    e?.preventDefault();
+    handleLookup(searchQuery);
+  };
+
+  const addToWatchlist = async () => {
+    if (!newWatchName.trim()) return;
+    try {
+      await axios.post(`${API}/api/market/watchlist`, { name: newWatchName.trim(), type: newWatchType });
+      setNewWatchName('');
+      setShowAddWatchlist(false);
+      toast.success('Added to watchlist');
+      const wl = await axios.get(`${API}/api/market/watchlist`);
+      setWatchlist(wl.data.items || []);
+    } catch { toast.error('Failed to add'); }
+  };
+
+  const removeFromWatchlist = async (name) => {
+    try {
+      await axios.delete(`${API}/api/market/watchlist/${encodeURIComponent(name)}`);
+      setWatchlist(prev => prev.filter(w => w.name !== name));
+      toast.success('Removed');
+    } catch { toast.error('Failed to remove'); }
+  };
+
+  const s = salesData || {};
+  const pf = portfolio || { items: [], total_invested: 0, total_items: 0 };
+
+  if (loading) return (
+    <div className="flex flex-col items-center justify-center py-32 gap-3">
+      <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin" />
+      <p className="text-xs text-gray-600">Loading market intelligence...</p>
+    </div>
+  );
 
   return (
     <div className="space-y-5 pb-8" data-testid="market-page">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Market</h1>
-          <p className="text-xs text-gray-500 mt-0.5">Track market values for your portfolio</p>
+          <h1 className="text-2xl font-black text-white tracking-tight">Market Intelligence</h1>
+          <p className="text-xs text-gray-500 mt-0.5">Real-time market data, trends & investment insights</p>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wider text-gray-600">Total Portfolio</p>
-          <p className="text-lg font-bold text-white">{formatPrice(totalListingValue + totalInvValue)}</p>
-        </div>
+        <button onClick={fetchData} className="p-2 rounded-lg bg-[#111] border border-[#1a1a1a] hover:border-[#3b82f6]/50 transition-colors" data-testid="market-refresh">
+          <RefreshCw className="w-4 h-4 text-gray-400" />
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1">
-        {tabs.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setActiveTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-              activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
-            }`} data-testid={`market-tab-${id}`}>
-            <Icon className="w-4 h-4" />{label}
-          </button>
+      {/* === SEARCH BAR - BIG AND PROMINENT === */}
+      <form onSubmit={handleSearch} className="relative" data-testid="market-search-form">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
+        <input className="w-full bg-[#111] border border-[#1a1a1a] rounded-xl pl-12 pr-28 py-4 text-base text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+          placeholder='Look up any card... "LeBron James Prizm Silver PSA 10"'
+          value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          data-testid="market-search-input" />
+        <button type="submit" disabled={searchLoading || !searchQuery.trim()}
+          className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-bold hover:bg-[#2563eb] disabled:opacity-50 transition-colors"
+          data-testid="market-search-btn">
+          {searchLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Search'}
+        </button>
+      </form>
+
+      {/* Loading state */}
+      {searchLoading && (
+        <div className="text-center py-12 bg-[#111] border border-[#1a1a1a] rounded-xl">
+          <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin mx-auto mb-3" />
+          <p className="text-sm text-gray-400">Searching eBay sold listings...</p>
+          <p className="text-[10px] text-gray-600 mt-1">This may take a few seconds</p>
+        </div>
+      )}
+
+      {/* === LOOKUP RESULT (shown when search is done) === */}
+      <AnimatePresence>
+        {lookupResult && !searchLoading && (
+          <PriceLookupResult data={lookupResult} query={lookupQuery} onClose={() => setLookupResult(null)} />
+        )}
+      </AnimatePresence>
+
+      {/* === KPI STRIP - Portfolio Overview === */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: Package, label: 'Collection', value: `${pf.total_items} cards`, sub: `${fmt(pf.total_invested)} invested`, color: 'bg-amber-600', accent: 'text-amber-400' },
+          { icon: DollarSign, label: 'Revenue', value: fmt(s.total_revenue || 0), sub: `${s.total_orders || 0} total sales`, color: 'bg-emerald-600', accent: 'text-emerald-400' },
+          { icon: TrendingUp, label: 'Profit', value: fmt(s.total_profit || 0), sub: `${fmt(s.total_fees || 0)} in fees`, color: 'bg-[#3b82f6]', accent: 'text-[#3b82f6]' },
+          { icon: Target, label: 'Avg Sale', value: fmt(s.avg_sale || 0), sub: s.top_sale ? `Best: ${fmt(s.top_sale.total)}` : '', color: 'bg-purple-600', accent: 'text-purple-400' },
+        ].map((kpi, i) => (
+          <motion.div key={kpi.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+            className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3.5" data-testid={`market-kpi-${kpi.label.toLowerCase()}`}>
+            <div className="flex items-center gap-2 mb-2">
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${kpi.color}`}><kpi.icon className="w-3.5 h-3.5 text-white" /></div>
+              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-bold">{kpi.label}</span>
+            </div>
+            <p className={`text-lg font-black ${kpi.accent}`}>{kpi.value}</p>
+            {kpi.sub && <p className="text-[10px] text-gray-600 mt-0.5">{kpi.sub}</p>}
+          </motion.div>
         ))}
       </div>
 
-      {/* Content */}
-      <AnimatePresence mode="wait">
-        {activeTab === 'listings' && (
-          <motion.div key="listings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <MyListingsTab listings={eb.active} totalValue={totalListingValue} />
-          </motion.div>
-        )}
-        {activeTab === 'collection' && (
-          <motion.div key="collection" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <MyCollectionTab items={invItems} />
-          </motion.div>
-        )}
-        {activeTab === 'search' && (
-          <motion.div key="search" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <SearchTab />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* === SALES CHART + PORTFOLIO BREAKDOWN === */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Sales chart - 3 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          className="lg:col-span-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="sales-chart">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
+            <h2 className="text-sm font-bold text-white">Your Sales Performance</h2>
+          </div>
+          <div className="p-3" style={{ height: 220 }}>
+            {(s.cumulative_chart || []).length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={s.cumulative_chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="gRevM" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                  <XAxis dataKey="date" stroke="#444" tick={{ fontSize: 9 }} />
+                  <YAxis stroke="#444" tick={{ fontSize: 9 }} tickFormatter={v => `$${v}`} />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" fill="url(#gRevM)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="profit" name="Profit" stroke="#3b82f6" fill="transparent" strokeWidth={2} strokeDasharray="4 4" dot={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-full text-gray-600 text-xs">Connect eBay to see sales</div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Portfolio breakdown - 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="portfolio-breakdown">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+            <Layers className="w-4 h-4 text-amber-400" />
+            <h2 className="text-sm font-bold text-white">Your Collection</h2>
+            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 font-bold ml-auto">{pf.total_items} cards</span>
+          </div>
+          <div className="divide-y divide-[#0a0a0a]">
+            {pf.items.length > 0 ? pf.items.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] cursor-pointer"
+                onClick={() => handleLookup(item.card_name)} data-testid={`portfolio-item-${i}`}>
+                <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: SPORT_COLORS[item.sport] || '#6b7280' }} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{item.card_name}</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[9px] text-gray-600">{item.player}</span>
+                    {item.condition === 'Graded' && item.grade && (
+                      <span className="text-[9px] text-amber-400">{item.grading_company} {item.grade}</span>
+                    )}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-white">{fmt(item.purchase_price)}</p>
+                  <p className="text-[9px] text-gray-600">Cost</p>
+                </div>
+              </div>
+            )) : (
+              <div className="text-center py-8 text-gray-600 text-xs">Add cards to inventory to track</div>
+            )}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* === WATCHLIST + HOT CARDS === */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Watchlist - 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="watchlist-section">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
+            <div className="flex items-center gap-2">
+              <Bookmark className="w-4 h-4 text-[#3b82f6]" />
+              <h2 className="text-sm font-bold text-white">My Watchlist</h2>
+            </div>
+            <button onClick={() => setShowAddWatchlist(!showAddWatchlist)}
+              className="p-1.5 rounded-lg bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 transition-colors"
+              data-testid="add-watchlist-btn">
+              <Plus className="w-3.5 h-3.5 text-[#3b82f6]" />
+            </button>
+          </div>
+
+          {/* Add form */}
+          <AnimatePresence>
+            {showAddWatchlist && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                className="border-b border-[#1a1a1a] overflow-hidden">
+                <div className="p-3 space-y-2">
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    placeholder="Player or card name..." value={newWatchName} onChange={e => setNewWatchName(e.target.value)}
+                    data-testid="watchlist-name-input" />
+                  <div className="flex gap-2">
+                    <button onClick={() => setNewWatchType('player')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${newWatchType === 'player' ? 'bg-[#3b82f6] text-white' : 'bg-[#0a0a0a] text-gray-500'}`}>
+                      Player
+                    </button>
+                    <button onClick={() => setNewWatchType('card')}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${newWatchType === 'card' ? 'bg-[#3b82f6] text-white' : 'bg-[#0a0a0a] text-gray-500'}`}>
+                      Card
+                    </button>
+                    <button onClick={addToWatchlist} disabled={!newWatchName.trim()}
+                      className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 disabled:opacity-50"
+                      data-testid="save-watchlist-btn">
+                      Add
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+            {watchlist.length > 0 ? watchlist.map((item, i) => (
+              <WatchlistItem key={i} item={item} onLookup={handleLookup} onRemove={removeFromWatchlist} />
+            )) : (
+              <div className="text-center py-6">
+                <Bookmark className="w-6 h-6 text-gray-700 mx-auto mb-2" />
+                <p className="text-xs text-gray-600">Track players and cards you're interested in</p>
+                <button onClick={() => setShowAddWatchlist(true)} className="text-[10px] text-[#3b82f6] mt-1 hover:underline">
+                  Add your first item
+                </button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Hot on Market - 3 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="lg:col-span-3 space-y-3" data-testid="hot-cards-section">
+          <div className="flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
+            <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
+          </div>
+          <div className="space-y-2">
+            {hotCards.map((card, i) => (
+              <HotCardRow key={i} card={card} onLookup={handleLookup} />
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* === MONTHLY PERFORMANCE BARS === */}
+      {(s.monthly_chart || []).length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="monthly-performance">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+            <BarChart3 className="w-4 h-4 text-amber-400" />
+            <h2 className="text-sm font-bold text-white">Monthly Performance</h2>
+            <div className="flex items-center gap-3 text-[10px] ml-auto">
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Revenue</span>
+              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#3b82f6]" /> Profit</span>
+            </div>
+          </div>
+          <div className="p-4" style={{ height: 200 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={s.monthly_chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
+                <XAxis dataKey="month" stroke="#444" tick={{ fontSize: 10 }} />
+                <YAxis stroke="#444" tick={{ fontSize: 10 }} tickFormatter={v => `$${v}`} />
+                <Tooltip content={<ChartTooltip />} />
+                <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="profit" name="Profit" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 };
