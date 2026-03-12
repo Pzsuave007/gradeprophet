@@ -378,17 +378,23 @@ const SearchTab = () => {
                     </div>
                     <div className="space-y-1">
                       {(primary.items || []).slice(0, 4).map((item, i) => (
-                        <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`primary-item-${i}`}>
+                        <a key={i} href={item.url || marketData?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.05] group cursor-pointer" data-testid={`primary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{item.title}</p>
+                            <p className="text-[10px] text-gray-400 truncate group-hover:text-[#3b82f6]">{item.title}</p>
                             {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
                           </div>
                           <span className="text-[11px] font-bold text-white flex-shrink-0">${item.price}</span>
                         </a>
                       ))}
                     </div>
+                    {marketData?.sold_search_url && (
+                      <a href={marketData.sold_search_url} target="_blank" rel="noopener noreferrer"
+                        className="block text-center text-[10px] text-[#3b82f6] hover:text-[#60a5fa] mt-2 py-1 transition-colors" data-testid="view-all-primary-link">
+                        View all on eBay &rarr;
+                      </a>
+                    )}
                   </>
                 ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
               </div>
@@ -408,17 +414,23 @@ const SearchTab = () => {
                     </div>
                     <div className="space-y-1">
                       {(secondary.items || []).slice(0, 4).map((item, i) => (
-                        <a key={i} href={item.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.02] group" data-testid={`secondary-item-${i}`}>
+                        <a key={i} href={item.url || marketData?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.05] group cursor-pointer" data-testid={`secondary-item-${i}`}>
                           {item.image_url && <img src={item.image_url} alt="" className="w-7 h-7 rounded object-cover flex-shrink-0" />}
                           <div className="flex-1 min-w-0">
-                            <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{item.title}</p>
+                            <p className="text-[10px] text-gray-400 truncate group-hover:text-[#3b82f6]">{item.title}</p>
                             {item.date_sold && <p className="text-[8px] text-gray-600">Sold {item.date_sold}</p>}
                           </div>
                           <span className="text-[11px] font-bold text-amber-400 flex-shrink-0">${item.price}</span>
                         </a>
                       ))}
                     </div>
+                    {marketData?.sold_search_url && (
+                      <a href={marketData.sold_search_url} target="_blank" rel="noopener noreferrer"
+                        className="block text-center text-[10px] text-[#3b82f6] hover:text-[#60a5fa] mt-2 py-1 transition-colors" data-testid="view-all-secondary-link">
+                        View all on eBay &rarr;
+                      </a>
+                    )}
                   </>
                 ) : <p className="text-xs text-gray-600 text-center py-4">Sin ventas recientes</p>}
               </div>

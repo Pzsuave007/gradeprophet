@@ -2881,6 +2881,7 @@ async def get_card_market_value(query: str):
     """Get market value for a card based on REAL SOLD prices from eBay completed listings"""
     try:
         import re as _re
+        from urllib.parse import quote_plus
 
         # Step 1: Detect if the listing is graded and extract grade info
         grade_match = _re.search(
@@ -2912,15 +2913,22 @@ async def get_card_market_value(query: str):
                 try:
                     resp = httpx.get(jina_url, headers={
                         "Accept": "text/plain",
-                        "X-Return-Format": "text"
+                        "X-Return-Format": "text",
+                        "X-With-Links": "true",
                     }, timeout=30.0, follow_redirects=True)
                     if resp.status_code != 200:
                         return []
                 except Exception:
                     return []
 
-                lines = resp.text.split('\n')
+                text = resp.text
+                lines = text.split('\n')
+
+                # Pre-extract all eBay item URLs from the full text
+                all_item_urls = _re.findall(r'https://www\.ebay\.com/itm/\d+', text)
+
                 items = []
+                url_idx = 0
                 i = 0
                 while i < len(lines):
                     line = lines[i].strip()
@@ -2930,7 +2938,8 @@ async def get_card_market_value(query: str):
                         title = lines[i + 1].strip() if i + 1 < len(lines) else ''
                         price = 0
                         image_url = ''
-                        for j in range(i + 2, min(i + 15, len(lines))):
+                        item_url = ''
+                        for j in range(i + 1, min(i + 18, len(lines))):
                             l = lines[j].strip()
                             if not price:
                                 pm = _re.match(r'\$?([\d,]+\.\d+)', l)
@@ -2939,11 +2948,21 @@ async def get_card_market_value(query: str):
                             if not image_url and 'ebayimg.com' in l:
                                 img_m = _re.search(r'(https://i\.ebayimg\.com/[^\s\)]+)', l)
                                 image_url = img_m.group(1).split('?')[0] if img_m else ''
+                            if not item_url and 'ebay.com/itm/' in l:
+                                url_m = _re.search(r'(https://www\.ebay\.com/itm/\d+)', l)
+                                item_url = url_m.group(1) if url_m else ''
+                        # Fallback: assign URLs in order if found in text
+                        if not item_url and url_idx < len(all_item_urls):
+                            item_url = all_item_urls[url_idx]
+                            url_idx += 1
+                        # Last fallback: link to the sold search page
+                        if not item_url:
+                            item_url = ebay_url
                         if title and len(title) > 10 and 0 < price < 100000:
                             items.append({
                                 "title": title, "price": price,
                                 "image_url": image_url, "date_sold": date_sold,
-                                "url": "", "source": "sold"
+                                "url": item_url, "source": "sold"
                             })
                         if len(items) >= limit:
                             break
@@ -3009,6 +3028,7 @@ async def get_card_market_value(query: str):
                 "query": query, "clean_query": clean_q,
                 "is_graded": True, "detected_grade": grade_str,
                 "data_source": "sold" if any(i.get("source") == "sold" for i in same_grade_items) else "active",
+                "sold_search_url": f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(f'{clean_q} {grade_str}')}&LH_Sold=1&LH_Complete=1",
                 "primary": {"label": grade_str, "items": same_grade_items, "stats": calc_stats(same_grade_items)},
                 "secondary": {"label": "Raw / Ungraded", "items": raw_items, "stats": calc_stats(raw_items)},
             }
@@ -3021,6 +3041,7 @@ async def get_card_market_value(query: str):
                 "query": query, "clean_query": clean_q,
                 "is_graded": False, "detected_grade": None,
                 "data_source": "sold" if any(i.get("source") == "sold" for i in raw_items) else "active",
+                "sold_search_url": f"https://www.ebay.com/sch/i.html?_nkw={quote_plus(clean_q)}&LH_Sold=1&LH_Complete=1",
                 "primary": {"label": "Raw / Ungraded", "items": raw_items, "stats": calc_stats(raw_items)},
                 "secondary": {"label": "PSA 10 (potential value)", "items": psa10_items, "stats": calc_stats(psa10_items)},
             }

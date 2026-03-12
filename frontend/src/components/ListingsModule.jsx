@@ -300,17 +300,26 @@ const ListingDetail = ({ listing, onBack, onSuccess }) => {
               {/* Recent Sales */}
               {!loadingMarket && (primaryItems.length > 0 || secondaryItems.length > 0) && (
                 <div>
-                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-2">Recent Sales</p>
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-600">Recent Sales</p>
+                    {marketData?.sold_search_url && (
+                      <a href={marketData.sold_search_url} target="_blank" rel="noopener noreferrer"
+                        className="text-[10px] text-[#3b82f6] hover:text-[#60a5fa] transition-colors" data-testid="view-all-sold-link">
+                        View all on eBay &rarr;
+                      </a>
+                    )}
+                  </div>
                   <div className="space-y-1 max-h-52 overflow-y-auto">
                     {[...primaryItems.slice(0, 5), ...secondaryItems.slice(0, 3)].map((sale, i) => (
-                      <div key={i} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.03] group">
+                      <a key={i} href={sale.url || marketData?.sold_search_url || '#'} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.05] group cursor-pointer" data-testid={`sold-item-link-${i}`}>
                         {sale.image_url && <img src={sale.image_url} alt="" className="w-8 h-8 rounded object-cover flex-shrink-0" />}
                         <div className="flex-1 min-w-0">
-                          <p className="text-[10px] text-gray-400 truncate group-hover:text-white">{sale.title}</p>
+                          <p className="text-[10px] text-gray-400 truncate group-hover:text-[#3b82f6]">{sale.title}</p>
                           {sale.date_sold && <p className="text-[9px] text-gray-600">Sold {sale.date_sold}</p>}
                         </div>
                         <span className="text-xs font-bold text-emerald-400 flex-shrink-0">${sale.price}</span>
-                      </div>
+                      </a>
                     ))}
                   </div>
                 </div>
