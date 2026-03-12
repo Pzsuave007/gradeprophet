@@ -6,17 +6,25 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 ## User Personas
 - **Coleccionistas de tarjetas deportivas**: Quieren saber el valor potencial de sus tarjetas
 - **Revendedores/Flippers**: Buscan maximizar ROI detectando oportunidades de compra/venta
-- **Nuevos coleccionistas**: Necesitan aprender qué buscar en tarjetas de calidad
+- **Nuevos coleccionistas**: Necesitan aprender que buscar en tarjetas de calidad
 
 ## Platform Structure
-1. **Dashboard** - Vista general del negocio (KPIs, cards escaneadas, movers, oportunidades)
-2. **Inventory** - Administrar coleccion de tarjetas (PENDIENTE)
-3. **Market** - Precios en tiempo real, tendencias (PENDIENTE)
+1. **Dashboard** - Vista general del negocio (KPIs, cards escaneadas, movers, oportunidades) - COMPLETO
+2. **Inventory** - Administrar coleccion de tarjetas (COMPLETO)
+3. **Market** - Precios en tiempo real, tendencias (COMPLETO)
 4. **Flip Finder** - Scanner AI + Monitor eBay (COMPLETO)
 5. **Listings** - Publicar en eBay, administrar listings (PENDIENTE)
-6. **Account** - Configuracion de cuenta (PENDIENTE)
+6. **Account** - Configuracion de cuenta (BASICO)
 
 ## What's Been Implemented
+
+### Febrero 2026 - List/Grid View Toggle
+- Reusable ViewToggle component across all modules
+- Inventory: Toggle between list and grid card view
+- Market: My Listings tab - grid/list toggle with card images, prices, metadata
+- Market: My Collection tab - grid/list toggle with category badges
+- Flip Finder (EbayMonitor): grid/list toggle for eBay listings
+- Improved "No data" messages in Spanish ("Sin ventas raw/PSA 10 recientes")
 
 ### Marzo 2026 - Market Data & Flip Calculator
 - Market search with real-time eBay Browse API data
@@ -36,29 +44,16 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 - Full CRUD for card collection management (add, edit, delete, search)
 - Two categories: **Collection** (personal cards) and **For Sale** (cards to sell)
 - "Add to Inventory" button on scan results to import analyzed cards with one click
-- Duplicate import protection (same card can't be imported twice)
-- Fields: Card Name, Player, Year, Set, Card Number, Variation, Condition (Raw/Graded), Grading Company, Grade, Purchase Price, Quantity, Notes, Image Upload, Category
+- Duplicate import protection
+- Fields: Card Name, Player, Year, Set, Card Number, Variation, Condition, Grade, Purchase Price, Quantity, Notes, Image Upload, Category
 - Search by name, player, set, card number, variation
-- Filters: Category tabs (All/Collection/For Sale), Condition (Raw/Graded), Listed/Not Listed
+- Filters: Category tabs, Condition, Listed/Not Listed
 - Stats cards: Total Cards, Total Invested, Graded count, Listed count
-- Category badges on each card (blue=Collection, green=For Sale)
 
 ### Marzo 2026 - Dashboard Module
 - Dashboard con 4 KPI cards (Estimated Value, Cards Scanned, eBay Listings, Flip Opportunities)
-- Widget "Recently Scanned" - ultimas tarjetas analizadas con imagenes y grados PSA
-- Widget "Price Movers" - mayores cambios de precio de tarjetas en watchlist
-- Widget "Flip Opportunities" - listings interesantes con enlaces a eBay
-- Integracion con eBay Browse API (OAuth client credentials) para datos de mercado en vivo
-- Endpoint GET /api/dashboard/ebay-market para busquedas de mercado en tiempo real
-- Navegacion por defecto al Dashboard al abrir la app
-- Boton de refresh en Dashboard
-- Links "View All" y "Monitor" para navegar entre modulos
-
-### Marzo 2026 - Platform Restructure
-- Reestructuracion de GradeProphet → FlipSlab Engine
-- Sidebar navigation con todos los modulos
-- Branding actualizado
-- Paginas placeholder para modulos futuros
+- Widget "Recently Scanned", "Price Movers", "Flip Opportunities"
+- Integration with eBay Browse API for live market data
 
 ### Febrero 2026 - Core Features
 - AI Card Scanner con GPT-4o Vision
@@ -67,7 +62,6 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 - Auto-crop con OpenCV
 - Calibracion de grados PSA
 - Sistema de aprendizaje con feedback
-- Mobile responsive design
 
 ## Technical Architecture
 - **Frontend**: React + TailwindCSS + Framer Motion + Shadcn UI
@@ -90,47 +84,72 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 - `GET /api/dashboard/opportunities` - Oportunidades de flip
 - `GET /api/dashboard/ebay-market` - Datos de mercado eBay en vivo
 
-### Flip Finder (existing)
-- `POST /api/cards/analyze` - Analizar tarjeta
-- `GET /api/cards/history` - Historial
-- `POST /api/watchlist` - Agregar a watchlist
-- `POST /api/watchlist/search` - Buscar en eBay
-- `GET /api/listings` - Obtener listings
-- Plus 15+ more endpoints
+### Inventory
+- `GET /api/inventory` - List inventory items
+- `POST /api/inventory` - Add card
+- `PUT /api/inventory/{id}` - Update card
+- `DELETE /api/inventory/{id}` - Delete card
+- `GET /api/inventory/stats` - Inventory stats
+- `POST /api/inventory/from-scan` - Add from scan
+
+### Market
+- `GET /api/market/card-value` - Get market value
+- `GET /api/market/flip-calc` - Flip calculator
+- `POST /api/market/solds` - Get sold listings
+
+### eBay
+- `GET /api/ebay/oauth/authorize` - Initiate OAuth
+- `GET /api/ebay/seller/listings` - Active listings
+- `GET /api/ebay/seller/sales` - Recent sales
+- `GET /api/ebay/seller/my-listings` - My listings
+
+### Flip Finder
+- `POST /api/cards/analyze` - Analyze card
+- `GET /api/cards/history` - History
+- `POST /api/watchlist` - Add to watchlist
+- `POST /api/watchlist/search` - Search eBay
+- `GET /api/listings` - Get listings
 
 ## Database Collections
 - `card_analyses` - Historial de analisis
 - `psa10_references` - Referencias PSA 10
 - `watchlist_cards` - Watchlist del monitor
 - `ebay_listings` - Listings encontrados
+- `inventory` - User card inventory
+- `ebay_tokens` - OAuth tokens
 
 ## Key Files
+- `/app/frontend/src/components/ViewToggle.jsx` - Reusable view toggle
 - `/app/frontend/src/components/DashboardHome.jsx` - Dashboard UI
+- `/app/frontend/src/components/MarketModule.jsx` - Market module with grid/list
+- `/app/frontend/src/components/InventoryModule.jsx` - Inventory with grid/list
+- `/app/frontend/src/components/EbayMonitor.jsx` - eBay monitor with grid/list
+- `/app/frontend/src/components/FlipFinder.jsx` - Flip Finder module
 - `/app/frontend/src/pages/Dashboard.jsx` - Layout principal con sidebar
-- `/app/frontend/src/components/FlipFinder.jsx` - Modulo Flip Finder
-- `/app/backend/server.py` - Todos los endpoints API
-- `/app/fix.sh` - Script de deployment
+- `/app/backend/server.py` - All API endpoints
+- `/app/fix.sh` - Deployment script
 
 ## Prioritized Backlog
 
 ### P0 (Critical) - Completed
-- AI Card Scanner, Historial, Monitor eBay, Dashboard Module, Inventory Module, Market Data, Flip Calculator, eBay OAuth
+- AI Card Scanner, Historial, Monitor eBay, Dashboard, Inventory, Market Data, Flip Calculator, eBay OAuth, List/Grid View Toggle
 
 ### P1 (High Priority) - Next
-- **Listings Module**: Administrar tus eBay listings activos desde la app, editar precios
+- **Listings Module**: Administrar eBay listings activos desde la app, editar precios
 - Import eBay listings to inventory automatically
 
 ### P2 (Medium Priority)
-- **Listings Module**: Publicar en eBay, administrar listings activos
 - **Account Module**: Configuracion, integraciones, preferencias
-- eBay OAuth user token flow para acceder a listings del vendedor
+- **Full Flip Finder Logic**: Complete flip analysis with profit calculations
 
 ### P3 (Nice to Have)
+- Refactorizar server.py en routers modulares
 - Busqueda automatica diaria (scheduled job)
 - Export de reportes (PDF)
 - Notificaciones de cambios de precio
 - App movil nativa
 
 ## Deployment
-- Changes deployed via `fix.sh` script (git pull → copy files → build → restart)
+- Changes deployed via `fix.sh` script (git pull -> copy files -> build -> restart)
 - eBay API credentials auto-added to server .env by fix.sh
+- NOTE: User's server git needs `git reset --hard origin/main` due to history rewrite
