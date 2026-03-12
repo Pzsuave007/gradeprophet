@@ -18,6 +18,15 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 
 ## What's Been Implemented
 
+### Marzo 2026 - Inventory Module
+- Full CRUD for card collection management (add, edit, delete, search)
+- Fields: Card Name, Player, Year, Set, Card Number, Variation, Condition (Raw/Graded), Grading Company, Grade, Purchase Price, Quantity, Notes, Image Upload
+- Search by name, player, set, card number, variation
+- Filters: Condition (Raw/Graded), Listed/Not Listed
+- Stats cards: Total Cards, Total Invested, Graded count, Listed count
+- Modal form with conditional fields (grading fields shown only when Graded)
+- Image upload with thumbnail generation
+
 ### Marzo 2026 - Dashboard Module
 - Dashboard con 4 KPI cards (Estimated Value, Cards Scanned, eBay Listings, Flip Opportunities)
 - Widget "Recently Scanned" - ultimas tarjetas analizadas con imagenes y grados PSA
@@ -89,7 +98,7 @@ El usuario quiere expandir su webapp "GradeProphet" a una plataforma completa de
 ## Prioritized Backlog
 
 ### P0 (Critical) - Completed
-- AI Card Scanner, Historial, Monitor eBay, Dashboard Module
+- AI Card Scanner, Historial, Monitor eBay, Dashboard Module, Inventory Module
 
 ### P1 (High Priority) - Next
 - **Inventory Module**: Administrar coleccion, costos, valores actuales
