@@ -5,7 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const GOOGLE_AUTH_URL = `https://demobackend.emergentagent.com/auth/v1/env/oauth?redirect_uri=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
+const GOOGLE_AUTH_URL = `https://demobackend.emergentagent.com/auth/v1/env/oauth?redirect=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
 
 const AuthPage = ({ onSuccess, onBack }) => {
   const [mode, setMode] = useState('login'); // login or register
