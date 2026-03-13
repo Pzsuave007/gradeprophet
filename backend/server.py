@@ -3788,9 +3788,9 @@ async def get_inventory_stats():
         graded = await db.inventory.count_documents({"condition": "Graded"})
         raw = await db.inventory.count_documents({"condition": "Raw"})
         listed = await db.inventory.count_documents({"listed": True})
-        not_listed = await db.inventory.count_documents({"listed": False})
-        collection_count = await db.inventory.count_documents({"category": "collection"})
-        for_sale_count = await db.inventory.count_documents({"category": "for_sale"})
+        not_listed = await db.inventory.count_documents({"listed": {"$ne": True}})
+        collection_count = await db.inventory.count_documents({"category": "collection", "listed": {"$ne": True}})
+        for_sale_count = await db.inventory.count_documents({"category": "for_sale", "listed": {"$ne": True}})
 
         pipeline = [
             {"$match": {"purchase_price": {"$gt": 0}}},
@@ -4534,7 +4534,7 @@ async def end_ebay_listing(ebay_item_id: str, reason: str = "NotAvailable"):
             # Update local records
             await db.inventory.update_one(
                 {"ebay_item_id": ebay_item_id},
-                {"$set": {"listed": False, "ebay_item_id": None}}
+                {"$set": {"listed": False, "ebay_item_id": None, "listed_price": None, "listed_at": None}}
             )
             await db.created_listings.update_one(
                 {"ebay_item_id": ebay_item_id},

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw,
-  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check
+  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -250,8 +250,13 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
       const params = new URLSearchParams();
       if (searchVal) params.append('search', searchVal);
       if (filters.condition) params.append('condition', filters.condition);
+      if (activeCategory === 'listed') {
+        params.append('listed', 'true');
+      } else if (activeCategory !== 'all') {
+        params.append('category', activeCategory);
+        params.append('listed', 'false');
+      }
       if (filters.listed) params.append('listed', filters.listed);
-      if (activeCategory !== 'all') params.append('category', activeCategory);
       params.append('limit', '50');
       const [itemsRes, statsRes] = await Promise.all([
         axios.get(`${API}/api/inventory?${params}`),
@@ -323,6 +328,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
     { id: 'all', label: 'All', count: s.total_cards || 0 },
     { id: 'collection', label: 'Collection', icon: Heart, count: s.collection_count || 0 },
     { id: 'for_sale', label: 'For Sale', icon: ShoppingBag, count: s.for_sale_count || 0 },
+    { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
   ];
 
   return (
@@ -332,7 +338,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
           { icon: Package, label: 'Total Cards', val: s.total_cards || 0, color: 'bg-[#3b82f6]' },
           { icon: DollarSign, label: 'Invested', val: formatPrice(s.total_invested), color: 'bg-emerald-600' },
           { icon: Award, label: 'Graded', val: s.graded || 0, color: 'bg-amber-600' },
-          { icon: Tag, label: 'Listed', val: `${s.listed || 0} / ${s.not_listed || 0}`, color: 'bg-purple-600' },
+          { icon: Tag, label: 'Listed', val: s.listed || 0, color: 'bg-amber-600' },
         ].map(({ icon: Icon, label, val, color }, i) => (
           <div key={i} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1.5"><div className={`w-7 h-7 rounded-lg flex items-center justify-center ${color}`}><Icon className="w-3.5 h-3.5 text-white" /></div><span className="text-[10px] uppercase tracking-widest text-gray-600">{label}</span></div>
@@ -363,8 +369,8 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         <ViewToggle view={viewMode} onChange={setViewMode} />
         {!selectMode ? (
           <>
-            <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>
-            <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>
+            {activeCategory !== 'listed' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
+            {activeCategory !== 'listed' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
           </>
         ) : (
           <>
@@ -400,8 +406,8 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
       ) : items.length === 0 ? (
         <div className="text-center py-16 bg-[#111] border border-[#1a1a1a] rounded-xl">
           <Package className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-          <p className="text-sm text-gray-400 mb-4">No cards found</p>
-          <button onClick={openAdd} className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold" data-testid="empty-add-card-btn"><Plus className="w-4 h-4 inline mr-1" /> Add Card</button>
+          <p className="text-sm text-gray-400 mb-4">{activeCategory === 'listed' ? 'No cards listed on eBay yet' : 'No cards found'}</p>
+          {activeCategory !== 'listed' && <button onClick={openAdd} className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold" data-testid="empty-add-card-btn"><Plus className="w-4 h-4 inline mr-1" /> Add Card</button>}
         </div>
       ) : viewMode === 'grid' ? (
         /* GRID VIEW */
@@ -414,8 +420,9 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
+                  : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
-                {item.listed && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
+                {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
                 {/* Select checkbox */}
                 {selectMode && (
                   <div className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected.has(item.id) ? 'bg-[#3b82f6] border-[#3b82f6]' : 'bg-black/50 border-gray-500'}`}>
@@ -424,9 +431,10 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 )}
                 {!selectMode && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1 rounded bg-emerald-600/80 text-white hover:bg-emerald-500" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3 h-3" /></button>
+                    {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1 rounded bg-emerald-600/80 text-white hover:bg-emerald-500" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3 h-3" /></button>}
+                    {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1 rounded bg-amber-600/80 text-white hover:bg-amber-500" title="View on eBay"><ExternalLink className="w-3 h-3" /></a>}
                     <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>
+                    {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>}
                   </div>
                 )}
               </div>
@@ -434,9 +442,14 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
                 <div className="flex items-center justify-between mt-1.5">
                   {item.condition === 'Graded' && item.grade ? <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span> : <span className="text-[10px] text-gray-600">Raw</span>}
-                  <span className="text-[11px] font-bold text-white">{formatPrice(item.purchase_price)}</span>
+                  <span className="text-[11px] font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</span>
                 </div>
                 {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
+                {item.listed && item.listed_price && item.purchase_price > 0 && (
+                  <p className={`text-[9px] mt-0.5 font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {item.listed_price - item.purchase_price > 0 ? '+' : ''}{formatPrice(item.listed_price - item.purchase_price)} profit
+                  </p>
+                )}
               </div>
             </motion.div>
           ))}
@@ -459,7 +472,9 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white truncate">{item.card_name}</p>
-                  {item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">For Sale</span> : <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>}</div>
+                  {item.listed ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0 uppercase font-medium flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />Listed</span>
+                    : item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">For Sale</span>
+                    : <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>}</div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {item.player && <span className="text-[11px] text-gray-400">{item.player}</span>}
                   {item.year && <span className="text-[11px] text-gray-600">{item.year}</span>}
@@ -470,12 +485,21 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               <div className="text-center flex-shrink-0">
                 {item.condition === 'Graded' && item.grade ? <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"><span className="text-[9px] uppercase tracking-wider text-amber-400 block">{item.grading_company || 'Graded'}</span><span className="text-sm font-bold text-amber-300">{item.grade}</span></div> : <span className="text-[10px] px-2 py-1 rounded bg-[#1a1a1a] text-gray-500 uppercase">Raw</span>}
               </div>
-              <div className="text-right flex-shrink-0 w-20"><p className="text-sm font-bold text-white">{formatPrice(item.purchase_price)}</p>{item.quantity > 1 && <p className="text-[10px] text-gray-600">x{item.quantity}</p>}</div>
+              <div className="text-right flex-shrink-0 w-20">
+                <p className="text-sm font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</p>
+                {item.listed && item.purchase_price > 0 && item.listed_price && (
+                  <p className={`text-[9px] font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    Cost: {formatPrice(item.purchase_price)}
+                  </p>
+                )}
+                {!item.listed && item.quantity > 1 && <p className="text-[10px] text-gray-600">x{item.quantity}</p>}
+              </div>
               {!selectMode && (
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                  <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3.5 h-3.5" /></button>
+                  {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3.5 h-3.5" /></button>}
+                  {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg hover:bg-amber-500/10 text-gray-500 hover:text-amber-400" title="View on eBay"><ExternalLink className="w-3.5 h-3.5" /></a>}
                   <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3.5 h-3.5" /></button>
-                  <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>
+                  {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>}
                 </div>
               )}
             </motion.div>
