@@ -138,6 +138,14 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 
 ## Prioritized Backlog
 
+### Marzo 2026 - Image Processing Pipeline (Auto-Crop, Enhance, Back ID)
+- **Auto-Crop + Black Background**: OpenCV contour detection finds card edges in phone photos, crops and centers on clean black background with 8% padding margin
+- **Color Enhancement**: Pillow-based processing: saturation +25%, contrast +15%, sharpness +30%, brightness +5% — makes cards look vibrant and professional
+- **Back Image AI Identification**: Upload back photo triggers re-identification with both front + back images using GPT-4o. Back of card reveals year, set, card number, variation — critical for raw cards
+- Pipeline: `process_card_image()` = crop → enhance → resize (800px max)
+- Applied to both create and update inventory endpoints
+- 100% test pass rate (iteration_17: 10 backend + frontend UI tests)
+
 ### Marzo 2026 - Smart Market Comparison for Listings (Structured Search)
 - **Improved**: Market comparison in Listings detail now uses structured card data (year, set, player, card#, sport, grade) instead of AI-generated title
 - Backend `/api/market/card-value` accepts optional `ebay_item_id` param to look up inventory item
