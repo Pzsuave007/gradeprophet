@@ -6,12 +6,12 @@ import {
 } from 'lucide-react';
 
 const FEATURES = [
-  { icon: ScanLine, title: 'AI Card Scanner', desc: 'Snap a photo. AI identifies player, year, set, and condition instantly.', size: 'large', color: '#3b82f6' },
-  { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth.', size: 'tall', color: '#10b981' },
-  { icon: Store, title: 'eBay Integration', desc: 'List directly to eBay with AI-generated titles, descriptions, and market-based pricing.', size: 'small', color: '#f59e0b' },
-  { icon: Bell, title: 'Price Alerts', desc: 'Get notified when cards hit your target buy or sell price.', size: 'small', color: '#ef4444' },
-  { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically.', size: 'small', color: '#8b5cf6' },
-  { icon: BarChart3, title: 'Market Intelligence', desc: 'Price history charts, sold comparisons, and trend analysis.', size: 'small', color: '#06b6d4' },
+  { icon: ScanLine, title: 'AI Card Scanner', desc: 'Snap a photo. AI identifies player, year, set, and condition instantly. Works with raw and graded cards.', color: '#3b82f6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/fba2228e6311181cf9c2d1758f4ac11b2fe700cdbf249ce22a3eff98f953af1c.png' },
+  { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth.', color: '#10b981', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/f50dd5584cfb99121cef67089a584bb852a867365cd070af33bbda58717297c6.png' },
+  { icon: Store, title: 'eBay Integration', desc: 'List directly to eBay with AI-generated titles, descriptions, and market-based pricing.', color: '#f59e0b', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/e55c10ef10fe712afceb1276142359bc8eea37c5f41b41e73b19ce2d48a67d63.png' },
+  { icon: Bell, title: 'Price Alerts', desc: 'Get notified when cards hit your target buy or sell price. Never miss a deal again.', color: '#ef4444', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/058bad830b54b29becf7a3ed070019fd1c53c0bf4914ff3e2f87f31b59c47207.png' },
+  { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically. Perfect for dealers.', color: '#8b5cf6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/8fb1feca0199f1312526368524b2f072e96315b1619225329c1abe52c84e4f81.png' },
+  { icon: BarChart3, title: 'Market Intelligence', desc: 'Price history charts, sold comparisons, and trend analysis powered by real eBay data.', color: '#06b6d4', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/0cdd6557949d1bf9e984114f7bcd8f3f5a12713dc1b8cbe21886898a9c4e61c5.png' },
 ];
 
 const PLANS = [
@@ -134,18 +134,26 @@ const LandingPage = ({ onGetStarted }) => {
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Everything You Need to Flip</h2>
           </motion.div>
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mt-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-12">
             {FEATURES.map((f, i) => (
               <motion.div key={i}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: i * 0.08 }}
-                className={`rounded-2xl border border-white/[0.06] bg-[#111] p-6 hover:border-white/[0.12] transition-all group ${i === 0 ? 'col-span-2 row-span-1' : i === 1 ? 'row-span-2' : ''}`}
+                initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: i * 0.1, duration: 0.5 }}
+                className={`group rounded-2xl border border-white/[0.06] bg-[#111] overflow-hidden hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1 hover:shadow-xl ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}
                 data-testid={`feature-${i}`}>
-                <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4" style={{ background: `${f.color}15` }}>
-                  <f.icon className="w-5 h-5" style={{ color: f.color }} strokeWidth={1.5} />
+                {/* Image */}
+                <div className={`relative overflow-hidden ${i === 0 ? 'h-64 lg:h-80' : 'h-44'}`}>
+                  <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-[#111]/40 to-transparent" />
+                  <div className="absolute bottom-4 left-4 w-10 h-10 rounded-xl flex items-center justify-center backdrop-blur-md" style={{ background: `${f.color}20`, border: `1px solid ${f.color}40` }}>
+                    <f.icon className="w-5 h-5" style={{ color: f.color }} strokeWidth={1.8} />
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-white mb-1.5">{f.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+                {/* Text */}
+                <div className="p-5">
+                  <h3 className="text-base font-bold text-white mb-1.5 group-hover:text-[var(--accent)] transition-colors" style={{ '--accent': f.color }}>{f.title}</h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
+                </div>
               </motion.div>
             ))}
           </div>
