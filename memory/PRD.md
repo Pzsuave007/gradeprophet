@@ -181,6 +181,25 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - **Frontend**: New "Batch Upload" tab in Inventory module alongside "My Cards" and "Scan Card"
 - 100% test pass rate (8 backend + 12 frontend tests, iteration_18)
 
+### Marzo 2026 - Card Ladder Features (Portfolio, Alerts, Price Charts)
+- **Portfolio Value Tracker**: Dashboard tab showing total portfolio value, invested, P&L, ROI KPIs
+  - "Refresh All Values" button auto-lookups market price for each card via eBay sold data
+  - Stores daily snapshots for trend chart over time
+  - Card Values table shows each card with market value, cost, and P&L
+  - Endpoints: GET /api/portfolio/summary, POST /api/portfolio/refresh-value/{id}, POST /api/portfolio/snapshot
+- **Price Alerts**: Create alerts for when card prices drop below or rise above target
+  - Full CRUD: create, list, delete alerts
+  - "Check Now" button checks all active alerts against live market prices
+  - Triggered alerts highlighted with badge
+  - Integrated in Market module between Watchlist and Monthly Performance
+  - Endpoints: POST/GET/DELETE /api/alerts, POST /api/alerts/check
+- **Price History Chart**: Visual price trend chart for individual cards
+  - Accessible from inventory grid/list view via TrendingUp icon
+  - Shows scatter plot of recent eBay sold prices over time
+  - Stats strip: median, range, trend %, sales count
+  - Recent sold list with links to eBay
+- 100% test pass rate (16 backend + all frontend tests, iteration_19)
+
 ### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next
