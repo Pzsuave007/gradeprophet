@@ -3833,6 +3833,86 @@ async def create_inventory_item(data: InventoryItemCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+
+class BatchCardItem(BaseModel):
+    card_name: str
+    player: Optional[str] = None
+    year: Optional[int] = None
+    set_name: Optional[str] = None
+    card_number: Optional[str] = None
+    variation: Optional[str] = None
+    condition: Optional[str] = "Raw"
+    grading_company: Optional[str] = None
+    grade: Optional[float] = None
+    purchase_price: Optional[float] = None
+    quantity: int = 1
+    notes: Optional[str] = None
+    image_base64: Optional[str] = None
+    back_image_base64: Optional[str] = None
+    sport: Optional[str] = None
+
+class BatchSaveRequest(BaseModel):
+    cards: List[BatchCardItem]
+    category: str = "collection"
+
+@api_router.post("/inventory/batch-save")
+async def batch_save_inventory(data: BatchSaveRequest):
+    """Save multiple cards to inventory at once"""
+    try:
+        saved = 0
+        errors = []
+        for idx, card in enumerate(data.cards):
+            try:
+                image_thumb = None
+                if card.image_base64:
+                    img = card.image_base64
+                    if ',' in img:
+                        img = img.split(',')[1]
+                    image_thumb = process_card_image(img, max_size=800)
+
+                back_image_thumb = None
+                if card.back_image_base64:
+                    bimg = card.back_image_base64
+                    if ',' in bimg:
+                        bimg = bimg.split(',')[1]
+                    back_image_thumb = process_card_image(bimg, max_size=800)
+
+                item = InventoryItem(
+                    card_name=card.card_name,
+                    player=card.player,
+                    year=card.year,
+                    set_name=card.set_name,
+                    card_number=card.card_number,
+                    variation=card.variation,
+                    condition=card.condition,
+                    grading_company=card.grading_company,
+                    grade=card.grade,
+                    purchase_price=card.purchase_price,
+                    quantity=card.quantity,
+                    notes=card.notes,
+                    image=image_thumb,
+                    back_image=back_image_thumb,
+                    category=data.category,
+                    sport=card.sport,
+                )
+
+                doc = item.model_dump()
+                doc['created_at'] = doc['created_at'].isoformat()
+                doc['updated_at'] = doc['updated_at'].isoformat()
+                await db.inventory.insert_one(doc)
+                doc.pop('_id', None)
+                saved += 1
+            except Exception as e:
+                logger.error(f"Batch save card {idx} failed: {e}")
+                errors.append({"index": idx, "card_name": card.card_name, "error": str(e)})
+
+        return {"saved": saved, "total": len(data.cards), "errors": errors}
+    except Exception as e:
+        logger.error(f"Batch save failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @api_router.get("/inventory")
 async def get_inventory(
     search: Optional[str] = None,

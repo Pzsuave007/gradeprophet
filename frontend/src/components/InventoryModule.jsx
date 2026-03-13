@@ -12,6 +12,7 @@ import AnalysisResult from './AnalysisResult';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
+import BatchUploadView from './BatchUploadView';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -537,7 +538,7 @@ const InventoryModule = () => {
         <div><h1 className="text-xl font-bold text-white tracking-tight">Inventory</h1><p className="text-xs text-gray-500 mt-0.5">Manage your card collection</p></div>
       </div>
       <div className="flex gap-1 mb-1">
-        {[{ id: 'cards', label: 'My Cards', icon: Layers }, { id: 'scan', label: 'Scan Card', icon: Scan }].map(({ id, label, icon: Icon }) => (
+        {[{ id: 'cards', label: 'My Cards', icon: Layers }, { id: 'batch', label: 'Batch Upload', icon: Upload }, { id: 'scan', label: 'Scan Card', icon: Scan }].map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setMainTab(id)}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'}`}
             data-testid={`inv-tab-${id}`}><Icon className="w-4 h-4" />{label}</button>
@@ -545,6 +546,9 @@ const InventoryModule = () => {
       </div>
       <AnimatePresence mode="wait">
         {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} /></motion.div>)}
+        {mainTab === 'batch' && (<motion.div key="batch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <BatchUploadView onBack={() => setMainTab('cards')} onComplete={() => { setMainTab('cards'); setActiveCategory('all'); }} />
+        </motion.div>)}
         {mainTab === 'scan' && (<motion.div key="scan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           {scannerView === 'scan' && <CardScanner onAnalysisComplete={handleAnalysisComplete} isAnalyzing={isAnalyzing} setIsAnalyzing={setIsAnalyzing} />}
           {scannerView === 'result' && currentAnalysis && (<>
