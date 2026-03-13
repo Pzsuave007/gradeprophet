@@ -9,7 +9,9 @@ import {
   User,
   Menu,
   X,
-  Zap
+  Zap,
+  LogOut,
+  Layers
 } from 'lucide-react';
 import FlipFinder from '../components/FlipFinder';
 import DashboardHome from '../components/DashboardHome';
@@ -49,7 +51,7 @@ const modules = [
   { id: 'account', label: 'Account', icon: User },
 ];
 
-const Dashboard = () => {
+const Dashboard = ({ user, onLogout }) => {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -98,8 +100,25 @@ const Dashboard = () => {
         </nav>
 
         {/* Sidebar Footer */}
-        <div className="px-4 py-3 border-t border-[#1a1a1a]">
-          <p className="text-[9px] text-gray-700 uppercase tracking-widest">Analyze. Track. Flip. Sell.</p>
+        <div className="px-3 py-3 border-t border-[#1a1a1a]">
+          <div className="flex items-center gap-2.5 mb-2">
+            {user?.picture ? (
+              <img src={user.picture} alt="" className="w-7 h-7 rounded-full" />
+            ) : (
+              <div className="w-7 h-7 rounded-full bg-[#3b82f6]/20 flex items-center justify-center">
+                <User className="w-3.5 h-3.5 text-[#3b82f6]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-medium text-white truncate">{user?.name || 'User'}</p>
+              <p className="text-[9px] text-gray-600 truncate">{user?.email}</p>
+            </div>
+          </div>
+          <button onClick={onLogout}
+            className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] text-gray-600 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+            data-testid="logout-btn">
+            <LogOut className="w-3 h-3" /> Sign Out
+          </button>
         </div>
       </aside>
 
