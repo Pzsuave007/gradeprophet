@@ -789,7 +789,7 @@ Recent examples: {', '.join(examples[-5:])}
 
 
 def auto_crop_card(image_base64: str) -> str:
-    """Auto-detect and crop a sports card from its background"""
+    """Auto-detect and crop a sports card from its background, place on black background"""
     try:
         import cv2
         import numpy as np
@@ -810,54 +810,71 @@ def auto_crop_card(image_base64: str) -> str:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
         # Apply Gaussian blur to reduce noise
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        blurred = cv2.GaussianBlur(gray, (7, 7), 0)
         
-        # Use adaptive threshold to handle various backgrounds
-        thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-        
-        # Also try Otsu's threshold and pick the better result
-        _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-        
-        # Find contours on both thresholds and pick the best card-like rectangle
+        # Try multiple detection strategies and pick the best card-like rectangle
         best_box = None
         best_area = 0
+        best_approx = None
         
-        for binary in [thresh, otsu]:
-            # Find edges
-            edges = cv2.Canny(binary, 50, 150)
-            
-            # Dilate to close gaps
+        # Strategy 1: Canny edge detection with various thresholds
+        for low, high in [(30, 100), (50, 150), (75, 200)]:
+            edges = cv2.Canny(blurred, low, high)
             kernel = np.ones((5, 5), np.uint8)
             dilated = cv2.dilate(edges, kernel, iterations=2)
-            
-            # Find contours
             contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            for cnt in contours:
+            for cnt in sorted(contours, key=cv2.contourArea, reverse=True)[:10]:
                 area = cv2.contourArea(cnt)
-                # Card should be at least 10% of image but not more than 95%
-                if area < (h * w * 0.10) or area > (h * w * 0.95):
+                if area < (h * w * 0.08) or area > (h * w * 0.96):
                     continue
                 
-                # Get bounding rectangle
-                x, y, rw, rh = cv2.boundingRect(cnt)
+                # Try to approximate as polygon
+                peri = cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
                 
-                # Card aspect ratio is roughly 2.5:3.5 (0.71) - allow range 0.5 to 0.9
+                x, y, rw, rh = cv2.boundingRect(cnt)
                 aspect = min(rw, rh) / max(rw, rh) if max(rw, rh) > 0 else 0
-                if aspect < 0.4 or aspect > 0.95:
+                
+                # Cards have aspect ratio ~0.64-0.75 (2.5" x 3.5"), slabs ~0.45-0.55
+                if aspect < 0.35 or aspect > 0.95:
                     continue
                 
                 if area > best_area:
                     best_area = area
                     best_box = (x, y, rw, rh)
+                    best_approx = approx if len(approx) == 4 else None
         
+        # Strategy 2: Adaptive + Otsu threshold fallback
         if best_box is None:
-            # Fallback: try simple color-based detection (card is usually lighter than dark background)
+            thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+            _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            for binary in [thresh, otsu]:
+                edges = cv2.Canny(binary, 50, 150)
+                kernel = np.ones((5, 5), np.uint8)
+                dilated = cv2.dilate(edges, kernel, iterations=2)
+                contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                
+                for cnt in contours:
+                    area = cv2.contourArea(cnt)
+                    if area < (h * w * 0.08):
+                        continue
+                    x, y, rw, rh = cv2.boundingRect(cnt)
+                    aspect = min(rw, rh) / max(rw, rh) if max(rw, rh) > 0 else 0
+                    if aspect < 0.35 or aspect > 0.95:
+                        continue
+                    if area > best_area:
+                        best_area = area
+                        best_box = (x, y, rw, rh)
+        
+        # Strategy 3: Simple brightness threshold (card lighter than dark bg)
+        if best_box is None:
             _, simple_thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY)
             contours, _ = cv2.findContours(simple_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for cnt in contours:
                 area = cv2.contourArea(cnt)
-                if area < (h * w * 0.10):
+                if area < (h * w * 0.08):
                     continue
                 x, y, rw, rh = cv2.boundingRect(cnt)
                 if area > best_area:
@@ -865,36 +882,99 @@ def auto_crop_card(image_base64: str) -> str:
                     best_box = (x, y, rw, rh)
         
         if best_box is None:
-            return image_base64  # No card detected, return original
+            # No card detected - still add black border to the original image
+            margin = 0.06
+            bg_w = int(w * (1 + 2 * margin))
+            bg_h = int(h * (1 + 2 * margin))
+            black_bg = np.zeros((bg_h, bg_w, 3), dtype=np.uint8)
+            off_x = (bg_w - w) // 2
+            off_y = (bg_h - h) // 2
+            black_bg[off_y:off_y+h, off_x:off_x+w] = img
+            _, buffer = cv2.imencode('.jpg', black_bg, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            logger.info(f"Auto-crop: no card detected, added black border to {w}x{h}")
+            return base64.b64encode(buffer).decode('utf-8')
         
         x, y, rw, rh = best_box
         
-        # Add small padding (2% of dimensions)
-        pad_x = int(rw * 0.02)
-        pad_y = int(rh * 0.02)
+        # Add small padding (1.5% of card dimensions)
+        pad_x = int(rw * 0.015)
+        pad_y = int(rh * 0.015)
         x = max(0, x - pad_x)
         y = max(0, y - pad_y)
         rw = min(w - x, rw + 2 * pad_x)
         rh = min(h - y, rh + 2 * pad_y)
         
-        # Only crop if we're actually removing significant background (at least 15%)
-        crop_ratio = (rw * rh) / (w * h)
-        if crop_ratio > 0.85:
-            return image_base64  # Card already fills most of the image
-        
-        # Crop
+        # Crop the card
         cropped = img[y:y+rh, x:x+rw]
         
-        # Encode back to base64
-        _, buffer = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
-        cropped_base64 = base64.b64encode(buffer).decode('utf-8')
+        # Create black background with padding (8% on each side)
+        margin = 0.08
+        bg_w = int(rw * (1 + 2 * margin))
+        bg_h = int(rh * (1 + 2 * margin))
+        black_bg = np.zeros((bg_h, bg_w, 3), dtype=np.uint8)
         
-        logger.info(f"Auto-crop: {w}x{h} -> {rw}x{rh} (removed {int((1-crop_ratio)*100)}% background)")
-        return cropped_base64
+        # Center the card on the black background
+        off_x = (bg_w - rw) // 2
+        off_y = (bg_h - rh) // 2
+        black_bg[off_y:off_y+rh, off_x:off_x+rw] = cropped
+        
+        # Encode back to base64
+        _, buffer = cv2.imencode('.jpg', black_bg, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        result_base64 = base64.b64encode(buffer).decode('utf-8')
+        
+        logger.info(f"Auto-crop: {w}x{h} -> card {rw}x{rh} on black bg {bg_w}x{bg_h}")
+        return result_base64
         
     except Exception as e:
         logger.warning(f"Auto-crop failed: {e}")
-        return image_base64  # Return original on failure
+        return image_base64
+
+
+def enhance_card_image(image_base64: str) -> str:
+    """Enhance card image colors: boost saturation, contrast, and sharpness"""
+    try:
+        from PIL import Image, ImageEnhance
+        import io
+        
+        image_data = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_data))
+        
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Boost color saturation (makes colors more vivid)
+        image = ImageEnhance.Color(image).enhance(1.25)
+        
+        # Increase contrast slightly 
+        image = ImageEnhance.Contrast(image).enhance(1.15)
+        
+        # Sharpen the image
+        image = ImageEnhance.Sharpness(image).enhance(1.3)
+        
+        # Slight brightness boost
+        image = ImageEnhance.Brightness(image).enhance(1.05)
+        
+        buffer = io.BytesIO()
+        image.save(buffer, format='JPEG', quality=95)
+        result = base64.b64encode(buffer.getvalue()).decode('utf-8')
+        
+        logger.info(f"Image enhanced: saturation+25%, contrast+15%, sharpness+30%")
+        return result
+        
+    except Exception as e:
+        logger.warning(f"Image enhance failed: {e}")
+        return image_base64
+
+
+def process_card_image(image_base64: str, max_size: int = 800) -> str:
+    """Full image processing pipeline: crop → enhance → resize"""
+    # Step 1: Auto-crop card and place on black background
+    processed = auto_crop_card(image_base64)
+    # Step 2: Enhance colors
+    processed = enhance_card_image(processed)
+    # Step 3: Create optimized thumbnail
+    processed = create_thumbnail(processed, max_size=max_size)
+    return processed
 
 def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
     """Create a high-quality preview from base64 image"""
@@ -1028,8 +1108,13 @@ async def analyze_card(data: CardAnalysisCreate):
 
 class CardIdentifyRequest(BaseModel):
     image_base64: str
+    back_image_base64: Optional[str] = None
 
-CARD_IDENTIFY_PROMPT = """You are a sports card identification expert. Look at this card image and identify ALL details you can see.
+CARD_IDENTIFY_PROMPT = """You are a sports card identification expert. Look at the card image(s) and identify ALL details you can see.
+
+If TWO images are provided: the first is the FRONT of the card, the second is the BACK. The back of the card often contains critical information like the year, card number, set name, manufacturer, and player stats. Use BOTH images together to identify the card accurately.
+
+For RAW (ungraded) cards, the back is especially important — it often has the card number, copyright year, and set/manufacturer info that isn't visible on the front.
 
 Return ONLY valid JSON with these fields (use null for anything you can't determine):
 {
@@ -1046,11 +1131,11 @@ Return ONLY valid JSON with these fields (use null for anything you can't determ
   "estimated_condition": "<Mint, Near Mint, Excellent, Good, Fair - your visual assessment>"
 }
 
-Be precise. If you can read text on the card or slab, use that exact text. If the card is in a PSA/BGS/SGC slab, read the grade from the label."""
+Be precise. If you can read text on the card or slab, use that exact text. If the card is in a PSA/BGS/SGC slab, read the grade from the label. For the back of the card, look for copyright year, card number, manufacturer/brand name."""
 
 @api_router.post("/cards/identify")
 async def identify_card_from_image(data: CardIdentifyRequest):
-    """Identify a card from an image and return structured data for form auto-fill"""
+    """Identify a card from front (and optionally back) image and return structured data for form auto-fill"""
     import json
     from emergentintegrations.llm.chat import LlmChat, UserMessage, ImageContent
 
@@ -1069,10 +1154,19 @@ async def identify_card_from_image(data: CardIdentifyRequest):
             system_message="You are a sports card identification expert. Respond only with valid JSON."
         ).with_model("openai", "gpt-4o")
 
-        image_content = ImageContent(image_base64=image)
+        image_list = [ImageContent(image_base64=image)]
+
+        # Include back image if provided (especially useful for raw cards)
+        if data.back_image_base64:
+            back_img = data.back_image_base64
+            if ',' in back_img:
+                back_img = back_img.split(',')[1]
+            image_list.append(ImageContent(image_base64=back_img))
+            logger.info("Card identify: including back image for better identification")
+
         user_msg = UserMessage(
             text=CARD_IDENTIFY_PROMPT,
-            file_contents=[image_content]
+            file_contents=image_list
         )
 
         response_text = await chat.send_message(user_msg)
@@ -3712,14 +3806,14 @@ async def create_inventory_item(data: InventoryItemCreate):
             img = data.image_base64
             if ',' in img:
                 img = img.split(',')[1]
-            image_thumb = create_thumbnail(img, max_size=600)
+            image_thumb = process_card_image(img, max_size=800)
 
         back_image_thumb = None
         if data.back_image_base64:
             bimg = data.back_image_base64
             if ',' in bimg:
                 bimg = bimg.split(',')[1]
-            back_image_thumb = create_thumbnail(bimg, max_size=600)
+            back_image_thumb = process_card_image(bimg, max_size=800)
 
         item = InventoryItem(
             card_name=data.card_name,
@@ -3871,12 +3965,12 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
                 img = value
                 if ',' in img:
                     img = img.split(',')[1]
-                update_fields["image"] = create_thumbnail(img, max_size=600)
+                update_fields["image"] = process_card_image(img, max_size=800)
             elif field == "back_image_base64" and value is not None:
                 bimg = value
                 if ',' in bimg:
                     bimg = bimg.split(',')[1]
-                update_fields["back_image"] = create_thumbnail(bimg, max_size=600)
+                update_fields["back_image"] = process_card_image(bimg, max_size=800)
             elif field not in ("image_base64", "back_image_base64"):
                 update_fields[field] = value
 

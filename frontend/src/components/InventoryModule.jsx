@@ -53,10 +53,12 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
     }
   }, [editItem]);
 
-  const identifyCard = async (imageData) => {
+  const identifyCard = async (frontImageData, backImageData = null) => {
     setIdentifying(true);
     try {
-      const res = await axios.post(`${API}/api/cards/identify`, { image_base64: imageData });
+      const payload = { image_base64: frontImageData };
+      if (backImageData) payload.back_image_base64 = backImageData;
+      const res = await axios.post(`${API}/api/cards/identify`, payload);
       const d = res.data;
       if (d.error) { toast.error('Could not identify card'); return; }
       setForm(f => ({
@@ -72,7 +74,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         grade: d.grade ? String(d.grade) : f.grade,
         sport: d.sport || f.sport,
       }));
-      toast.success('Card identified! Review the details below.');
+      toast.success(backImageData ? 'Card identified with front + back!' : 'Card identified! Review the details below.');
     } catch { toast.error('AI identification failed'); }
     finally { setIdentifying(false); }
   };
@@ -95,8 +97,14 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (ev) => {
-      setForm(f => ({ ...f, back_image_base64: ev.target.result }));
-      setBackImagePreview(ev.target.result);
+      const backDataUrl = ev.target.result;
+      setForm(f => ({ ...f, back_image_base64: backDataUrl }));
+      setBackImagePreview(backDataUrl);
+      // Re-identify with both images if front image exists (back has year, card#, set info)
+      if (form.image_base64) {
+        toast.info('Re-identifying with front + back images...');
+        identifyCard(form.image_base64, backDataUrl);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -175,7 +183,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
               className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-amber-500/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
               data-testid="back-image-upload-area">
               {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-cover" />
-                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span></div>}
+                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span><span className="text-[8px] text-amber-400 block mt-0.5">Better ID</span></div>}
               <input ref={backFileRef} type="file" accept="image/*" onChange={handleBackImage} className="hidden" />
             </div>
           </div>
