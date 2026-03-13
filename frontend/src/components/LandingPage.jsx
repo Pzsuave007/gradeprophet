@@ -64,7 +64,7 @@ const LandingPage = ({ onGetStarted }) => {
       </nav>
 
       {/* HERO */}
-      <section className="relative z-10 px-6 lg:px-16 pt-20 pb-24 lg:pt-32 lg:pb-36">
+      <section className="relative z-10 px-6 lg:px-16 pt-20 pb-8 lg:pt-32 lg:pb-12">
         {/* Blue orb glow */}
         <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-[#3b82f6]/[0.06] blur-[120px] pointer-events-none" />
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
@@ -127,7 +127,7 @@ const LandingPage = ({ onGetStarted }) => {
       </section>
 
       {/* FEATURES BENTO GRID */}
-      <section id="features" className="relative z-10 px-6 lg:px-16 py-20">
+      <section id="features" className="relative z-10 px-6 lg:px-16 py-10">
         <div className="max-w-7xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-3">Features</p>
