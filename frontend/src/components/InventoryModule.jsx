@@ -165,7 +165,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
             <div onClick={() => fileRef.current?.click()}
               className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
               data-testid="image-upload-area">
-              {imagePreview ? <img src={imagePreview} alt="Front" className="w-full h-full object-cover" />
+              {imagePreview ? <img src={imagePreview} alt="Front" className="w-full h-full object-contain" />
                 : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Front Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
               <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
             </div>
@@ -182,7 +182,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
             <div onClick={() => backFileRef.current?.click()}
               className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-amber-500/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
               data-testid="back-image-upload-area">
-              {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-cover" />
+              {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-contain" />
                 : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span><span className="text-[8px] text-amber-400 block mt-0.5">Better ID</span></div>}
               <input ref={backFileRef} type="file" accept="image/*" onChange={handleBackImage} className="hidden" />
             </div>
@@ -425,7 +425,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               onClick={() => selectMode && toggleSelect(item.id)}
               className={`bg-[#111] border rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#1a1a1a]'}`} data-testid={`inventory-item-${i}`}>
               <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
-                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
                   : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
@@ -476,7 +476,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 </div>
               )}
               <div className="w-12 h-16 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
-                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
+                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white truncate">{item.card_name}</p>
