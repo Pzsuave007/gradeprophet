@@ -6,6 +6,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 
 const AuthCallback = ({ onSuccess, onError }) => {
   const [status, setStatus] = useState('processing'); // processing, error
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
     const processCallback = async () => {
@@ -23,7 +24,9 @@ const AuthCallback = ({ onSuccess, onError }) => {
         window.history.replaceState({}, '', '/');
         onSuccess(res.data);
       } catch (err) {
+        console.error('Auth callback error:', err.response?.data || err.message);
         setStatus('error');
+        setErrorMsg(err.response?.data?.detail || 'Authentication failed');
         onError?.(err.response?.data?.detail || 'Authentication failed');
       }
     };
@@ -45,6 +48,7 @@ const AuthCallback = ({ onSuccess, onError }) => {
           <>
             <AlertCircle className="w-6 h-6 text-red-400 mx-auto mb-3" />
             <p className="text-sm text-red-400">Authentication failed</p>
+            {errorMsg && <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">{errorMsg}</p>}
             <button onClick={() => window.location.href = '/'} className="text-xs text-[#3b82f6] mt-2 hover:underline">Go back</button>
           </>
         )}

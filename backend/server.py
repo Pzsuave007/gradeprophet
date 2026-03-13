@@ -1098,15 +1098,24 @@ async def process_google_session(request: Request, response: Response):
     if not session_id:
         raise HTTPException(status_code=400, detail="session_id required")
 
+    logger.info(f"Google auth: exchanging session_id={session_id[:20]}...")
+
     # Exchange session_id for user data from Emergent Auth
-    async with httpx.AsyncClient() as client_http:
-        res = await client_http.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": session_id},
-        )
-        if res.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid session")
-        google_data = res.json()
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client_http:
+            res = await client_http.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": session_id},
+            )
+            logger.info(f"Google auth: Emergent response status={res.status_code}")
+            if res.status_code != 200:
+                logger.error(f"Google auth: Emergent error body={res.text}")
+                raise HTTPException(status_code=401, detail=f"Google auth failed: {res.text}")
+            google_data = res.json()
+            logger.info(f"Google auth: got user data for {google_data.get('email', 'unknown')}")
+    except httpx.RequestError as e:
+        logger.error(f"Google auth: network error: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not connect to auth service: {str(e)}")
 
     email = google_data["email"].lower()
     name = google_data.get("name", email.split("@")[0])
