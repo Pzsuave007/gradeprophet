@@ -138,6 +138,16 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 
 ## Prioritized Backlog
 
+### Marzo 2026 - Listed Tab in Inventory (Inventory Lifecycle Complete)
+- **3 new tabs**: Collection, For Sale, Listed (plus All)
+- Cards automatically move to "Listed" tab when published to eBay
+- Cards return to original tab when eBay listing is ended
+- Listed tab hides Select/Add buttons (can't re-list listed cards)
+- Listed cards show eBay badge, listed price, and profit margin
+- Backend stats exclude listed items from collection/for_sale counts
+- "View on eBay" link on listed cards (opens eBay listing)
+- 100% test pass rate (9 backend + 12 frontend tests)
+
 ### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next
