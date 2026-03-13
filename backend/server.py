@@ -4142,77 +4142,99 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
         api_call = "AddItem"
         duration = data.duration if data.duration in ["Days_3", "Days_5", "Days_7", "Days_10"] else "Days_7"
     
-    # Upload card image to eBay if available
+    # Upload card images (front + back) to eBay
     picture_xml = ""
-    card_image = item.get("image")
-    if card_image:
+    picture_urls = []
+    
+    async def upload_image_to_ebay(img_base64, label="card"):
+        """Upload a single image to eBay and return the hosted URL"""
+        import base64
+        image_bytes = base64.b64decode(img_base64)
+        # Ensure image meets eBay's 500px minimum
         try:
-            import base64
-            image_bytes = base64.b64decode(card_image)
-            
-            # Ensure image meets eBay's 500px minimum
-            try:
-                img_pil = Image.open(BytesIO(image_bytes))
-                w, h = img_pil.size
-                if max(w, h) < 500:
-                    scale = 500 / max(w, h)
-                    new_w, new_h = int(w * scale), int(h * scale)
-                    img_pil = img_pil.resize((new_w, new_h), Image.LANCZOS)
-                    buf = BytesIO()
-                    img_pil.save(buf, format='JPEG', quality=90)
-                    image_bytes = buf.getvalue()
-            except Exception as e:
-                logger.warning(f"Image resize check failed: {e}")
-            upload_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+            img_pil = Image.open(BytesIO(image_bytes))
+            w, h = img_pil.size
+            if max(w, h) < 500:
+                scale = 500 / max(w, h)
+                new_w, new_h = int(w * scale), int(h * scale)
+                img_pil = img_pil.resize((new_w, new_h), Image.LANCZOS)
+                buf = BytesIO()
+                img_pil.save(buf, format='JPEG', quality=90)
+                image_bytes = buf.getvalue()
+        except Exception as e:
+            logger.warning(f"Image resize failed for {label}: {e}")
+        
+        upload_xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials>
     <eBayAuthToken>{token}</eBayAuthToken>
   </RequesterCredentials>
-  <PictureName>{data.title[:50]}</PictureName>
+  <PictureName>{data.title[:40]} {label}</PictureName>
 </UploadSiteHostedPicturesRequest>'''
-            
-            boundary = "MIME_boundary_EBAY"
-            body_parts = []
-            body_parts.append(f"--{boundary}\r\n")
-            body_parts.append("Content-Disposition: form-data; name=\"XML Payload\"\r\n")
-            body_parts.append("Content-Type: text/xml\r\n\r\n")
-            body_parts.append(upload_xml)
-            body_parts.append(f"\r\n--{boundary}\r\n")
-            body_parts.append("Content-Disposition: form-data; name=\"image\"; filename=\"card.jpg\"\r\n")
-            body_parts.append("Content-Type: image/jpeg\r\n")
-            body_parts.append(f"Content-Transfer-Encoding: binary\r\n\r\n")
-            
-            text_part = "".join(body_parts).encode('utf-8')
-            end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
-            full_body = text_part + image_bytes + end_part
-            
-            async with httpx.AsyncClient(timeout=30.0) as http_client:
-                upload_resp = await http_client.post(
-                    "https://api.ebay.com/ws/api.dll",
-                    headers={
-                        "X-EBAY-API-SITEID": "0",
-                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-                        "X-EBAY-API-IAF-TOKEN": token,
-                        "Content-Type": f"multipart/form-data; boundary={boundary}",
-                    },
-                    content=full_body,
-                )
-            
-            import xml.etree.ElementTree as ET
-            upload_root = ET.fromstring(upload_resp.text)
-            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
-            pic_url_el = upload_root.find(".//e:FullURL", ns)
-            if pic_url_el is not None and pic_url_el.text:
-                picture_xml = f"""
-    <PictureDetails>
-      <PictureURL>{pic_url_el.text}</PictureURL>
-    </PictureDetails>"""
-                logger.info(f"Image uploaded to eBay: {pic_url_el.text}")
-            else:
-                logger.warning("eBay image upload returned no URL")
+        
+        boundary = "MIME_boundary_EBAY"
+        body_parts = []
+        body_parts.append(f"--{boundary}\r\n")
+        body_parts.append("Content-Disposition: form-data; name=\"XML Payload\"\r\n")
+        body_parts.append("Content-Type: text/xml\r\n\r\n")
+        body_parts.append(upload_xml)
+        body_parts.append(f"\r\n--{boundary}\r\n")
+        body_parts.append(f"Content-Disposition: form-data; name=\"image\"; filename=\"{label}.jpg\"\r\n")
+        body_parts.append("Content-Type: image/jpeg\r\n")
+        body_parts.append("Content-Transfer-Encoding: binary\r\n\r\n")
+        
+        text_part = "".join(body_parts).encode('utf-8')
+        end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+        full_body = text_part + image_bytes + end_part
+        
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                },
+                content=full_body,
+            )
+        
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        url_el = root.find(".//e:FullURL", ns)
+        if url_el is not None and url_el.text:
+            logger.info(f"Image uploaded to eBay ({label}): {url_el.text}")
+            return url_el.text
+        return None
+
+    # Upload front image
+    front_image = item.get("image")
+    if front_image:
+        try:
+            url = await upload_image_to_ebay(front_image, "front")
+            if url:
+                picture_urls.append(url)
         except Exception as e:
-            logger.warning(f"Failed to upload image to eBay: {e}")
+            logger.warning(f"Failed to upload front image: {e}")
+
+    # Upload back image
+    back_image = item.get("back_image")
+    if back_image:
+        try:
+            url = await upload_image_to_ebay(back_image, "back")
+            if url:
+                picture_urls.append(url)
+        except Exception as e:
+            logger.warning(f"Failed to upload back image: {e}")
+
+    if picture_urls:
+        urls_xml = "\n".join(f"      <PictureURL>{u}</PictureURL>" for u in picture_urls)
+        picture_xml = f"""
+    <PictureDetails>
+{urls_xml}
+    </PictureDetails>"""
 
     # Build ItemSpecifics XML
     import html
