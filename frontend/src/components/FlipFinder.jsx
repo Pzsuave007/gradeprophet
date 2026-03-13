@@ -9,13 +9,13 @@ import EbayMonitor from './EbayMonitor';
 import { Button } from './ui/button';
 
 const FlipFinder = () => {
-  const [currentView, setCurrentView] = useState('scanner');
+  const [currentView, setCurrentView] = useState('monitor');
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [historyRefresh, setHistoryRefresh] = useState(0);
-  const [subTab, setSubTab] = useState('scanner');
+  const [subTab, setSubTab] = useState('monitor');
   const [ebayUrlToImport, setEbayUrlToImport] = useState(null);
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
@@ -51,8 +51,8 @@ const FlipFinder = () => {
   const handleEbayImportComplete = useCallback(() => { setEbayUrlToImport(null); }, []);
 
   const subTabs = [
-    { id: 'scanner', label: 'Analizar', icon: Scan },
     { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
+    { id: 'scanner', label: 'Analizar', icon: Scan },
     { id: 'history', label: 'Historial', icon: History },
     { id: 'learning', label: 'AI', icon: Brain },
   ];
