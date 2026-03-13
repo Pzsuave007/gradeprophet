@@ -4074,13 +4074,45 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest):
     description = generate_listing_description(item)
     condition_id = get_condition_id_for_card(item)
     
-    suggested_price = item.get("purchase_price", 0) or 0
-    
+    purchase_price = item.get("purchase_price", 0) or 0
+    suggested_price = round(purchase_price * 1.3, 2) if purchase_price > 0 else 9.99
+    market_data = None
+
+    # Try to get real market value from eBay sold listings
+    try:
+        # Build a clean search query (card number can be too specific)
+        parts = []
+        if item.get("year"): parts.append(str(item["year"]))
+        if item.get("set_name"): parts.append(item["set_name"])
+        if item.get("player"): parts.append(item["player"])
+        if item.get("grading_company") and item.get("grade"):
+            parts.append(f"{item['grading_company']} {int(float(item['grade']))}")
+        search_query = " ".join(parts) if parts else item.get("card_name", "")
+        
+        value_resp = await get_card_market_value(query=search_query)
+        if isinstance(value_resp, dict):
+            primary = value_resp.get("primary", {})
+            stats = primary.get("stats", {})
+            median = stats.get("median", 0)
+            if median > 0:
+                suggested_price = median
+                market_data = {
+                    "market_value": median,
+                    "sold_count": stats.get("count", 0),
+                    "price_range": {"low": stats.get("min", 0), "high": stats.get("max", 0)},
+                    "recent_sales": primary.get("items", [])[:3],
+                    "data_source": value_resp.get("data_source", "unknown"),
+                }
+    except Exception as e:
+        logger.warning(f"Market lookup failed for preview: {e}")
+
     return {
         "title": title,
         "description": description,
         "condition_id": condition_id,
-        "suggested_price": round(suggested_price * 1.3, 2) if suggested_price > 0 else 9.99,
+        "suggested_price": round(suggested_price, 2),
+        "purchase_price": purchase_price,
+        "market_data": market_data,
         "item": {
             "card_name": item.get("card_name"),
             "player": item.get("player"),

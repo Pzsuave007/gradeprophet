@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, DollarSign, Tag, Clock, Truck, FileText,
   RefreshCw, CheckCircle2, AlertCircle, ExternalLink,
-  Image as ImageIcon, ShoppingBag, Package, Zap
+  Image as ImageIcon, ShoppingBag, Package, Zap, TrendingUp
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -98,6 +98,27 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                   value={f.price || ''} onChange={e => update('price', e.target.value)}
                   data-testid={`price-input-${index}`} />
               </div>
+              {f.market_data && (
+                <div className="mt-1.5 p-2 bg-emerald-500/5 border border-emerald-500/15 rounded-lg" data-testid={`market-data-${index}`}>
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">eBay Sold Data</span>
+                  </div>
+                  <div className="flex items-baseline gap-3 text-xs">
+                    <span className="text-white font-bold">${f.market_data.market_value?.toFixed(2)}</span>
+                    <span className="text-gray-500">median</span>
+                    {f.market_data.price_range && (
+                      <span className="text-gray-600">${f.market_data.price_range.low?.toFixed(2)} – ${f.market_data.price_range.high?.toFixed(2)}</span>
+                    )}
+                    <span className="text-gray-600">{f.market_data.sold_count} sold</span>
+                  </div>
+                  {f.purchase_price > 0 && (
+                    <div className="text-[10px] mt-1 text-gray-500">
+                      Your cost: ${Number(f.purchase_price).toFixed(2)} | Profit at suggested: ${(f.market_data.market_value - f.purchase_price).toFixed(2)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Format</label>
@@ -345,6 +366,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             title: ai.title || p.title || item.card_name || '',
             description: ai.description || p.description || '',
             price: p.suggested_price || (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99'),
+            purchase_price: p.purchase_price || item.purchase_price || 0,
+            market_data: p.market_data || null,
             listing_format: 'FixedPriceItem',
             duration: 'GTC',
             condition_id: p.condition_id || 3000,
