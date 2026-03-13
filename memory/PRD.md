@@ -170,6 +170,17 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - Increased padding from 10% to 15% for extra safety margin
 - Also handles graded slabs (taller ratio ~1.6-1.8) correctly
 
+### Marzo 2026 - Batch Upload (Card Dealer Pro Style)
+- **New Feature**: Upload 20+ scanned card images at once with AI auto-identification
+- **Workflow**: Upload files → Pair front/back → AI identifies each card → Review/edit table → Save all to inventory
+- **Pairing Modes**: "Front + Back (Alternating)" for duplex scanners, "Front Only" for single-side scans
+- **Category Selection**: Choose Collection or For Sale for the entire batch
+- **AI Identification**: Uses GPT-4o via Emergent LLM Key for each card, with real-time progress bar
+- **Editable Review**: Each card expandable with full form fields (name, player, year, set, condition, grade, price)
+- **Backend**: `POST /api/inventory/batch-save` endpoint saves multiple cards at once with image processing
+- **Frontend**: New "Batch Upload" tab in Inventory module alongside "My Cards" and "Scan Card"
+- 100% test pass rate (8 backend + 12 frontend tests, iteration_18)
+
 ### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next
