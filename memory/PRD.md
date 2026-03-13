@@ -162,6 +162,14 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 - "View on eBay" link on listed cards (opens eBay listing)
 - 100% test pass rate (9 backend + 12 frontend tests)
 
+### Marzo 2026 - Auto-Crop Aspect Ratio Fix (Back Image Cut Off)
+- **Fixed**: Back images were getting cropped at the top when uploaded to eBay
+- Root cause: OpenCV contour detection missed the top edge of cards (especially backs with light colors)
+- Added aspect ratio enforcement (standard card = 2.5x3.5, ratio 1.4) to auto_crop_card()
+- When detected box ratio doesn't match card ratio, extends upward (60% top bias) to recover missing area
+- Increased padding from 10% to 15% for extra safety margin
+- Also handles graded slabs (taller ratio ~1.6-1.8) correctly
+
 ### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next

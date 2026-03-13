@@ -791,7 +791,7 @@ Recent examples: {', '.join(examples[-5:])}
 def auto_crop_card(image_base64: str) -> str:
     """Auto-detect and crop a sports card from phone photo.
     Priority: NEVER cut the card — better to leave extra background.
-    Strategy: find card contours, merge them, extend if incomplete, generous padding."""
+    Strategy: find card contours, merge them, enforce card aspect ratio, generous padding."""
     try:
         import cv2
         import numpy as np
@@ -819,10 +819,8 @@ def auto_crop_card(image_base64: str) -> str:
             for cnt in contours:
                 x, y, rw, rh = cv2.boundingRect(cnt)
                 bbox_pct = (rw * rh) / (w * h)
-                # Skip noise (<2%) and full-image outlines (>85%)
                 if bbox_pct < 0.02 or bbox_pct > 0.85:
                     continue
-                # Skip contours that span the full width or height (image border artifacts)
                 if rw > w * 0.95 or rh > h * 0.95:
                     continue
                 all_boxes.append((x, y, x + rw, y + rh))
@@ -856,9 +854,7 @@ def auto_crop_card(image_base64: str) -> str:
         if coverage < 0.12:
             return image_base64  # Too small
         
-        # KEY FIX: If detected area is small (<55%), the detection is probably 
-        # incomplete (e.g. white section of card blended with background).
-        # Extend outward from center to capture the full card.
+        # If detected area is small (<55%), extend outward from center
         if coverage < 0.55:
             target = 0.65
             scale = (target / coverage) ** 0.5
@@ -874,9 +870,35 @@ def auto_crop_card(image_base64: str) -> str:
             rh = max_y - min_y
             logger.info(f"Auto-crop: extended incomplete detection ({coverage:.0%} -> {(rw*rh)/(w*h):.0%})")
         
-        # Generous padding (10%) — NEVER cut the card
-        pad_x = int(rw * 0.10)
-        pad_y = int(rh * 0.10)
+        # ASPECT RATIO ENFORCEMENT: Standard trading card is 2.5" x 3.5" (ratio ~1.4)
+        # If detected box doesn't match, extend the shorter dimension to avoid cutting
+        CARD_RATIO = 1.4  # height / width for a standard card
+        detected_ratio = rh / rw if rw > 0 else 1.4
+        
+        if detected_ratio < CARD_RATIO * 0.85:
+            # Box is too wide / not tall enough — card top or bottom likely cut off
+            expected_h = int(rw * CARD_RATIO)
+            missing = expected_h - rh
+            # Extend more upward (top is more commonly missed by contour detection)
+            extend_top = int(missing * 0.6)
+            extend_bottom = missing - extend_top
+            min_y = max(0, min_y - extend_top)
+            max_y = min(h, max_y + extend_bottom)
+            rh = max_y - min_y
+            logger.info(f"Auto-crop: extended height for card ratio (detected {detected_ratio:.2f}, target {CARD_RATIO})")
+        elif detected_ratio > CARD_RATIO * 1.25:
+            # Box is too tall / not wide enough — sides likely cut off
+            expected_w = int(rh / CARD_RATIO)
+            missing = expected_w - rw
+            extend_each = missing // 2
+            min_x = max(0, min_x - extend_each)
+            max_x = min(w, max_x + extend_each)
+            rw = max_x - min_x
+            logger.info(f"Auto-crop: extended width for card ratio (detected {detected_ratio:.2f}, target {CARD_RATIO})")
+        
+        # Generous padding (15%) — NEVER cut the card
+        pad_x = int(rw * 0.15)
+        pad_y = int(rh * 0.15)
         x = max(0, int(min_x) - pad_x)
         y = max(0, int(min_y) - pad_y)
         crop_w = min(w - x, int(rw) + 2 * pad_x)
@@ -887,7 +909,7 @@ def auto_crop_card(image_base64: str) -> str:
         _, buffer = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
         result_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        logger.info(f"Auto-crop: {w}x{h} -> {crop_w}x{crop_h}")
+        logger.info(f"Auto-crop: {w}x{h} -> {crop_w}x{crop_h} (ratio: {crop_h/crop_w:.2f})")
         return result_base64
         
     except Exception as e:
