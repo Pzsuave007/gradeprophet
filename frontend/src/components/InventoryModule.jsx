@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw,
-  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store
+  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
 import BatchUploadView from './BatchUploadView';
+import PriceHistoryChart from './PriceHistoryChart';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -253,6 +254,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
 
   // Add/Edit inline view state
   const [showForm, setShowForm] = useState(false);
+  const [chartCard, setChartCard] = useState(null); // card for price history chart
 
   const fetchInventory = useCallback(async (searchVal) => {
     try {
@@ -442,6 +444,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1 rounded bg-emerald-600/80 text-white hover:bg-emerald-500" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3 h-3" /></button>}
                     {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1 rounded bg-amber-600/80 text-white hover:bg-amber-500" title="View on eBay"><ExternalLink className="w-3 h-3" /></a>}
+                    <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }} className="p-1 rounded bg-black/60 text-white hover:bg-purple-500" data-testid={`chart-item-${i}`} title="Price History"><TrendingUp className="w-3 h-3" /></button>
                     <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
                     {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>}
                   </div>
@@ -507,6 +510,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                   {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3.5 h-3.5" /></button>}
                   {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg hover:bg-amber-500/10 text-gray-500 hover:text-amber-400" title="View on eBay"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                  <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }} className="p-1.5 rounded-lg hover:bg-purple-500/10 text-gray-500 hover:text-purple-400" data-testid={`chart-item-list-${i}`} title="Price History"><TrendingUp className="w-3.5 h-3.5" /></button>
                   <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3.5 h-3.5" /></button>
                   {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>}
                 </div>
@@ -515,6 +519,24 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
           ))}
         </div>
       )}
+
+      {/* Price History Chart Panel */}
+      <AnimatePresence>
+        {chartCard && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden" data-testid="price-chart-panel">
+            <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 mt-3">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-purple-400" /> Price History: {chartCard.card_name}
+                </h3>
+                <button onClick={() => setChartCard(null)} className="p-1 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+              <PriceHistoryChart card={chartCard} />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

@@ -4,7 +4,7 @@ import {
   Search, TrendingUp, DollarSign, BarChart3, ExternalLink,
   RefreshCw, Layers, Tag, Package, Eye, Clock, ArrowRight,
   Heart, ArrowUpRight, ArrowDownRight, Plus, X, Flame,
-  Star, Target, Zap, ChevronRight, Bookmark
+  Star, Target, Zap, ChevronRight, Bookmark, Bell
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -12,6 +12,7 @@ import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
   CartesianGrid, BarChart, Bar, Cell
 } from 'recharts';
+import PriceAlerts from './PriceAlerts';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -468,6 +469,11 @@ const MarketModule = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* === PRICE ALERTS === */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+        <PriceAlerts />
+      </motion.div>
 
       {/* === MONTHLY PERFORMANCE BARS === */}
       {(s.monthly_chart || []).length > 0 && (

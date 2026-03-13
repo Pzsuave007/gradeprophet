@@ -3355,6 +3355,237 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
         return {"query": query, "error": str(e)}
 
 
+
+# ============================================
+# PORTFOLIO VALUE TRACKER
+# ============================================
+
+@api_router.post("/portfolio/refresh-value/{item_id}")
+async def refresh_single_card_value(item_id: str):
+    """Refresh market value for a single inventory card"""
+    item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    # Build search query from card data
+    parts = []
+    if item.get("year"):
+        parts.append(str(item["year"]))
+    if item.get("set_name"):
+        parts.append(item["set_name"])
+    if item.get("player"):
+        parts.append(item["player"])
+    if item.get("card_number"):
+        cn = item["card_number"]
+        parts.append(f"#{cn}" if not cn.startswith("#") else cn)
+    if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
+        parts.append(f"{item['grading_company']} {item['grade']}")
+    query = " ".join(parts) if parts else item.get("card_name", "")
+
+    try:
+        value_data = await get_card_market_value(query)
+        median = value_data.get("primary", {}).get("stats", {}).get("median", 0)
+        now = datetime.now(timezone.utc).isoformat()
+
+        await db.inventory.update_one(
+            {"id": item_id},
+            {"$set": {"market_value": median, "market_value_date": now, "market_query_used": query}}
+        )
+
+        return {
+            "id": item_id,
+            "market_value": median,
+            "market_value_date": now,
+            "query_used": query,
+            "data_source": value_data.get("data_source", "unknown"),
+            "items_found": value_data.get("primary", {}).get("stats", {}).get("count", 0),
+        }
+    except Exception as e:
+        logger.error(f"Refresh card value failed for {item_id}: {e}")
+        return {"id": item_id, "market_value": 0, "error": str(e)}
+
+
+@api_router.get("/portfolio/summary")
+async def get_portfolio_summary():
+    """Get portfolio summary: total value, invested, P&L, ROI"""
+    items = await db.inventory.find({"listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+
+    total_invested = 0
+    total_market_value = 0
+    valued_count = 0
+    unvalued_count = 0
+    cards = []
+
+    for item in items:
+        cost = float(item.get("purchase_price") or 0)
+        total_invested += cost
+        mv = float(item.get("market_value") or 0)
+        if mv > 0:
+            total_market_value += mv
+            valued_count += 1
+        else:
+            unvalued_count += 1
+        cards.append({
+            "id": item.get("id"),
+            "card_name": item.get("card_name", ""),
+            "player": item.get("player", ""),
+            "year": item.get("year"),
+            "purchase_price": cost,
+            "market_value": mv,
+            "market_value_date": item.get("market_value_date"),
+            "condition": item.get("condition", "Raw"),
+            "grade": item.get("grade"),
+            "grading_company": item.get("grading_company"),
+            "image": bool(item.get("image")),
+        })
+
+    pnl = total_market_value - total_invested if valued_count > 0 else 0
+    roi = (pnl / total_invested * 100) if total_invested > 0 and valued_count > 0 else 0
+
+    # Get snapshots for trend chart
+    snapshots = await db.portfolio_snapshots.find({}, {"_id": 0}).sort("date", -1).to_list(90)
+
+    return {
+        "total_invested": round(total_invested, 2),
+        "total_market_value": round(total_market_value, 2),
+        "pnl": round(pnl, 2),
+        "roi": round(roi, 1),
+        "total_cards": len(items),
+        "valued_cards": valued_count,
+        "unvalued_cards": unvalued_count,
+        "cards": sorted(cards, key=lambda c: c.get("market_value", 0), reverse=True),
+        "snapshots": list(reversed(snapshots[:30])),
+    }
+
+
+@api_router.post("/portfolio/snapshot")
+async def save_portfolio_snapshot():
+    """Save a portfolio valuation snapshot for trend tracking"""
+    items = await db.inventory.find({"listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+    total_invested = sum(float(i.get("purchase_price") or 0) for i in items)
+    total_market_value = sum(float(i.get("market_value") or 0) for i in items if i.get("market_value"))
+    valued = sum(1 for i in items if i.get("market_value"))
+    now = datetime.now(timezone.utc)
+    snapshot = {
+        "date": now.strftime("%Y-%m-%d"),
+        "timestamp": now.isoformat(),
+        "total_invested": round(total_invested, 2),
+        "total_market_value": round(total_market_value, 2),
+        "pnl": round(total_market_value - total_invested, 2),
+        "total_cards": len(items),
+        "valued_cards": valued,
+    }
+    # Upsert: one snapshot per day
+    await db.portfolio_snapshots.update_one(
+        {"date": snapshot["date"]},
+        {"$set": snapshot},
+        upsert=True,
+    )
+    return snapshot
+
+
+# ============================================
+# PRICE ALERTS
+# ============================================
+
+class PriceAlertCreate(BaseModel):
+    search_query: str
+    player: Optional[str] = None
+    condition_type: str = "below"  # "below" or "above"
+    target_price: float
+    notes: Optional[str] = None
+
+class PriceAlertResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    search_query: str
+    player: Optional[str] = None
+    condition_type: str
+    target_price: float
+    notes: Optional[str] = None
+    active: bool = True
+    triggered: bool = False
+    last_checked: Optional[str] = None
+    last_price: Optional[float] = None
+    created_at: str
+
+@api_router.post("/alerts")
+async def create_price_alert(data: PriceAlertCreate):
+    """Create a new price alert"""
+    alert = {
+        "id": str(uuid.uuid4()),
+        "search_query": data.search_query,
+        "player": data.player,
+        "condition_type": data.condition_type,
+        "target_price": data.target_price,
+        "notes": data.notes,
+        "active": True,
+        "triggered": False,
+        "last_checked": None,
+        "last_price": None,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.price_alerts.insert_one(alert)
+    alert.pop("_id", None)
+    return alert
+
+
+@api_router.get("/alerts")
+async def get_price_alerts():
+    """Get all price alerts"""
+    alerts = await db.price_alerts.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return alerts
+
+
+@api_router.delete("/alerts/{alert_id}")
+async def delete_price_alert(alert_id: str):
+    """Delete a price alert"""
+    result = await db.price_alerts.delete_one({"id": alert_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"success": True}
+
+
+@api_router.post("/alerts/check")
+async def check_all_alerts():
+    """Check all active price alerts against current market prices"""
+    alerts = await db.price_alerts.find({"active": True}, {"_id": 0}).to_list(100)
+    results = []
+    now = datetime.now(timezone.utc).isoformat()
+
+    for alert in alerts:
+        try:
+            value_data = await get_card_market_value(alert["search_query"])
+            median = value_data.get("primary", {}).get("stats", {}).get("median", 0)
+
+            triggered = False
+            if median > 0:
+                if alert["condition_type"] == "below" and median <= alert["target_price"]:
+                    triggered = True
+                elif alert["condition_type"] == "above" and median >= alert["target_price"]:
+                    triggered = True
+
+            await db.price_alerts.update_one(
+                {"id": alert["id"]},
+                {"$set": {"last_checked": now, "last_price": median, "triggered": triggered}}
+            )
+
+            results.append({
+                "id": alert["id"],
+                "search_query": alert["search_query"],
+                "target_price": alert["target_price"],
+                "condition_type": alert["condition_type"],
+                "current_price": median,
+                "triggered": triggered,
+            })
+        except Exception as e:
+            logger.error(f"Alert check failed for {alert['id']}: {e}")
+            results.append({"id": alert["id"], "error": str(e)})
+
+    return {"checked": len(results), "results": results}
+
+
+
 # ============================================
 # DASHBOARD ENDPOINTS
 # ============================================

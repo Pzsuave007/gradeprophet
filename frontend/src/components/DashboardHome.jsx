@@ -3,13 +3,14 @@ import { motion } from 'framer-motion';
 import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight,
   BarChart3, RefreshCw, Package, Tag, ShoppingBag,
-  Clock, Award, Zap, ChevronRight, ExternalLink
+  Clock, Award, Zap, ChevronRight, ExternalLink, Wallet
 } from 'lucide-react';
 import axios from 'axios';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
   ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie
 } from 'recharts';
+import PortfolioTracker from './PortfolioTracker';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -54,6 +55,7 @@ const DashboardHome = ({ onNavigate }) => {
   const [ebayData, setEbayData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('all');
+  const [dashTab, setDashTab] = useState('overview');
 
   const fetchAll = async () => {
     setLoading(true);
@@ -138,6 +140,19 @@ const DashboardHome = ({ onNavigate }) => {
         </div>
       </div>
 
+      {/* Dashboard Tabs */}
+      <div className="flex gap-1">
+        {[{ id: 'overview', label: 'Sales Overview' }, { id: 'portfolio', label: 'Portfolio Value' }].map(({ id, label }) => (
+          <button key={id} onClick={() => setDashTab(id)}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${dashTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'}`}
+            data-testid={`dash-tab-${id}`}>{label}</button>
+        ))}
+      </div>
+
+      {dashTab === 'portfolio' ? (
+        <PortfolioTracker />
+      ) : (
+      <>
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
         {[
@@ -387,6 +402,8 @@ const DashboardHome = ({ onNavigate }) => {
           </div>
         </motion.div>
       </div>
+      </>
+      )}
     </div>
   );
 };
