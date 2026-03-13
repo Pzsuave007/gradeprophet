@@ -3033,11 +3033,36 @@ async def get_hot_cards():
 
 
 @api_router.get("/market/card-value")
-async def get_card_market_value(query: str):
+async def get_card_market_value(query: str, ebay_item_id: Optional[str] = None):
     """Get market value for a card based on REAL SOLD prices from eBay completed listings"""
     try:
         import re as _re
         from urllib.parse import quote_plus
+
+        # If ebay_item_id is provided, look up the inventory item for structured data
+        if ebay_item_id:
+            inv_item = await db.inventory.find_one({"ebay_item_id": ebay_item_id}, {"_id": 0})
+            if inv_item:
+                # Build a targeted search query from structured card data
+                parts = []
+                if inv_item.get("year"):
+                    parts.append(str(inv_item["year"]))
+                if inv_item.get("set_name"):
+                    parts.append(inv_item["set_name"])
+                if inv_item.get("player"):
+                    parts.append(inv_item["player"])
+                if inv_item.get("card_number"):
+                    cn = inv_item["card_number"]
+                    parts.append(f"#{cn}" if not cn.startswith("#") else cn)
+                if inv_item.get("sport"):
+                    parts.append(inv_item["sport"])
+                    parts.append("Card")
+                # Override the query with structured data
+                query = " ".join(parts) if parts else query
+                # Use grade info from inventory directly
+                if inv_item.get("condition") == "Graded" and inv_item.get("grading_company") and inv_item.get("grade"):
+                    query += f" {inv_item['grading_company']} {inv_item['grade']}"
+                logger.info(f"Market card-value: built structured query from inventory: '{query}'")
 
         # Step 1: Detect if the listing is graded and extract grade info
         grade_match = _re.search(

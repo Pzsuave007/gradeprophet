@@ -86,7 +86,9 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
     const fetchMarket = async () => {
       setLoadingMarket(true);
       try {
-        const res = await axios.get(`${API}/api/market/card-value`, { params: { query: listing.title } });
+        const params = { query: listing.title };
+        if (listing.item_id) params.ebay_item_id = listing.item_id;
+        const res = await axios.get(`${API}/api/market/card-value`, { params });
         if (!cancelled) setMarketData(res.data);
       } catch {
         if (!cancelled) setMarketData(null);

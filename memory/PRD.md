@@ -138,6 +138,12 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
 
 ## Prioritized Backlog
 
+### Marzo 2026 - Smart Market Comparison for Listings (Structured Search)
+- **Improved**: Market comparison in Listings detail now uses structured card data (year, set, player, card#, sport, grade) instead of AI-generated title
+- Backend `/api/market/card-value` accepts optional `ebay_item_id` param to look up inventory item
+- Builds targeted eBay search query: e.g. "1997 Topps Kobe Bryant #171 Basketball Card PSA 9.0"
+- Much more accurate results than searching with SEO-optimized title keywords
+
 ### Marzo 2026 - Listed Tab in Inventory (Inventory Lifecycle Complete)
 - **3 new tabs**: Collection, For Sale, Listed (plus All)
 - Cards automatically move to "Listed" tab when published to eBay
