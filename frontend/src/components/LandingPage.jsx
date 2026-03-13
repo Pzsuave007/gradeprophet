@@ -98,42 +98,26 @@ const LandingPage = ({ onGetStarted }) => {
             </motion.div>
           </div>
 
-          {/* CSS Slab Cards */}
+          {/* Real Slab Cards */}
           <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
-            className="flex-shrink-0 hidden lg:block relative w-[380px] h-[420px]">
-            {/* Floating slab card 1 */}
-            <div className="absolute top-0 left-0 w-52 h-72 rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.06] to-transparent backdrop-blur-sm transform -rotate-6 shadow-2xl shadow-black/50"
-              style={{ perspective: '1000px' }}>
-              <div className="px-3 py-1.5 flex items-center justify-between border-b border-white/[0.06]">
-                <span className="text-[8px] font-bold text-amber-400 tracking-widest uppercase">PSA</span>
-                <span className="text-[14px] font-black text-white">10</span>
-              </div>
-              <div className="m-2 h-48 rounded-lg bg-gradient-to-br from-[#3b82f6]/20 via-purple-500/10 to-amber-500/10 flex items-center justify-center">
-                <span className="text-[10px] text-gray-500 font-mono">CARD IMAGE</span>
-              </div>
-              <div className="px-3 py-1">
-                <p className="text-[8px] text-gray-400 font-mono truncate">2024 Prizm Wembanyama RC</p>
-              </div>
-              {/* Holographic shimmer */}
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-pulse pointer-events-none" />
+            className="flex-shrink-0 hidden lg:block relative w-[420px] h-[480px]">
+            {/* Kobe - back left */}
+            <div className="absolute top-4 left-0 w-48 rounded-xl overflow-hidden transform -rotate-6 shadow-2xl shadow-black/60 border border-white/[0.08] hover:scale-105 transition-transform duration-500"
+              style={{ zIndex: 1 }}>
+              <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/qj87a9o0_1996-topps-138-kobe-bryant-gem-mt-10-88551.webp" alt="1996 Topps Kobe Bryant PSA 10" className="w-full h-auto" />
             </div>
-            {/* Floating slab card 2 */}
-            <div className="absolute top-16 left-36 w-52 h-72 rounded-xl border border-[#3b82f6]/20 bg-gradient-to-br from-[#3b82f6]/[0.08] to-transparent backdrop-blur-sm transform rotate-3 shadow-2xl shadow-[#3b82f6]/10"
-              style={{ perspective: '1000px' }}>
-              <div className="px-3 py-1.5 flex items-center justify-between border-b border-[#3b82f6]/10">
-                <span className="text-[8px] font-bold text-[#3b82f6] tracking-widest uppercase">BGS</span>
-                <span className="text-[14px] font-black text-white">9.5</span>
-              </div>
-              <div className="m-2 h-48 rounded-lg bg-gradient-to-br from-[#3b82f6]/10 via-cyan-500/10 to-emerald-500/10 flex items-center justify-center">
-                <span className="text-[10px] text-gray-500 font-mono">CARD IMAGE</span>
-              </div>
-              <div className="px-3 py-1">
-                <p className="text-[8px] text-gray-400 font-mono truncate">2003 Topps LeBron James RC</p>
-              </div>
-              <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-transparent via-[#3b82f6]/[0.04] to-transparent animate-pulse pointer-events-none" style={{ animationDelay: '1s' }} />
+            {/* Curry - front center */}
+            <div className="absolute top-8 left-28 w-52 rounded-xl overflow-hidden transform rotate-3 shadow-2xl shadow-[#3b82f6]/20 border border-[#3b82f6]/20 hover:scale-105 transition-transform duration-500"
+              style={{ zIndex: 3 }}>
+              <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/fs47xwop_curry-pas-10.webp" alt="2009 Topps Stephen Curry PSA 9" className="w-full h-auto" />
+            </div>
+            {/* Brady - back right */}
+            <div className="absolute top-24 left-52 w-44 rounded-xl overflow-hidden transform rotate-6 shadow-2xl shadow-black/50 border border-white/[0.06] hover:scale-105 transition-transform duration-500"
+              style={{ zIndex: 2 }}>
+              <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/46xv0kyq_tombrady.webp" alt="2000 Bowman Tom Brady PSA 9" className="w-full h-auto" />
             </div>
             {/* P&L badge floating */}
-            <div className="absolute bottom-8 left-4 px-4 py-2.5 rounded-xl bg-[#111] border border-emerald-500/20 backdrop-blur-xl shadow-xl">
+            <div className="absolute bottom-4 left-4 px-4 py-2.5 rounded-xl bg-[#111]/90 border border-emerald-500/20 backdrop-blur-xl shadow-xl" style={{ zIndex: 4 }}>
               <p className="text-[9px] uppercase tracking-wider text-gray-500 font-medium">Portfolio</p>
               <p className="text-lg font-black text-emerald-400">+$1,247</p>
               <p className="text-[9px] text-emerald-400">+18.3% ROI</p>
