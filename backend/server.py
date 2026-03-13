@@ -882,17 +882,7 @@ def auto_crop_card(image_base64: str) -> str:
                     best_box = (x, y, rw, rh)
         
         if best_box is None:
-            # No card detected - still add black border to the original image
-            margin = 0.06
-            bg_w = int(w * (1 + 2 * margin))
-            bg_h = int(h * (1 + 2 * margin))
-            black_bg = np.zeros((bg_h, bg_w, 3), dtype=np.uint8)
-            off_x = (bg_w - w) // 2
-            off_y = (bg_h - h) // 2
-            black_bg[off_y:off_y+h, off_x:off_x+w] = img
-            _, buffer = cv2.imencode('.jpg', black_bg, [cv2.IMWRITE_JPEG_QUALITY, 95])
-            logger.info(f"Auto-crop: no card detected, added black border to {w}x{h}")
-            return base64.b64encode(buffer).decode('utf-8')
+            return image_base64  # No card detected, return original
         
         x, y, rw, rh = best_box
         
@@ -904,25 +894,14 @@ def auto_crop_card(image_base64: str) -> str:
         rw = min(w - x, rw + 2 * pad_x)
         rh = min(h - y, rh + 2 * pad_y)
         
-        # Crop the card with generous margin
+        # Crop the card with generous margin (no black background — keep original bg)
         cropped = img[y:y+rh, x:x+rw]
         
-        # Create black background with extra frame (6% on each side)
-        margin = 0.06
-        bg_w = int(rw * (1 + 2 * margin))
-        bg_h = int(rh * (1 + 2 * margin))
-        black_bg = np.zeros((bg_h, bg_w, 3), dtype=np.uint8)
-        
-        # Center the card on the black background
-        off_x = (bg_w - rw) // 2
-        off_y = (bg_h - rh) // 2
-        black_bg[off_y:off_y+rh, off_x:off_x+rw] = cropped
-        
         # Encode back to base64
-        _, buffer = cv2.imencode('.jpg', black_bg, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        _, buffer = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
         result_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        logger.info(f"Auto-crop: {w}x{h} -> card {rw}x{rh} on black bg {bg_w}x{bg_h}")
+        logger.info(f"Auto-crop: {w}x{h} -> card {rw}x{rh}")
         return result_base64
         
     except Exception as e:
