@@ -789,14 +789,13 @@ Recent examples: {', '.join(examples[-5:])}
 
 
 def auto_crop_card(image_base64: str) -> str:
-    """Auto-detect and crop a sports card from its background, place on black background"""
+    """Auto-detect and crop a sports card from phone photo.
+    Priority: NEVER cut the card — better to leave extra background.
+    Strategy: find card contours, merge them, extend if incomplete, generous padding."""
     try:
         import cv2
         import numpy as np
-        from PIL import Image
-        import io
         
-        # Decode base64 to image
         image_data = base64.b64decode(image_base64)
         nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -805,103 +804,90 @@ def auto_crop_card(image_base64: str) -> str:
             return image_base64
         
         h, w = img.shape[:2]
-        
-        # Convert to grayscale
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        
-        # Apply Gaussian blur to reduce noise
         blurred = cv2.GaussianBlur(gray, (7, 7), 0)
         
-        # Try multiple detection strategies and pick the best card-like rectangle
-        best_box = None
-        best_area = 0
-        best_approx = None
+        # Collect contour bounding boxes from multiple strategies
+        all_boxes = []
         
-        # Strategy 1: Canny edge detection with various thresholds
         for low, high in [(30, 100), (50, 150), (75, 200)]:
             edges = cv2.Canny(blurred, low, high)
-            kernel = np.ones((5, 5), np.uint8)
+            kernel = np.ones((7, 7), np.uint8)
             dilated = cv2.dilate(edges, kernel, iterations=2)
             contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             
-            for cnt in sorted(contours, key=cv2.contourArea, reverse=True)[:10]:
-                area = cv2.contourArea(cnt)
-                if area < (h * w * 0.08) or area > (h * w * 0.96):
-                    continue
-                
-                # Try to approximate as polygon
-                peri = cv2.arcLength(cnt, True)
-                approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-                
-                x, y, rw, rh = cv2.boundingRect(cnt)
-                aspect = min(rw, rh) / max(rw, rh) if max(rw, rh) > 0 else 0
-                
-                # Cards have aspect ratio ~0.64-0.75 (2.5" x 3.5"), slabs ~0.45-0.55
-                if aspect < 0.35 or aspect > 0.95:
-                    continue
-                
-                if area > best_area:
-                    best_area = area
-                    best_box = (x, y, rw, rh)
-                    best_approx = approx if len(approx) == 4 else None
-        
-        # Strategy 2: Adaptive + Otsu threshold fallback
-        if best_box is None:
-            thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-            _, otsu = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            
-            for binary in [thresh, otsu]:
-                edges = cv2.Canny(binary, 50, 150)
-                kernel = np.ones((5, 5), np.uint8)
-                dilated = cv2.dilate(edges, kernel, iterations=2)
-                contours, _ = cv2.findContours(dilated, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                
-                for cnt in contours:
-                    area = cv2.contourArea(cnt)
-                    if area < (h * w * 0.08):
-                        continue
-                    x, y, rw, rh = cv2.boundingRect(cnt)
-                    aspect = min(rw, rh) / max(rw, rh) if max(rw, rh) > 0 else 0
-                    if aspect < 0.35 or aspect > 0.95:
-                        continue
-                    if area > best_area:
-                        best_area = area
-                        best_box = (x, y, rw, rh)
-        
-        # Strategy 3: Simple brightness threshold (card lighter than dark bg)
-        if best_box is None:
-            _, simple_thresh = cv2.threshold(gray, 60, 255, cv2.THRESH_BINARY)
-            contours, _ = cv2.findContours(simple_thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area < (h * w * 0.08):
-                    continue
                 x, y, rw, rh = cv2.boundingRect(cnt)
-                if area > best_area:
-                    best_area = area
-                    best_box = (x, y, rw, rh)
+                bbox_pct = (rw * rh) / (w * h)
+                # Skip noise (<2%) and full-image outlines (>85%)
+                if bbox_pct < 0.02 or bbox_pct > 0.85:
+                    continue
+                # Skip contours that span the full width or height (image border artifacts)
+                if rw > w * 0.95 or rh > h * 0.95:
+                    continue
+                all_boxes.append((x, y, x + rw, y + rh))
         
-        if best_box is None:
-            return image_base64  # No card detected, return original
+        if not all_boxes:
+            return image_base64
         
-        x, y, rw, rh = best_box
+        # Keep only boxes whose center is in the central 70% of the image
+        cx_min, cx_max = w * 0.15, w * 0.85
+        cy_min, cy_max = h * 0.15, h * 0.85
+        central = []
+        for (x1, y1, x2, y2) in all_boxes:
+            cx = (x1 + x2) / 2
+            cy = (y1 + y2) / 2
+            if cx_min <= cx <= cx_max and cy_min <= cy <= cy_max:
+                central.append((x1, y1, x2, y2))
         
-        # Generous padding around the detected card (5%) — never cut the actual card
-        pad_x = int(rw * 0.05)
-        pad_y = int(rh * 0.05)
-        x = max(0, x - pad_x)
-        y = max(0, y - pad_y)
-        rw = min(w - x, rw + 2 * pad_x)
-        rh = min(h - y, rh + 2 * pad_y)
+        if not central:
+            central = all_boxes
         
-        # Crop the card with generous margin (no black background — keep original bg)
-        cropped = img[y:y+rh, x:x+rw]
+        # Merge central boxes
+        min_x = min(b[0] for b in central)
+        min_y = min(b[1] for b in central)
+        max_x = max(b[2] for b in central)
+        max_y = max(b[3] for b in central)
         
-        # Encode back to base64
+        rw = max_x - min_x
+        rh = max_y - min_y
+        coverage = (rw * rh) / (w * h)
+        
+        if coverage < 0.12:
+            return image_base64  # Too small
+        
+        # KEY FIX: If detected area is small (<55%), the detection is probably 
+        # incomplete (e.g. white section of card blended with background).
+        # Extend outward from center to capture the full card.
+        if coverage < 0.55:
+            target = 0.65
+            scale = (target / coverage) ** 0.5
+            cx = (min_x + max_x) / 2
+            cy = (min_y + max_y) / 2
+            new_rw = rw * scale
+            new_rh = rh * scale
+            min_x = max(0, int(cx - new_rw / 2))
+            min_y = max(0, int(cy - new_rh / 2))
+            max_x = min(w, int(cx + new_rw / 2))
+            max_y = min(h, int(cy + new_rh / 2))
+            rw = max_x - min_x
+            rh = max_y - min_y
+            logger.info(f"Auto-crop: extended incomplete detection ({coverage:.0%} -> {(rw*rh)/(w*h):.0%})")
+        
+        # Generous padding (10%) — NEVER cut the card
+        pad_x = int(rw * 0.10)
+        pad_y = int(rh * 0.10)
+        x = max(0, int(min_x) - pad_x)
+        y = max(0, int(min_y) - pad_y)
+        crop_w = min(w - x, int(rw) + 2 * pad_x)
+        crop_h = min(h - y, int(rh) + 2 * pad_y)
+        
+        cropped = img[y:y+crop_h, x:x+crop_w]
+        
         _, buffer = cv2.imencode('.jpg', cropped, [cv2.IMWRITE_JPEG_QUALITY, 95])
         result_base64 = base64.b64encode(buffer).decode('utf-8')
         
-        logger.info(f"Auto-crop: {w}x{h} -> card {rw}x{rh}")
+        logger.info(f"Auto-crop: {w}x{h} -> {crop_w}x{crop_h}")
         return result_base64
         
     except Exception as e:
