@@ -2146,231 +2146,133 @@ async def update_watchlist_card(card_id: str, card: WatchlistCardCreate, request
 # ============================================
 
 async def search_ebay_for_card(search_query: str) -> List[dict]:
-    """Search eBay for a specific card and return listings"""
-    if not SCRAPEDO_API_KEY:
-        raise HTTPException(status_code=400, detail="Scrape.do API key not configured")
-    
-    # Build eBay search URL - searching for raw cards (not graded)
-    # Using urllib for proper encoding
+    """Search eBay for a specific card using Browse API and return listings"""
     from urllib.parse import quote_plus
-    # Add negative filters to exclude graded cards: -psa -bgs -sgc -cgc -graded -slab
-    encoded_query = quote_plus(f"{search_query} -psa -bgs -sgc -cgc -graded -slab")
-    # Sort by newest
-    ebay_search_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded_query}&_sop=10"
     
-    scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={ebay_search_url}&render=true"
+    logger.info(f"Searching eBay Browse API for: {search_query}")
     
-    logger.info(f"Searching eBay for: {search_query}")
+    # Build search excluding graded cards
+    raw_query = f"{search_query} -psa -bgs -sgc -cgc -graded -slab"
     
-    # Extract key terms from the search query for validation
-    # e.g., "1986 Fleer Michael Jordan #57" -> ["1986", "fleer", "michael", "jordan", "57"]
+    # Extract player name parts for validation
     search_terms = re.findall(r'\b[\w]+\b', search_query.lower())
-    # Common words that are NOT required to match (brand names, generic terms)
     common_words = {'the', 'a', 'an', 'and', 'or', 'of', 'card', 'cards', 'rookie', 'rc', 
                    'topps', 'fleer', 'upper', 'deck', 'hoops', 'skybox', 'panini', 
                    'donruss', 'bowman', 'prizm', 'chrome', 'refractor', 'base', 'insert'}
-    
-    # Player name parts are alphabetic terms that are NOT common words
-    # These are the CRITICAL terms that MUST appear in the listing title
     player_name_parts = [term for term in search_terms 
                         if term.isalpha() and len(term) > 2 and term not in common_words]
     
-    logger.info(f"Player name parts that MUST match: {player_name_parts}")
-    
-    async with httpx.AsyncClient(timeout=60.0) as client:
-        response = await client.get(scrape_url)
-        html_content = response.text
-    
-    listings = []
-    seen_ids = set()
-    
-    # Find all item IDs first
-    item_ids = re.findall(r'/itm/(\d{10,})', html_content)
-    item_ids = list(dict.fromkeys(item_ids))  # Remove duplicates while preserving order
-    
-    logger.info(f"Found {len(item_ids)} unique item IDs")
-    
-    for item_id in item_ids[:40]:  # Check more items since we filter strictly
-        if item_id in seen_ids or item_id == '123456':  # Skip placeholder
-            continue
-        seen_ids.add(item_id)
+    try:
+        token = await get_ebay_app_token()
+        if not token:
+            logger.error("No eBay app token available")
+            return []
         
-        # Stop if we have enough good matches
-        if len(listings) >= 15:
-            break
+        listings = []
         
-        try:
-            # Find the complete listing block for this item
-            # eBay uses <li> elements with data-listingid attribute
-            li_pattern = rf'<li[^>]*data-listingid="{item_id}"[^>]*>.*?</li>'
-            li_match = re.search(li_pattern, html_content, re.DOTALL)
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get(
+                "https://api.ebay.com/buy/browse/v1/item_summary/search",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                },
+                params={
+                    "q": raw_query,
+                    "limit": 40,
+                    "sort": "newlyListed"
+                }
+            )
             
-            if li_match:
-                item_html = li_match.group(0)
-            else:
-                # Fallback: Extract a window around the item ID
-                start_idx = html_content.find(f'data-listingid="{item_id}"')
-                if start_idx == -1:
-                    start_idx = html_content.find(f'/itm/{item_id}')
-                if start_idx == -1:
-                    continue
-                # Get surrounding context
-                start = max(0, start_idx - 500)
-                end = min(len(html_content), start_idx + 8000)
-                item_html = html_content[start:end]
+            if resp.status_code != 200:
+                logger.error(f"Browse API error: {resp.status_code} - {resp.text[:200]}")
+                return []
             
-            # Extract title from the listing HTML
-            # Look for text content that looks like a card title
-            title = "Unknown"
+            items = resp.json().get("itemSummaries", [])
+            logger.info(f"Browse API returned {len(items)} items")
             
-            # Pattern 1: Find text between > and < that looks like a title
-            text_contents = re.findall(r'>([^<]{20,120})<', item_html)
-            for text in text_contents:
-                text = text.strip()
-                # Skip common non-title texts
-                skip_patterns = [
-                    'opens in a new', 'out of 5 stars', 'product rating',
-                    'delivery', 'located in', 'positive', 'watch', 
-                    'add to cart', 'buy it now', 'see more', 'similar items'
-                ]
-                if any(skip in text.lower() for skip in skip_patterns):
-                    continue
-                # Accept any text that looks like a card title (long enough)
-                if len(text) > 25:
-                    title = text
+            for item in items:
+                if len(listings) >= 15:
                     break
-            
-            # Fallback: Use first substantial text that's not a skip pattern
-            if title == "Unknown":
-                for text in text_contents:
-                    text = text.strip()
-                    if len(text) > 20 and not any(skip in text.lower() for skip in ['opens', 'stars', 'rating', 'delivery', 'located', 'positive', 'watch', 'cart', 'buy', 'similar', 'sponsored']):
-                        title = text
-                        break
-            
-            # CRITICAL: Validate that this listing matches the search query
-            # The title MUST contain the player name parts
-            title_lower = title.lower()
-            
-            # Check how many player name parts are in the title
-            player_matches = sum(1 for part in player_name_parts if part in title_lower)
-            
-            # Require at least 2 matches, or 1 if there's only 1 player name part
-            min_required = min(2, len(player_name_parts)) if player_name_parts else 0
-            
-            if player_matches < min_required:
-                logger.debug(f"SKIPPING '{title[:60]}' - player name mismatch ({player_matches}/{min_required} matches)")
-                continue
-            
-            # Skip if title contains grading company names or slab references
-            title_upper = title.upper()
-            if any(x in title_upper for x in ['PSA ', 'BGS ', 'SGC ', 'CGC ', ' PSA', ' BGS', ' SGC', ' CGC', 'GRADED', 'SLAB', 'SLABBED']):
-                continue
-            
-            # Extract price
-            price_str = "$0.00"
-            price_value = 0.0
-            price_patterns = [
-                r'class="[^"]*s-item__price[^"]*"[^>]*>\$?([\d,]+\.?\d*)',
-                r'>\$([\d,]+\.?\d*)<',
-                r'\$([\d,]+\.?\d*)',
-            ]
-            for pattern in price_patterns:
-                match = re.search(pattern, item_html)
-                if match:
+                
+                title = item.get("title", "")
+                title_lower = title.lower()
+                
+                # Validate player name is in title
+                player_matches = sum(1 for part in player_name_parts if part in title_lower)
+                min_required = min(2, len(player_name_parts)) if player_name_parts else 0
+                if player_matches < min_required:
+                    continue
+                
+                # Skip graded cards that slipped through
+                title_upper = title.upper()
+                if any(x in title_upper for x in ['PSA ', 'BGS ', 'SGC ', 'CGC ', ' PSA', ' BGS', ' SGC', ' CGC', 'GRADED', 'SLAB']):
+                    continue
+                
+                # Extract price
+                price_value = 0.0
+                price_str = "$0.00"
+                price_data = item.get("price", {})
+                if price_data.get("value"):
                     try:
-                        price_value = float(match.group(1).replace(',', ''))
+                        price_value = float(price_data["value"])
                         price_str = f"${price_value:,.2f}"
-                        break
                     except:
                         pass
-            
-            # Determine listing type and time left
-            listing_type = "buy_now"
-            bids = None
-            time_left = None
-            
-            # Check for bid indicators
-            bid_match = re.search(r'(\d+)\s*bid', item_html.lower())
-            if bid_match:
-                listing_type = "auction"
-                bids = int(bid_match.group(1))
-            
-            # Check for time left
-            time_patterns = [
-                r'(\d+[hmd]\s*\d*[hmd]?)\s*left',
-                r'class="[^"]*time[^"]*"[^>]*>([^<]+)<',
-            ]
-            for pattern in time_patterns:
-                match = re.search(pattern, item_html.lower())
-                if match:
-                    time_left = match.group(1).strip()
+                
+                # Determine listing type
+                listing_type = "buy_now"
+                bids = None
+                time_left = None
+                buying_options = item.get("buyingOptions", [])
+                if "AUCTION" in buying_options:
                     listing_type = "auction"
-                    break
-            
-            # Extract image URL
-            image_url = ""
-            img_patterns = [
-                r'src="(https://i\.ebayimg\.com/[^"]+\.(?:jpg|jpeg|png|webp))"',
-                r'data-src="(https://i\.ebayimg\.com/[^"]+)"',
-            ]
-            for pattern in img_patterns:
-                match = re.search(pattern, item_html)
-                if match:
-                    image_url = match.group(1)
-                    if 'gif' not in image_url.lower():
-                        break
-            
-            if not image_url:
-                continue
-            
-            # Upgrade to higher resolution image
-            image_url = re.sub(r'/s-l\d+\.', '/s-l800.', image_url)
-            
-            listing_url = f"https://www.ebay.com/itm/{item_id}"
-            
-            # Normalize title for deduplication (remove extra spaces, lowercase)
-            normalized_title = ' '.join(title.lower().split())
-            
-            # Check if we already have a very similar listing (same title)
-            is_duplicate = False
-            for existing in listings:
-                existing_normalized = ' '.join(existing['title'].lower().split())
-                # If titles are very similar (>90% match), skip this one
-                if normalized_title == existing_normalized:
-                    is_duplicate = True
-                    logger.debug(f"Skipping duplicate listing: {title[:50]}")
-                    break
-                # Also check if one title contains the other (common duplicate pattern)
-                if len(normalized_title) > 20 and len(existing_normalized) > 20:
-                    if normalized_title in existing_normalized or existing_normalized in normalized_title:
+                
+                # Image
+                image_url = item.get("image", {}).get("imageUrl", "")
+                if not image_url:
+                    continue
+                
+                # Item ID from itemId field (format: v1|ITEMID|0)
+                item_id_raw = item.get("itemId", "")
+                ebay_item_id = item_id_raw.split("|")[1] if "|" in item_id_raw else item_id_raw
+                
+                listing_url = item.get("itemWebUrl", f"https://www.ebay.com/itm/{ebay_item_id}")
+                
+                # Dedup check
+                normalized_title = ' '.join(title.lower().split())
+                is_duplicate = False
+                for existing in listings:
+                    existing_normalized = ' '.join(existing['title'].lower().split())
+                    if normalized_title == existing_normalized or \
+                       (len(normalized_title) > 20 and len(existing_normalized) > 20 and
+                        (normalized_title in existing_normalized or existing_normalized in normalized_title)):
                         is_duplicate = True
-                        logger.debug(f"Skipping similar listing: {title[:50]}")
                         break
-            
-            if is_duplicate:
-                continue
-            
-            listings.append({
-                "ebay_item_id": item_id,
-                "title": title[:200],  # Limit title length
-                "price": price_str,
-                "price_value": price_value,
-                "listing_type": listing_type,
-                "time_left": time_left,
-                "image_url": image_url,
-                "listing_url": listing_url,
-                "bids": bids
-            })
-            
-            logger.info(f"Extracted listing: {item_id} - {title[:50]}... - {price_str}")
-            
-        except Exception as e:
-            logger.warning(f"Error parsing item {item_id}: {e}")
-            continue
-    
-    logger.info(f"Total listings extracted: {len(listings)}")
-    return listings
+                
+                if is_duplicate:
+                    continue
+                
+                listings.append({
+                    "ebay_item_id": ebay_item_id,
+                    "title": title[:200],
+                    "price": price_str,
+                    "price_value": price_value,
+                    "listing_type": listing_type,
+                    "time_left": time_left,
+                    "image_url": image_url,
+                    "listing_url": listing_url,
+                    "bids": bids
+                })
+                
+                logger.info(f"Found listing: {ebay_item_id} - {title[:50]}... - {price_str}")
+        
+        logger.info(f"Total listings found: {len(listings)}")
+        return listings
+        
+    except Exception as e:
+        logger.error(f"Browse API search failed: {e}")
+        return []
 
 @api_router.post("/watchlist/search", response_model=SearchResultSummary)
 async def search_all_watchlist(request: Request):
