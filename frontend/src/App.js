@@ -7,6 +7,9 @@ import AuthPage from "./components/AuthPage";
 import { Toaster } from "./components/ui/sonner";
 import axios from "axios";
 
+// Global axios config - send cookies with every request
+axios.defaults.withCredentials = true;
+
 const API = process.env.REACT_APP_BACKEND_URL;
 
 function App() {

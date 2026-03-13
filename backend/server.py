@@ -1179,9 +1179,11 @@ async def root():
     return {"message": "GradeProphet API - AI-powered PSA grading predictor"}
 
 @api_router.post("/cards/analyze", response_model=CardAnalysisResponse)
-async def analyze_card(data: CardAnalysisCreate):
+async def analyze_card(data: CardAnalysisCreate, request: Request):
     """Analyze a sports card image and predict PSA grade"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         # Validate front image
         if not data.front_image_base64:
             raise HTTPException(status_code=400, detail="Front image is required")
@@ -1260,6 +1262,7 @@ async def analyze_card(data: CardAnalysisCreate):
         # Save to database
         doc = card_analysis.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
+        doc['user_id'] = user_id
         await db.card_analyses.insert_one(doc)
         
         # Return response
@@ -1364,20 +1367,22 @@ async def identify_card_from_image(data: CardIdentifyRequest):
 
 
 @api_router.get("/cards/history", response_model=List[CardAnalysisResponse])
-async def get_card_history():
+async def get_card_history(request: Request):
     """Get history of analyzed cards"""
     try:
-        cards = await db.card_analyses.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        user = await get_current_user(request)
+        cards = await db.card_analyses.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
         return cards
     except Exception as e:
         logger.error(f"Failed to fetch history: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/cards/{card_id}", response_model=CardAnalysisResponse)
-async def get_card_analysis(card_id: str):
+async def get_card_analysis(card_id: str, request: Request):
     """Get a specific card analysis by ID"""
     try:
-        card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        user = await get_current_user(request)
+        card = await db.card_analyses.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
         if not card:
             raise HTTPException(status_code=404, detail="Card analysis not found")
         return card
@@ -1388,10 +1393,11 @@ async def get_card_analysis(card_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.delete("/cards/{card_id}")
-async def delete_card_analysis(card_id: str):
+async def delete_card_analysis(card_id: str, request: Request):
     """Delete a card analysis"""
     try:
-        result = await db.card_analyses.delete_one({"id": card_id})
+        user = await get_current_user(request)
+        result = await db.card_analyses.delete_one({"id": card_id, "user_id": user["user_id"]})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Card analysis not found")
         return {"message": "Card analysis deleted successfully"}
@@ -1402,11 +1408,12 @@ async def delete_card_analysis(card_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.put("/cards/{card_id}/feedback", response_model=CardAnalysisResponse)
-async def update_card_feedback(card_id: str, feedback: CardFeedbackUpdate):
+async def update_card_feedback(card_id: str, feedback: CardFeedbackUpdate, request: Request):
     """Update a card with actual PSA grade for learning"""
     try:
+        user = await get_current_user(request)
         # Find the card
-        card = await db.card_analyses.find_one({"id": card_id}, {"_id": 0})
+        card = await db.card_analyses.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
         if not card:
             raise HTTPException(status_code=404, detail="Card analysis not found")
         
@@ -1600,9 +1607,11 @@ async def read_psa_label(image_base64: str) -> dict:
 
 # PSA 10 Reference Endpoints
 @api_router.post("/references", response_model=PSA10ReferenceResponse)
-async def create_reference(data: PSA10ReferenceCreate):
+async def create_reference(data: PSA10ReferenceCreate, request: Request):
     """Save a PSA 10 reference image - automatically reads label info"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         if not data.image_base64:
             raise HTTPException(status_code=400, detail="Image is required")
         
@@ -1630,6 +1639,7 @@ async def create_reference(data: PSA10ReferenceCreate):
         # Save to database
         doc = reference.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
+        doc['user_id'] = user_id
         await db.psa10_references.insert_one(doc)
         
         return PSA10ReferenceResponse(
@@ -1646,20 +1656,22 @@ async def create_reference(data: PSA10ReferenceCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/references", response_model=List[PSA10ReferenceResponse])
-async def get_references():
+async def get_references(request: Request):
     """Get all saved PSA 10 references"""
     try:
-        refs = await db.psa10_references.find({}, {"_id": 0, "image_full": 0}).sort("created_at", -1).to_list(100)
+        user = await get_current_user(request)
+        refs = await db.psa10_references.find({"user_id": user["user_id"]}, {"_id": 0, "image_full": 0}).sort("created_at", -1).to_list(100)
         return refs
     except Exception as e:
         logger.error(f"Failed to fetch references: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.delete("/references/{ref_id}")
-async def delete_reference(ref_id: str):
+async def delete_reference(ref_id: str, request: Request):
     """Delete a PSA 10 reference"""
     try:
-        result = await db.psa10_references.delete_one({"id": ref_id})
+        user = await get_current_user(request)
+        result = await db.psa10_references.delete_one({"id": ref_id, "user_id": user["user_id"]})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Reference not found")
         return {"message": "Reference deleted successfully"}
@@ -2059,9 +2071,11 @@ async def crop_corners(data: CornerCropRequest):
 # ============================================
 
 @api_router.post("/watchlist", response_model=WatchlistCardResponse)
-async def add_to_watchlist(card: WatchlistCardCreate):
+async def add_to_watchlist(card: WatchlistCardCreate, request: Request):
     """Add a card to the watchlist for monitoring"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         watchlist_card = WatchlistCard(
             search_query=card.search_query.strip(),
             notes=card.notes
@@ -2069,6 +2083,7 @@ async def add_to_watchlist(card: WatchlistCardCreate):
         
         card_dict = watchlist_card.model_dump()
         card_dict['created_at'] = card_dict['created_at'].isoformat()
+        card_dict['user_id'] = user_id
         if card_dict.get('last_searched'):
             card_dict['last_searched'] = card_dict['last_searched'].isoformat()
         
@@ -2087,25 +2102,28 @@ async def add_to_watchlist(card: WatchlistCardCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/watchlist", response_model=List[WatchlistCardResponse])
-async def get_watchlist():
+async def get_watchlist(request: Request):
     """Get all cards in the watchlist"""
     try:
-        cards = await db.watchlist_cards.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+        user = await get_current_user(request)
+        cards = await db.watchlist_cards.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
         return [WatchlistCardResponse(**card) for card in cards]
     except Exception as e:
         logger.error(f"Error getting watchlist: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.delete("/watchlist/{card_id}")
-async def remove_from_watchlist(card_id: str):
+async def remove_from_watchlist(card_id: str, request: Request):
     """Remove a card from the watchlist and its associated listings"""
     try:
-        result = await db.watchlist_cards.delete_one({"id": card_id})
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+        result = await db.watchlist_cards.delete_one({"id": card_id, "user_id": user_id})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Card not found in watchlist")
         
         # Also delete associated listings
-        await db.ebay_listings.delete_many({"watchlist_card_id": card_id})
+        await db.ebay_listings.delete_many({"watchlist_card_id": card_id, "user_id": user_id})
         
         return {"success": True, "message": "Card removed from watchlist"}
     except HTTPException:
@@ -2115,11 +2133,12 @@ async def remove_from_watchlist(card_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.put("/watchlist/{card_id}")
-async def update_watchlist_card(card_id: str, card: WatchlistCardCreate):
+async def update_watchlist_card(card_id: str, card: WatchlistCardCreate, request: Request):
     """Update a card in the watchlist"""
     try:
+        user = await get_current_user(request)
         result = await db.watchlist_cards.update_one(
-            {"id": card_id},
+            {"id": card_id, "user_id": user["user_id"]},
             {"$set": {
                 "search_query": card.search_query.strip(),
                 "notes": card.notes
@@ -2367,10 +2386,12 @@ async def search_ebay_for_card(search_query: str) -> List[dict]:
     return listings
 
 @api_router.post("/watchlist/search", response_model=SearchResultSummary)
-async def search_all_watchlist():
+async def search_all_watchlist(request: Request):
     """Search eBay for all cards in the watchlist and save new listings"""
     try:
-        watchlist = await db.watchlist_cards.find({}, {"_id": 0}).to_list(100)
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+        watchlist = await db.watchlist_cards.find({"user_id": user_id}, {"_id": 0}).to_list(100)
         
         if not watchlist:
             return SearchResultSummary(
@@ -2420,6 +2441,7 @@ async def search_all_watchlist():
                     
                     listing_dict = ebay_listing.model_dump()
                     listing_dict['found_at'] = listing_dict['found_at'].isoformat()
+                    listing_dict['user_id'] = user_id
                     
                     await db.ebay_listings.insert_one(listing_dict)
                     new_count += 1
@@ -2453,10 +2475,11 @@ async def search_all_watchlist():
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/listings", response_model=List[EbayListingResponse])
-async def get_listings(status: Optional[str] = None, watchlist_card_id: Optional[str] = None):
+async def get_listings(request: Request, status: Optional[str] = None, watchlist_card_id: Optional[str] = None):
     """Get eBay listings, optionally filtered by status or watchlist card"""
     try:
-        query = {"status": {"$ne": "deleted"}}
+        user = await get_current_user(request)
+        query = {"user_id": user["user_id"], "status": {"$ne": "deleted"}}
         if status:
             query["status"] = status
         if watchlist_card_id:
@@ -2469,15 +2492,16 @@ async def get_listings(status: Optional[str] = None, watchlist_card_id: Optional
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.put("/listings/{listing_id}/status")
-async def update_listing_status(listing_id: str, status: str):
+async def update_listing_status(listing_id: str, status: str, request: Request):
     """Update the status of a listing (new, seen, interested, ignored)"""
     try:
+        user = await get_current_user(request)
         valid_statuses = ["new", "seen", "interested", "ignored"]
         if status not in valid_statuses:
             raise HTTPException(status_code=400, detail=f"Invalid status. Must be one of: {valid_statuses}")
         
         result = await db.ebay_listings.update_one(
-            {"id": listing_id},
+            {"id": listing_id, "user_id": user["user_id"]},
             {"$set": {"status": status}}
         )
         
@@ -2492,11 +2516,12 @@ async def update_listing_status(listing_id: str, status: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.delete("/listings/{listing_id}")
-async def delete_listing(listing_id: str):
+async def delete_listing(listing_id: str, request: Request):
     """Mark a listing as deleted so it won't reappear"""
     try:
+        user = await get_current_user(request)
         result = await db.ebay_listings.update_one(
-            {"id": listing_id},
+            {"id": listing_id, "user_id": user["user_id"]},
             {"$set": {"status": "deleted"}}
         )
         if result.matched_count == 0:
@@ -2509,10 +2534,11 @@ async def delete_listing(listing_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.delete("/listings")
-async def clear_all_listings(watchlist_card_id: Optional[str] = None):
+async def clear_all_listings(request: Request, watchlist_card_id: Optional[str] = None):
     """Clear all listings or listings for a specific watchlist card"""
     try:
-        query = {}
+        user = await get_current_user(request)
+        query = {"user_id": user["user_id"]}
         if watchlist_card_id:
             query["watchlist_card_id"] = watchlist_card_id
         
@@ -2523,12 +2549,14 @@ async def clear_all_listings(watchlist_card_id: Optional[str] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/listings/stats")
-async def get_listings_stats():
+async def get_listings_stats(request: Request):
     """Get statistics about the listings"""
     try:
-        total = await db.ebay_listings.count_documents({})
-        new_count = await db.ebay_listings.count_documents({"status": "new"})
-        interested_count = await db.ebay_listings.count_documents({"status": "interested"})
+        user = await get_current_user(request)
+        uq = {"user_id": user["user_id"]}
+        total = await db.ebay_listings.count_documents(uq)
+        new_count = await db.ebay_listings.count_documents({**uq, "status": "new"})
+        interested_count = await db.ebay_listings.count_documents({**uq, "status": "interested"})
         
         return {
             "total_listings": total,
@@ -3184,39 +3212,44 @@ async def market_search(query: str, limit: int = 20):
 
 
 @api_router.get("/market/watchlist")
-async def get_market_watchlist():
+async def get_market_watchlist(request: Request):
     """Get user's market watchlist items with live price data"""
-    watchlist = await db.market_watchlist.find({}, {"_id": 0}).to_list(50)
+    user = await get_current_user(request)
+    watchlist = await db.market_watchlist.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
     return {"items": watchlist}
 
 @api_router.post("/market/watchlist")
-async def add_to_watchlist(data: dict = Body(...)):
+async def add_to_watchlist(request: Request, data: dict = Body(...)):
     """Add a player or card to the market watchlist"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
     name = data.get("name", "").strip()
     wtype = data.get("type", "player")  # player or card
     if not name:
         raise HTTPException(400, "Name is required")
-    existing = await db.market_watchlist.find_one({"name": name, "type": wtype})
+    existing = await db.market_watchlist.find_one({"name": name, "type": wtype, "user_id": user_id})
     if existing:
         return {"status": "already_exists"}
     from datetime import datetime, timezone
-    doc = {"name": name, "type": wtype, "created_at": datetime.now(timezone.utc).isoformat()}
+    doc = {"name": name, "type": wtype, "user_id": user_id, "created_at": datetime.now(timezone.utc).isoformat()}
     await db.market_watchlist.insert_one(doc)
     return {"status": "added"}
 
 @api_router.delete("/market/watchlist/{name}")
-async def remove_from_watchlist(name: str):
+async def remove_from_watchlist(name: str, request: Request):
     """Remove from watchlist"""
+    user = await get_current_user(request)
     from urllib.parse import unquote
     decoded = unquote(name)
-    await db.market_watchlist.delete_many({"name": decoded})
+    await db.market_watchlist.delete_many({"name": decoded, "user_id": user["user_id"]})
     return {"status": "removed"}
 
 @api_router.get("/market/portfolio-health")
-async def get_portfolio_health():
+async def get_portfolio_health(request: Request):
     """Get portfolio health - inventory items with estimated market values"""
     from datetime import datetime, timezone
-    inventory = await db.inventory.find({}, {"_id": 0}).to_list(200)
+    user = await get_current_user(request)
+    inventory = await db.inventory.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(200)
 
     portfolio = []
     total_invested = 0
@@ -3243,12 +3276,13 @@ async def get_portfolio_health():
     }
 
 @api_router.get("/market/hot-cards")
-async def get_hot_cards():
+async def get_hot_cards(request: Request):
     """Get trending/hot cards based on popular searches and user's sports interests"""
     from datetime import datetime, timezone
 
     # Determine user's sports interests from inventory
-    inventory = await db.inventory.find({}, {"_id": 0, "card_name": 1, "player": 1}).to_list(100)
+    user = await get_current_user(request)
+    inventory = await db.inventory.find({"user_id": user["user_id"]}, {"_id": 0, "card_name": 1, "player": 1}).to_list(100)
     sports = set()
     for item in inventory:
         sport = _detect_sport(item.get("card_name", ""))
@@ -3545,9 +3579,10 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
 # ============================================
 
 @api_router.post("/portfolio/refresh-value/{item_id}")
-async def refresh_single_card_value(item_id: str):
+async def refresh_single_card_value(item_id: str, request: Request):
     """Refresh market value for a single inventory card"""
-    item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    user = await get_current_user(request)
+    item = await db.inventory.find_one({"id": item_id, "user_id": user["user_id"]}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
@@ -3590,9 +3625,11 @@ async def refresh_single_card_value(item_id: str):
 
 
 @api_router.get("/portfolio/summary")
-async def get_portfolio_summary():
+async def get_portfolio_summary(request: Request):
     """Get portfolio summary: total value, invested, P&L, ROI"""
-    items = await db.inventory.find({"listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    items = await db.inventory.find({"user_id": user_id, "listed": {"$ne": True}}, {"_id": 0}).to_list(500)
 
     total_invested = 0
     total_market_value = 0
@@ -3627,7 +3664,7 @@ async def get_portfolio_summary():
     roi = (pnl / total_invested * 100) if total_invested > 0 and valued_count > 0 else 0
 
     # Get snapshots for trend chart
-    snapshots = await db.portfolio_snapshots.find({}, {"_id": 0}).sort("date", -1).to_list(90)
+    snapshots = await db.portfolio_snapshots.find({"user_id": user_id}, {"_id": 0}).sort("date", -1).to_list(90)
 
     return {
         "total_invested": round(total_invested, 2),
@@ -3643,9 +3680,11 @@ async def get_portfolio_summary():
 
 
 @api_router.post("/portfolio/snapshot")
-async def save_portfolio_snapshot():
+async def save_portfolio_snapshot(request: Request):
     """Save a portfolio valuation snapshot for trend tracking"""
-    items = await db.inventory.find({"listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    items = await db.inventory.find({"user_id": user_id, "listed": {"$ne": True}}, {"_id": 0}).to_list(500)
     total_invested = sum(float(i.get("purchase_price") or 0) for i in items)
     total_market_value = sum(float(i.get("market_value") or 0) for i in items if i.get("market_value"))
     valued = sum(1 for i in items if i.get("market_value"))
@@ -3659,10 +3698,10 @@ async def save_portfolio_snapshot():
         "total_cards": len(items),
         "valued_cards": valued,
     }
-    # Upsert: one snapshot per day
+    # Upsert: one snapshot per day per user
     await db.portfolio_snapshots.update_one(
-        {"date": snapshot["date"]},
-        {"$set": snapshot},
+        {"date": snapshot["date"], "user_id": user_id},
+        {"$set": {**snapshot, "user_id": user_id}},
         upsert=True,
     )
     return snapshot
@@ -3694,10 +3733,12 @@ class PriceAlertResponse(BaseModel):
     created_at: str
 
 @api_router.post("/alerts")
-async def create_price_alert(data: PriceAlertCreate):
+async def create_price_alert(data: PriceAlertCreate, request: Request):
     """Create a new price alert"""
+    user = await get_current_user(request)
     alert = {
         "id": str(uuid.uuid4()),
+        "user_id": user["user_id"],
         "search_query": data.search_query,
         "player": data.player,
         "condition_type": data.condition_type,
@@ -3715,25 +3756,28 @@ async def create_price_alert(data: PriceAlertCreate):
 
 
 @api_router.get("/alerts")
-async def get_price_alerts():
+async def get_price_alerts(request: Request):
     """Get all price alerts"""
-    alerts = await db.price_alerts.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    user = await get_current_user(request)
+    alerts = await db.price_alerts.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return alerts
 
 
 @api_router.delete("/alerts/{alert_id}")
-async def delete_price_alert(alert_id: str):
+async def delete_price_alert(alert_id: str, request: Request):
     """Delete a price alert"""
-    result = await db.price_alerts.delete_one({"id": alert_id})
+    user = await get_current_user(request)
+    result = await db.price_alerts.delete_one({"id": alert_id, "user_id": user["user_id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Alert not found")
     return {"success": True}
 
 
 @api_router.post("/alerts/check")
-async def check_all_alerts():
+async def check_all_alerts(request: Request):
     """Check all active price alerts against current market prices"""
-    alerts = await db.price_alerts.find({"active": True}, {"_id": 0}).to_list(100)
+    user = await get_current_user(request)
+    alerts = await db.price_alerts.find({"active": True, "user_id": user["user_id"]}, {"_id": 0}).to_list(100)
     results = []
     now = datetime.now(timezone.utc).isoformat()
 
@@ -3775,10 +3819,13 @@ async def check_all_alerts():
 # ============================================
 
 @api_router.get("/dashboard/analytics")
-async def get_dashboard_analytics():
+async def get_dashboard_analytics(request: Request):
     """Comprehensive dashboard analytics: sales timeline, inventory breakdown, performance metrics"""
     from datetime import datetime, timezone, timedelta
     from collections import defaultdict
+
+    user = await get_current_user(request)
+    user_id = user["user_id"]
 
     try:
         token = await get_ebay_user_token()
@@ -3869,7 +3916,7 @@ async def get_dashboard_analytics():
         })
 
     # ---- 2. Inventory Breakdown ----
-    inventory_items = await db.inventory.find({}, {"_id": 0}).to_list(500)
+    inventory_items = await db.inventory.find({"user_id": user_id}, {"_id": 0}).to_list(500)
     inv_by_sport = defaultdict(lambda: {"count": 0, "value": 0})
     inv_by_player = defaultdict(lambda: {"count": 0, "value": 0})
     inv_by_category = defaultdict(lambda: {"count": 0, "value": 0})
@@ -3980,35 +4027,37 @@ def _detect_sport(card_name: str) -> str:
 
 
 @api_router.get("/dashboard/stats")
-async def get_dashboard_stats():
+async def get_dashboard_stats(request: Request):
     """Get main dashboard KPI statistics"""
     try:
+        user = await get_current_user(request)
+        uq = {"user_id": user["user_id"]}
         # Cards analyzed (our "inventory" for now)
-        total_cards = await db.card_analyses.count_documents({})
+        total_cards = await db.card_analyses.count_documents(uq)
         
         # Cards with high grades (PSA 8+) - potential value
         high_grade_cards = await db.card_analyses.find(
-            {"grading_result.overall_grade": {"$gte": 8}},
+            {**uq, "grading_result.overall_grade": {"$gte": 8}},
             {"_id": 0, "grading_result.overall_grade": 1, "card_name": 1}
         ).to_list(1000)
         
         # eBay listings tracked
-        total_listings = await db.ebay_listings.count_documents({"status": {"$ne": "deleted"}})
-        new_listings = await db.ebay_listings.count_documents({"status": "new"})
-        interested_listings = await db.ebay_listings.count_documents({"status": "interested"})
+        total_listings = await db.ebay_listings.count_documents({**uq, "status": {"$ne": "deleted"}})
+        new_listings = await db.ebay_listings.count_documents({**uq, "status": "new"})
+        interested_listings = await db.ebay_listings.count_documents({**uq, "status": "interested"})
         
         # Watchlist cards
-        watchlist_count = await db.watchlist_cards.count_documents({})
+        watchlist_count = await db.watchlist_cards.count_documents(uq)
         
         # Cards not listed (analyzed but status pending)
-        not_listed = await db.card_analyses.count_documents({"status": "pending"})
+        not_listed = await db.card_analyses.count_documents({**uq, "status": "pending"})
         
         # Flip opportunities: cards marked interested or with good grades
         flip_opportunities = interested_listings + len(high_grade_cards)
         
         # Estimate collection value from eBay listings prices
         interested_or_new = await db.ebay_listings.find(
-            {"status": {"$in": ["new", "interested"]}},
+            {**uq, "status": {"$in": ["new", "interested"]}},
             {"_id": 0, "price_value": 1}
         ).to_list(1000)
         
@@ -4031,11 +4080,12 @@ async def get_dashboard_stats():
 
 
 @api_router.get("/dashboard/recent")
-async def get_dashboard_recent():
+async def get_dashboard_recent(request: Request):
     """Get recently scanned/analyzed cards"""
     try:
+        user = await get_current_user(request)
         recent = await db.card_analyses.find(
-            {},
+            {"user_id": user["user_id"]},
             {"_id": 0, "front_image_preview": 1, "card_name": 1, 
              "grading_result.overall_grade": 1, "created_at": 1, "id": 1, "status": 1}
         ).sort("created_at", -1).to_list(8)
@@ -4046,12 +4096,13 @@ async def get_dashboard_recent():
 
 
 @api_router.get("/dashboard/opportunities")
-async def get_dashboard_opportunities():
+async def get_dashboard_opportunities(request: Request):
     """Get flip opportunities - interesting listings with good potential"""
     try:
+        user = await get_current_user(request)
         # Get interested eBay listings (potential flips)
         opportunities = await db.ebay_listings.find(
-            {"status": {"$in": ["new", "interested"]}, "price_value": {"$gt": 0}},
+            {"user_id": user["user_id"], "status": {"$in": ["new", "interested"]}, "price_value": {"$gt": 0}},
             {"_id": 0}
         ).sort("found_at", -1).to_list(10)
         
@@ -4062,11 +4113,12 @@ async def get_dashboard_opportunities():
 
 
 @api_router.get("/dashboard/movers")
-async def get_dashboard_movers():
+async def get_dashboard_movers(request: Request):
     """Get market movers - recently found listings showing price trends"""
     try:
+        user = await get_current_user(request)
         # Get watchlist cards with their listings for price comparison
-        watchlist = await db.watchlist_cards.find({}, {"_id": 0}).to_list(20)
+        watchlist = await db.watchlist_cards.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(20)
         
         movers = []
         for card in watchlist:
@@ -4200,9 +4252,12 @@ class InventoryItemUpdate(BaseModel):
 
 
 @api_router.post("/inventory")
-async def create_inventory_item(data: InventoryItemCreate):
+async def create_inventory_item(data: InventoryItemCreate, request: Request):
     """Add a card to inventory"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+        
         image_thumb = None
         if data.image_base64:
             img = data.image_base64
@@ -4239,6 +4294,7 @@ async def create_inventory_item(data: InventoryItemCreate):
         doc = item.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
         doc['updated_at'] = doc['updated_at'].isoformat()
+        doc['user_id'] = user_id
         await db.inventory.insert_one(doc)
 
         doc.pop('_id', None)
@@ -4271,9 +4327,11 @@ class BatchSaveRequest(BaseModel):
     category: str = "collection"
 
 @api_router.post("/inventory/batch-save")
-async def batch_save_inventory(data: BatchSaveRequest):
+async def batch_save_inventory(data: BatchSaveRequest, request: Request):
     """Save multiple cards to inventory at once"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         saved = 0
         errors = []
         for idx, card in enumerate(data.cards):
@@ -4314,6 +4372,7 @@ async def batch_save_inventory(data: BatchSaveRequest):
                 doc = item.model_dump()
                 doc['created_at'] = doc['created_at'].isoformat()
                 doc['updated_at'] = doc['updated_at'].isoformat()
+                doc['user_id'] = user_id
                 await db.inventory.insert_one(doc)
                 doc.pop('_id', None)
                 saved += 1
@@ -4330,6 +4389,7 @@ async def batch_save_inventory(data: BatchSaveRequest):
 
 @api_router.get("/inventory")
 async def get_inventory(
+    request: Request,
     search: Optional[str] = None,
     player: Optional[str] = None,
     year: Optional[int] = None,
@@ -4344,7 +4404,9 @@ async def get_inventory(
 ):
     """Get inventory with search and filters"""
     try:
-        query = {}
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+        query = {"user_id": user_id}
 
         if search:
             query["$or"] = [
@@ -4382,19 +4444,22 @@ async def get_inventory(
 
 
 @api_router.get("/inventory/stats")
-async def get_inventory_stats():
+async def get_inventory_stats(request: Request):
     """Get inventory summary statistics"""
     try:
-        total = await db.inventory.count_documents({})
-        graded = await db.inventory.count_documents({"condition": "Graded"})
-        raw = await db.inventory.count_documents({"condition": "Raw"})
-        listed = await db.inventory.count_documents({"listed": True})
-        not_listed = await db.inventory.count_documents({"listed": {"$ne": True}})
-        collection_count = await db.inventory.count_documents({"category": "collection", "listed": {"$ne": True}})
-        for_sale_count = await db.inventory.count_documents({"category": "for_sale", "listed": {"$ne": True}})
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+        uq = {"user_id": user_id}
+        total = await db.inventory.count_documents(uq)
+        graded = await db.inventory.count_documents({**uq, "condition": "Graded"})
+        raw = await db.inventory.count_documents({**uq, "condition": "Raw"})
+        listed = await db.inventory.count_documents({**uq, "listed": True})
+        not_listed = await db.inventory.count_documents({**uq, "listed": {"$ne": True}})
+        collection_count = await db.inventory.count_documents({**uq, "category": "collection", "listed": {"$ne": True}})
+        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}})
 
         pipeline = [
-            {"$match": {"purchase_price": {"$gt": 0}}},
+            {"$match": {**uq, "purchase_price": {"$gt": 0}}},
             {"$group": {
                 "_id": None,
                 "total_invested": {"$sum": {"$multiply": ["$purchase_price", "$quantity"]}},
@@ -4423,10 +4488,11 @@ async def get_inventory_stats():
 
 
 @api_router.get("/inventory/{item_id}")
-async def get_inventory_item(item_id: str):
+async def get_inventory_item(item_id: str, request: Request):
     """Get a single inventory item"""
     try:
-        item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+        user = await get_current_user(request)
+        item = await db.inventory.find_one({"id": item_id, "user_id": user["user_id"]}, {"_id": 0})
         if not item:
             raise HTTPException(status_code=404, detail="Item not found")
         return item
@@ -4438,9 +4504,11 @@ async def get_inventory_item(item_id: str):
 
 
 @api_router.put("/inventory/{item_id}")
-async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
+async def update_inventory_item(item_id: str, data: InventoryItemUpdate, request: Request):
     """Update an inventory item"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         update_fields = {}
         for field, value in data.model_dump(exclude_unset=True).items():
             if field == "image_base64" and value is not None:
@@ -4462,13 +4530,13 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
         update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
 
         result = await db.inventory.update_one(
-            {"id": item_id},
+            {"id": item_id, "user_id": user_id},
             {"$set": update_fields}
         )
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Item not found")
 
-        updated = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+        updated = await db.inventory.find_one({"id": item_id, "user_id": user_id}, {"_id": 0})
         return updated
     except HTTPException:
         raise
@@ -4478,10 +4546,11 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate):
 
 
 @api_router.delete("/inventory/{item_id}")
-async def delete_inventory_item(item_id: str):
+async def delete_inventory_item(item_id: str, request: Request):
     """Delete an inventory item"""
     try:
-        result = await db.inventory.delete_one({"id": item_id})
+        user = await get_current_user(request)
+        result = await db.inventory.delete_one({"id": item_id, "user_id": user["user_id"]})
         if result.deleted_count == 0:
             raise HTTPException(status_code=404, detail="Item not found")
         return {"success": True, "message": "Item deleted"}
@@ -4499,11 +4568,13 @@ class ImportFromScanRequest(BaseModel):
 
 
 @api_router.post("/inventory/from-scan/{analysis_id}")
-async def import_from_scan(analysis_id: str, data: ImportFromScanRequest):
+async def import_from_scan(analysis_id: str, data: ImportFromScanRequest, request: Request):
     """Import a scanned card into inventory"""
     try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
         # Check if already imported
-        existing = await db.inventory.find_one({"source_analysis_id": analysis_id})
+        existing = await db.inventory.find_one({"source_analysis_id": analysis_id, "user_id": user_id})
         if existing:
             raise HTTPException(status_code=400, detail="This card is already in your inventory")
 
@@ -4543,6 +4614,7 @@ async def import_from_scan(analysis_id: str, data: ImportFromScanRequest):
         doc = item.model_dump()
         doc['created_at'] = doc['created_at'].isoformat()
         doc['updated_at'] = doc['updated_at'].isoformat()
+        doc['user_id'] = user_id
         await db.inventory.insert_one(doc)
 
         doc.pop('_id', None)
@@ -4665,9 +4737,10 @@ def get_condition_id_for_card(item: dict) -> int:
 
 
 @api_router.post("/ebay/sell/preview")
-async def preview_ebay_listing(data: EbayListingPreviewRequest):
+async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request):
     """Generate a preview of the eBay listing from an inventory item"""
-    item = await db.inventory.find_one({"id": data.inventory_item_id}, {"_id": 0})
+    user = await get_current_user(request)
+    item = await db.inventory.find_one({"id": data.inventory_item_id, "user_id": user["user_id"]}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     
@@ -4727,14 +4800,16 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest):
 
 
 @api_router.post("/ebay/sell/create")
-async def create_ebay_listing(data: EbayListingCreateRequest):
+async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     """Create and publish an eBay listing from an inventory item using Trading API"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
     token = await get_ebay_user_token()
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected. Please connect your eBay account first.")
     
     # Get inventory item
-    item = await db.inventory.find_one({"id": data.inventory_item_id}, {"_id": 0})
+    item = await db.inventory.find_one({"id": data.inventory_item_id, "user_id": user_id}, {"_id": 0})
     if not item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     
@@ -5037,6 +5112,7 @@ async def create_ebay_listing(data: EbayListingCreateRequest):
             # Store listing record
             await db.created_listings.insert_one({
                 "id": str(uuid.uuid4()),
+                "user_id": user_id,
                 "inventory_item_id": data.inventory_item_id,
                 "ebay_item_id": ebay_item_id,
                 "title": data.title,
@@ -5158,9 +5234,10 @@ async def end_ebay_listing(ebay_item_id: str, reason: str = "NotAvailable"):
 
 
 @api_router.get("/ebay/sell/created-listings")
-async def get_created_listings():
+async def get_created_listings(request: Request):
     """Get listings created through the app"""
-    listings = await db.created_listings.find({}, {"_id": 0}).sort("created_at", -1).to_list(100)
+    user = await get_current_user(request)
+    listings = await db.created_listings.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).to_list(100)
     return {"listings": listings, "total": len(listings)}
 
 
@@ -5294,21 +5371,25 @@ class UserSettings(BaseModel):
     default_sport: Optional[str] = "Basketball"
 
 @api_router.get("/settings")
-async def get_user_settings():
+async def get_user_settings(request: Request):
     """Get user settings/profile"""
-    settings = await db.user_settings.find_one({"user_id": "default"}, {"_id": 0})
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
     if not settings:
-        return {"user_id": "default", "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball"}
+        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball"}
     return settings
 
 @api_router.put("/settings")
-async def update_user_settings(data: UserSettings):
+async def update_user_settings(data: UserSettings, request: Request):
     """Update user settings/profile"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
     update = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
-    update["user_id"] = "default"
+    update["user_id"] = user_id
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
-    await db.user_settings.update_one({"user_id": "default"}, {"$set": update}, upsert=True)
-    settings = await db.user_settings.find_one({"user_id": "default"}, {"_id": 0})
+    await db.user_settings.update_one({"user_id": user_id}, {"$set": update}, upsert=True)
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
     return settings
 
 # ============================================
