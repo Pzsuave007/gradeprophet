@@ -200,6 +200,16 @@ Plataforma completa de trading para tarjetas deportivas. Sistema operativo centr
   - Recent sold list with links to eBay
 - 100% test pass rate (16 backend + all frontend tests, iteration_19)
 
+### Marzo 2026 - Landing Page + Authentication System
+- **Landing Page**: Professional dark-themed landing with hero ("SCAN.FLIP.PROFIT."), floating slab card graphics, features bento grid (6 features), and pricing plans (ROOKIE Free / HALL OF FAME $9.99/mo)
+- **Email + Password Auth**: Register and login with bcrypt password hashing, httpOnly session cookies
+- **Google OAuth**: Via Emergent-managed Google Auth with session exchange
+- **Protected Routes**: All app routes behind authentication, redirect to landing if not logged in
+- **User Profile in Sidebar**: Shows user name, email, avatar (Google) and Sign Out button
+- **Backend Endpoints**: POST /api/auth/register, /api/auth/login, /api/auth/session, GET /api/auth/me, POST /api/auth/logout
+- **New Files**: LandingPage.jsx, AuthPage.jsx, AuthCallback.jsx
+- 100% test pass rate (9 backend + 13 frontend tests, iteration_20)
+
 ### P0 (Critical) - ALL RESOLVED
 
 ### P1 (High Priority) - Next

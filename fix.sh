@@ -33,6 +33,8 @@ cp /home/gradeprophet/frontend/src/pages/Dashboard.jsx /opt/gradeprophet/fronten
 # Components (all custom components)
 cp /home/gradeprophet/frontend/src/components/AccountModule.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/AnalysisResult.jsx /opt/gradeprophet/frontend/src/components/
+cp /home/gradeprophet/frontend/src/components/AuthCallback.jsx /opt/gradeprophet/frontend/src/components/
+cp /home/gradeprophet/frontend/src/components/AuthPage.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/BatchUploadView.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/CardScanner.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/CreateListingView.jsx /opt/gradeprophet/frontend/src/components/
@@ -41,6 +43,7 @@ cp /home/gradeprophet/frontend/src/components/EbayMonitor.jsx /opt/gradeprophet/
 cp /home/gradeprophet/frontend/src/components/FlipFinder.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/HistoryPanel.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/InventoryModule.jsx /opt/gradeprophet/frontend/src/components/
+cp /home/gradeprophet/frontend/src/components/LandingPage.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/LearningPanel.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/ListingsModule.jsx /opt/gradeprophet/frontend/src/components/
 cp /home/gradeprophet/frontend/src/components/MarketModule.jsx /opt/gradeprophet/frontend/src/components/
@@ -106,6 +109,9 @@ if curl -s http://localhost:8001/api/ | grep -q "GradeProphet"; then
     echo "  3. Portfolio Value Tracker - Dashboard > Portfolio Value"
     echo "  4. Price Alerts - Market > Price Alerts"
     echo "  5. Price History Charts - Inventory > hover tarjeta > icono grafica"
+    echo "  6. Landing Page con SCAN.FLIP.PROFIT. y pricing"
+    echo "  7. Autenticacion - Email/Password + Google Login"
+    echo "  8. Rutas protegidas - usuarios deben registrarse para acceder"
     echo ""
 else
     echo ""
