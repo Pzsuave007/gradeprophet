@@ -896,19 +896,19 @@ def auto_crop_card(image_base64: str) -> str:
         
         x, y, rw, rh = best_box
         
-        # Add small padding (1.5% of card dimensions)
-        pad_x = int(rw * 0.015)
-        pad_y = int(rh * 0.015)
+        # Generous padding around the detected card (5%) — never cut the actual card
+        pad_x = int(rw * 0.05)
+        pad_y = int(rh * 0.05)
         x = max(0, x - pad_x)
         y = max(0, y - pad_y)
         rw = min(w - x, rw + 2 * pad_x)
         rh = min(h - y, rh + 2 * pad_y)
         
-        # Crop the card
+        # Crop the card with generous margin
         cropped = img[y:y+rh, x:x+rw]
         
-        # Create black background with padding (8% on each side)
-        margin = 0.08
+        # Create black background with extra frame (6% on each side)
+        margin = 0.06
         bg_w = int(rw * (1 + 2 * margin))
         bg_h = int(rh * (1 + 2 * margin))
         black_bg = np.zeros((bg_h, bg_w, 3), dtype=np.uint8)
