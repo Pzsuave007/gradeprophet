@@ -1904,10 +1904,19 @@ async def download_and_encode_image(url: str) -> tuple:
                 
                 # Create thumbnail
                 img = Image.open(BytesIO(image_data))
+                if img.mode in ('RGBA', 'LA', 'P'):
+                    img = img.convert('RGB')
                 img.thumbnail((200, 200))
                 thumb_buffer = BytesIO()
                 img.save(thumb_buffer, format='JPEG', quality=70)
                 thumbnail = base64.b64encode(thumb_buffer.getvalue()).decode('utf-8')
+                
+                # Also convert full image to RGB if needed
+                full_img = Image.open(BytesIO(image_data))
+                if full_img.mode in ('RGBA', 'LA', 'P'):
+                    full_buffer = BytesIO()
+                    full_img.convert('RGB').save(full_buffer, format='JPEG', quality=90)
+                    base64_data = base64.b64encode(full_buffer.getvalue()).decode('utf-8')
                 
                 return base64_data, thumbnail
     except Exception as e:
