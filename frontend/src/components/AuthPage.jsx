@@ -5,7 +5,6 @@ import axios from 'axios';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-const GOOGLE_AUTH_URL = `https://demobackend.emergentagent.com/auth/v1/env/oauth?redirect=${encodeURIComponent(window.location.origin + '/auth/callback')}`;
 
 const AuthPage = ({ onSuccess, onBack }) => {
   const [mode, setMode] = useState('login'); // login or register
@@ -36,7 +35,9 @@ const AuthPage = ({ onSuccess, onBack }) => {
   };
 
   const handleGoogle = () => {
-    window.location.href = GOOGLE_AUTH_URL;
+    // REMINDER: DO NOT HARDCODE THE URL, OR ADD ANY FALLBACKS OR REDIRECT URLS, THIS BREAKS THE AUTH
+    const redirectUrl = window.location.origin + '/';
+    window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
   const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-xl px-4 py-3 pl-11 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";

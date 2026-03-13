@@ -119,3 +119,4 @@ test_reports/
 # Environment files
 *.env
 *.env.*
+frontend/node_modules/.cache/default-development/11.pack
