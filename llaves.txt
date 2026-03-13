@@ -1,0 +1,28 @@
+================================================
+  FLIPSLAB ENGINE - LLAVES DE CONFIGURACION
+================================================
+
+Pon cada llave en su linea, EXACTAMENTE como se muestra.
+NO cambies el formato. Solo reemplaza los valores de ejemplo.
+
+--- BACKEND (.env) ---
+
+MONGO_URL=mongodb://localhost:27017
+DB_NAME=gradeprophet
+EBAY_CLIENT_ID=tu-ebay-client-id-aqui
+EBAY_CLIENT_SECRET=tu-ebay-client-secret-aqui
+EBAY_DEV_ID=tu-ebay-dev-id-aqui
+EBAY_RUNAME=tu-ebay-runame-aqui
+EMERGENT_LLM_KEY=sk-emergent-tu-llave-aqui
+SCRAPEDO_API_KEY=tu-scrapedo-key-aqui
+
+--- FRONTEND (.env) ---
+
+REACT_APP_BACKEND_URL=https://flipslabengine.com
+
+================================================
+INSTRUCCIONES:
+1. Edita este archivo con tus llaves reales
+2. Guarda el archivo
+3. Corre: bash instalar_llaves.sh
+================================================
