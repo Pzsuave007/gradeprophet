@@ -23,7 +23,9 @@ echo ""
 echo "=== PASO 1: Leyendo llaves ==="
 
 LLAVES_FILE=""
-if [ -f "/home/gradeprophet/public_html/llaves.txt" ]; then
+if [ -f "/home/flipcardsuni2/public_html/llaves.txt" ]; then
+    LLAVES_FILE="/home/flipcardsuni2/public_html/llaves.txt"
+elif [ -f "/home/gradeprophet/public_html/llaves.txt" ]; then
     LLAVES_FILE="/home/gradeprophet/public_html/llaves.txt"
 elif [ -f "$PROJECT_DIR/public_html/llaves.txt" ]; then
     LLAVES_FILE="$PROJECT_DIR/public_html/llaves.txt"
