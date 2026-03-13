@@ -102,17 +102,17 @@ const LandingPage = ({ onGetStarted }) => {
           <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
             className="flex-shrink-0 hidden lg:block relative w-[460px] h-[480px]">
             {/* Kobe - back left */}
-            <div className="absolute top-4 left-0 w-48 rounded-xl overflow-hidden transform -rotate-6 shadow-2xl shadow-black/60 border border-white/[0.08] hover:scale-105 transition-transform duration-500"
+            <div className="absolute top-4 left-0 w-52 rounded-xl overflow-hidden transform -rotate-6 shadow-2xl shadow-black/60 border border-white/[0.08] hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 1 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/qj87a9o0_1996-topps-138-kobe-bryant-gem-mt-10-88551.webp" alt="1996 Topps Kobe Bryant PSA 10" className="w-full h-auto" />
             </div>
             {/* Curry - front center */}
-            <div className="absolute top-8 left-28 w-52 rounded-xl overflow-hidden transform rotate-3 shadow-2xl shadow-[#3b82f6]/20 border border-[#3b82f6]/20 hover:scale-105 transition-transform duration-500"
+            <div className="absolute top-8 left-28 w-56 rounded-xl overflow-hidden transform rotate-3 shadow-2xl shadow-[#3b82f6]/20 border border-[#3b82f6]/20 hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 3 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/fs47xwop_curry-pas-10.webp" alt="2009 Topps Stephen Curry PSA 9" className="w-full h-auto" />
             </div>
             {/* Brady - back right */}
-            <div className="absolute top-16 left-56 w-48 rounded-xl overflow-hidden transform rotate-6 shadow-2xl shadow-black/50 border border-white/[0.06] hover:scale-105 transition-transform duration-500"
+            <div className="absolute top-10 left-52 w-52 rounded-xl overflow-hidden transform rotate-6 shadow-2xl shadow-black/50 border border-white/[0.06] hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 2 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/46xv0kyq_tombrady.webp" alt="2000 Bowman Tom Brady PSA 9" className="w-full h-auto" />
             </div>
