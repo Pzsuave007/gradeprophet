@@ -99,3 +99,7 @@ uploads/
 
 # Test reports
 test_reports/
+-e 
+# Environment files
+*.env
+*.env.*
