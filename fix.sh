@@ -13,7 +13,7 @@ echo ""
 echo "[1/5] Copying backend files..."
 cp /home/gradeprophet/backend/server.py /opt/gradeprophet/backend/server.py
 cp /home/gradeprophet/backend/requirements.txt /opt/gradeprophet/backend/requirements.txt
-cp /home/gradeprophet/backend/.env /opt/gradeprophet/backend/.env
+# NOTE: .env is NOT in git (security). Edit it directly on server at /opt/gradeprophet/backend/.env
 echo "  Backend files copied."
 
 # =============================================
