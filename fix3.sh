@@ -1,23 +1,28 @@
 #!/bin/bash
-echo "=== DIAGNOSTICO COMPLETO ==="
-echo ""
-echo "1. Contenido REAL del index.html en disco:"
-head -1 /home/flipcardsuni2/public_html/index.html
-echo ""
-echo ""
-echo "2. Existe .htaccess?"
-cat /home/flipcardsuni2/public_html/.htaccess 2>/dev/null || echo "NO EXISTE"
-echo ""
-echo "3. Creando test.txt..."
-echo "FLIPSLAB_TEST_OK" > /home/flipcardsuni2/public_html/test.txt
-echo "4. Modulos de cache en Apache:"
-httpd -M 2>/dev/null | grep -i "cache\|pagespeed\|proxy" || echo "ninguno"
-echo ""
-echo "5. TODOS los JS en public_html:"
-find /home/flipcardsuni2/public_html/static/js/ -name "*.js" 2>/dev/null
-echo ""
-echo "6. md5 del index.html:"
-md5sum /home/flipcardsuni2/public_html/index.html
-echo ""
-echo "AHORA ABRE: https://flipslabengine.com/test.txt"
-echo "Debe decir FLIPSLAB_TEST_OK"
+echo "=== Arreglando .htaccess ==="
+
+# Backup
+cp /home/flipcardsuni2/public_html/.htaccess /home/flipcardsuni2/public_html/.htaccess.bak
+
+# Nuevo .htaccess: sirve archivos de public_html + proxy API al backend
+cat > /home/flipcardsuni2/public_html/.htaccess << 'EOF'
+RewriteEngine On
+
+# Proxy to Backend API
+RewriteCond %{REQUEST_URI} ^/api
+RewriteRule ^(.*)$ http://127.0.0.1:8001/$1 [P,L]
+
+# Serve static files directly from public_html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# php -- BEGIN cPanel-generated handler, do not edit
+<IfModule mime_module>
+  AddHandler application/x-httpd-ea-php81 .php .php8 .phtml
+</IfModule>
+# php -- END cPanel-generated handler, do not edit
+EOF
+
+echo "OK! .htaccess actualizado"
+echo "Backup guardado en .htaccess.bak"
