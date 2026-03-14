@@ -388,6 +388,9 @@ async def get_my_listings_trading(
                 list_type_el = item_el.find("e:ListingType", ns)
                 item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
 
+                start_el = item_el.find(".//e:ListingDetails/e:StartTime", ns)
+                item_data["start_time"] = start_el.text if start_el is not None else ""
+
                 item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
                 listings.append(item_data)
 

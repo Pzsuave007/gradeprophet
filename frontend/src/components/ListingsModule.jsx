@@ -604,6 +604,8 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
 
 // =========== MAIN LISTINGS MODULE ===========
 const SORT_OPTIONS_ACTIVE = [
+  { id: 'listed_desc', label: 'Newest Listed', icon: Clock },
+  { id: 'listed_asc', label: 'Oldest Listed', icon: Clock },
   { id: 'time_asc', label: 'Ending Soonest', icon: Clock },
   { id: 'price_desc', label: 'Price: High to Low', icon: ArrowUpRight },
   { id: 'price_asc', label: 'Price: Low to High', icon: DollarSign },
@@ -642,6 +644,8 @@ const sortItems = (items, sortBy, type) => {
     case 'watchers_desc': return sorted.sort((a, b) => (b.watch_count || 0) - (a.watch_count || 0));
     case 'title_asc': return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
     case 'time_asc': return sorted.sort((a, b) => parseTimeLeftMinutes(a.time_left) - parseTimeLeftMinutes(b.time_left));
+    case 'listed_desc': return sorted.sort((a, b) => new Date(b.start_time || 0) - new Date(a.start_time || 0));
+    case 'listed_asc': return sorted.sort((a, b) => new Date(a.start_time || 0) - new Date(b.start_time || 0));
     case 'date_desc': return sorted.sort((a, b) => new Date(b.sold_date || 0) - new Date(a.sold_date || 0));
     case 'date_asc': return sorted.sort((a, b) => new Date(a.sold_date || 0) - new Date(b.sold_date || 0));
     default: return sorted;
@@ -656,7 +660,7 @@ const ListingsModule = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
-  const [activeSort, setActiveSort] = useState('time_asc');
+  const [activeSort, setActiveSort] = useState('listed_desc');
   const [soldSort, setSoldSort] = useState('date_desc');
   const [soldDays, setSoldDays] = useState(30);
   const [pageSize, setPageSize] = useState(200);
@@ -680,6 +684,7 @@ const ListingsModule = () => {
           listing_type: item.listing_type || 'FixedPriceItem',
           url: item.url || '',
           bids: item.bids || 0,
+          start_time: item.start_time || '',
         }));
         const sold = (raw.sold || []).map(item => ({
           item_id: item.itemid || item.item_id || '',
