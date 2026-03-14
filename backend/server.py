@@ -90,6 +90,18 @@ async def download_diagnostico():
         media_type="text/plain"
     )
 
+# Download frontend fix script
+@api_router.get("/download-fix-frontend")
+async def download_fix_frontend():
+    file_path = Path(__file__).parent / "fix_frontend.sh"
+    if not file_path.exists():
+        return {"error": "File not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="fix_frontend.sh",
+        media_type="text/plain"
+    )
+
 # Mount API router
 app.include_router(api_router)
 
