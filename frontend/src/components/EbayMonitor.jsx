@@ -44,7 +44,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
       if (statusFilter && statusFilter !== 'all') params.append('status', statusFilter);
       if (selectedCard) params.append('watchlist_card_id', selectedCard);
       const r = await axios.get(`${apiBase}/listings?${params.toString()}`);
-      setListings(r.data);
+      // Handle both array and { listings: [...] } response formats
+      const data = r.data;
+      setListings(Array.isArray(data) ? data : (data.listings || []));
     } catch (e) { console.error(e); } finally { setLoadingListings(false); }
   }, [statusFilter, selectedCard]);
 

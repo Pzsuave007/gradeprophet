@@ -41,13 +41,19 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Flip Finder (watchlist + eBay monitor)
 - [x] Image processing pipeline (crop, enhance, resize)
 - [x] Backend refactored to modular routers (from 5367-line monolith)
-- [x] Full English translation
 - [x] Deployment package (fix.sh v8 + tar.gz) for modular architecture
 - [x] Download endpoint at /api/download-update
+
+## Bugs Fixed (This Session)
+- [x] **Listings page blank** - API returns `{listings:[]}` but frontend expected `{active:[]}`. Fixed data transformation in `fetchData()` of `ListingsModule.jsx`
+- [x] **Flip Finder blank** - `/api/listings` returns `{listings:[]}` but `EbayMonitor.jsx` expected raw array. Fixed to handle both formats.
+- [x] **Field name mismatch** - API uses `itemid`, `watchers`, `quantity` but frontend expects `item_id`, `watch_count`, `quantity_available`. Added field mapping in ListingsModule.
 
 ## Known Issues (Resolved)
 - ~~Google OAuth on production server~~ - User confirmed WORKING
 - ~~fix.sh needs regeneration~~ - DONE (v8 with modular support)
+- ~~Listings page blank~~ - FIXED
+- ~~Flip Finder page blank~~ - FIXED
 
 ## Next Tasks
 - P1: Auto-Refresh Portfolio Value

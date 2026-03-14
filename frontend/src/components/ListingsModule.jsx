@@ -617,7 +617,35 @@ const ListingsModule = () => {
         axios.get(`${API}/api/ebay/seller/my-listings?limit=200`),
         axios.get(`${API}/api/inventory?limit=200`),
       ]);
-      if (ebayRes.status === 'fulfilled') setEbayData(ebayRes.value.data);
+      if (ebayRes.status === 'fulfilled') {
+        const raw = ebayRes.value.data;
+        // Transform API response: { listings, total } -> { active, sold, active_total, sold_total }
+        const listings = (raw.listings || raw.active || []).map(item => ({
+          item_id: item.itemid || item.item_id || '',
+          title: item.title || '',
+          price: item.price || 0,
+          image_url: item.image_url || '',
+          time_left: item.time_left || '',
+          watch_count: item.watchers ?? item.watch_count ?? 0,
+          quantity_available: item.quantity ?? item.quantity_available ?? 1,
+          listing_type: item.listing_type || 'FixedPriceItem',
+          url: item.url || '',
+          bids: item.bids || 0,
+        }));
+        const sold = (raw.sold || []).map(item => ({
+          item_id: item.itemid || item.item_id || '',
+          title: item.title || '',
+          price: item.price || 0,
+          image_url: item.image_url || '',
+          buyer: item.buyer || '',
+        }));
+        setEbayData({
+          active: listings,
+          sold: sold,
+          active_total: raw.total ?? raw.active_total ?? listings.length,
+          sold_total: raw.sold_total ?? sold.length,
+        });
+      }
       if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
