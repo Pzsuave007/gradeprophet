@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://card-flip-ai-2.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://flip-market-pro.preview.emergentagent.com')
 
 # Known inventory items from the database
 INVENTORY_ITEMS = [

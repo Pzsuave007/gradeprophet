@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight,
-  RefreshCw, BarChart3, Package, Zap, ChevronRight
+  RefreshCw, BarChart3, Package, Zap, ChevronRight, LayoutGrid, List
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';

@@ -1,0 +1,42 @@
+from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from typing import Optional
+from datetime import datetime, timezone
+import logging
+from database import db
+from utils.auth import get_current_user
+
+logger = logging.getLogger(__name__)
+router = APIRouter(prefix="/settings", tags=["settings"])
+
+
+class UserSettings(BaseModel):
+    display_name: Optional[str] = None
+    postal_code: Optional[str] = None
+    location: Optional[str] = None
+    default_shipping: Optional[str] = "USPSFirstClass"
+    default_sport: Optional[str] = "Basketball"
+
+
+@router.get("")
+async def get_user_settings(request: Request):
+    """Get user settings/profile"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
+    if not settings:
+        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball"}
+    return settings
+
+
+@router.put("")
+async def update_user_settings(data: UserSettings, request: Request):
+    """Update user settings/profile"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    update = {k: v for k, v in data.model_dump(exclude_unset=True).items() if v is not None}
+    update["user_id"] = user_id
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.user_settings.update_one({"user_id": user_id}, {"$set": update}, upsert=True)
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
+    return settings
