@@ -35,6 +35,7 @@ const PortfolioTracker = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
+  const [viewMode, setViewMode] = useState('grid');
   const abortRef = useRef(false);
 
   const fetchSummary = async () => {
@@ -161,38 +162,91 @@ const PortfolioTracker = () => {
         </div>
       )}
 
-      {/* Cards list with values */}
+      {/* Cards with values - Grid/List toggle */}
       <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
         <div className="px-4 py-3 border-b border-[#1a1a1a] flex items-center justify-between">
           <h3 className="text-sm font-semibold text-white">Card Values</h3>
-          <span className="text-[10px] text-gray-500">{data.valued_cards} of {data.total_cards} valued</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-gray-500">{data.valued_cards} of {data.total_cards} valued</span>
+            <div className="flex bg-[#0a0a0a] rounded-lg border border-[#1a1a1a] p-0.5" data-testid="portfolio-view-toggle">
+              <button onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid' ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white'}`}
+                data-testid="portfolio-view-grid-btn">
+                <LayoutGrid className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-md transition-colors ${viewMode === 'list' ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white'}`}
+                data-testid="portfolio-view-list-btn">
+                <List className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="divide-y divide-[#1a1a1a]">
-          {data.cards.slice(0, 20).map((card, i) => {
-            const pnl = card.market_value && card.purchase_price ? card.market_value - card.purchase_price : null;
-            return (
-              <div key={card.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors" data-testid={`portfolio-card-${i}`}>
-                <span className="text-[10px] text-gray-600 w-5 text-right">{i + 1}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{card.card_name}</p>
-                  <p className="text-[10px] text-gray-500">{card.player} {card.year || ''} {card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
-                </div>
-                <div className="text-right flex-shrink-0 w-20">
-                  <p className="text-xs font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
-                  <p className="text-[9px] text-gray-600">Cost: {fmt(card.purchase_price)}</p>
-                </div>
-                {pnl !== null && (
-                  <div className={`text-right flex-shrink-0 w-16 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                    <p className="text-[10px] font-bold">{pnl >= 0 ? '+' : ''}{fmt(pnl)}</p>
+
+        {viewMode === 'grid' ? (
+          <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+            {data.cards.slice(0, 20).map((card, i) => {
+              const pnl = card.market_value && card.purchase_price ? card.market_value - card.purchase_price : null;
+              return (
+                <motion.div key={card.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+                  className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-3 hover:border-[#2a2a2a] transition-colors group"
+                  data-testid={`portfolio-card-grid-${i}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[9px] text-gray-600 font-mono">#{i + 1}</span>
+                    {pnl !== null && (
+                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${pnl >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                        {pnl >= 0 ? '+' : ''}{fmt(pnl)}
+                      </span>
+                    )}
                   </div>
-                )}
-              </div>
-            );
-          })}
-          {data.cards.length === 0 && (
-            <div className="px-4 py-8 text-center text-sm text-gray-500">No cards in collection</div>
-          )}
-        </div>
+                  <p className="text-[11px] font-semibold text-white truncate mb-0.5" title={card.card_name}>{card.card_name}</p>
+                  <p className="text-[9px] text-gray-500 truncate">{card.player} {card.year || ''}</p>
+                  <p className="text-[9px] text-gray-600 mb-2">{card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
+                  <div className="flex items-end justify-between pt-2 border-t border-[#1a1a1a]">
+                    <div>
+                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Market</p>
+                      <p className="text-sm font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Cost</p>
+                      <p className="text-[10px] text-gray-400">{fmt(card.purchase_price)}</p>
+                    </div>
+                  </div>
+                </motion.div>
+              );
+            })}
+            {data.cards.length === 0 && (
+              <div className="col-span-full px-4 py-8 text-center text-sm text-gray-500">No cards in collection</div>
+            )}
+          </div>
+        ) : (
+          <div className="divide-y divide-[#1a1a1a]">
+            {data.cards.slice(0, 20).map((card, i) => {
+              const pnl = card.market_value && card.purchase_price ? card.market_value - card.purchase_price : null;
+              return (
+                <div key={card.id} className="px-4 py-2.5 flex items-center gap-3 hover:bg-white/[0.02] transition-colors" data-testid={`portfolio-card-${i}`}>
+                  <span className="text-[10px] text-gray-600 w-5 text-right">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{card.card_name}</p>
+                    <p className="text-[10px] text-gray-500">{card.player} {card.year || ''} {card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0 w-20">
+                    <p className="text-xs font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
+                    <p className="text-[9px] text-gray-600">Cost: {fmt(card.purchase_price)}</p>
+                  </div>
+                  {pnl !== null && (
+                    <div className={`text-right flex-shrink-0 w-16 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                      <p className="text-[10px] font-bold">{pnl >= 0 ? '+' : ''}{fmt(pnl)}</p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {data.cards.length === 0 && (
+              <div className="px-4 py-8 text-center text-sm text-gray-500">No cards in collection</div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
