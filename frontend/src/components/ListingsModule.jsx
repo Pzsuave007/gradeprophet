@@ -624,7 +624,7 @@ const ListingsModule = () => {
           item_id: item.itemid || item.item_id || '',
           title: item.title || '',
           price: item.price || 0,
-          image_url: item.image_url || '',
+          image_url: (item.image_url || '').replace('s-l140', 's-l800').replace('s-l225', 's-l800'),
           time_left: item.time_left || '',
           watch_count: item.watchers ?? item.watch_count ?? 0,
           quantity_available: item.quantity ?? item.quantity_available ?? 1,
@@ -636,7 +636,7 @@ const ListingsModule = () => {
           item_id: item.itemid || item.item_id || '',
           title: item.title || '',
           price: item.price || 0,
-          image_url: item.image_url || '',
+          image_url: (item.image_url || '').replace('s-l140', 's-l800').replace('s-l225', 's-l800'),
           buyer: item.buyer || '',
         }));
         setEbayData({

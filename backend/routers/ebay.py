@@ -218,12 +218,24 @@ async def get_seller_listings(request: Request, limit: int = 10, offset: int = 0
                 time_el = item_el.find("e:TimeLeft", ns)
                 qty_el = item_el.find("e:QuantityAvailable", ns)
                 watch_el = item_el.find("e:WatchCount", ns)
+                pic_el = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
+                full_pic_el = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
+                pic_url = ""
+                if full_pic_el is not None and full_pic_el.text:
+                    pic_url = full_pic_el.text
+                elif pic_el is not None and pic_el.text:
+                    pic_url = pic_el.text
+                if pic_url and "s-l140" in pic_url:
+                    pic_url = pic_url.replace("s-l140", "s-l800")
+                elif pic_url and "s-l225" in pic_url:
+                    pic_url = pic_url.replace("s-l225", "s-l800")
 
                 listings.append({
                     "item_id": item_id_el.text if item_id_el is not None else "",
                     "title": title_el.text if title_el is not None else "",
                     "price": float(price_el.text) if price_el is not None else 0,
                     "url": url_el.text if url_el is not None else "",
+                    "image_url": pic_url,
                     "time_left": time_el.text if time_el is not None else "",
                     "quantity": int(qty_el.text) if qty_el is not None else 1,
                     "watchers": int(watch_el.text) if watch_el is not None else 0,
@@ -329,7 +341,17 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
                 item_data["price"] = float(price_el.text) if price_el is not None else 0
 
                 pic_el = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
-                item_data["image_url"] = pic_el.text if pic_el is not None else ""
+                pic_url = pic_el.text if pic_el is not None else ""
+                # Also try to get full-size PictureURL
+                full_pic_el = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
+                if full_pic_el is not None and full_pic_el.text:
+                    pic_url = full_pic_el.text
+                # Upgrade eBay thumbnail URLs to high-res (s-l140 -> s-l800)
+                if pic_url and "s-l140" in pic_url:
+                    pic_url = pic_url.replace("s-l140", "s-l800")
+                elif pic_url and "s-l225" in pic_url:
+                    pic_url = pic_url.replace("s-l225", "s-l800")
+                item_data["image_url"] = pic_url
 
                 tl_el = item_el.find("e:TimeLeft", ns)
                 item_data["time_left"] = tl_el.text if tl_el is not None else ""
