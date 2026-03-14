@@ -59,7 +59,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
   };
 
   const handleRemoveCard = async (cardId) => {
-    if (!window.confirm('Eliminar tarjeta y sus listings?')) return;
+    if (!window.confirm('Delete card and its listings?')) return;
     try { await axios.delete(`${apiBase}/watchlist/${cardId}`); loadWatchlist(); loadListings(); } catch (e) { console.error(e); }
   };
 
@@ -68,9 +68,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
   const handleCancelEdit = () => { setEditingCard(null); };
 
   const handleSearchAll = async () => {
-    if (watchlist.length === 0) { alert('Agrega tarjetas primero'); return; }
+    if (watchlist.length === 0) { alert('Add cards first'); return; }
     try { setSearching(true); setSearchResult(null); const r = await axios.post(`${apiBase}/watchlist/search`); setSearchResult(r.data); loadWatchlist(); loadListings(); }
-    catch (e) { console.error(e); alert('Error al buscar'); } finally { setSearching(false); }
+    catch (e) { console.error(e); alert('Search failed'); } finally { setSearching(false); }
   };
 
   const handleUpdateStatus = async (id, status) => { try { await axios.put(`${apiBase}/listings/${id}/status?status=${status}`); loadListings(); } catch (e) { console.error(e); } };
@@ -87,22 +87,22 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
             <div className="text-lg font-bold text-white">{stats.totalCards}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Tarjetas</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Cards</div>
           </div>
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
             <div className="text-lg font-bold text-[#22c55e]">{stats.newListings}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Nuevos</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">New</div>
           </div>
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
             <div className="text-lg font-bold text-[#eab308]">{stats.interestedListings}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Favoritos</div>
+            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Favorites</div>
           </div>
         </div>
 
         {/* Search Button */}
         <Button onClick={handleSearchAll} disabled={searching || watchlist.length === 0}
           className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10" data-testid="search-all-btn">
-          {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Buscando...</> : <><Search className="w-4 h-4 mr-2" />Buscar Listings</>}
+          {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Searching...</> : <><Search className="w-4 h-4 mr-2" />Search Listings</>}
         </Button>
 
         {/* Search Result */}
@@ -110,7 +110,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
           {searchResult && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-lg p-3">
-              <div className="flex items-center gap-2 text-[#22c55e] text-sm"><Check className="w-4 h-4" /><span className="font-semibold">{searchResult.new_listings_found} nuevos encontrados</span></div>
+              <div className="flex items-center gap-2 text-[#22c55e] text-sm"><Check className="w-4 h-4" /><span className="font-semibold">{searchResult.new_listings_found} new found</span></div>
             </motion.div>
           )}
         </AnimatePresence>
@@ -134,7 +134,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                   <Input placeholder="Notas (opcional)" value={newCardNotes} onChange={(e) => setNewCardNotes(e.target.value)}
                     className="bg-[#111] border-[#1a1a1a] text-white h-8 text-xs" data-testid="new-card-notes" />
                   <Button type="submit" disabled={!newCardQuery.trim()} className="w-full bg-[#22c55e] hover:bg-[#16a34a] h-8 text-sm" data-testid="add-card-btn">
-                    <Plus className="w-3 h-3 mr-1" />Agregar
+                    <Plus className="w-3 h-3 mr-1" />Add
                   </Button>
                 </div>
               </motion.form>
@@ -187,9 +187,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
         <div className="flex gap-2 items-center">
           <div className="flex gap-1 flex-1">
             {[
-              { value: 'new', label: 'Nuevos', icon: AlertCircle },
-              { value: 'interested', label: 'Favoritos', icon: Star },
-              { value: 'all', label: 'Todos', icon: Eye }
+              { value: 'new', label: 'New', icon: AlertCircle },
+              { value: 'interested', label: 'Favorites', icon: Star },
+              { value: 'all', label: 'All', icon: Eye }
             ].map(({ value, label, icon: Icon }) => (
               <button key={value} onClick={() => setStatusFilter(value)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
@@ -260,10 +260,10 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                                     <XCircle className="w-2.5 h-2.5" />Quitar</button>}
                                   {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
                                     className="text-[10px] bg-[#22c55e]/10 text-[#22c55e] px-2 py-1 rounded hover:bg-[#22c55e]/20 inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}>
-                                    <Search className="w-2.5 h-2.5" />Analizar</button>}
+                                    <Search className="w-2.5 h-2.5" />Analyze</button>}
                                   <button onClick={() => handleDeleteListing(listing.id)}
                                     className="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded hover:bg-red-500/20 inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}>
-                                    <Trash2 className="w-2.5 h-2.5" />Borrar</button>
+                                    <Trash2 className="w-2.5 h-2.5" />Delete</button>
                                 </div>
                               </div>
                             </div>

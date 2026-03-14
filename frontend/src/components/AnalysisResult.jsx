@@ -90,7 +90,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
   const gradeInfo = getOverallGradeColor(grading_result.overall_grade);
 
   const handleDelete = async () => {
-    if (!window.confirm('¿Eliminar este análisis?')) return;
+    if (!window.confirm('Delete this analysis?')) return;
     
     setDeleting(true);
     try {
@@ -422,7 +422,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
                   className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-white"
                 >
                   <Save className="w-4 h-4 mr-2" />
-                  {saving ? 'Guardando...' : 'Guardar Resultado PSA'}
+                  {saving ? 'Saving...' : 'Save PSA Result'}
                 </Button>
               </div>
             </div>
@@ -476,14 +476,14 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
           data-testid="delete-analysis-btn"
         >
           <Trash2 className="w-4 h-4 mr-2" />
-          {deleting ? 'Eliminando...' : 'Eliminar Análisis'}
+          {deleting ? 'Deleting...' : 'Delete Analysis'}
         </Button>
         <Button
           onClick={onNewAnalysis}
           className="flex-1 h-12 bg-white text-black hover:bg-gray-200 font-semibold uppercase tracking-wider"
           data-testid="new-analysis-btn"
         >
-          Analizar Otra Tarjeta
+          Analyze Another Card
         </Button>
       </div>
     </motion.div>

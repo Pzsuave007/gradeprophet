@@ -1743,7 +1743,7 @@ async def scrape_ebay_listing(url: str) -> dict:
                 item_id = m.group(1)
         
         if not item_id:
-            return {"success": False, "error": "No se pudo extraer el ID del listing de eBay", "image_urls": []}
+            return {"success": False, "error": "Could not extract eBay listing ID", "image_urls": []}
         
         logger.info(f"Extracted eBay item ID: {item_id}")
         
@@ -1874,7 +1874,7 @@ async def scrape_ebay_listing(url: str) -> dict:
         final_urls = [re.sub(r'/s-l\d+\.', '/s-l1600.', u) for u in image_urls[:6]]
         
         if not final_urls:
-            return {"success": False, "error": "No se encontraron imágenes en el listing.", "image_urls": []}
+            return {"success": False, "error": "No images found in the listing.", "image_urls": []}
         
         return {"success": True, "title": title, "image_urls": final_urls}
         

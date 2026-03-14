@@ -47,7 +47,7 @@ const LearningPanel = ({ refreshTrigger }) => {
 
   const deleteCard = async (cardId, e) => {
     e.stopPropagation();
-    if (!window.confirm('Eliminar análisis?')) return;
+    if (!window.confirm('Delete analysis?')) return;
     try {
       const r = await fetch(`${API}/cards/${cardId}`, { method: 'DELETE' });
       if (r.ok) { setPendingCards(prev => prev.filter(c => c.id !== cardId)); const s = await fetch(`${API}/learning/stats`); if (s.ok) setStats(await s.json()); }
@@ -114,7 +114,7 @@ const LearningPanel = ({ refreshTrigger }) => {
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
             <div className="px-3 py-2 border-b border-[#1a1a1a] flex items-center gap-2">
               <Brain className="w-3.5 h-3.5 text-[#22c55e]" />
-              <span className="text-xs font-semibold text-white uppercase tracking-wider">Historial</span>
+              <span className="text-xs font-semibold text-white uppercase tracking-wider">History</span>
             </div>
             <ScrollArea className="max-h-[250px]">
               <div className="divide-y divide-[#1a1a1a]">
@@ -124,7 +124,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                       {card.front_image_preview && <img src={`data:image/jpeg;base64,${card.front_image_preview}`} alt="" className="w-full h-full object-cover" />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[11px] text-white truncate">{card.card_name || 'Tarjeta'}</p>
+                      <p className="text-[11px] text-white truncate">{card.card_name || 'Card'}</p>
                       <div className="flex items-center gap-1 text-[10px] mt-0.5">
                         <span style={{ color: getGradeColor(card.grading_result?.overall_grade) }}>{card.grading_result?.overall_grade?.toFixed(1)}</span>
                         <span className="text-gray-700">→</span>
@@ -161,7 +161,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                         {card.front_image_preview && <img src={`data:image/jpeg;base64,${card.front_image_preview}`} alt="" className="w-full h-full object-cover" />}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs text-white truncate">{card.card_name || 'Tarjeta sin nombre'}</p>
+                        <p className="text-xs text-white truncate">{card.card_name || 'Unnamed Card'}</p>
                         <p className="text-[10px] text-gray-600">
                           Predicción: <span style={{ color: getGradeColor(card.grading_result?.overall_grade) }}>{card.grading_result?.overall_grade?.toFixed(1)}</span>
                         </p>
@@ -196,7 +196,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                             </div>
                             <Button onClick={() => submitFeedback(card.id)} disabled={!feedbackData[card.id]?.actual_psa_grade}
                               className="w-full bg-[#22c55e] hover:bg-[#16a34a] h-7 text-xs">
-                              <Save className="w-3 h-3 mr-1" />Guardar Resultado
+                              <Save className="w-3 h-3 mr-1" />Save Result
                             </Button>
                           </div>
                         </motion.div>

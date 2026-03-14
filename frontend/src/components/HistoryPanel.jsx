@@ -15,7 +15,7 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
     setLoading(true); setError(null);
     try {
       const r = await fetch(`${API}/cards/history`);
-      if (!r.ok) throw new Error('Error al cargar');
+      if (!r.ok) throw new Error('Failed to load');
       setHistory(await r.json());
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
@@ -81,7 +81,7 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
             </div>
             {/* Card Info */}
             <div className="p-2.5">
-              <p className="text-xs text-white font-medium truncate">{card.card_name || 'Tarjeta sin identificar'}</p>
+              <p className="text-xs text-white font-medium truncate">{card.card_name || 'Unidentified Card'}</p>
               <p className="text-[10px] text-gray-600 mt-0.5">{formatDate(card.created_at)}</p>
             </div>
           </motion.div>

@@ -123,8 +123,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
           const response = await fetch(`${API}/ebay/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: ebayUrlToImport }) });
           const data = await response.json();
           if (data.success && data.images.length > 0) { setEbayImages(data.images); setEbayTitle(data.title || ''); }
-          else setEbayError(data.error || 'No se encontraron imágenes');
-        } catch (err) { setEbayError('Error al importar desde eBay'); }
+          else setEbayError(data.error || 'No images found');
+        } catch (err) { setEbayError('Error importing from eBay'); }
         finally { setEbayLoading(false); }
       };
       autoImport();
@@ -139,8 +139,8 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
       const response = await fetch(`${API}/ebay/import`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: ebayUrl }) });
       const data = await response.json();
       if (data.success && data.images.length > 0) { setEbayImages(data.images); setEbayTitle(data.title || ''); }
-      else setEbayError(data.error || 'No se encontraron imágenes');
-    } catch (err) { setEbayError('Error al importar desde eBay'); }
+      else setEbayError(data.error || 'No images found');
+    } catch (err) { setEbayError('Error importing from eBay'); }
     finally { setEbayLoading(false); }
   };
 
@@ -211,10 +211,10 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
       if (cornerBottomRight) requestBody.corner_bottom_right = cornerBottomRight;
       const response = await fetch(`${API}/cards/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
       clearInterval(progressInterval); setScanProgress(100);
-      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Error al analizar'); }
+      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Analysis failed'); }
       const result = await response.json();
       setTimeout(() => { onAnalysisComplete(result, frontImage, backImage); setFrontImage(null); setBackImage(null); setScanProgress(0); setIsAnalyzing(false); }, 500);
-    } catch (err) { clearInterval(progressInterval); setError(err.message || 'Error al analizar'); setScanProgress(0); setIsAnalyzing(false); }
+    } catch (err) { clearInterval(progressInterval); setError(err.message || 'Analysis failed'); setScanProgress(0); setIsAnalyzing(false); }
   };
 
   const clearAll = () => { setFrontImage(null); setBackImage(null); setReferenceImage(null); setCornerTopLeft(null); setCornerTopRight(null); setCornerBottomLeft(null); setCornerBottomRight(null); setCardYear(''); setError(null); setScanProgress(0); };
@@ -250,7 +250,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
               onClick={() => setShowEbayImport(!showEbayImport)}>
               <div className="flex items-center gap-2">
                 <Link className="w-4 h-4 text-[#22c55e]" />
-                <span className="text-sm text-white font-medium">Importar desde eBay</span>
+                <span className="text-sm text-white font-medium">Import from eBay</span>
               </div>
               <span className="text-gray-600 text-sm">{showEbayImport ? '−' : '+'}</span>
             </div>
@@ -260,7 +260,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                   <Input type="url" placeholder="https://ebay.com/itm/..." value={ebayUrl} onChange={(e) => setEbayUrl(e.target.value)}
                     disabled={ebayLoading} className="bg-[#0a0a0a] border-[#1a1a1a] text-white flex-1 h-8 text-sm" data-testid="ebay-url-input" />
                   <Button onClick={importFromEbay} disabled={ebayLoading || !ebayUrl.trim()} className="bg-[#22c55e] hover:bg-[#16a34a] h-8 px-3 text-sm" data-testid="ebay-import-btn">
-                    {ebayLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Importar'}
+                    {ebayLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Import'}
                   </Button>
                 </div>
                 {ebayError && <p className="text-red-400 text-xs mt-2">{ebayError}</p>}
@@ -281,7 +281,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                               <button onClick={(e) => { e.stopPropagation(); assignEbayImage(img.base64, 'back'); setSelectedEbayIdx(null); }}
                                 className="text-[10px] bg-purple-600 text-white px-2 py-1 rounded w-full">Dorso</button>
                               <button onClick={(e) => { e.stopPropagation(); setSelectedEbayIdx(null); }}
-                                className="text-[9px] text-gray-500 mt-0.5">Cerrar</button>
+                                className="text-[9px] text-gray-500 mt-0.5">Close</button>
                             </div>
                           )}
                         </div>
@@ -330,7 +330,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3">
             <div className="flex items-center gap-2 mb-2">
               <Calendar className="w-4 h-4 text-[#3b82f6]" />
-              <span className="text-sm text-white font-medium">Año de la Tarjeta</span>
+              <span className="text-sm text-white font-medium">Card Year</span>
               {vintageLabel && <span className={`text-xs ${vintageLabel.color}`}>({vintageLabel.text})</span>}
             </div>
             <Input type="number" placeholder="Auto-detect" value={cardYear} onChange={(e) => setCardYear(e.target.value)}
@@ -387,7 +387,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                       </ScrollArea>
                     )}
                     <div className="pt-2 border-t border-[#1a1a1a]">
-                      <p className="text-[10px] text-gray-600 mb-1.5">Agregar nueva referencia:</p>
+                      <p className="text-[10px] text-gray-600 mb-1.5">Add new reference:</p>
                       <div className="w-16">
                         <ImageUploadZone label="PSA 10" image={referenceImage} onImageSelect={handleReferenceImageSelect}
                           onClear={() => setReferenceImage(null)} disabled={isAnalyzing || savingRef} testId="reference-image-upload" accent="gold" small />
@@ -419,7 +419,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
           <Button onClick={analyzeCard} disabled={!frontImage || isAnalyzing}
             className="w-full h-12 bg-white text-black hover:bg-gray-200 font-bold uppercase tracking-wider text-sm disabled:opacity-30" data-testid="analyze-btn">
             <Scan className="w-5 h-5 mr-2" />
-            {isAnalyzing ? 'Analizando...' : 'Analizar Tarjeta'}
+            {isAnalyzing ? 'Analyzing...' : 'Analyze Card'}
           </Button>
 
           {hasAnyImage && !isAnalyzing && (
@@ -435,7 +435,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                 className="p-3 bg-[#111] border border-[#3b82f6]/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <Scan className="w-4 h-4 text-[#3b82f6] animate-pulse" />
-                  <span className="text-sm text-white">Analizando...</span>
+                  <span className="text-sm text-white">Analyzing...</span>
                 </div>
                 <Progress value={scanProgress} className="h-1.5" />
                 <p className="text-[10px] text-gray-600 mt-1">GPT-4o Vision evaluando</p>

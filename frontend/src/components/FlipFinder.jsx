@@ -52,8 +52,8 @@ const FlipFinder = () => {
 
   const subTabs = [
     { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
-    { id: 'scanner', label: 'Analizar', icon: Scan },
-    { id: 'history', label: 'Historial', icon: History },
+    { id: 'scanner', label: 'Analyze', icon: Scan },
+    { id: 'history', label: 'History', icon: History },
     { id: 'learning', label: 'AI', icon: Brain },
   ];
 
@@ -82,7 +82,7 @@ const FlipFinder = () => {
         {subTab === 'scanner' && (currentView === 'result' || currentView === 'history-detail') && currentAnalysis && (
           <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <Button variant="ghost" onClick={handleBack} className="mb-3 text-gray-400 hover:text-white" data-testid="back-btn">
-              <ChevronLeft className="w-4 h-4 mr-1" />{currentView === 'history-detail' ? 'Volver' : 'Nuevo Análisis'}
+              <ChevronLeft className="w-4 h-4 mr-1" />{currentView === 'history-detail' ? 'Back' : 'New Analysis'}
             </Button>
             <AnalysisResult analysis={currentAnalysis} frontImage={frontImage} backImage={backImage}
               onNewAnalysis={handleNewAnalysis} onDelete={() => setHistoryRefresh(prev => prev + 1)} onRefresh={() => setHistoryRefresh(prev => prev + 1)} />
@@ -97,7 +97,7 @@ const FlipFinder = () => {
 
         {subTab === 'history' && (
           <motion.div key="history" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <h2 className="font-heading text-lg font-bold uppercase tracking-tighter text-white mb-3">Historial de Análisis</h2>
+            <h2 className="font-heading text-lg font-bold uppercase tracking-tighter text-white mb-3">Analysis History</h2>
             <HistoryPanel onSelectCard={handleSelectFromHistory} refreshTrigger={historyRefresh} />
           </motion.div>
         )}
