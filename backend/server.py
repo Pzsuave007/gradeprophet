@@ -1,9 +1,10 @@
 from fastapi import FastAPI, APIRouter
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 import logging
 import os
+import glob
 
 from database import db, client
 
@@ -102,17 +103,66 @@ async def download_fix_frontend():
         media_type="text/plain"
     )
 
-# Download fix2.sh
+# Download fix2.sh - generated dynamically with correct file names
 @api_router.get("/download-fix2")
 async def download_fix2():
-    file_path = Path(__file__).parent / "fix2.sh"
-    if not file_path.exists():
-        return {"error": "File not found"}
-    return FileResponse(
-        path=str(file_path),
-        filename="fix2.sh",
-        media_type="text/plain"
-    )
+    base = Path(__file__).parent / ".." / "frontend" / "build"
+    # Find the actual JS and CSS filenames
+    js_files = glob.glob(str(base / "static" / "js" / "main.*.js"))
+    css_files = glob.glob(str(base / "static" / "css" / "main.*.css"))
+    js_name = Path(js_files[0]).name if js_files else "main.js"
+    css_name = Path(css_files[0]).name if css_files else "main.css"
+    api_base = "https://trading-platform-212.preview.emergentagent.com"
+
+    script = f"""#!/bin/bash
+echo "=== FlipSlab Frontend Update ==="
+TARGET="/home/flipcardsuni2/public_html"
+API="{api_base}"
+
+echo "[1/3] Descargando index.html..."
+curl -s -o "$TARGET/index.html" "$API/api/fe/index.html"
+
+echo "[2/3] Descargando JS ({js_name})..."
+mkdir -p "$TARGET/static/js"
+rm -f "$TARGET/static/js/main."*.js
+curl -s -o "$TARGET/static/js/{js_name}" "$API/api/fe/js/{js_name}"
+
+echo "[3/3] Descargando CSS ({css_name})..."
+mkdir -p "$TARGET/static/css"
+rm -f "$TARGET/static/css/main."*.css
+curl -s -o "$TARGET/static/css/{css_name}" "$API/api/fe/css/{css_name}"
+
+echo ""
+echo "Verificando..."
+if [ -f "$TARGET/static/js/{js_name}" ] && [ -s "$TARGET/static/js/{js_name}" ]; then
+    SIZE=$(wc -c < "$TARGET/static/js/{js_name}")
+    echo "JS: {js_name} ($SIZE bytes) OK"
+    echo "LISTO! Abre flipslabengine.com con Ctrl+Shift+R"
+else
+    echo "ERROR: JS no se descargo"
+fi
+"""
+    return PlainTextResponse(content=script, media_type="text/plain")
+
+# Serve individual frontend files
+@api_router.get("/fe/index.html")
+async def serve_index():
+    p = Path(__file__).parent / ".." / "frontend" / "build" / "index.html"
+    return FileResponse(path=str(p.resolve()), media_type="text/html")
+
+@api_router.get("/fe/js/{filename}")
+async def serve_js(filename: str):
+    p = Path(__file__).parent / ".." / "frontend" / "build" / "static" / "js" / filename
+    if not p.resolve().exists():
+        return PlainTextResponse("Not found", status_code=404)
+    return FileResponse(path=str(p.resolve()), media_type="application/javascript")
+
+@api_router.get("/fe/css/{filename}")
+async def serve_css(filename: str):
+    p = Path(__file__).parent / ".." / "frontend" / "build" / "static" / "css" / filename
+    if not p.resolve().exists():
+        return PlainTextResponse("Not found", status_code=404)
+    return FileResponse(path=str(p.resolve()), media_type="text/css")
 
 # Download frontend build directly
 @api_router.get("/download-frontend")
