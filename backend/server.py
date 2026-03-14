@@ -102,6 +102,18 @@ async def download_fix_frontend():
         media_type="text/plain"
     )
 
+# Download fix2.sh
+@api_router.get("/download-fix2")
+async def download_fix2():
+    file_path = Path(__file__).parent / "fix2.sh"
+    if not file_path.exists():
+        return {"error": "File not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="fix2.sh",
+        media_type="text/plain"
+    )
+
 # Download frontend build directly
 @api_router.get("/download-frontend")
 async def download_frontend():
