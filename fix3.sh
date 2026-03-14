@@ -1,32 +1,18 @@
 #!/bin/bash
-echo "=== FlipSlab Frontend Fix ==="
-WEB="/home/flipcardsuni2/public_html"
-API="https://trading-platform-212.preview.emergentagent.com/api"
-
+echo "=== Buscando donde sirve Apache ==="
 echo ""
-echo "ANTES:"
-grep -o 'main\.[a-f0-9]*\.js' "$WEB/index.html" 2>/dev/null || echo "no index.html"
-ls "$WEB/static/js/main."*.js 2>/dev/null || echo "no JS files"
-
+echo "1. Todos los index.html:"
+find /home/flipcardsuni2 -name "index.html" -not -path "*/node_modules/*" 2>/dev/null
 echo ""
-echo "Descargando..."
-curl -s -o "$WEB/index.html" "$API/fe/index.html"
-mkdir -p "$WEB/static/js" "$WEB/static/css"
-rm -f "$WEB/static/js/main."*.js
-rm -f "$WEB/static/css/main."*.css
-curl -s -o "$WEB/static/js/main.e99d5738.js" "$API/fe/js/main.e99d5738.js"
-curl -s -o "$WEB/static/css/main.ff2ff8cc.css" "$API/fe/css/main.ff2ff8cc.css"
-
+echo "2. Apache document roots:"
+grep -r "DocumentRoot\|ServerName\|ServerAlias" /etc/apache2/ /etc/httpd/ /usr/local/apache/ 2>/dev/null | grep -i "flipslab\|flipcard" | head -10
 echo ""
-echo "DESPUES:"
-grep -o 'main\.[a-f0-9]*\.js' "$WEB/index.html"
-ls -la "$WEB/static/js/main."*.js
-ls -la "$WEB/static/css/main."*.css
-
+echo "3. Virtual hosts:"
+httpd -S 2>/dev/null | grep -i "flipslab\|flipcard\|public_html" | head -10
 echo ""
-JS_SIZE=$(wc -c < "$WEB/static/js/main.e99d5738.js" 2>/dev/null)
-if [ "$JS_SIZE" -gt 100000 ]; then
-    echo "EXITO! JS=$JS_SIZE bytes"
-else
-    echo "ERROR: JS muy pequeno ($JS_SIZE bytes) - algo fallo"
-fi
+echo "4. Addon domains:"
+cat /home/flipcardsuni2/etc/*/main 2>/dev/null | head -5
+ls /home/flipcardsuni2/public_html/*/index.html 2>/dev/null
+echo ""
+echo "5. El viejo JS existe en:"
+find /home/flipcardsuni2 -name "main.295247f4.js" 2>/dev/null
