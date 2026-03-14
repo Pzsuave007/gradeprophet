@@ -104,7 +104,7 @@ const FlipFinder = () => {
 
         {subTab === 'learning' && (
           <motion.div key="learning" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <h2 className="font-heading text-lg font-bold uppercase tracking-tighter text-white mb-3">Sistema de <span className="text-[#eab308]">Aprendizaje</span></h2>
+            <h2 className="font-heading text-lg font-bold uppercase tracking-tighter text-white mb-3">Learning <span className="text-[#eab308]">System</span></h2>
             <LearningPanel refreshTrigger={historyRefresh} />
           </motion.div>
         )}
