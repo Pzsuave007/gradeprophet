@@ -294,12 +294,22 @@ async def get_seller_orders(request: Request, limit: int = 20):
 
 
 @router.get("/seller/my-listings")
-async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 20):
+async def get_my_listings_trading(
+    request: Request,
+    page: int = 1,
+    limit: int = 20,
+    sold_days: int = 30,
+    sold_page: int = 1,
+    sold_limit: int = 20
+):
     """Get seller's active and sold listings via Trading API"""
     await get_current_user(request)  # Auth check
     token = await get_ebay_user_token()
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
+
+    # Clamp sold_days to eBay's max of 60
+    sold_days = min(max(sold_days, 1), 60)
 
     try:
         import xml.etree.ElementTree as ET
@@ -312,8 +322,9 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
     <Pagination><EntriesPerPage>{limit}</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
   </ActiveList>
   <SoldList>
+    <DurationInDays>{sold_days}</DurationInDays>
     <Sort>EndTime</Sort>
-    <Pagination><EntriesPerPage>{limit}</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
+    <Pagination><EntriesPerPage>{sold_limit}</EntriesPerPage><PageNumber>{sold_page}</PageNumber></Pagination>
   </SoldList>
 </GetMyeBaySellingRequest>'''
 

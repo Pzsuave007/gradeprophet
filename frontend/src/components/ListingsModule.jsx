@@ -4,7 +4,8 @@ import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
-  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User
+  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
+  ArrowDownUp, Calendar, ChevronDown
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -602,6 +603,51 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
 
 
 // =========== MAIN LISTINGS MODULE ===========
+const SORT_OPTIONS_ACTIVE = [
+  { id: 'time_asc', label: 'Ending Soonest', icon: Clock },
+  { id: 'price_desc', label: 'Price: High to Low', icon: ArrowUpRight },
+  { id: 'price_asc', label: 'Price: Low to High', icon: DollarSign },
+  { id: 'watchers_desc', label: 'Most Watched', icon: Eye },
+  { id: 'title_asc', label: 'Title A-Z', icon: Tag },
+];
+
+const SORT_OPTIONS_SOLD = [
+  { id: 'date_desc', label: 'Newest First', icon: Clock },
+  { id: 'date_asc', label: 'Oldest First', icon: Clock },
+  { id: 'price_desc', label: 'Price: High to Low', icon: ArrowUpRight },
+  { id: 'price_asc', label: 'Price: Low to High', icon: DollarSign },
+  { id: 'title_asc', label: 'Title A-Z', icon: Tag },
+];
+
+const SOLD_DAYS_OPTIONS = [
+  { value: 7, label: 'Last 7 days' },
+  { value: 30, label: 'Last 30 days' },
+  { value: 60, label: 'Last 60 days' },
+];
+
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
+
+const parseTimeLeftMinutes = (iso) => {
+  if (!iso) return 999999;
+  const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!m) return 999999;
+  return (parseInt(m[1] || 0) * 1440) + (parseInt(m[2] || 0) * 60) + parseInt(m[3] || 0);
+};
+
+const sortItems = (items, sortBy, type) => {
+  const sorted = [...items];
+  switch (sortBy) {
+    case 'price_desc': return sorted.sort((a, b) => b.price - a.price);
+    case 'price_asc': return sorted.sort((a, b) => a.price - b.price);
+    case 'watchers_desc': return sorted.sort((a, b) => (b.watch_count || 0) - (a.watch_count || 0));
+    case 'title_asc': return sorted.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+    case 'time_asc': return sorted.sort((a, b) => parseTimeLeftMinutes(a.time_left) - parseTimeLeftMinutes(b.time_left));
+    case 'date_desc': return sorted.sort((a, b) => new Date(b.sold_date || 0) - new Date(a.sold_date || 0));
+    case 'date_asc': return sorted.sort((a, b) => new Date(a.sold_date || 0) - new Date(b.sold_date || 0));
+    default: return sorted;
+  }
+};
+
 const ListingsModule = () => {
   const [activeTab, setActiveTab] = useState('active');
   const [ebayData, setEbayData] = useState(null);
@@ -610,16 +656,19 @@ const ListingsModule = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
+  const [activeSort, setActiveSort] = useState('time_asc');
+  const [soldSort, setSoldSort] = useState('date_desc');
+  const [soldDays, setSoldDays] = useState(30);
+  const [pageSize, setPageSize] = useState(200);
 
   const fetchData = useCallback(async () => {
     try {
       const [ebayRes, invRes] = await Promise.allSettled([
-        axios.get(`${API}/api/ebay/seller/my-listings?limit=200`),
+        axios.get(`${API}/api/ebay/seller/my-listings?limit=${pageSize}&sold_days=${soldDays}&sold_limit=${pageSize}`),
         axios.get(`${API}/api/inventory?limit=200`),
       ]);
       if (ebayRes.status === 'fulfilled') {
         const raw = ebayRes.value.data;
-        // Transform API response: { listings, total } -> { active, sold, active_total, sold_total }
         const listings = (raw.listings || raw.active || []).map(item => ({
           item_id: item.itemid || item.item_id || '',
           title: item.title || '',
@@ -652,7 +701,7 @@ const ListingsModule = () => {
       if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
-  }, []);
+  }, [soldDays, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -675,6 +724,8 @@ const ListingsModule = () => {
   };
 
   const eb = ebayData || { active: [], sold: [], active_total: 0, sold_total: 0 };
+  const sortedActive = sortItems(eb.active, activeSort, 'active');
+  const sortedSold = sortItems(eb.sold, soldSort, 'sold');
   const totalValue = eb.active.reduce((s, i) => s + (i.price || 0), 0);
   const totalSold = eb.sold.reduce((s, i) => s + (i.price || 0), 0);
 
@@ -739,24 +790,86 @@ const ListingsModule = () => {
         ))}
       </div>
 
-      {/* Tabs + Toggle */}
-      <div className="flex items-center justify-between">
-        <div className="flex gap-1">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setActiveTab(id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
-              }`} data-testid={`listings-tab-${id}`}>
-              <Icon className="w-4 h-4" />{label}
-            </button>
-          ))}
+      {/* Tabs + Controls */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex gap-1">
+            {tabs.map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setActiveTab(id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                  activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
+                }`} data-testid={`listings-tab-${id}`}>
+                <Icon className="w-4 h-4" />{label}
+              </button>
+            ))}
+          </div>
+          <ViewToggle view={viewMode} onChange={setViewMode} />
         </div>
-        <ViewToggle view={viewMode} onChange={setViewMode} />
+
+        {/* Sort + Filters Bar */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sort Dropdown */}
+          <div className="relative">
+            <select
+              value={activeTab === 'active' ? activeSort : soldSort}
+              onChange={e => activeTab === 'active' ? setActiveSort(e.target.value) : setSoldSort(e.target.value)}
+              className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-lg pl-8 pr-8 py-2 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
+              data-testid="sort-select"
+            >
+              {(activeTab === 'active' ? SORT_OPTIONS_ACTIVE : SORT_OPTIONS_SOLD).map(opt => (
+                <option key={opt.id} value={opt.id}>{opt.label}</option>
+              ))}
+            </select>
+            <ArrowDownUp className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Sold-only controls */}
+          {activeTab === 'sold' && (
+            <>
+              {/* Date Range */}
+              <div className="relative">
+                <select
+                  value={soldDays}
+                  onChange={e => { setSoldDays(parseInt(e.target.value)); setLoading(true); }}
+                  className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-lg pl-8 pr-8 py-2 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
+                  data-testid="sold-days-select"
+                >
+                  {SOLD_DAYS_OPTIONS.map(opt => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <Calendar className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3 h-3 text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </>
+          )}
+
+          {/* Page Size */}
+          <div className="relative">
+            <select
+              value={pageSize}
+              onChange={e => { setPageSize(parseInt(e.target.value)); setLoading(true); }}
+              className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-lg pl-8 pr-8 py-2 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
+              data-testid="page-size-select"
+            >
+              {PAGE_SIZE_OPTIONS.map(n => (
+                <option key={n} value={n}>Show {n}</option>
+              ))}
+            </select>
+            <Layers className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <ChevronDown className="w-3 h-3 text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <span className="text-[10px] text-gray-600 ml-auto">
+            {activeTab === 'active' ? `${sortedActive.length} listings` : `${sortedSold.length} sold`}
+          </span>
+        </div>
       </div>
 
       {/* Active Listings */}
       {activeTab === 'active' && (
-        eb.active.length === 0 ? (
+        sortedActive.length === 0 ? (
           <div className="text-center py-16 bg-[#111] border border-[#1a1a1a] rounded-xl">
             <Tag className="w-10 h-10 text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-400 mb-4">No active listings</p>
@@ -766,7 +879,7 @@ const ListingsModule = () => {
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {eb.active.map((item, i) => (
+            {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
                 className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#3b82f6]/50 transition-all cursor-pointer group"
                 onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
@@ -811,7 +924,7 @@ const ListingsModule = () => {
           </div>
         ) : (
           <div className="space-y-1.5">
-            {eb.active.map((item, i) => (
+            {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                 className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-[#3b82f6]/40 transition-colors cursor-pointer"
                 onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
@@ -848,14 +961,14 @@ const ListingsModule = () => {
 
       {/* Sold Listings */}
       {activeTab === 'sold' && (
-        eb.sold.length === 0 ? (
+        sortedSold.length === 0 ? (
           <div className="text-center py-16 bg-[#111] border border-[#1a1a1a] rounded-xl">
             <ShoppingBag className="w-10 h-10 text-gray-700 mx-auto mb-3" />
             <p className="text-sm text-gray-400">No sold items yet</p>
           </div>
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {eb.sold.map((item, i) => (
+            {sortedSold.map((item, i) => (
               <motion.div key={item.item_id || i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
                 className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
                 onClick={() => item.url && window.open(item.url, '_blank')} data-testid={`sold-listing-${i}`}>
@@ -886,7 +999,7 @@ const ListingsModule = () => {
           </div>
         ) : (
           <div className="space-y-1.5">
-            {eb.sold.map((item, i) => (
+            {sortedSold.map((item, i) => (
               <div key={item.item_id || i} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-emerald-500/30 transition-colors" data-testid={`sold-listing-${i}`}>
                 <div className="w-14 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
