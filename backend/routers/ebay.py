@@ -295,7 +295,7 @@ async def get_seller_orders(request: Request, limit: int = 20):
 
 @router.get("/seller/my-listings")
 async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 20):
-    """Get seller's active listings via Trading API"""
+    """Get seller's active and sold listings via Trading API"""
     await get_current_user(request)  # Auth check
     token = await get_ebay_user_token()
     if not token:
@@ -306,13 +306,18 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
         xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <DetailLevel>ReturnAll</DetailLevel>
   <ActiveList>
     <Sort>TimeLeft</Sort>
     <Pagination><EntriesPerPage>{limit}</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
   </ActiveList>
+  <SoldList>
+    <Sort>EndTime</Sort>
+    <Pagination><EntriesPerPage>{limit}</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
+  </SoldList>
 </GetMyeBaySellingRequest>'''
 
-        async with httpx.AsyncClient(timeout=20.0) as http_client:
+        async with httpx.AsyncClient(timeout=25.0) as http_client:
             resp = await http_client.post(
                 "https://api.ebay.com/ws/api.dll",
                 headers={
@@ -325,12 +330,28 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
 
         ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
         root = ET.fromstring(resp.text)
+
+        # Helper to upgrade eBay image URLs to high-res
+        def get_hires_image(item_el):
+            full_pic = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
+            if full_pic is not None and full_pic.text:
+                url = full_pic.text
+            else:
+                gallery = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
+                url = gallery.text if gallery is not None else ""
+            if url and "s-l140" in url:
+                url = url.replace("s-l140", "s-l800")
+            elif url and "s-l225" in url:
+                url = url.replace("s-l225", "s-l800")
+            return url
+
+        # Parse active listings
         listings = []
         active_node = root.find(".//e:ActiveList", ns)
-        total = 0
+        active_total = 0
         if active_node:
             count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
-            total = int(count_el.text) if count_el is not None else 0
+            active_total = int(count_el.text) if count_el is not None else 0
             for item_el in active_node.findall(".//e:Item", ns):
                 item_data = {}
                 for field in ["ItemID", "Title"]:
@@ -339,19 +360,7 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
 
                 price_el = item_el.find(".//e:CurrentPrice", ns)
                 item_data["price"] = float(price_el.text) if price_el is not None else 0
-
-                pic_el = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
-                pic_url = pic_el.text if pic_el is not None else ""
-                # Also try to get full-size PictureURL
-                full_pic_el = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
-                if full_pic_el is not None and full_pic_el.text:
-                    pic_url = full_pic_el.text
-                # Upgrade eBay thumbnail URLs to high-res (s-l140 -> s-l800)
-                if pic_url and "s-l140" in pic_url:
-                    pic_url = pic_url.replace("s-l140", "s-l800")
-                elif pic_url and "s-l225" in pic_url:
-                    pic_url = pic_url.replace("s-l225", "s-l800")
-                item_data["image_url"] = pic_url
+                item_data["image_url"] = get_hires_image(item_el)
 
                 tl_el = item_el.find("e:TimeLeft", ns)
                 item_data["time_left"] = tl_el.text if tl_el is not None else ""
@@ -365,10 +374,113 @@ async def get_my_listings_trading(request: Request, page: int = 1, limit: int = 
                 bid_el = item_el.find(".//e:BidCount", ns)
                 item_data["bids"] = int(bid_el.text) if bid_el is not None else 0
 
+                list_type_el = item_el.find("e:ListingType", ns)
+                item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
+
                 item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
                 listings.append(item_data)
 
-        return {"listings": listings, "total": total, "page": page}
+        # Parse sold listings
+        sold = []
+        sold_node = root.find(".//e:SoldList", ns)
+        sold_total = 0
+        if sold_node:
+            count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+            sold_total = int(count_el.text) if count_el is not None else 0
+            for item_el in sold_node.findall(".//e:OrderTransaction", ns):
+                # SoldList wraps items in OrderTransaction/Transaction/Item
+                trans_el = item_el.find("e:Transaction", ns)
+                actual_item = item_el.find(".//e:Item", ns)
+                if actual_item is None:
+                    continue
+
+                item_data = {}
+                item_id_el = actual_item.find("e:ItemID", ns)
+                item_data["itemid"] = item_id_el.text if item_id_el is not None else ""
+
+                title_el = actual_item.find("e:Title", ns)
+                item_data["title"] = title_el.text if title_el is not None else ""
+
+                # Sold price from Transaction/TotalPrice or Transaction/TransactionPrice
+                sold_price = 0
+                if trans_el is not None:
+                    tp_el = trans_el.find("e:TotalPrice", ns)
+                    if tp_el is None:
+                        tp_el = trans_el.find("e:TransactionPrice", ns)
+                    if tp_el is not None:
+                        sold_price = float(tp_el.text)
+                if sold_price == 0:
+                    price_el = actual_item.find(".//e:CurrentPrice", ns)
+                    if price_el is not None:
+                        sold_price = float(price_el.text)
+                item_data["price"] = sold_price
+
+                item_data["image_url"] = get_hires_image(actual_item)
+
+                # Buyer info
+                buyer = ""
+                if trans_el is not None:
+                    buyer_el = trans_el.find("e:Buyer/e:UserID", ns)
+                    if buyer_el is not None:
+                        buyer = buyer_el.text
+                item_data["buyer"] = buyer
+
+                # Sold date
+                if trans_el is not None:
+                    date_el = trans_el.find("e:CreatedDate", ns)
+                    if date_el is not None:
+                        item_data["sold_date"] = date_el.text
+
+                qty_el = None
+                if trans_el is not None:
+                    qty_el = trans_el.find("e:QuantityPurchased", ns)
+                item_data["quantity_sold"] = int(qty_el.text) if qty_el is not None else 1
+
+                item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
+                sold.append(item_data)
+
+        # Fetch images for sold items that are missing them via Browse API
+        sold_without_images = [s for s in sold if not s.get("image_url")]
+        if sold_without_images:
+            try:
+                app_token = await get_ebay_app_token()
+                if app_token:
+                    async with httpx.AsyncClient(timeout=15.0) as http_client:
+                        for s_item in sold_without_images[:20]:
+                            item_id = s_item.get("itemid", "")
+                            if not item_id:
+                                continue
+                            try:
+                                browse_resp = await http_client.get(
+                                    f"https://api.ebay.com/buy/browse/v1/item/v1|{item_id}|0",
+                                    headers={
+                                        "Authorization": f"Bearer {app_token}",
+                                        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                                    }
+                                )
+                                if browse_resp.status_code == 200:
+                                    browse_data = browse_resp.json()
+                                    img = browse_data.get("image", {}).get("imageUrl", "")
+                                    if img:
+                                        if "s-l140" in img:
+                                            img = img.replace("s-l140", "s-l800")
+                                        elif "s-l225" in img:
+                                            img = img.replace("s-l225", "s-l800")
+                                        elif "s-l500" in img:
+                                            img = img.replace("s-l500", "s-l800")
+                                        s_item["image_url"] = img
+                            except Exception:
+                                pass
+            except Exception as e:
+                logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
+
+        return {
+            "listings": listings,
+            "sold": sold,
+            "total": active_total,
+            "sold_total": sold_total,
+            "page": page
+        }
     except Exception as e:
         logger.error(f"My listings failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))

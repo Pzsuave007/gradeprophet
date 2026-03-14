@@ -4,7 +4,7 @@ import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
-  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2
+  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -638,6 +638,9 @@ const ListingsModule = () => {
           price: item.price || 0,
           image_url: (item.image_url || '').replace('s-l140', 's-l800').replace('s-l225', 's-l800'),
           buyer: item.buyer || '',
+          sold_date: item.sold_date || '',
+          quantity_sold: item.quantity_sold || 1,
+          url: item.url || '',
         }));
         setEbayData({
           active: listings,
@@ -854,17 +857,29 @@ const ListingsModule = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {eb.sold.map((item, i) => (
               <motion.div key={item.item_id || i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid={`sold-listing-${i}`}>
+                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
+                onClick={() => item.url && window.open(item.url, '_blank')} data-testid={`sold-listing-${i}`}>
                 <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
-                  {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                  {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-2 px-2.5">
                     <span className="text-lg font-black text-emerald-400">${item.price}</span>
                   </div>
-                  <span className="absolute top-2 left-2 text-[9px] px-2 py-0.5 rounded bg-amber-500/90 text-white font-bold uppercase">Sold</span>
+                  <span className="absolute top-2 left-2 text-[9px] px-2 py-0.5 rounded bg-emerald-500/90 text-white font-bold uppercase">Sold</span>
                 </div>
                 <div className="p-3">
-                  <p className="text-xs font-semibold text-white line-clamp-2 leading-relaxed mb-1">{item.title}</p>
-                  {item.buyer && <p className="text-[10px] text-gray-500">Buyer: {item.buyer}</p>}
+                  <p className="text-xs font-semibold text-white line-clamp-2 leading-relaxed mb-1.5">{item.title}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      {item.buyer && <p className="text-[10px] text-gray-500 flex items-center gap-1"><User className="w-2.5 h-2.5" />{item.buyer}</p>}
+                      {item.sold_date && <p className="text-[10px] text-gray-600 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{new Date(item.sold_date).toLocaleDateString()}</p>}
+                    </div>
+                    {item.url && (
+                      <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                        className="p-1 hover:bg-white/10 rounded transition-colors">
+                        <ExternalLink className="w-3.5 h-3.5 text-gray-600 hover:text-emerald-400" />
+                      </a>
+                    )}
+                  </div>
                 </div>
               </motion.div>
             ))}
@@ -872,16 +887,24 @@ const ListingsModule = () => {
         ) : (
           <div className="space-y-1.5">
             {eb.sold.map((item, i) => (
-              <div key={item.item_id || i} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3" data-testid={`sold-listing-${i}`}>
+              <div key={item.item_id || i} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-emerald-500/30 transition-colors" data-testid={`sold-listing-${i}`}>
                 <div className="w-14 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{item.title}</p>
-                  {item.buyer && <p className="text-[11px] text-gray-500 mt-0.5">Buyer: {item.buyer}</p>}
+                  <div className="flex items-center gap-3 mt-0.5">
+                    {item.buyer && <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><User className="w-2.5 h-2.5" />{item.buyer}</span>}
+                    {item.sold_date && <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{new Date(item.sold_date).toLocaleDateString()}</span>}
+                  </div>
                 </div>
-                <span className="text-[9px] px-2 py-1 rounded bg-amber-500/10 text-amber-400 uppercase font-bold flex-shrink-0">Sold</span>
+                <span className="text-[9px] px-2 py-1 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold flex-shrink-0">Sold</span>
                 <span className="text-lg font-black text-emerald-400 flex-shrink-0">${item.price}</span>
+                {item.url && (
+                  <a href={item.url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                    <ExternalLink className="w-4 h-4 text-gray-600 hover:text-emerald-400" />
+                  </a>
+                )}
               </div>
             ))}
           </div>

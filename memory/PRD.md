@@ -23,7 +23,6 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 │   ├── ebay.py, flipfinder.py, settings.py
 ├── models/
 │   └── __init__.py
-└── tests/
 ```
 
 ## What's Been Implemented
@@ -43,17 +42,22 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Backend refactored to modular routers (from 5367-line monolith)
 - [x] Deployment package (fix.sh v8 + tar.gz) for modular architecture
 - [x] Download endpoint at /api/download-update
+- [x] **Sold Listings tab** - Shows all sold eBay items with hi-res images, buyer info, sold dates, revenue total
+- [x] **Hi-res listing images** - All eBay images upgraded from 140px to 800-1600px
 
-## Bugs Fixed (This Session)
-- [x] **Listings page blank** - API returns `{listings:[]}` but frontend expected `{active:[]}`. Fixed data transformation in `fetchData()` of `ListingsModule.jsx`
+## Bugs Fixed (This Session - March 14, 2026)
+- [x] **Listings page blank** - API returns `{listings:[]}` but frontend expected `{active:[]}`. Fixed data transformation.
 - [x] **Flip Finder blank** - `/api/listings` returns `{listings:[]}` but `EbayMonitor.jsx` expected raw array. Fixed to handle both formats.
-- [x] **Field name mismatch** - API uses `itemid`, `watchers`, `quantity` but frontend expects `item_id`, `watch_count`, `quantity_available`. Added field mapping in ListingsModule.
+- [x] **Low-res listing images** - eBay `GalleryURL` returns `s-l140` (140px thumbnails). Upgraded to `s-l800` in both backend endpoints + frontend safety net.
+- [x] **Sold listings empty** - API only requested `<ActiveList>`, now also requests `<SoldList>`. Uses Browse API fallback to fetch sold item images.
 
-## Known Issues (Resolved)
+## Known Issues (All Resolved)
 - ~~Google OAuth on production server~~ - User confirmed WORKING
-- ~~fix.sh needs regeneration~~ - DONE (v8 with modular support)
+- ~~fix.sh needs regeneration~~ - DONE
 - ~~Listings page blank~~ - FIXED
 - ~~Flip Finder page blank~~ - FIXED
+- ~~Low-res images~~ - FIXED
+- ~~Sold tab empty~~ - FIXED
 
 ## Next Tasks
 - P1: Auto-Refresh Portfolio Value
