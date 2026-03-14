@@ -673,7 +673,7 @@ const ListingsModule = () => {
       ]);
       if (ebayRes.status === 'fulfilled') {
         const raw = ebayRes.value.data;
-        const listings = (raw.listings || raw.active || []).map(item => ({
+        const activeItems = (raw.active || []).map(item => ({
           item_id: item.itemid || item.item_id || '',
           title: item.title || '',
           price: item.price || 0,
@@ -686,7 +686,7 @@ const ListingsModule = () => {
           bids: item.bids || 0,
           start_time: item.start_time || '',
         }));
-        const sold = (raw.sold || []).map(item => ({
+        const soldItems = (raw.sold || []).map(item => ({
           item_id: item.itemid || item.item_id || '',
           title: item.title || '',
           price: item.price || 0,
@@ -697,10 +697,10 @@ const ListingsModule = () => {
           url: item.url || '',
         }));
         setEbayData({
-          active: listings,
-          sold: sold,
-          active_total: raw.total ?? raw.active_total ?? listings.length,
-          sold_total: raw.sold_total ?? sold.length,
+          active: activeItems,
+          sold: soldItems,
+          active_total: raw.active_total ?? activeItems.length,
+          sold_total: raw.sold_total ?? soldItems.length,
         });
       }
       if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);

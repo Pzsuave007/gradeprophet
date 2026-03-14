@@ -244,7 +244,7 @@ async def get_listings(
 
     total = await db.ebay_listings.count_documents(query)
     listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).skip(skip).limit(limit).to_list(limit)
-    return {"listings": listings, "total": total}
+    return listings
 
 
 @router.put("/listings/{listing_id}/status")

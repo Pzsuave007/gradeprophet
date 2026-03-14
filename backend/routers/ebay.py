@@ -241,7 +241,7 @@ async def get_seller_listings(request: Request, limit: int = 10, offset: int = 0
                     "watchers": int(watch_el.text) if watch_el is not None else 0,
                 })
 
-        return {"listings": listings, "total": total}
+        return {"active": listings, "active_total": total}
     except Exception as e:
         logger.error(f"Get seller listings failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -489,9 +489,9 @@ async def get_my_listings_trading(
                 logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
 
         return {
-            "listings": listings,
+            "active": listings,
             "sold": sold,
-            "total": active_total,
+            "active_total": active_total,
             "sold_total": sold_total,
             "page": page
         }
