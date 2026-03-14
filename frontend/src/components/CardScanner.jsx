@@ -277,9 +277,9 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                           {selectedEbayIdx === idx && (
                             <div className="absolute inset-0 bg-black/90 rounded flex flex-col items-center justify-center gap-0.5 p-1 z-10">
                               <button onClick={(e) => { e.stopPropagation(); assignEbayImage(img.base64, 'front'); setSelectedEbayIdx(null); }}
-                                className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded w-full">Frente</button>
+                                className="text-[10px] bg-blue-600 text-white px-2 py-1 rounded w-full">Front</button>
                               <button onClick={(e) => { e.stopPropagation(); assignEbayImage(img.base64, 'back'); setSelectedEbayIdx(null); }}
-                                className="text-[10px] bg-purple-600 text-white px-2 py-1 rounded w-full">Dorso</button>
+                                className="text-[10px] bg-purple-600 text-white px-2 py-1 rounded w-full">Back</button>
                               <button onClick={(e) => { e.stopPropagation(); setSelectedEbayIdx(null); }}
                                 className="text-[9px] text-gray-500 mt-0.5">Close</button>
                             </div>
@@ -296,9 +296,9 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
 
           {/* Front + Back Side by Side - Compact */}
           <div className="grid grid-cols-2 gap-3">
-            <ImageUploadZone label="Frente" sublabel="Requerido" image={frontImage} onImageSelect={setFrontImage}
+            <ImageUploadZone label="Front" sublabel="Required" image={frontImage} onImageSelect={setFrontImage}
               onClear={() => setFrontImage(null)} disabled={isAnalyzing} testId="front-image-upload" />
-            <ImageUploadZone label="Dorso" sublabel="Opcional" image={backImage} onImageSelect={setBackImage}
+            <ImageUploadZone label="Back" sublabel="Optional" image={backImage} onImageSelect={setBackImage}
               onClear={() => setBackImage(null)} disabled={isAnalyzing} testId="back-image-upload" />
           </div>
 
@@ -307,7 +307,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-1.5">
                 <CornerDownRight className="w-3.5 h-3.5 text-[#3b82f6]" />
-                <span className="text-xs text-white font-medium">Esquinas {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
+                <span className="text-xs text-white font-medium">Corners {hasCorners && <Check className="w-3 h-3 inline text-green-500 ml-1" />}</span>
               </div>
               {frontImage && !hasCorners && (
                 <Button onClick={autoCropCorners} variant="ghost" size="sm" className="text-[#3b82f6] h-6 text-[10px] px-2" data-testid="auto-crop-corners-btn">

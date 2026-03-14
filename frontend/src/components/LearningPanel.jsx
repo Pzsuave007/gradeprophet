@@ -68,11 +68,11 @@ const LearningPanel = ({ refreshTrigger }) => {
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-white">{stats.total_analyzed}</p>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Analizadas</p>
+              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Analyzed</p>
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-[#3b82f6]">{stats.total_graded}</p>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Con Feedback</p>
+              <p className="text-[9px] text-gray-600 uppercase tracking-wider">With Feedback</p>
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-[#22c55e]">{stats.accuracy_rate}%</p>
@@ -80,7 +80,7 @@ const LearningPanel = ({ refreshTrigger }) => {
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-[#eab308]">±{stats.average_difference}</p>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Dif. Promedio</p>
+              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Avg. Diff</p>
             </div>
           </div>
         )}
@@ -149,7 +149,7 @@ const LearningPanel = ({ refreshTrigger }) => {
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
             <div className="px-3 py-2 border-b border-[#1a1a1a] flex items-center gap-2">
               <Package className="w-3.5 h-3.5 text-[#eab308]" />
-              <span className="text-xs font-semibold text-white uppercase tracking-wider">Esperando Resultados PSA ({pendingCards.length})</span>
+              <span className="text-xs font-semibold text-white uppercase tracking-wider">Awaiting PSA Results ({pendingCards.length})</span>
             </div>
             <ScrollArea className="max-h-[600px]">
               <div className="divide-y divide-[#1a1a1a]">
@@ -169,7 +169,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <button onClick={(e) => deleteCard(card.id, e)} className="p-1 rounded hover:bg-red-500/20"><Trash2 className="w-3 h-3 text-red-400" /></button>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${card.status === 'sent_to_psa' ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'bg-[#1a1a1a] text-gray-500'}`}>
-                          {card.status === 'sent_to_psa' ? 'Enviada' : 'Pendiente'}
+                          {card.status === 'sent_to_psa' ? 'Sent' : 'Pending'}
                         </span>
                         {expandedCard === card.id ? <ChevronUp className="w-3.5 h-3.5 text-gray-600" /> : <ChevronDown className="w-3.5 h-3.5 text-gray-600" />}
                       </div>
@@ -181,12 +181,12 @@ const LearningPanel = ({ refreshTrigger }) => {
                             {card.status !== 'sent_to_psa' && (
                               <Button variant="outline" size="sm" onClick={() => updateCardStatus(card.id, 'sent_to_psa')}
                                 className="w-full border-[#3b82f6]/50 text-[#3b82f6] h-7 text-xs">
-                                <Package className="w-3 h-3 mr-1" />Marcar Enviada a PSA
+                                <Package className="w-3 h-3 mr-1" />Mark Sent to PSA
                               </Button>
                             )}
                             <p className="text-[10px] text-gray-600">Already received the grade? Enter the result:</p>
                             <div className="flex gap-1.5">
-                              <Input type="number" step="0.5" min="1" max="10" placeholder="Grado (1-10)"
+                              <Input type="number" step="0.5" min="1" max="10" placeholder="Grade (1-10)"
                                 value={feedbackData[card.id]?.actual_psa_grade || ''}
                                 onChange={(e) => setFeedbackData(prev => ({ ...prev, [card.id]: { ...prev[card.id], actual_psa_grade: e.target.value } }))}
                                 className="bg-[#0a0a0a] border-[#1a1a1a] text-white flex-1 h-7 text-xs" />
@@ -210,8 +210,8 @@ const LearningPanel = ({ refreshTrigger }) => {
         ) : (
           <div className="text-center py-12 bg-[#111] border border-[#1a1a1a] rounded-lg">
             <Brain className="w-8 h-8 text-gray-800 mx-auto mb-2" />
-            <p className="text-gray-600 text-sm">Sin tarjetas pendientes</p>
-            <p className="text-gray-700 text-xs mt-1">Analiza tarjetas y ingresa resultados PSA para entrenar el sistema</p>
+            <p className="text-gray-600 text-sm">No pending cards</p>
+            <p className="text-gray-700 text-xs mt-1">Analyze cards and enter PSA results to train the system</p>
           </div>
         )}
       </div>

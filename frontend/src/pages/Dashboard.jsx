@@ -35,11 +35,11 @@ const PlaceholderModule = ({ title, description, icon: Icon }) => (
 );
 
 const Listings = () => (
-  <PlaceholderModule title="Listings" description="Publica tarjetas directamente en eBay y administra tus listings activos." icon={Tag} />
+  <PlaceholderModule title="Listings" description="List cards directly on eBay and manage your active listings." icon={Tag} />
 );
 
 const Account = () => (
-  <PlaceholderModule title="Account" description="Configuracion de tu cuenta, integraciones, y preferencias." icon={User} />
+  <PlaceholderModule title="Account" description="Account settings, integrations, and preferences." icon={User} />
 );
 
 const modules = [

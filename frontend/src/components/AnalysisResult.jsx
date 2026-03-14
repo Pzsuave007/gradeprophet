@@ -187,13 +187,13 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
                   value="front" 
                   className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-sm"
                 >
-                  Frente
+                  Front
                 </TabsTrigger>
                 <TabsTrigger 
                   value="back"
                   className="rounded-none data-[state=active]:bg-[#121212] data-[state=active]:text-white font-heading uppercase tracking-wider text-sm"
                 >
-                  Dorso
+                  Back
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="front" className="mt-0">
@@ -243,7 +243,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
             style={{ borderColor: `${gradeInfo.color}30` }}
           >
             <p className="text-xs text-gray-500 uppercase tracking-widest font-mono mb-2">
-              Grado PSA Estimado
+              Estimated PSA Grade
             </p>
             <div 
               className="text-7xl font-heading font-black mb-2"
@@ -269,7 +269,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
           {/* Actual PSA Grade (if has feedback) */}
           {hasActualGrade && (
             <div className="bg-[#22c55e]/10 border border-[#22c55e]/30 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Grado Real PSA</p>
+              <p className="text-xs text-gray-400 uppercase tracking-widest mb-1">Actual PSA Grade</p>
               <p className="text-4xl font-heading font-black text-[#22c55e]">
                 {analysis.actual_psa_grade}
               </p>
@@ -316,30 +316,30 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
       {/* Sub-grades Grid */}
       <div>
         <h3 className="font-heading text-xl font-semibold uppercase tracking-wider text-white mb-4">
-          Desglose de Grados
+          Grade Breakdown
         </h3>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <GradeDisplay 
             score={grading_result.centering.score} 
-            label="Centrado" 
+            label="Centering" 
             icon={Target}
             issues={grading_result.centering.issues}
           />
           <GradeDisplay 
             score={grading_result.corners.score} 
-            label="Esquinas" 
+            label="Corners" 
             icon={CornerDownRight}
             issues={grading_result.corners.issues}
           />
           <GradeDisplay 
             score={grading_result.surface.score} 
-            label="Superficie" 
+            label="Surface" 
             icon={Layers}
             issues={grading_result.surface.issues}
           />
           <GradeDisplay 
             score={grading_result.edges.score} 
-            label="Bordes" 
+            label="Edges" 
             icon={Box}
             issues={grading_result.edges.issues}
           />
@@ -370,7 +370,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
                   {isSentToPSA ? 'Already received the grade?' : 'Are you sending this card?'}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {isSentToPSA ? 'Ingresa el resultado para que el sistema aprenda' : 'Marca como enviada o ingresa el resultado'}
+                  {isSentToPSA ? 'Enter the result so the system can learn' : 'Mark as sent or enter the result'}
                 </p>
               </div>
             </div>
@@ -379,7 +379,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
                 ? 'bg-[#3b82f6]/20 text-[#3b82f6]' 
                 : 'bg-[#27272a] text-gray-400'
             }`}>
-              {isSentToPSA ? 'Enviada a PSA' : 'Pendiente'}
+              {isSentToPSA ? 'Sent to PSA' : 'Pending'}
             </span>
           </button>
           
@@ -392,19 +392,19 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
                   className="w-full border-[#3b82f6]/50 text-[#3b82f6] hover:bg-[#3b82f6]/10"
                 >
                   <Package className="w-4 h-4 mr-2" />
-                  Marcar como Enviada a PSA
+                  Mark as Sent to PSA
                 </Button>
               )}
               
               <div className="space-y-3">
-                <p className="text-xs text-gray-400">Ingresa el grado real cuando lo recibas:</p>
+                <p className="text-xs text-gray-400">Enter the actual grade when you receive it:</p>
                 <div className="flex flex-col sm:flex-row gap-2">
                   <Input
                     type="number"
                     step="0.5"
                     min="1"
                     max="10"
-                    placeholder="Grado PSA (1-10)"
+                    placeholder="PSA Grade (1-10)"
                     value={actualGrade}
                     onChange={(e) => setActualGrade(e.target.value)}
                     className="bg-[#0a0a0a] border-[#27272a] text-white flex-1"
