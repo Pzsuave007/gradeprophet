@@ -102,6 +102,18 @@ async def download_fix_frontend():
         media_type="text/plain"
     )
 
+# Download frontend build directly
+@api_router.get("/download-frontend")
+async def download_frontend():
+    file_path = Path(__file__).parent / "frontend_build.tar.gz"
+    if not file_path.exists():
+        return {"error": "File not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="frontend_build.tar.gz",
+        media_type="application/gzip"
+    )
+
 # Mount API router
 app.include_router(api_router)
 
