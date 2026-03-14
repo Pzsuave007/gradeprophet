@@ -78,6 +78,18 @@ async def download_update():
         media_type="application/gzip"
     )
 
+# Download diagnostic script
+@api_router.get("/download-diagnostico")
+async def download_diagnostico():
+    file_path = Path(__file__).parent / "diagnostico.sh"
+    if not file_path.exists():
+        return {"error": "File not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="diagnostico.sh",
+        media_type="text/plain"
+    )
+
 # Mount API router
 app.include_router(api_router)
 
