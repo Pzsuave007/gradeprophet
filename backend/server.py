@@ -1,5 +1,7 @@
 from fastapi import FastAPI, APIRouter
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
+from pathlib import Path
 import logging
 import os
 
@@ -63,6 +65,18 @@ async def root():
         "alerts", "dashboard", "ebay", "flipfinder", "settings"
     ]}
 
+
+# Download endpoint for deployment package
+@api_router.get("/download-update")
+async def download_update():
+    file_path = Path(__file__).parent / "flipslab_update.tar.gz"
+    if not file_path.exists():
+        return {"error": "Update package not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="flipslab_update.tar.gz",
+        media_type="application/gzip"
+    )
 
 # Mount API router
 app.include_router(api_router)

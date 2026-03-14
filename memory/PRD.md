@@ -7,12 +7,12 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - **Frontend:** React, Tailwind CSS, shadcn/ui, Recharts, Axios
 - **Backend:** FastAPI (modular routers), MongoDB, OpenAI SDK (GPT-4o)
 - **Auth:** JWT with httpOnly cookies (local), Emergent Google OAuth
-- **Deployment:** Custom `fix.sh` script for user's production server
+- **Deployment:** `fix.sh` v8 + `flipslab_update.tar.gz` package
 
 ## Architecture (Post-Refactor v2.0)
 ```
 /app/backend/
-├── server.py              # 81 lines - Slim entry point
+├── server.py              # Slim entry point + download endpoint
 ├── database.py            # MongoDB connection
 ├── config.py              # Environment variables + OpenAI client
 ├── utils/
@@ -21,6 +21,8 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 │   ├── auth.py, cards.py, inventory.py, market.py
 │   ├── portfolio.py, alerts.py, dashboard.py
 │   ├── ebay.py, flipfinder.py, settings.py
+├── models/
+│   └── __init__.py
 └── tests/
 ```
 
@@ -40,14 +42,14 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Image processing pipeline (crop, enhance, resize)
 - [x] Backend refactored to modular routers (from 5367-line monolith)
 - [x] Full English translation
+- [x] Deployment package (fix.sh v8 + tar.gz) for modular architecture
+- [x] Download endpoint at /api/download-update
 
-## Known Issues
-- **Google OAuth on production server** - Works in dev, fails on user's flipslabengine.com
-- **fix.sh needs regeneration** - Still embeds old monolithic server.py
+## Known Issues (Resolved)
+- ~~Google OAuth on production server~~ - User confirmed WORKING
+- ~~fix.sh needs regeneration~~ - DONE (v8 with modular support)
 
 ## Next Tasks
-- P0: Regenerate fix.sh for new modular architecture
-- P0: Debug Google OAuth on production server
-- P2: Auto-Refresh Portfolio Value
-- P3: Build Flip Finder Core Logic
-- P4: Commercialize with Stripe
+- P1: Auto-Refresh Portfolio Value
+- P2: Build Flip Finder Core Logic
+- P3: Commercialize with Stripe
