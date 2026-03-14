@@ -21,8 +21,8 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
   const processFile = useCallback((file) => {
     if (!file || disabled) return null;
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (!validTypes.includes(file.type)) return 'Por favor sube una imagen JPEG, PNG o WEBP';
-    if (file.size > 10 * 1024 * 1024) return 'La imagen es muy grande. Máximo 10MB';
+    if (!validTypes.includes(file.type)) return 'Please upload a JPEG, PNG, or WEBP image';
+    if (file.size > 10 * 1024 * 1024) return 'Image is too large. Max 10MB';
     const reader = new FileReader();
     reader.onload = (e) => onImageSelect(e.target.result);
     reader.readAsDataURL(file);
@@ -267,7 +267,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                 {ebayTitle && <p className="text-gray-500 text-xs mt-2 truncate">{ebayTitle}</p>}
                 {ebayImages.length > 0 && (
                   <div className="mt-2">
-                    <p className="text-[10px] text-gray-600 mb-1.5">Clic en imagen para asignar:</p>
+                    <p className="text-[10px] text-gray-600 mb-1.5">Click image to assign:</p>
                     <div className="grid grid-cols-6 gap-1.5">
                       {ebayImages.map((img, idx) => (
                         <div key={idx} className="relative">
@@ -336,7 +336,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
             <Input type="number" placeholder="Auto-detect" value={cardYear} onChange={(e) => setCardYear(e.target.value)}
               disabled={isAnalyzing} className="bg-[#0a0a0a] border-[#1a1a1a] text-white h-8 text-sm" min="1900" max="2025" data-testid="card-year-input" />
             <p className="text-[10px] text-gray-600 mt-1">
-              {hasReference ? 'Se usará el año de la referencia PSA 10' : 'La IA detectará la era automáticamente'}
+              {hasReference ? 'Will use PSA 10 reference year' : 'AI will auto-detect the era'}
             </p>
           </div>
 
@@ -404,9 +404,9 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
             <div className="flex items-start gap-2">
               <FlipHorizontal className="w-4 h-4 text-[#3b82f6] flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-xs text-white font-medium mb-0.5">Análisis con ojo experto</p>
+                <p className="text-xs text-white font-medium mb-0.5">Expert Eye Analysis</p>
                 <p className="text-[10px] text-gray-600 leading-relaxed">
-                  No penaliza artefactos de imagen.
+                  Does not penalize image artifacts.
                   {hasReference && <span className="text-[#eab308]"> Comparando vs PSA 10.</span>}
                   {!hasReference && !hasYear && <span className="text-amber-400"> Auto-detecta la era.</span>}
                   {hasYear && vintageLabel && <span className="text-amber-400"> Ajustado para {vintageLabel.text.toLowerCase()}.</span>}

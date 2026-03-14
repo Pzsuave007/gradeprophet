@@ -261,7 +261,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
             {hasBothSides && (
               <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-500">
                 <FlipHorizontal className="w-4 h-4" />
-                <span>Análisis de ambos lados</span>
+                <span>Both sides analysis</span>
               </div>
             )}
           </div>
@@ -278,11 +278,11 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
               )}
               <div className="mt-2 text-xs">
                 {Math.abs(grading_result.overall_grade - analysis.actual_psa_grade) <= 0.5 ? (
-                  <span className="text-[#22c55e]">✓ Predicción precisa</span>
+                  <span className="text-[#22c55e]">✓ Accurate prediction</span>
                 ) : grading_result.overall_grade > analysis.actual_psa_grade ? (
-                  <span className="text-[#eab308]">↑ Predijimos más alto</span>
+                  <span className="text-[#eab308]">↑ Predicted higher</span>
                 ) : (
-                  <span className="text-[#3b82f6]">↓ Predijimos más bajo</span>
+                  <span className="text-[#3b82f6]">↓ Predicted lower</span>
                 )}
               </div>
             </div>
@@ -303,7 +303,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
             )}
             <div>
               <p className={`font-semibold ${grading_result.send_to_psa ? 'text-green-400' : 'text-red-400'}`}>
-                {grading_result.send_to_psa ? '¡Recomendado enviar a PSA!' : 'No recomendado para PSA'}
+                {grading_result.send_to_psa ? 'Recommended to send to PSA!' : 'Not recommended for PSA'}
               </p>
               <p className="text-sm text-gray-400 mt-1">
                 {grading_result.psa_recommendation}
@@ -349,7 +349,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
       {/* Analysis Summary */}
       <div className="bg-[#121212] border border-[#27272a] rounded-lg p-6">
         <h3 className="font-heading text-lg font-semibold uppercase tracking-wider text-white mb-3">
-          Resumen del Análisis
+          Analysis Summary
         </h3>
         <p className="text-gray-300 leading-relaxed" data-testid="analysis-summary">
           {grading_result.analysis_summary}
@@ -367,7 +367,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
               <Package className="w-5 h-5 text-[#eab308]" />
               <div className="text-left">
                 <p className="text-sm font-medium text-white">
-                  {isSentToPSA ? '¿Ya recibiste el grado?' : '¿Vas a enviar esta tarjeta?'}
+                  {isSentToPSA ? 'Already received the grade?' : 'Are you sending this card?'}
                 </p>
                 <p className="text-xs text-gray-500">
                   {isSentToPSA ? 'Ingresa el resultado para que el sistema aprenda' : 'Marca como enviada o ingresa el resultado'}

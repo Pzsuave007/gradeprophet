@@ -42,7 +42,7 @@ const HistoryPanel = ({ onSelectCard, refreshTrigger }) => {
 
   if (loading) return <div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 text-gray-600 animate-spin" /></div>;
   if (error) return <div className="text-center py-12"><AlertCircle className="w-6 h-6 text-red-500 mx-auto mb-2" /><p className="text-gray-500 text-sm">{error}</p><Button variant="ghost" onClick={fetchHistory} className="mt-2 text-[#3b82f6] text-xs">Reintentar</Button></div>;
-  if (history.length === 0) return <div className="text-center py-12"><Clock className="w-6 h-6 text-gray-700 mx-auto mb-2" /><p className="text-gray-600 text-sm">No hay análisis previos</p></div>;
+  if (history.length === 0) return <div className="text-center py-12"><Clock className="w-6 h-6 text-gray-700 mx-auto mb-2" /><p className="text-gray-600 text-sm">No previous analyses</p></div>;
 
   return (
     <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">

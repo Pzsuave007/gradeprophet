@@ -145,7 +145,7 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
             {loadingWatchlist ? (
               <div className="p-6 text-center text-gray-600"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
             ) : watchlist.length === 0 ? (
-              <div className="p-6 text-center text-gray-600"><Tag className="w-6 h-6 mx-auto mb-1 opacity-50" /><p className="text-xs">Watchlist vacía</p></div>
+              <div className="p-6 text-center text-gray-600"><Tag className="w-6 h-6 mx-auto mb-1 opacity-50" /><p className="text-xs">Empty watchlist</p></div>
             ) : (
               watchlist.map((card) => (
                 <div key={card.id} className={`p-2.5 hover:bg-white/5 transition-colors ${selectedCard === card.id ? 'bg-[#3b82f6]/10 border-l-2 border-[#3b82f6]' : ''}`}>

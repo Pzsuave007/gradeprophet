@@ -76,7 +76,7 @@ const LearningPanel = ({ refreshTrigger }) => {
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-[#22c55e]">{stats.accuracy_rate}%</p>
-              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Precisión</p>
+              <p className="text-[9px] text-gray-600 uppercase tracking-wider">Accuracy</p>
             </div>
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3 text-center">
               <p className="text-lg font-bold text-[#eab308]">±{stats.average_difference}</p>
@@ -163,7 +163,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                       <div className="flex-1 min-w-0">
                         <p className="text-xs text-white truncate">{card.card_name || 'Unnamed Card'}</p>
                         <p className="text-[10px] text-gray-600">
-                          Predicción: <span style={{ color: getGradeColor(card.grading_result?.overall_grade) }}>{card.grading_result?.overall_grade?.toFixed(1)}</span>
+                          Prediction: <span style={{ color: getGradeColor(card.grading_result?.overall_grade) }}>{card.grading_result?.overall_grade?.toFixed(1)}</span>
                         </p>
                       </div>
                       <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -184,7 +184,7 @@ const LearningPanel = ({ refreshTrigger }) => {
                                 <Package className="w-3 h-3 mr-1" />Marcar Enviada a PSA
                               </Button>
                             )}
-                            <p className="text-[10px] text-gray-600">¿Ya recibiste el grado? Ingresa el resultado:</p>
+                            <p className="text-[10px] text-gray-600">Already received the grade? Enter the result:</p>
                             <div className="flex gap-1.5">
                               <Input type="number" step="0.5" min="1" max="10" placeholder="Grado (1-10)"
                                 value={feedbackData[card.id]?.actual_psa_grade || ''}
