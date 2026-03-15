@@ -84,10 +84,10 @@ class SearchResultSummary(BaseModel):
 
 # ---- Helper ----
 
-async def search_ebay_for_card(query: str, limit: int = 20) -> list:
+async def search_ebay_for_card(query: str, limit: int = 20, sort: str = "endingSoonest") -> list:
     """Search eBay for cards using Browse API"""
     try:
-        items = await ebay_browse_search(query, limit=limit, sort="newlyListed")
+        items = await ebay_browse_search(query, limit=limit, sort=sort)
         results = []
         for item in items:
             price_info = item.get("price", {})
@@ -180,13 +180,24 @@ async def search_all_watchlist_cards(request: Request):
     """Search eBay for all cards in the watchlist"""
     user = await get_current_user(request)
     user_id = user["user_id"]
+
+    body = {}
+    try:
+        body = await request.json()
+    except Exception:
+        pass
+    sort = body.get("sort", "endingSoonest")
+    valid_sorts = ["endingSoonest", "newlyListed", "price", "-price"]
+    if sort not in valid_sorts:
+        sort = "endingSoonest"
+
     cards = await db.watchlist_cards.find({"user_id": user_id}, {"_id": 0}).to_list(100)
 
     total_new = 0
     cards_with_results = []
 
     for card in cards:
-        results = await search_ebay_for_card(card["search_query"])
+        results = await search_ebay_for_card(card["search_query"], sort=sort)
 
         existing_ids = set()
         existing = await db.ebay_listings.find(

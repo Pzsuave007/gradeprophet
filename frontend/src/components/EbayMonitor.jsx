@@ -58,6 +58,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
   const [offerMessage, setOfferMessage] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [actionResult, setActionResult] = useState(null);
+  const [searchSort, setSearchSort] = useState('endingSoonest');
 
   const loadWatchlist = useCallback(async () => {
     try { setLoadingWatchlist(true); const r = await axios.get(`${apiBase}/watchlist`); setWatchlist(r.data); }
@@ -98,7 +99,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
 
   const handleSearchAll = async () => {
     if (watchlist.length === 0) { alert('Add cards first'); return; }
-    try { setSearching(true); setSearchResult(null); const r = await axios.post(`${apiBase}/watchlist/search`); setSearchResult(r.data); loadWatchlist(); loadListings(); }
+    try { setSearching(true); setSearchResult(null); const r = await axios.post(`${apiBase}/watchlist/search`, { sort: searchSort }); setSearchResult(r.data); loadWatchlist(); loadListings(); }
     catch (e) { console.error(e); alert('Search failed'); } finally { setSearching(false); }
   };
 
@@ -242,11 +243,21 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
           </div>
         </div>
 
-        {/* Search Button */}
-        <Button onClick={handleSearchAll} disabled={searching || watchlist.length === 0}
-          className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10" data-testid="search-all-btn">
-          {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Searching...</> : <><Search className="w-4 h-4 mr-2" />Search Listings</>}
-        </Button>
+        {/* Sort + Search */}
+        <div className="flex gap-2">
+          <select value={searchSort} onChange={(e) => setSearchSort(e.target.value)}
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg text-white text-xs px-2 h-10 min-w-[140px]"
+            data-testid="search-sort-select">
+            <option value="endingSoonest">Ending Soonest</option>
+            <option value="newlyListed">Newly Listed</option>
+            <option value="price">Price: Low to High</option>
+            <option value="-price">Price: High to Low</option>
+          </select>
+          <Button onClick={handleSearchAll} disabled={searching || watchlist.length === 0}
+            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10" data-testid="search-all-btn">
+            {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Searching...</> : <><Search className="w-4 h-4 mr-2" />Search</>}
+          </Button>
+        </div>
 
         {/* Search Result */}
         <AnimatePresence>

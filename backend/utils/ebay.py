@@ -58,7 +58,7 @@ async def get_ebay_app_token() -> str:
     return _ebay_app_token
 
 
-async def ebay_browse_search(query: str, limit: int = 10, sort: str = "newlyListed") -> list:
+async def ebay_browse_search(query: str, limit: int = 10, sort: str = "endingSoonest") -> list:
     """Search eBay Browse API for items"""
     try:
         token = await get_ebay_app_token()
@@ -73,7 +73,7 @@ async def ebay_browse_search(query: str, limit: int = 10, sort: str = "newlyList
                     "q": query,
                     "limit": limit,
                     "sort": sort,
-                    "filter": "buyingOptions:{FIXED_PRICE|AUCTION}"
+                    "filter": "buyingOptions:{FIXED_PRICE|AUCTION|BEST_OFFER}"
                 }
             )
             if resp.status_code != 200:
