@@ -90,13 +90,19 @@ async def search_ebay_for_card(query: str, limit: int = 20, sort: str = "endingS
         items = await ebay_browse_search(query, limit=limit, sort=sort)
         results = []
         for item in items:
-            price_info = item.get("price", {})
-            price_str = f"${price_info.get('value', '0')}"
+            # Use currentBidPrice for auctions, fallback to price for BIN
+            price_info = item.get("currentBidPrice") or item.get("price", {})
             price_value = float(price_info.get("value", 0))
+            price_str = f"${price_value:.2f}" if price_value else f"${item.get('price', {}).get('value', '0')}"
+
             buying_options = item.get("buyingOptions", [])
             listing_type = "auction" if "AUCTION" in buying_options else "buy_now"
             accepts_offers = "BEST_OFFER" in buying_options
             image_url = item.get("image", {}).get("imageUrl", "")
+
+            # Get bid count and end date
+            bid_count = item.get("bidCount", 0)
+            end_date = item.get("itemEndDate")
 
             results.append({
                 "ebay_item_id": item.get("itemId", ""),
@@ -106,10 +112,10 @@ async def search_ebay_for_card(query: str, limit: int = 20, sort: str = "endingS
                 "listing_type": listing_type,
                 "buying_options": buying_options,
                 "accepts_offers": accepts_offers,
-                "time_left": None,
+                "time_left": end_date,
                 "image_url": image_url.replace("s-l225", "s-l500") if image_url else "",
                 "listing_url": item.get("itemWebUrl", ""),
-                "bids": None,
+                "bids": bid_count,
             })
         return results
     except Exception as e:
@@ -208,7 +214,22 @@ async def search_all_watchlist_cards(request: Request):
 
         new_count = 0
         for item in results:
-            if item["ebay_item_id"] and item["ebay_item_id"] not in existing_ids:
+            if not item["ebay_item_id"]:
+                continue
+            if item["ebay_item_id"] in existing_ids:
+                # Update existing listing with fresh data
+                await db.ebay_listings.update_one(
+                    {"ebay_item_id": item["ebay_item_id"], "user_id": user_id},
+                    {"$set": {
+                        "price": item["price"],
+                        "price_value": item["price_value"],
+                        "bids": item.get("bids"),
+                        "time_left": item.get("time_left"),
+                        "buying_options": item.get("buying_options", []),
+                        "accepts_offers": item.get("accepts_offers", False),
+                    }}
+                )
+            else:
                 listing = EbayListing(
                     watchlist_card_id=card["id"],
                     ebay_item_id=item["ebay_item_id"],

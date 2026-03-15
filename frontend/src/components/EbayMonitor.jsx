@@ -33,6 +33,23 @@ function ActionModal({ isOpen, onClose, title, children }) {
 
 const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
   const apiBase = `${API}/api`;
+
+  // Format time left from ISO date
+  const formatTimeLeft = (isoDate) => {
+    if (!isoDate) return null;
+    try {
+      const end = new Date(isoDate);
+      const now = new Date();
+      const diff = end - now;
+      if (diff <= 0) return 'Ended';
+      const d = Math.floor(diff / 86400000);
+      const h = Math.floor((diff % 86400000) / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      if (d > 0) return `${d}d ${h}h`;
+      if (h > 0) return `${h}h ${m}m`;
+      return `${m}m`;
+    } catch { return isoDate; }
+  };
   const [watchlist, setWatchlist] = useState([]);
   const [newCardQuery, setNewCardQuery] = useState('');
   const [newCardNotes, setNewCardNotes] = useState('');
@@ -423,7 +440,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
                               </div>
                               <div className="p-2.5">
                                 <p className="text-xs text-white font-medium line-clamp-2 mb-2 leading-relaxed">{listing.title}</p>
-                                {listing.time_left && <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{listing.time_left}</p>}
+                                {listing.time_left && <p className="text-[10px] text-gray-600 mb-2 flex items-center gap-1"><Clock className="w-2.5 h-2.5" />{formatTimeLeft(listing.time_left)}</p>}
                                 <ListingActions listing={listing} isGrid={true} />
                               </div>
                             </div>
@@ -446,7 +463,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
                                   {listing.accepts_offers && (
                                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 border-purple-400 text-purple-400">Offers</Badge>
                                   )}
-                                  {listing.time_left && <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{listing.time_left}</span>}
+                                  {listing.time_left && <span className="text-[10px] text-gray-600 flex items-center gap-0.5"><Clock className="w-2.5 h-2.5" />{formatTimeLeft(listing.time_left)}</span>}
                                 </div>
                               </div>
                               <div className="text-right flex-shrink-0">
