@@ -426,7 +426,7 @@ async def get_command_center(request: Request):
             xml_sold = f'''<?xml version="1.0" encoding="utf-8"?>
 <GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <SoldList><Sort>EndTime</Sort><Pagination><EntriesPerPage>8</EntriesPerPage></Pagination></SoldList>
+  <SoldList><Sort>EndTimeDescending</Sort><Pagination><EntriesPerPage>6</EntriesPerPage></Pagination></SoldList>
 </GetMyeBaySellingRequest>'''
             async with httpx.AsyncClient(timeout=15.0) as http_client:
                 resp = await http_client.post(

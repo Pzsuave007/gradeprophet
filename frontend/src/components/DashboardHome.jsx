@@ -541,7 +541,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
           action={{ label: 'View All', onClick: () => onNavigate?.('listings') }} />
         {recentSales.length > 0 ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            {recentSales.map((sale, i) => (
+            {recentSales.slice(0, 6).map((sale, i) => (
               <CardGridItem key={i}
                 image={sale.image}
                 title={sale.title}
