@@ -5,7 +5,7 @@ import {
   BarChart3, RefreshCw, Package, Tag, ShoppingBag,
   Clock, Award, Zap, ChevronRight, ExternalLink, Wallet,
   Crosshair, Eye, Target, Activity, Timer,
-  Gavel, Search, Flame, ArrowRight
+  Gavel, Search, ArrowRight
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -237,8 +237,6 @@ const DashboardHome = ({ onNavigate }) => {
 // COMMAND CENTER TAB
 // ========================
 const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
-  const activeListings = cc?.active_listings || [];
-  const endingSoon = cc?.ending_soon || [];
   const recentSales = cc?.recent_sales || [];
   const monitorItems = cc?.monitor?.recent_items || [];
   const activeSnipes = cc?.snipes?.active || [];
@@ -248,7 +246,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
 
   return (
     <>
-      {/* KPI Hero Cards */}
+      {/* #1 — KPI Hero Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
           { icon: DollarSign, label: 'Total Revenue', value: fmt(filteredStats.revenue), sub: `${filteredStats.count} sales`, color: 'from-emerald-600/20 to-emerald-900/5', border: 'border-emerald-500/20', accent: 'text-emerald-400', iconBg: 'bg-emerald-500' },
@@ -268,111 +266,9 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
         ))}
       </div>
 
-      {/* === YOUR ACTIVE LISTINGS GRID === */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        data-testid="active-listings-grid">
-        <SectionHeader icon={Tag} color="text-amber-400" title="Your Active Listings" count={lsSummary.active_count}
-          action={{ label: 'Manage', onClick: () => onNavigate?.('listings') }} />
-        {activeListings.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {activeListings.map((item, i) => (
-              <CardGridItem key={item.itemid || i}
-                image={item.image_url}
-                title={item.title}
-                price={item.price}
-                subtitle={item.watchers > 0 ? `${item.watchers} watchers` : item.listing_type === 'Chinese' ? 'Auction' : 'Buy It Now'}
-                badge={item.bids > 0 ? `${item.bids} bids` : null}
-                badgeColor="bg-amber-500/90 text-white"
-                countdown={item.time_left ? <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-black/60 text-white/80">{formatDuration(item.time_left)}</span> : null}
-                link={item.url}
-                testId={`active-listing-${i}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyGrid message="No active listings yet" cta="Go to Listings" onAction={() => onNavigate?.('listings')} icon={Tag} />
-        )}
-      </motion.div>
-
-      {/* === ENDING SOON GRID === */}
-      {endingSoon.length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          data-testid="ending-soon-grid">
-          <SectionHeader icon={Flame} color="text-red-400" title="Ending Soon" count={endingSoon.length}
-            action={{ label: 'All Listings', onClick: () => onNavigate?.('listings') }} />
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            {endingSoon.map((item, i) => (
-              <CardGridItem key={item.itemid || i}
-                image={item.image_url}
-                title={item.title}
-                price={item.price}
-                subtitle={item.bids > 0 ? `${item.bids} bids` : ''}
-                badge="Ending"
-                badgeColor="bg-red-500/90 text-white"
-                countdown={item.time_left ? <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-full bg-red-500/80 text-white animate-pulse">{formatDuration(item.time_left)}</span> : null}
-                link={item.url}
-                testId={`ending-soon-${i}`}
-              />
-            ))}
-          </div>
-        </motion.div>
-      )}
-
-      {/* === RECENT SALES GRID === */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-        data-testid="recent-sales-grid">
-        <SectionHeader icon={DollarSign} color="text-emerald-400" title="Recent Sales" count={filteredStats.count}
-          action={{ label: 'View All', onClick: () => onNavigate?.('listings') }} />
-        {recentSales.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {recentSales.map((sale, i) => (
-              <CardGridItem key={i}
-                image={sale.image}
-                title={sale.title}
-                price={sale.total}
-                subtitle={`${sale.date} · ${sale.buyer}`}
-                badge={sale.profit > 0 ? `+${fmt(sale.profit)}` : null}
-                badgeColor="bg-emerald-500/90 text-white"
-                testId={`recent-sale-${i}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyGrid message="No sales yet" cta="View Listings" onAction={() => onNavigate?.('listings')} icon={DollarSign} />
-        )}
-      </motion.div>
-
-      {/* === MONITOR FEED GRID === */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-        data-testid="monitor-feed-grid">
-        <SectionHeader icon={Eye} color="text-purple-400" title="Monitor Feed" count={cc?.monitor?.total}
-          action={{ label: 'Flip Finder', onClick: () => onNavigate?.('flipfinder') }}
-          extra={cc?.monitor?.new_count > 0 ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold">{cc.monitor.new_count} new</span> : null}
-        />
-        {monitorItems.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {monitorItems.map((item, i) => (
-              <CardGridItem key={item.id || i}
-                image={item.image_url}
-                title={item.title}
-                price={item.price}
-                subtitle={item.search_query}
-                badge={item.listing_type === 'auction' ? 'Auction' : item.accepts_offers ? 'Offers' : 'BIN'}
-                badgeColor={item.listing_type === 'auction' ? 'bg-amber-500/90 text-white' : 'bg-blue-500/90 text-white'}
-                link={item.listing_url}
-                testId={`monitor-item-${i}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyGrid message="No monitor items yet" cta="Set up a watchlist search" onAction={() => onNavigate?.('flipfinder')} icon={Search} />
-        )}
-      </motion.div>
-
-      {/* === ACTIVE SNIPES + BEST SALE ROW === */}
+      {/* #2 — ACTIVE SNIPES + BEST SALE / RECORD / QUICK NAV */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Active Snipes */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="active-snipes-panel">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
             <div className="flex items-center gap-2">
@@ -385,7 +281,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
             </button>
           </div>
           {activeSnipes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 divide-y sm:divide-y-0 divide-[#1a1a1a]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 divide-[#1a1a1a]">
               {activeSnipes.map((snipe, i) => (
                 <div key={snipe.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors border-b border-[#0f0f0f] last:border-0" data-testid={`snipe-row-${i}`}>
                   {snipe.item_image_url && <img src={snipe.item_image_url} alt="" className="w-12 h-12 rounded-lg object-cover bg-[#0a0a0a] flex-shrink-0" />}
@@ -411,8 +307,8 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
           )}
         </motion.div>
 
-        {/* Right Column: Best Sale + Quick Nav */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }} className="space-y-3">
+        {/* Right Column */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="space-y-3">
           {s.top_sale && (
             <div className="bg-gradient-to-br from-amber-500/15 to-amber-600/5 border border-amber-500/20 rounded-xl p-4" data-testid="top-sale">
               <div className="flex items-center gap-2 mb-2">
@@ -423,8 +319,6 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
               <p className="text-[10px] text-gray-400 mt-1 truncate">{s.top_sale.title}</p>
             </div>
           )}
-
-          {/* Snipe Record Mini */}
           <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4" data-testid="snipe-record">
             <div className="flex items-center gap-2 mb-3">
               <Target className="w-4 h-4 text-emerald-400" />
@@ -436,15 +330,13 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
               <div><p className="text-lg font-black text-white">{snipeStats.total || 0}</p><p className="text-[9px] text-gray-500">Total</p></div>
             </div>
           </div>
-
-          {/* Quick Nav */}
           <div className="grid grid-cols-2 gap-2">
             {[
               { icon: Package, label: 'Inventory', sub: `${cc?.inventory_count || 0} cards`, nav: 'inventory', color: 'text-amber-400' },
               { icon: Search, label: 'Flip Finder', sub: `${cc?.monitor?.watchlist_count || 0} watching`, nav: 'flipfinder', color: 'text-blue-400' },
             ].map(q => (
               <button key={q.nav} onClick={() => onNavigate?.(q.nav)}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 hover:border-[#2a2a2a] transition-colors text-left group" data-testid={`quick-${q.nav}`}>
+                className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 hover:border-[#2a2a2a] transition-colors text-left" data-testid={`quick-${q.nav}`}>
                 <q.icon className={`w-4 h-4 ${q.color} mb-1`} />
                 <p className="text-[10px] font-bold text-white">{q.label}</p>
                 <p className="text-[9px] text-gray-600">{q.sub}</p>
@@ -453,6 +345,57 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
           </div>
         </motion.div>
       </div>
+
+      {/* #3 — MONITOR FEED GRID (Ending Soon style: compact 6-col) */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+        data-testid="monitor-feed-grid">
+        <SectionHeader icon={Eye} color="text-purple-400" title="Monitor Feed" count={cc?.monitor?.total}
+          action={{ label: 'Flip Finder', onClick: () => onNavigate?.('flipfinder') }}
+          extra={cc?.monitor?.new_count > 0 ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold">{cc.monitor.new_count} new</span> : null}
+        />
+        {monitorItems.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {monitorItems.map((item, i) => (
+              <CardGridItem key={item.id || i}
+                image={item.image_url}
+                title={item.title}
+                price={item.price}
+                subtitle={item.search_query}
+                badge={item.listing_type === 'auction' ? 'Auction' : item.accepts_offers ? 'Offers' : 'BIN'}
+                badgeColor={item.listing_type === 'auction' ? 'bg-amber-500/90 text-white' : 'bg-blue-500/90 text-white'}
+                link={item.listing_url}
+                testId={`monitor-item-${i}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyGrid message="No monitor items yet" cta="Set up a watchlist search" onAction={() => onNavigate?.('flipfinder')} icon={Search} />
+        )}
+      </motion.div>
+
+      {/* #4 — RECENT SALES GRID (Ending Soon style: compact 6-col) */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        data-testid="recent-sales-grid">
+        <SectionHeader icon={DollarSign} color="text-emerald-400" title="Recent Sales" count={filteredStats.count}
+          action={{ label: 'View All', onClick: () => onNavigate?.('listings') }} />
+        {recentSales.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+            {recentSales.map((sale, i) => (
+              <CardGridItem key={i}
+                image={sale.image}
+                title={sale.title}
+                price={sale.total}
+                subtitle={`${sale.date} · ${sale.buyer}`}
+                badge="Sold"
+                badgeColor="bg-emerald-500/90 text-white"
+                testId={`recent-sale-${i}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <EmptyGrid message="No sales yet" cta="View Listings" onAction={() => onNavigate?.('listings')} icon={DollarSign} />
+        )}
+      </motion.div>
     </>
   );
 };
