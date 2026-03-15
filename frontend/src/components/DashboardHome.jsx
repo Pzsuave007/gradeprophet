@@ -411,7 +411,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="lg:col-span-2" data-testid="active-snipes-panel">
-          <SectionHeader icon={Crosshair} color="text-red-400" title="Active Alerts" count={activeSnipes.length}
+          <SectionHeader icon={Crosshair} color="text-red-400" title="Auction Alerts" count={activeSnipes.length}
             action={{ label: 'Sniper', onClick: () => onNavigate?.('flipfinder') }} />
           {activeSnipes.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
