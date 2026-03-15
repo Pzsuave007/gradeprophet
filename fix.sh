@@ -23,10 +23,13 @@ rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  JS: $(grep -o 'main\.[a-f0-9]*\.js' "$WEB/index.html")"
 
-echo "[3/3] Reiniciando backend..."
+echo "[3/4] Instalando dependencias backend..."
+"$PROD/venv/bin/pip" install feedparser -q 2>/dev/null
+
+echo "[4/4] Reiniciando backend..."
 pkill -f "uvicorn.*8001" 2>/dev/null
 sleep 2
-cd "$PROD" && nohup python3 -m uvicorn server:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+cd "$PROD" && nohup "$PROD/venv/bin/uvicorn" server:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
 sleep 5
 curl -s http://localhost:8001/api/ | grep -q "FlipSlab" && echo "  API: OK" || echo "  ERROR: ver backend.log"
 
