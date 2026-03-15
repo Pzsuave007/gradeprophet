@@ -1,35 +1,36 @@
 #!/bin/bash
 echo "============================================"
-echo "  FlipSlab Engine - Deploy Terminología Update"
-echo "  Snipe → Auction Alert"
+echo "  FlipSlab Engine - Deploy Update"
 echo "============================================"
 
 REPO="/home/gradeprophet"
 PROD="/opt/gradeprophet/backend"
 WEB="/home/flipcardsuni2/public_html"
 
-# 1. Pull últimos cambios
+# 1. Pull
 echo ""
 echo "[1/5] Pulling cambios..."
 cd "$REPO"
 git pull origin main
 echo "  OK"
 
-# 2. Build frontend
+# 2. Build frontend (limpiando node_modules para evitar errores de ajv)
 echo ""
 echo "[2/5] Build frontend..."
 cd "$REPO/frontend"
-npm install --legacy-peer-deps 2>/dev/null
+rm -rf node_modules/.cache
+npm install --legacy-peer-deps
+npm install ajv@8 --legacy-peer-deps
 REACT_APP_BACKEND_URL=https://flipslabengine.com npx craco build
 if [ $? -ne 0 ]; then
-  echo "  ERROR: Build falló. Revisa los errores arriba."
+  echo "  ERROR: Build falló."
   exit 1
 fi
 echo "  Build OK"
 
 # 3. Copiar frontend
 echo ""
-echo "[3/5] Copiando frontend a producción..."
+echo "[3/5] Copiando frontend..."
 rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  JS: $(grep -o 'main\.[a-f0-9]*\.js' "$WEB/index.html")"
@@ -59,5 +60,4 @@ curl -s http://localhost:8001/api/ | grep -q "FlipSlab" && echo "  API: OK" || e
 echo ""
 echo "============================================"
 echo "  LISTO! Abre flipslabengine.com con Ctrl+Shift+R"
-echo "  Cambios: Snipe → Auction Alert en toda la app"
 echo "============================================"
