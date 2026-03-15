@@ -500,6 +500,31 @@ async def get_snipes(request: Request):
     return snipes
 
 
+@router.get("/snipes/firing")
+async def get_firing_alerts(request: Request):
+    """Get snipes that just fired alerts - frontend polls this to open eBay"""
+    user = await get_current_user(request)
+    alerts = await db.snipe_tasks.find(
+        {"user_id": user["user_id"], "status": "alert"},
+        {"_id": 0}
+    ).to_list(10)
+    return {"alerts": alerts}
+
+
+@router.post("/snipes/{snipe_id}/ack")
+async def acknowledge_alert(snipe_id: str, request: Request):
+    """Mark an alert as acknowledged (user saw it and eBay page was opened)"""
+    user = await get_current_user(request)
+    result = await db.snipe_tasks.update_one(
+        {"id": snipe_id, "user_id": user["user_id"], "status": "alert"},
+        {"$set": {"status": "opened", "result_message": "eBay page opened - go bid!", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"success": True}
+
+
+
 @router.get("/snipes/{snipe_id}")
 async def get_snipe(snipe_id: str, request: Request):
     """Get a specific snipe task"""
@@ -582,6 +607,7 @@ async def check_item_for_snipe(request: Request):
         raise HTTPException(status_code=400, detail="Could not fetch item details")
 
     return details
+
 
 
 # ---- Buy Now & Make Offer ----
@@ -698,7 +724,7 @@ async def sniper_background_loop():
                 except (ValueError, TypeError):
                     continue
 
-                fire_time = end_time - timedelta(seconds=snipe.get("snipe_seconds_before", 3))
+                fire_time = end_time - timedelta(seconds=60)
                 seconds_until_fire = (fire_time - now).total_seconds()
 
                 # Auction already ended - mark as missed
@@ -730,21 +756,21 @@ async def sniper_background_loop():
 
 
 async def _execute_snipe_task(snipe: dict, fire_time: datetime):
-    """Execute a snipe at the precise time"""
+    """Execute auction alert - updates status to 'alert' so frontend opens eBay page"""
     snipe_id = snipe["id"]
     try:
         now = datetime.now(timezone.utc)
         wait_seconds = (fire_time - now).total_seconds()
 
         if wait_seconds > 0:
-            logger.info(f"Snipe {snipe_id}: waiting {wait_seconds:.1f}s before bidding")
+            logger.info(f"Alert {snipe_id}: waiting {wait_seconds:.1f}s before alerting")
             await db.snipe_tasks.update_one(
                 {"id": snipe_id},
                 {"$set": {"status": "monitoring", "updated_at": now.isoformat()}}
             )
             await asyncio.sleep(max(0, wait_seconds - 5))
 
-            # Final refresh 5 seconds before
+            # Final refresh 5 seconds before alert
             details = await get_ebay_item_details(snipe["ebay_item_id"])
             if details:
                 await db.snipe_tasks.update_one(
@@ -755,71 +781,43 @@ async def _execute_snipe_task(snipe: dict, fire_time: datetime):
                         "updated_at": datetime.now(timezone.utc).isoformat()
                     }}
                 )
-                if details["current_price"] > snipe["max_bid"]:
-                    await db.snipe_tasks.update_one(
-                        {"id": snipe_id},
-                        {"$set": {
-                            "status": "skipped",
-                            "result_message": f"Price ${details['current_price']:.2f} exceeds max bid ${snipe['max_bid']:.2f}",
-                            "updated_at": datetime.now(timezone.utc).isoformat()
-                        }}
-                    )
-                    _spawned_snipe_ids.discard(snipe_id)
-                    return
 
-            # Wait remaining time
             remaining = (fire_time - datetime.now(timezone.utc)).total_seconds()
             if remaining > 0:
                 await asyncio.sleep(remaining)
 
-        # FIRE THE BID
-        logger.info(f"Snipe {snipe_id}: FIRING BID ${snipe['max_bid']:.2f} on item {snipe['ebay_item_id']}")
+        # FIRE THE ALERT - frontend will detect this and open eBay
+        logger.info(f"Alert {snipe_id}: FIRING ALERT for item {snipe['ebay_item_id']}")
+        item_id = snipe["ebay_item_id"].split("|")[1] if "|" in snipe["ebay_item_id"] else snipe["ebay_item_id"]
         await db.snipe_tasks.update_one(
             {"id": snipe_id},
-            {"$set": {"status": "bidding", "updated_at": datetime.now(timezone.utc).isoformat()}}
+            {"$set": {
+                "status": "alert",
+                "alert_fired_at": datetime.now(timezone.utc).isoformat(),
+                "ebay_url": f"https://www.ebay.com/itm/{item_id}",
+                "result_message": "Alert fired! Opening eBay page...",
+                "updated_at": datetime.now(timezone.utc).isoformat()
+            }}
         )
 
-        result = await place_ebay_bid(snipe["ebay_item_id"], snipe["max_bid"])
-        bid_time = datetime.now(timezone.utc).isoformat()
-
-        if result["success"]:
-            await db.snipe_tasks.update_one(
-                {"id": snipe_id},
-                {"$set": {
-                    "status": "bid_placed",
-                    "bid_placed_at": bid_time,
-                    "result_message": "Bid placed successfully! Waiting for auction to end.",
-                    "updated_at": bid_time
-                }}
-            )
-            logger.info(f"Snipe {snipe_id}: bid placed successfully")
-
-            # Wait for auction to end + check result
-            await asyncio.sleep(30)
-            details = await get_ebay_item_details(snipe["ebay_item_id"])
-            if details:
-                end_time = datetime.fromisoformat(details["auction_end_time"].replace("Z", "+00:00"))
-                if datetime.now(timezone.utc) > end_time:
-                    await db.snipe_tasks.update_one(
-                        {"id": snipe_id},
-                        {"$set": {
-                            "status": "won" if details["current_price"] <= snipe["max_bid"] else "outbid",
-                            "current_price": details["current_price"],
-                            "bid_count": details["bid_count"],
-                            "result_message": f"Final price: ${details['current_price']:.2f}",
-                            "updated_at": datetime.now(timezone.utc).isoformat()
-                        }}
-                    )
-        else:
-            await db.snipe_tasks.update_one(
-                {"id": snipe_id},
-                {"$set": {
-                    "status": "error",
-                    "result_message": result.get("error", "Bid failed"),
-                    "updated_at": bid_time
-                }}
-            )
-            logger.warning(f"Snipe {snipe_id}: bid failed - {result.get('error')}")
+        # Wait for auction to end + mark as completed
+        await asyncio.sleep(90)
+        details = await get_ebay_item_details(snipe["ebay_item_id"])
+        if details:
+            end_time = datetime.fromisoformat(details["auction_end_time"].replace("Z", "+00:00"))
+            if datetime.now(timezone.utc) > end_time:
+                await db.snipe_tasks.update_one(
+                    {"id": snipe_id},
+                    {"$set": {
+                        "status": "completed",
+                        "current_price": details["current_price"],
+                        "bid_count": details["bid_count"],
+                        "result_message": f"Auction ended. Final price: ${details['current_price']:.2f}",
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+    except Exception as e:
+        logger.error(f"Alert task {snipe_id} error: {e}")
 
     except Exception as e:
         logger.error(f"Snipe {snipe_id} execution error: {e}")

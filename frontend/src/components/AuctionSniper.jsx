@@ -13,10 +13,11 @@ import { Badge } from './ui/badge';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const STATUS_CONFIG = {
-  scheduled: { color: 'text-blue-400 border-blue-400/30 bg-blue-400/10', label: 'Scheduled', icon: Clock },
+  scheduled: { color: 'text-blue-400 border-blue-400/30 bg-blue-400/10', label: 'Armed', icon: Clock },
   monitoring: { color: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10', label: 'Monitoring', icon: Eye },
-  bidding: { color: 'text-orange-400 border-orange-400/30 bg-orange-400/10', label: 'Bidding...', icon: Zap },
-  bid_placed: { color: 'text-green-400 border-green-400/30 bg-green-400/10', label: 'Bid Placed', icon: CheckCircle2 },
+  alert: { color: 'text-orange-400 border-orange-400/30 bg-orange-400/10', label: 'GO BID!', icon: Zap },
+  opened: { color: 'text-green-400 border-green-400/30 bg-green-400/10', label: 'eBay Opened', icon: CheckCircle2 },
+  completed: { color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10', label: 'Completed', icon: CheckCircle2 },
   won: { color: 'text-emerald-400 border-emerald-400/30 bg-emerald-400/10', label: 'WON', icon: CheckCircle2 },
   outbid: { color: 'text-red-400 border-red-400/30 bg-red-400/10', label: 'Outbid', icon: XCircle },
   lost: { color: 'text-red-400 border-red-400/30 bg-red-400/10', label: 'Lost', icon: XCircle },
@@ -65,19 +66,35 @@ function SnipeCountdown({ endTime }) {
   );
 }
 
-function SnipeCard({ snipe, onCancel, onRefresh }) {
+function SnipeCard({ snipe, onCancel, onRefresh, onOpenEbay }) {
   const status = STATUS_CONFIG[snipe.status] || STATUS_CONFIG.scheduled;
   const StatusIcon = status.icon;
-  const isActive = ['scheduled', 'monitoring', 'bidding'].includes(snipe.status);
+  const isActive = ['scheduled', 'monitoring'].includes(snipe.status);
+  const isAlert = snipe.status === 'alert';
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
       className={`bg-[#0a0a0a] border rounded-lg overflow-hidden transition-all ${
+        isAlert ? 'border-orange-500/50 shadow-lg shadow-orange-500/10 animate-pulse' :
         isActive ? 'border-[#3b82f6]/30 hover:border-[#3b82f6]/50' : 'border-[#1a1a1a]'
       }`}
       data-testid={`snipe-card-${snipe.id}`}
     >
+      {/* Alert Banner */}
+      {isAlert && (
+        <div className="bg-orange-500/20 border-b border-orange-500/30 px-3 py-2 flex items-center justify-between">
+          <span className="text-xs font-bold text-orange-400 flex items-center gap-1.5">
+            <Zap className="w-4 h-4" /> AUCTION ENDING - GO BID NOW!
+          </span>
+          <button onClick={() => onOpenEbay(snipe)}
+            className="bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold px-3 py-1 rounded-lg transition-colors flex items-center gap-1"
+            data-testid={`snipe-open-ebay-${snipe.id}`}>
+            <ExternalLink className="w-3 h-3" /> Open eBay
+          </button>
+        </div>
+      )}
+
       <div className="flex gap-3 p-3">
         {/* Image */}
         <div className="w-20 h-20 rounded bg-[#111] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
@@ -96,16 +113,15 @@ function SnipeCard({ snipe, onCancel, onRefresh }) {
             <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${status.color}`}>
               <StatusIcon className="w-3 h-3 mr-0.5" />{status.label}
             </Badge>
-            {isActive && <SnipeCountdown endTime={snipe.auction_end_time} />}
+            {(isActive || isAlert) && <SnipeCountdown endTime={snipe.auction_end_time} />}
           </div>
           <div className="flex flex-wrap gap-3 text-xs">
             <span className="text-gray-500">Current: <span className="text-white font-medium">${snipe.current_price?.toFixed(2)}</span></span>
             <span className="text-gray-500">Your Max: <span className="text-[#22c55e] font-bold">${snipe.max_bid?.toFixed(2)}</span></span>
             <span className="text-gray-500">Bids: <span className="text-white">{snipe.bid_count || 0}</span></span>
-            <span className="text-gray-500">Fires: <span className="text-yellow-400">{snipe.snipe_seconds_before}s before</span></span>
           </div>
           {snipe.result_message && (
-            <p className={`text-xs mt-1 ${snipe.status === 'won' ? 'text-emerald-400' : snipe.status === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
+            <p className={`text-xs mt-1 ${snipe.status === 'alert' ? 'text-orange-400 font-semibold' : snipe.status === 'completed' || snipe.status === 'won' ? 'text-emerald-400' : snipe.status === 'error' ? 'text-red-400' : 'text-gray-500'}`}>
               {snipe.result_message}
             </p>
           )}
@@ -113,7 +129,7 @@ function SnipeCard({ snipe, onCancel, onRefresh }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-1 flex-shrink-0">
-          <a href={snipe.item_url} target="_blank" rel="noopener noreferrer"
+          <a href={snipe.item_url || snipe.ebay_url} target="_blank" rel="noopener noreferrer"
             className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`snipe-ebay-link-${snipe.id}`}>
             <ExternalLink className="w-3.5 h-3.5" />
           </a>
@@ -129,7 +145,7 @@ function SnipeCard({ snipe, onCancel, onRefresh }) {
               </button>
             </>
           )}
-          {!isActive && (
+          {!isActive && !isAlert && (
             <button onClick={() => onCancel(snipe.id)}
               className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`snipe-remove-${snipe.id}`}>
               <Trash2 className="w-3.5 h-3.5" />
@@ -148,13 +164,20 @@ const AuctionSniper = ({ prefillUrl }) => {
   const [showForm, setShowForm] = useState(false);
   const [formUrl, setFormUrl] = useState('');
   const [formMaxBid, setFormMaxBid] = useState('');
-  const [formSeconds, setFormSeconds] = useState(3);
   const [creating, setCreating] = useState(false);
   const [checking, setChecking] = useState(false);
   const [itemPreview, setItemPreview] = useState(null);
   const [error, setError] = useState('');
   const [stats, setStats] = useState({ active: 0, won: 0, lost: 0 });
   const pollRef = useRef(null);
+  const firedAlerts = useRef(new Set());
+
+  // Request notification permission on mount
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
 
   const loadSnipes = useCallback(async () => {
     try {
@@ -164,14 +187,64 @@ const AuctionSniper = ({ prefillUrl }) => {
       ]);
       setSnipes(snipesRes.data);
       setStats(statsRes.data);
+
+      // Check for firing alerts
+      const alerts = snipesRes.data.filter(s => s.status === 'alert' && !firedAlerts.current.has(s.id));
+      for (const alert of alerts) {
+        firedAlerts.current.add(alert.id);
+        handleAlertFired(alert);
+      }
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
   }, [apiBase]);
 
-  // Poll every 10s for active snipes
+  const handleAlertFired = (alert) => {
+    // Browser notification
+    if ('Notification' in window && Notification.permission === 'granted') {
+      new Notification('Auction Ending!', {
+        body: `${alert.item_title}\nCurrent: $${alert.current_price?.toFixed(2)} | Your Max: $${alert.max_bid?.toFixed(2)}`,
+        icon: alert.item_image_url || undefined,
+        tag: alert.id,
+        requireInteraction: true,
+      });
+    }
+
+    // Play alert sound
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 200, 400].forEach(delay => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.value = 0.3;
+        osc.start(ctx.currentTime + delay / 1000);
+        osc.stop(ctx.currentTime + delay / 1000 + 0.15);
+      });
+    } catch (e) {}
+
+    // Auto-open eBay
+    const itemId = alert.ebay_item_id?.split('|')[1] || alert.ebay_item_id;
+    const ebayUrl = alert.ebay_url || `https://www.ebay.com/itm/${itemId}`;
+    window.open(ebayUrl, '_blank');
+
+    // Acknowledge
+    axios.post(`${apiBase}/snipes/${alert.id}/ack`).catch(() => {});
+  };
+
+  const handleOpenEbay = (snipe) => {
+    const itemId = snipe.ebay_item_id?.split('|')[1] || snipe.ebay_item_id;
+    const ebayUrl = snipe.ebay_url || snipe.item_url || `https://www.ebay.com/itm/${itemId}`;
+    window.open(ebayUrl, '_blank');
+    axios.post(`${apiBase}/snipes/${snipe.id}/ack`).catch(() => {});
+    loadSnipes();
+  };
+
+  // Poll every 5s for active snipes (faster for alerts)
   useEffect(() => {
     loadSnipes();
-    pollRef.current = setInterval(loadSnipes, 10000);
+    pollRef.current = setInterval(loadSnipes, 5000);
     return () => clearInterval(pollRef.current);
   }, [loadSnipes]);
 
@@ -211,11 +284,10 @@ const AuctionSniper = ({ prefillUrl }) => {
       await axios.post(`${apiBase}/snipes`, {
         ebay_url_or_id: formUrl.trim(),
         max_bid: parseFloat(formMaxBid),
-        snipe_seconds_before: formSeconds,
+        snipe_seconds_before: 60,
       });
       setFormUrl('');
       setFormMaxBid('');
-      setFormSeconds(3);
       setItemPreview(null);
       setShowForm(false);
       loadSnipes();
@@ -243,8 +315,8 @@ const AuctionSniper = ({ prefillUrl }) => {
     } catch (e) { console.error(e); }
   };
 
-  const activeSnipes = snipes.filter(s => ['scheduled', 'monitoring', 'bidding', 'bid_placed'].includes(s.status));
-  const completedSnipes = snipes.filter(s => !['scheduled', 'monitoring', 'bidding', 'bid_placed'].includes(s.status));
+  const activeSnipes = snipes.filter(s => ['scheduled', 'monitoring', 'alert'].includes(s.status));
+  const completedSnipes = snipes.filter(s => !['scheduled', 'monitoring', 'alert'].includes(s.status));
 
   return (
     <div className="space-y-4">
@@ -282,8 +354,9 @@ const AuctionSniper = ({ prefillUrl }) => {
             className="overflow-hidden">
             <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-4 space-y-3">
               <h3 className="text-sm font-semibold text-white flex items-center gap-2">
-                <Target className="w-4 h-4 text-[#3b82f6]" />Set Up Snipe
+                <Target className="w-4 h-4 text-[#3b82f6]" />Set Up Auction Alert
               </h3>
+              <p className="text-[10px] text-gray-500">We'll notify you and open eBay 1 minute before the auction ends so you can bid.</p>
 
               {/* URL Input + Check */}
               <div className="flex gap-2">
@@ -320,9 +393,9 @@ const AuctionSniper = ({ prefillUrl }) => {
 
               {/* Bid Settings */}
               <form onSubmit={handleCreateSnipe} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <div>
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Max Bid ($)</label>
+                    <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Max Bid Reference ($)</label>
                     <div className="relative">
                       <DollarSign className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-600" />
                       <Input type="number" step="0.01" min="0.01" placeholder="0.00" value={formMaxBid}
@@ -330,19 +403,6 @@ const AuctionSniper = ({ prefillUrl }) => {
                         className="bg-[#0a0a0a] border-[#1a1a1a] text-white h-9 text-sm pl-7"
                         data-testid="snipe-max-bid-input" />
                     </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider mb-1 block">Seconds Before End</label>
-                    <select value={formSeconds} onChange={(e) => setFormSeconds(parseInt(e.target.value))}
-                      className="w-full h-9 bg-[#0a0a0a] border border-[#1a1a1a] rounded-md text-white text-sm px-2"
-                      data-testid="snipe-seconds-select">
-                      <option value={2}>2 sec</option>
-                      <option value={3}>3 sec</option>
-                      <option value={5}>5 sec</option>
-                      <option value={8}>8 sec</option>
-                      <option value={10}>10 sec</option>
-                      <option value={15}>15 sec</option>
-                    </select>
                   </div>
                 </div>
 
@@ -357,7 +417,7 @@ const AuctionSniper = ({ prefillUrl }) => {
                   className="w-full bg-[#22c55e] hover:bg-[#16a34a] text-white font-heading uppercase tracking-wider h-10"
                   data-testid="snipe-create-btn">
                   {creating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Creating...</>
-                    : <><Crosshair className="w-4 h-4 mr-2" />Arm Snipe</>}
+                    : <><Crosshair className="w-4 h-4 mr-2" />Arm Alert</>}
                 </Button>
               </form>
             </div>
@@ -376,7 +436,7 @@ const AuctionSniper = ({ prefillUrl }) => {
                 <Zap className="w-3.5 h-3.5 text-[#3b82f6]" />Active Snipes ({activeSnipes.length})
               </h3>
               {activeSnipes.map(snipe => (
-                <SnipeCard key={snipe.id} snipe={snipe} onCancel={handleCancel} onRefresh={handleRefresh} />
+                <SnipeCard key={snipe.id} snipe={snipe} onCancel={handleCancel} onRefresh={handleRefresh} onOpenEbay={handleOpenEbay} />
               ))}
             </div>
           )}
@@ -387,7 +447,7 @@ const AuctionSniper = ({ prefillUrl }) => {
                 <Clock className="w-3.5 h-3.5" />History ({completedSnipes.length})
               </h3>
               {completedSnipes.map(snipe => (
-                <SnipeCard key={snipe.id} snipe={snipe} onCancel={handleCancel} onRefresh={handleRefresh} />
+                <SnipeCard key={snipe.id} snipe={snipe} onCancel={handleCancel} onRefresh={handleRefresh} onOpenEbay={handleOpenEbay} />
               ))}
             </div>
           )}
