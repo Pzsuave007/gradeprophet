@@ -392,7 +392,7 @@ async def test_ebay_connection():
 class SnipeTaskCreate(BaseModel):
     ebay_url_or_id: str
     max_bid: float
-    snipe_seconds_before: int = 3
+    snipe_seconds_before: int = 60  # Always 60s (1 min before auction ends)
 
 class SnipeTaskResponse(BaseModel):
     id: str
@@ -425,8 +425,8 @@ async def create_snipe(data: SnipeTaskCreate, request: Request):
     # Validate max bid
     if data.max_bid <= 0:
         raise HTTPException(status_code=400, detail="Max bid must be greater than 0")
-    if data.snipe_seconds_before < 2 or data.snipe_seconds_before > 120:
-        raise HTTPException(status_code=400, detail="Alert timing must be between 2-120 seconds")
+    # Force 60 seconds (1 minute alert)
+    data.snipe_seconds_before = 60
 
     # Extract item ID
     item_id = extract_ebay_item_id(data.ebay_url_or_id)
