@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  DollarSign, TrendingUp, ArrowUpRight,
+  DollarSign, TrendingUp,
   BarChart3, RefreshCw, Package, Tag, ShoppingBag,
-  Clock, Award, Zap, ChevronRight, ExternalLink, Wallet,
-  Crosshair, Eye, Target, Activity, Timer,
-  Gavel, Search, ArrowRight
+  Award, Zap, ChevronRight, ExternalLink, Wallet,
+  Crosshair, Eye, Target, Activity,
+  Search, ArrowRight, X, Newspaper, User as UserIcon
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -128,6 +128,137 @@ const CardGridItem = ({ image, title, price, subtitle, badge, badgeColor, link, 
   </motion.div>
 );
 
+// ========================
+// SALE DETAIL MODAL
+// ========================
+const SaleDetailModal = ({ sale, onClose }) => {
+  if (!sale) return null;
+  return (
+    <AnimatePresence>
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+        onClick={onClose} data-testid="sale-detail-modal">
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+          className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-md overflow-hidden shadow-2xl"
+          onClick={e => e.stopPropagation()}>
+          {/* Image */}
+          <div className="relative aspect-square bg-[#0a0a0a] max-h-[300px]">
+            {sale.image ? (
+              <img src={sale.image} alt={sale.title} className="w-full h-full object-contain" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center"><Package className="w-12 h-12 text-gray-800" /></div>
+            )}
+            <button onClick={onClose} className="absolute top-3 right-3 bg-black/60 p-1.5 rounded-full hover:bg-black/80 transition-colors" data-testid="close-sale-modal">
+              <X className="w-4 h-4 text-white" />
+            </button>
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-4 pt-10">
+              <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/90 text-white">Sold</span>
+            </div>
+          </div>
+
+          {/* Details */}
+          <div className="p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-bold text-white leading-snug">{sale.title}</h3>
+              <p className="text-2xl font-black text-emerald-400 mt-1">{fmt(sale.total)}</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0a0a0a] rounded-lg p-3">
+                <p className="text-[9px] uppercase tracking-wider text-gray-500 font-bold mb-1">Sold Date</p>
+                <p className="text-xs font-semibold text-white">{sale.date || 'N/A'}</p>
+              </div>
+              <div className="bg-[#0a0a0a] rounded-lg p-3">
+                <p className="text-[9px] uppercase tracking-wider text-gray-500 font-bold mb-1">Buyer</p>
+                <div className="flex items-center gap-1.5">
+                  <UserIcon className="w-3 h-3 text-gray-500" />
+                  <p className="text-xs font-semibold text-white truncate">{sale.buyer || 'N/A'}</p>
+                </div>
+              </div>
+            </div>
+
+            {sale.item_id && (
+              <div className="bg-[#0a0a0a] rounded-lg p-3">
+                <p className="text-[9px] uppercase tracking-wider text-gray-500 font-bold mb-1">eBay Item ID</p>
+                <p className="text-xs font-mono text-gray-400">{sale.item_id}</p>
+              </div>
+            )}
+
+            <a href={sale.url || `https://www.ebay.com/itm/${sale.item_id}`} target="_blank" rel="noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[#3b82f6] hover:bg-[#2563eb] text-white text-sm font-bold transition-colors"
+              data-testid="sale-view-on-ebay">
+              <ExternalLink className="w-4 h-4" /> View on eBay
+            </a>
+          </div>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+};
+
+// ========================
+// HOBBY NEWS FEED
+// ========================
+const HobbyNewsFeed = () => {
+  const [articles, setArticles] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    axios.get(`${API}/api/dashboard/hobby-news`)
+      .then(res => setArticles(res.data?.articles || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-6 flex items-center justify-center gap-2">
+      <RefreshCw className="w-4 h-4 text-gray-600 animate-spin" />
+      <span className="text-xs text-gray-600">Loading hobby news...</span>
+    </div>
+  );
+
+  if (!articles.length) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+      className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="hobby-news-feed">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
+        <div className="flex items-center gap-2">
+          <Newspaper className="w-4 h-4 text-cyan-400" />
+          <h2 className="text-sm font-bold text-white">Hobby Pulse</h2>
+        </div>
+        <span className="text-[9px] uppercase tracking-widest text-gray-600 font-bold">Latest News</span>
+      </div>
+      <div className="divide-y divide-[#0f0f0f] max-h-[400px] overflow-y-auto">
+        {articles.map((article, i) => (
+          <a key={i} href={article.link} target="_blank" rel="noreferrer"
+            className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors group"
+            data-testid={`news-article-${i}`}>
+            {/* Thumbnail */}
+            <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] overflow-hidden flex-shrink-0">
+              {article.thumbnail ? (
+                <img src={article.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-5 h-5 text-gray-800" /></div>
+              )}
+            </div>
+            {/* Content */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-semibold text-white leading-snug line-clamp-2 group-hover:text-[#3b82f6] transition-colors">{article.title}</p>
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="text-[9px] text-cyan-400 font-bold">{article.source}</span>
+                {article.published && (
+                  <span className="text-[9px] text-gray-600">{new Date(article.published).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                )}
+              </div>
+            </div>
+            <ExternalLink className="w-3 h-3 text-gray-700 group-hover:text-[#3b82f6] flex-shrink-0 mt-1 transition-colors" />
+          </a>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
 
 const DashboardHome = ({ onNavigate }) => {
   const [data, setData] = useState(null);
@@ -135,6 +266,7 @@ const DashboardHome = ({ onNavigate }) => {
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('all');
   const [dashTab, setDashTab] = useState('command');
+  const [selectedSale, setSelectedSale] = useState(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -225,9 +357,12 @@ const DashboardHome = ({ onNavigate }) => {
         ))}
       </div>
 
-      {dashTab === 'command' && <CommandCenterTab cc={ccData} analytics={data} filteredStats={filteredStats} onNavigate={onNavigate} />}
+      {dashTab === 'command' && <CommandCenterTab cc={ccData} analytics={data} filteredStats={filteredStats} onNavigate={onNavigate} onSelectSale={setSelectedSale} onSwitchTab={setDashTab} />}
       {dashTab === 'portfolio' && <PortfolioTracker />}
       {dashTab === 'overview' && <SalesOverviewTab filteredStats={filteredStats} filteredCumulative={filteredCumulative} s={s} inv={inv} lst={lst} onNavigate={onNavigate} />}
+
+      {/* Sale Detail Modal */}
+      {selectedSale && <SaleDetailModal sale={selectedSale} onClose={() => setSelectedSale(null)} />}
     </div>
   );
 };
@@ -236,13 +371,19 @@ const DashboardHome = ({ onNavigate }) => {
 // ========================
 // COMMAND CENTER TAB
 // ========================
-const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
+const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSale, onSwitchTab }) => {
   const recentSales = cc?.recent_sales || [];
   const monitorItems = cc?.monitor?.recent_items || [];
   const activeSnipes = cc?.snipes?.active || [];
   const snipeStats = cc?.snipes?.stats || {};
   const lsSummary = cc?.listings_summary || {};
   const s = analytics?.sales || {};
+
+  const handleKpiClick = (label) => {
+    if (label === 'Total Revenue' || label === 'Net Profit') onSwitchTab?.('overview');
+    else if (label === 'Active Listings') onNavigate?.('listings');
+    else if (label === 'Sniper') onNavigate?.('flipfinder');
+  };
 
   return (
     <>
@@ -255,7 +396,8 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
           { icon: Crosshair, label: 'Sniper', value: `${snipeStats.won || 0}W / ${snipeStats.lost || 0}L`, sub: `${snipeStats.active || 0} active`, color: 'from-red-600/20 to-red-900/5', border: 'border-red-500/20', accent: 'text-red-400', iconBg: 'bg-red-500' },
         ].map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
-            className={`relative bg-gradient-to-br ${kpi.color} border ${kpi.border} rounded-xl p-4 overflow-hidden`} data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s/g, '-')}`}>
+            onClick={() => handleKpiClick(kpi.label)}
+            className={`relative bg-gradient-to-br ${kpi.color} border ${kpi.border} rounded-xl p-4 overflow-hidden cursor-pointer hover:brightness-110 transition-all`} data-testid={`kpi-${kpi.label.toLowerCase().replace(/\s/g, '-')}`}>
             <div className="flex items-center gap-2 mb-3">
               <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${kpi.iconBg}`}><kpi.icon className="w-3.5 h-3.5 text-white" /></div>
               <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">{kpi.label}</span>
@@ -283,7 +425,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
           {activeSnipes.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 divide-[#1a1a1a]">
               {activeSnipes.map((snipe, i) => (
-                <div key={snipe.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors border-b border-[#0f0f0f] last:border-0" data-testid={`snipe-row-${i}`}>
+                <div key={snipe.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors border-b border-[#0f0f0f] last:border-0 cursor-pointer" onClick={() => onNavigate?.('flipfinder')} data-testid={`snipe-row-${i}`}>
                   {snipe.item_image_url && <img src={snipe.item_image_url} alt="" className="w-12 h-12 rounded-lg object-cover bg-[#0a0a0a] flex-shrink-0" />}
                   <div className="flex-1 min-w-0">
                     <p className="text-[10px] font-medium text-white truncate">{snipe.item_title}</p>
@@ -363,7 +505,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
                 subtitle={item.search_query}
                 badge={item.listing_type === 'auction' ? 'Auction' : item.accepts_offers ? 'Offers' : 'BIN'}
                 badgeColor={item.listing_type === 'auction' ? 'bg-amber-500/90 text-white' : 'bg-blue-500/90 text-white'}
-                link={item.listing_url}
+                onClick={() => onNavigate?.('flipfinder')}
                 testId={`monitor-item-${i}`}
               />
             ))}
@@ -388,6 +530,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
                 subtitle={`${sale.date} · ${sale.buyer}`}
                 badge="Sold"
                 badgeColor="bg-emerald-500/90 text-white"
+                onClick={() => onSelectSale?.(sale)}
                 testId={`recent-sale-${i}`}
               />
             ))}
@@ -396,12 +539,12 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate }) => {
           <EmptyGrid message="No sales yet" cta="View Listings" onAction={() => onNavigate?.('listings')} icon={DollarSign} />
         )}
       </motion.div>
+
+      {/* #5 — HOBBY NEWS FEED */}
+      <HobbyNewsFeed />
     </>
   );
 };
-
-// ========================
-// Section Header
 // ========================
 const SectionHeader = ({ icon: Icon, color, title, count, action, extra }) => (
   <div className="flex items-center justify-between mb-3">

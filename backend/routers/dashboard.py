@@ -503,3 +503,60 @@ async def get_command_center(request: Request):
             "active_value": round(active_value, 2),
         },
     }
+
+
+@router.get("/hobby-news")
+async def get_hobby_news():
+    """Fetch latest hobby news from top sports card RSS feeds"""
+    import feedparser
+
+    feeds = [
+        {"url": "https://www.cardboardconnection.com/feed", "source": "Cardboard Connection"},
+        {"url": "https://www.beckett.com/news/feed/", "source": "Beckett"},
+        {"url": "https://www.sportscollectorsdigest.com/feed", "source": "Sports Collectors Digest"},
+    ]
+
+    articles = []
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+        for feed_info in feeds:
+            try:
+                resp = await client.get(feed_info["url"], headers={"User-Agent": "FlipSlabEngine/1.0"})
+                if resp.status_code != 200:
+                    continue
+                parsed = feedparser.parse(resp.text)
+                for entry in parsed.entries[:4]:
+                    thumb = ""
+                    if hasattr(entry, "media_content") and entry.media_content:
+                        thumb = entry.media_content[0].get("url", "")
+                    elif hasattr(entry, "media_thumbnail") and entry.media_thumbnail:
+                        thumb = entry.media_thumbnail[0].get("url", "")
+                    elif hasattr(entry, "enclosures") and entry.enclosures:
+                        for enc in entry.enclosures:
+                            if enc.get("type", "").startswith("image"):
+                                thumb = enc.get("href", "")
+                                break
+                    if not thumb and hasattr(entry, "summary"):
+                        import re
+                        img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', entry.summary or "")
+                        if img_match:
+                            thumb = img_match.group(1)
+
+                    pub = ""
+                    if hasattr(entry, "published"):
+                        pub = entry.published
+                    elif hasattr(entry, "updated"):
+                        pub = entry.updated
+
+                    articles.append({
+                        "title": entry.get("title", ""),
+                        "link": entry.get("link", ""),
+                        "thumbnail": thumb,
+                        "source": feed_info["source"],
+                        "published": pub,
+                        "summary": (entry.get("summary", "") or "")[:150].replace("<", " ").replace(">", " ").strip(),
+                    })
+            except Exception as e:
+                logger.warning(f"Feed fetch failed for {feed_info['source']}: {e}")
+
+    articles.sort(key=lambda a: a.get("published", ""), reverse=True)
+    return {"articles": articles[:10]}
