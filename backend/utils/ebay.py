@@ -467,6 +467,7 @@ async def place_ebay_bid(item_id: str, max_bid: float) -> dict:
     <MaxBid currencyID="USD">{max_bid:.2f}</MaxBid>
     <Quantity>1</Quantity>
   </Offer>
+  <EndUserIP>1.1.1.1</EndUserIP>
 </PlaceOfferRequest>"""
 
         api_headers = {
