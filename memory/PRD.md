@@ -1,7 +1,7 @@
 # FlipSlab Engine - Product Requirements Document
 
 ## Original Problem Statement
-Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features include AI-powered card identification, inventory management, eBay integration, market intelligence, portfolio tracking, listing creation, and auction sniping.
+Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features include AI-powered card identification, inventory management, eBay integration, market intelligence, portfolio tracking, listing creation, auction sniping, and cross-platform trading actions.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, shadcn/ui, Recharts, Axios
@@ -15,14 +15,7 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - **Git repo:** `/home/gradeprophet/`
 - **Backend:** `/opt/gradeprophet/backend/` (uvicorn port 8001)
 - **.htaccess:** Proxies `/api` → port 8001, serves static files from public_html
-- **IMPORTANT:** `.htaccess` must NOT proxy to port 3000. It serves static files directly.
-
-## Deployment Workflow
-1. Changes made on Emergent preview
-2. Frontend built with `REACT_APP_BACKEND_URL=https://flipslabengine.com`
-3. Build committed to git (frontend/.gitignore allows /build)
-4. User: Save to Github → git pull → bash fix.sh
-5. fix.sh copies backend to /opt/gradeprophet/backend/ and frontend build to /home/flipcardsuni2/public_html/
+- **IMPORTANT:** `.htaccess` must NOT proxy to port 3000.
 
 ## What's Been Implemented
 - [x] Landing page with auth (Email/Password + Google OAuth)
@@ -45,36 +38,38 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Date Range for Sold: 7/30/60 days
 - [x] Page Size selector: 20/50/100/200
 - [x] Production deployment pipeline fixed (.htaccess corrected)
-- [x] **Auction Sniper** — Automated bid system integrated in Flip Finder
+- [x] **Auction Sniper** — Automated bid system in Flip Finder
+- [x] **Monitor Filters** — Filter by All Types / Auctions / Buy Now / Best Offer
+- [x] **Buy Now Action** — Buy BIN listings directly with modal + eBay redirect fallback
+- [x] **Make Offer Action** — Send offers on Best Offer listings with modal + message field
+- [x] **Contextual Action Buttons** — Snipe on auctions, Buy on BIN, Offer on Best Offer
+- [x] Repo cleanup: removed 8 temporary debug scripts
 
-## Auction Sniper (March 15, 2026)
-- [x] Backend: eBay item details via Browse API (get_ebay_item_details)
-- [x] Backend: PlaceOffer via Trading API (place_ebay_bid)
-- [x] Backend: CRUD endpoints for snipe tasks (create, list, cancel, refresh, check-item, stats)
-- [x] Backend: Background sniper engine (auto-monitors and fires bids at precise time)
-- [x] Frontend: Sniper tab in Flip Finder with full UI (stats, form, list, countdown timers)
-- [x] Frontend: "Snipe" button on auction listings in Monitor tab
-- [x] Frontend: Pre-fill snipe form from Monitor listings
-- [x] Validation: only auctions, max_bid > 0, 2-30 seconds timing
-- [x] Repo cleanup: removed temporary debug scripts
-
-## Key API Endpoints - Sniper
+## Key API Endpoints - Trading Actions
 - `POST /api/snipes` - Create snipe task
 - `GET /api/snipes` - List all snipe tasks
 - `DELETE /api/snipes/{id}` - Cancel active snipe
 - `POST /api/snipes/{id}/refresh` - Refresh item details
 - `POST /api/snipes/check-item` - Validate eBay item before sniping
 - `GET /api/snipes-stats` - Get snipe statistics
+- `POST /api/buy-now` - Buy It Now (requires eBay app approval for direct purchase)
+- `POST /api/make-offer` - Make Best Offer (requires eBay app approval)
+- `GET /api/listings?listing_type=auction|buy_now|offers` - Filter listings by type
+
+## Known Limitations
+- **eBay Buy Now API** requires special eBay app approval for production use. Currently falls back to "Complete on eBay" redirect.
+- **eBay Make Offer API** (MakeBestOffer) also needs approval. Falls back to eBay redirect.
+- These will work automatically once the eBay app gets approved for these actions.
 
 ## Next Tasks
-- P1: Whatnot API Integration (waiting for API access approval)
+- P1: Whatnot API Integration (waiting for API access approval email)
 - P1: Inventory Sync Engine (cross-listing eBay + Whatnot with auto-delist)
 - P2: Auto-Refresh Portfolio Value
 - P2: Build Flip Finder Core Logic (profitable flip detection)
 - P3: Commercialize with Stripe (Pro plan)
 
 ## 3rd Party Integrations
-- **eBay API** (Trading + Browse API) — Listings, OAuth, market data, PlaceOffer (sniping)
+- **eBay API** (Trading + Browse API) — Listings, OAuth, market data, PlaceOffer (sniping), MakeBestOffer
 - **OpenAI GPT-4o** — User-provided API key for AI features
 - **Jina Reader API** — Fallback for market data scraping
 - **Emergent Google Auth** — "Continue with Google" functionality
