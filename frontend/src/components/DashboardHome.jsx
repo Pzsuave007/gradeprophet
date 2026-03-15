@@ -232,27 +232,26 @@ const HobbyNewsFeed = () => {
       <div className="divide-y divide-[#0f0f0f] max-h-[400px] overflow-y-auto">
         {articles.map((article, i) => (
           <a key={i} href={article.link} target="_blank" rel="noreferrer"
-            className="flex items-start gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors group"
+            className="flex items-start gap-2.5 px-3 py-2.5 hover:bg-white/[0.02] transition-colors group"
             data-testid={`news-article-${i}`}>
             {/* Thumbnail */}
-            <div className="w-16 h-16 rounded-lg bg-[#0a0a0a] overflow-hidden flex-shrink-0">
+            <div className="w-11 h-11 rounded-lg bg-[#0a0a0a] overflow-hidden flex-shrink-0">
               {article.thumbnail ? (
                 <img src={article.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" loading="lazy" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-5 h-5 text-gray-800" /></div>
+                <div className="w-full h-full flex items-center justify-center"><Newspaper className="w-4 h-4 text-gray-800" /></div>
               )}
             </div>
             {/* Content */}
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-semibold text-white leading-snug line-clamp-2 group-hover:text-[#3b82f6] transition-colors">{article.title}</p>
-              <div className="flex items-center gap-2 mt-1.5">
-                <span className="text-[9px] text-cyan-400 font-bold">{article.source}</span>
+            <div className="flex-1 min-w-0 overflow-hidden">
+              <p className="text-[10px] font-semibold text-white leading-snug line-clamp-2 group-hover:text-[#3b82f6] transition-colors">{article.title}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[8px] text-cyan-400 font-bold truncate">{article.source}</span>
                 {article.published && (
-                  <span className="text-[9px] text-gray-600">{new Date(article.published).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  <span className="text-[8px] text-gray-600 flex-shrink-0">{new Date(article.published).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                 )}
               </div>
             </div>
-            <ExternalLink className="w-3 h-3 text-gray-700 group-hover:text-[#3b82f6] flex-shrink-0 mt-1 transition-colors" />
           </a>
         ))}
       </div>
