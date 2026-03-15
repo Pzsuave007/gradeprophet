@@ -458,9 +458,6 @@ async def place_ebay_bid(item_id: str, max_bid: float) -> dict:
 
         xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
 <PlaceOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials>
-    <eBayAuthToken>{token}</eBayAuthToken>
-  </RequesterCredentials>
   <ItemID>{numeric_id}</ItemID>
   <Offer>
     <Action>Bid</Action>
@@ -475,6 +472,7 @@ async def place_ebay_bid(item_id: str, max_bid: float) -> dict:
             "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
             "X-EBAY-API-CALL-NAME": "PlaceOffer",
             "X-EBAY-API-APP-NAME": EBAY_CLIENT_ID,
+            "X-EBAY-API-IAF-TOKEN": token,
             "Content-Type": "text/xml",
         }
 
