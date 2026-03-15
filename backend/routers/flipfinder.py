@@ -10,7 +10,8 @@ from database import db
 from utils.auth import get_current_user
 from utils.ebay import (
     get_ebay_app_token, get_ebay_user_token, ebay_browse_search,
-    get_ebay_item_details, place_ebay_bid, extract_ebay_item_id
+    get_ebay_item_details, place_ebay_bid, extract_ebay_item_id,
+    place_ebay_purchase, place_ebay_offer
 )
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,8 @@ class EbayListing(BaseModel):
     price: str
     price_value: float
     listing_type: str
+    buying_options: List[str] = []
+    accepts_offers: bool = False
     time_left: Optional[str] = None
     image_url: str
     listing_url: str
@@ -92,6 +95,7 @@ async def search_ebay_for_card(query: str, limit: int = 20) -> list:
             price_value = float(price_info.get("value", 0))
             buying_options = item.get("buyingOptions", [])
             listing_type = "auction" if "AUCTION" in buying_options else "buy_now"
+            accepts_offers = "BEST_OFFER" in buying_options
             image_url = item.get("image", {}).get("imageUrl", "")
 
             results.append({
@@ -100,6 +104,8 @@ async def search_ebay_for_card(query: str, limit: int = 20) -> list:
                 "price": price_str,
                 "price_value": price_value,
                 "listing_type": listing_type,
+                "buying_options": buying_options,
+                "accepts_offers": accepts_offers,
                 "time_left": None,
                 "image_url": image_url.replace("s-l225", "s-l500") if image_url else "",
                 "listing_url": item.get("itemWebUrl", ""),
@@ -199,6 +205,8 @@ async def search_all_watchlist_cards(request: Request):
                     price=item["price"],
                     price_value=item["price_value"],
                     listing_type=item["listing_type"],
+                    buying_options=item.get("buying_options", []),
+                    accepts_offers=item.get("accepts_offers", False),
                     time_left=item.get("time_left"),
                     image_url=item["image_url"],
                     listing_url=item["listing_url"],
@@ -233,6 +241,7 @@ async def get_listings(
     request: Request,
     watchlist_card_id: Optional[str] = None,
     status: Optional[str] = None,
+    listing_type: Optional[str] = None,
     skip: int = 0,
     limit: int = 20
 ):
@@ -245,6 +254,11 @@ async def get_listings(
         query["status"] = status
     else:
         query["status"] = {"$ne": "deleted"}
+    if listing_type and listing_type != "all":
+        if listing_type == "offers":
+            query["accepts_offers"] = True
+        else:
+            query["listing_type"] = listing_type
 
     total = await db.ebay_listings.count_documents(query)
     listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).skip(skip).limit(limit).to_list(limit)
@@ -515,6 +529,89 @@ async def check_item_for_snipe(request: Request):
         raise HTTPException(status_code=400, detail="Could not fetch item details")
 
     return details
+
+
+# ---- Buy Now & Make Offer ----
+
+class BuyNowRequest(BaseModel):
+    ebay_item_id: str
+    price: float
+
+class MakeOfferRequest(BaseModel):
+    ebay_item_id: str
+    offer_amount: float
+    message: Optional[str] = ""
+
+
+@router.post("/buy-now")
+async def buy_now(data: BuyNowRequest, request: Request):
+    """Buy It Now on an eBay listing"""
+    user = await get_current_user(request)
+
+    if data.price <= 0:
+        raise HTTPException(status_code=400, detail="Price must be greater than 0")
+
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="eBay account not connected.")
+
+    # Get user IP for eBay requirement
+    user_ip = request.client.host if request.client else "0.0.0.0"
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        user_ip = forwarded.split(",")[0].strip()
+
+    item_id = extract_ebay_item_id(data.ebay_item_id)
+    result = await place_ebay_purchase(item_id, data.price, user_ip)
+
+    # Log the action
+    await db.purchase_log.insert_one({
+        "user_id": user["user_id"],
+        "ebay_item_id": item_id,
+        "action": "buy_now",
+        "price": data.price,
+        "success": result["success"],
+        "result": result.get("error") or "success",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Purchase failed"))
+
+    return {"success": True, "message": f"Purchase initiated for ${data.price:.2f}", "order_id": result.get("order_id")}
+
+
+@router.post("/make-offer")
+async def make_offer(data: MakeOfferRequest, request: Request):
+    """Make an offer on an eBay listing"""
+    user = await get_current_user(request)
+
+    if data.offer_amount <= 0:
+        raise HTTPException(status_code=400, detail="Offer amount must be greater than 0")
+
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="eBay account not connected.")
+
+    item_id = extract_ebay_item_id(data.ebay_item_id)
+    result = await place_ebay_offer(item_id, data.offer_amount, data.message or "")
+
+    # Log the action
+    await db.purchase_log.insert_one({
+        "user_id": user["user_id"],
+        "ebay_item_id": item_id,
+        "action": "make_offer",
+        "price": data.offer_amount,
+        "message": data.message,
+        "success": result["success"],
+        "result": result.get("error") or "success",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result.get("error", "Offer failed"))
+
+    return {"success": True, "message": f"Offer of ${data.offer_amount:.2f} sent successfully"}
 
 
 # ---- Sniper Background Engine ----

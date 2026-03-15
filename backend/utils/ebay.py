@@ -515,3 +515,108 @@ def extract_ebay_item_id(url_or_id: str) -> str:
     if m:
         return m.group(1)
     return url_or_id
+
+
+async def place_ebay_purchase(item_id: str, price: float, user_ip: str = "0.0.0.0") -> dict:
+    """Buy It Now on eBay using Trading API PlaceOffer"""
+    try:
+        token = await get_ebay_user_token()
+        if not token:
+            return {"success": False, "error": "eBay not connected. Link your eBay account first."}
+
+        numeric_id = item_id.split("|")[1] if "|" in item_id else item_id
+
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<PlaceOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <EndUserIP>{user_ip}</EndUserIP>
+  <ItemID>{numeric_id}</ItemID>
+  <Offer>
+    <Action>Purchase</Action>
+    <MaxBid currencyID="USD">{price:.2f}</MaxBid>
+    <Quantity>1</Quantity>
+  </Offer>
+</PlaceOfferRequest>"""
+
+        api_headers = {
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "PlaceOffer",
+            "X-EBAY-API-APP-NAME": EBAY_CLIENT_ID,
+            "Content-Type": "text/xml",
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post("https://api.ebay.com/ws/api.dll", content=xml_body, headers=api_headers)
+            xml_text = resp.text
+
+        ack_match = re.search(r'<Ack>(\w+)</Ack>', xml_text)
+        ack = ack_match.group(1) if ack_match else "Unknown"
+
+        if ack in ("Success", "Warning"):
+            order_match = re.search(r'<OrderLineItemID>([^<]+)</OrderLineItemID>', xml_text)
+            order_id = order_match.group(1) if order_match else None
+            logger.info(f"Purchase placed on {numeric_id}: ${price:.2f}")
+            return {"success": True, "ack": ack, "order_id": order_id}
+        else:
+            error_match = re.search(r'<ShortMessage>([^<]+)</ShortMessage>', xml_text)
+            long_match = re.search(r'<LongMessage>([^<]+)</LongMessage>', xml_text)
+            error_msg = long_match.group(1) if long_match else (error_match.group(1) if error_match else "Unknown error")
+            logger.warning(f"Purchase failed on {numeric_id}: {error_msg}")
+            return {"success": False, "error": error_msg, "ack": ack}
+    except Exception as e:
+        logger.error(f"place_ebay_purchase error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def place_ebay_offer(item_id: str, offer_amount: float, message: str = "") -> dict:
+    """Make a Best Offer on eBay using Trading API MakeBestOffer"""
+    try:
+        token = await get_ebay_user_token()
+        if not token:
+            return {"success": False, "error": "eBay not connected. Link your eBay account first."}
+
+        numeric_id = item_id.split("|")[1] if "|" in item_id else item_id
+
+        message_xml = f"<BuyerMessage>{message}</BuyerMessage>" if message else ""
+
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<MakeBestOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <ItemID>{numeric_id}</ItemID>
+  <Quantity>1</Quantity>
+  <BestOfferPrice currencyID="USD">{offer_amount:.2f}</BestOfferPrice>
+  {message_xml}
+</MakeBestOfferRequest>"""
+
+        api_headers = {
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "MakeBestOffer",
+            "X-EBAY-API-APP-NAME": EBAY_CLIENT_ID,
+            "Content-Type": "text/xml",
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post("https://api.ebay.com/ws/api.dll", content=xml_body, headers=api_headers)
+            xml_text = resp.text
+
+        ack_match = re.search(r'<Ack>(\w+)</Ack>', xml_text)
+        ack = ack_match.group(1) if ack_match else "Unknown"
+
+        if ack in ("Success", "Warning"):
+            logger.info(f"Offer ${offer_amount:.2f} sent on {numeric_id}")
+            return {"success": True, "ack": ack}
+        else:
+            error_match = re.search(r'<ShortMessage>([^<]+)</ShortMessage>', xml_text)
+            long_match = re.search(r'<LongMessage>([^<]+)</LongMessage>', xml_text)
+            error_msg = long_match.group(1) if long_match else (error_match.group(1) if error_match else "Unknown error")
+            logger.warning(f"Offer failed on {numeric_id}: {error_msg}")
+            return {"success": False, "error": error_msg, "ack": ack}
+    except Exception as e:
+        logger.error(f"place_ebay_offer error: {e}")
+        return {"success": False, "error": str(e)}
