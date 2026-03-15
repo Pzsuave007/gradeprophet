@@ -277,7 +277,7 @@ async def get_listings(
     skip: int = 0,
     limit: int = 100
 ):
-    """Get eBay listings"""
+    """Get eBay listings, excluding ended auctions"""
     user = await get_current_user(request)
     query = {"user_id": user["user_id"]}
     if watchlist_card_id:
@@ -292,8 +292,16 @@ async def get_listings(
         else:
             query["listing_type"] = listing_type
 
+    # Exclude ended auctions: time_left is an ISO date string, filter out past dates
+    now_iso = datetime.now(timezone.utc).isoformat()
+    query["$or"] = [
+        {"listing_type": {"$ne": "auction"}},
+        {"time_left": {"$exists": False}},
+        {"time_left": None},
+        {"time_left": {"$gt": now_iso}},
+    ]
+
     total = await db.ebay_listings.count_documents(query)
-    # Sort auctions by ending soonest (time_left ascending, nulls last)
     if listing_type in ("auction", "offers"):
         pipeline = [
             {"$match": query},

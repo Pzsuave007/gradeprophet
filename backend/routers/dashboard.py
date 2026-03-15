@@ -334,16 +334,26 @@ async def get_command_center(request: Request):
     snipe_lost = await db.snipe_tasks.count_documents({"user_id": user_id, "status": {"$in": ["lost", "outbid"]}})
     snipe_total = await db.snipe_tasks.count_documents({"user_id": user_id})
 
-    # 3. Recent monitor items with images
+    # 3. Recent monitor items with images (exclude ended auctions)
+    now_iso = datetime.now(timezone.utc).isoformat()
+    active_filter = {
+        "user_id": user_id,
+        "status": {"$ne": "deleted"},
+        "$or": [
+            {"listing_type": {"$ne": "auction"}},
+            {"time_left": {"$exists": False}},
+            {"time_left": None},
+            {"time_left": {"$gt": now_iso}},
+        ]
+    }
     recent_monitor = await db.ebay_listings.find(
-        {"user_id": user_id, "status": {"$ne": "deleted"}},
-        {"_id": 0}
+        active_filter, {"_id": 0}
     ).sort("found_at", -1).to_list(8)
 
     # 4. Watchlist summary
     watchlist_count = await db.watchlist_cards.count_documents({"user_id": user_id})
-    monitor_total = await db.ebay_listings.count_documents({"user_id": user_id, "status": {"$ne": "deleted"}})
-    monitor_new = await db.ebay_listings.count_documents({"user_id": user_id, "status": "new"})
+    monitor_total = await db.ebay_listings.count_documents(active_filter)
+    monitor_new = await db.ebay_listings.count_documents({**active_filter, "status": "new"})
 
     # 5. Inventory count
     inv_count = await db.inventory.count_documents({"user_id": user_id})
