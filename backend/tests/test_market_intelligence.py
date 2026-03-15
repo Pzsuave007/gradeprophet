@@ -10,7 +10,7 @@ import time
 # Get BASE_URL from environment (public URL)
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://trading-engine-dev-2.preview.emergentagent.com"
+    BASE_URL = "https://trader-dashboard-82.preview.emergentagent.com"
 
 
 class TestMarketHealthEndpoints:

@@ -310,3 +310,58 @@ async def get_ebay_market_data(query: str = "sports card PSA"):
     except Exception as e:
         logger.error(f"eBay market data failed: {e}")
         return {"items": [], "total": 0, "error": str(e)}
+
+
+@router.get("/command-center")
+async def get_command_center(request: Request):
+    """Aggregated command center data for the dashboard"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    now = datetime.now(timezone.utc)
+
+    # 1. Active snipes
+    active_snipes = await db.snipe_tasks.find(
+        {"user_id": user_id, "status": {"$in": ["scheduled", "monitoring", "bidding"]}},
+        {"_id": 0}
+    ).sort("auction_end_time", 1).to_list(10)
+
+    # 2. Snipe stats
+    snipe_won = await db.snipe_tasks.count_documents({"user_id": user_id, "status": "won"})
+    snipe_lost = await db.snipe_tasks.count_documents({"user_id": user_id, "status": {"$in": ["lost", "outbid"]}})
+    snipe_active = len(active_snipes)
+    snipe_total = await db.snipe_tasks.count_documents({"user_id": user_id})
+
+    # 3. Recent monitor items (newest from ebay_listings)
+    recent_monitor = await db.ebay_listings.find(
+        {"user_id": user_id, "status": {"$ne": "deleted"}},
+        {"_id": 0}
+    ).sort("found_at", -1).to_list(8)
+
+    # 4. Recent purchases/offers from purchase_log
+    recent_actions = await db.purchase_log.find(
+        {"user_id": user_id},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(10)
+
+    # 5. Watchlist summary
+    watchlist_count = await db.watchlist_cards.count_documents({"user_id": user_id})
+    monitor_total = await db.ebay_listings.count_documents({"user_id": user_id, "status": {"$ne": "deleted"}})
+    monitor_new = await db.ebay_listings.count_documents({"user_id": user_id, "status": "new"})
+
+    # 6. Inventory quick count
+    inv_count = await db.inventory.count_documents({"user_id": user_id})
+
+    return {
+        "snipes": {
+            "active": active_snipes,
+            "stats": {"active": snipe_active, "won": snipe_won, "lost": snipe_lost, "total": snipe_total}
+        },
+        "monitor": {
+            "recent_items": recent_monitor,
+            "total": monitor_total,
+            "new_count": monitor_new,
+            "watchlist_count": watchlist_count,
+        },
+        "recent_actions": recent_actions,
+        "inventory_count": inv_count,
+    }
