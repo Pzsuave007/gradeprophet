@@ -317,44 +317,176 @@ async def get_command_center(request: Request):
     """Aggregated command center data for the dashboard"""
     user = await get_current_user(request)
     user_id = user["user_id"]
-    now = datetime.now(timezone.utc)
 
-    # 1. Active snipes
+    try:
+        token = await get_ebay_user_token()
+    except Exception:
+        token = None
+
+    # 1. Active snipes (compact)
     active_snipes = await db.snipe_tasks.find(
         {"user_id": user_id, "status": {"$in": ["scheduled", "monitoring", "bidding"]}},
         {"_id": 0}
-    ).sort("auction_end_time", 1).to_list(10)
+    ).sort("auction_end_time", 1).to_list(6)
 
     # 2. Snipe stats
     snipe_won = await db.snipe_tasks.count_documents({"user_id": user_id, "status": "won"})
     snipe_lost = await db.snipe_tasks.count_documents({"user_id": user_id, "status": {"$in": ["lost", "outbid"]}})
-    snipe_active = len(active_snipes)
     snipe_total = await db.snipe_tasks.count_documents({"user_id": user_id})
 
-    # 3. Recent monitor items (newest from ebay_listings)
+    # 3. Recent monitor items with images
     recent_monitor = await db.ebay_listings.find(
         {"user_id": user_id, "status": {"$ne": "deleted"}},
         {"_id": 0}
     ).sort("found_at", -1).to_list(8)
 
-    # 4. Recent purchases/offers from purchase_log
-    recent_actions = await db.purchase_log.find(
-        {"user_id": user_id},
-        {"_id": 0}
-    ).sort("created_at", -1).to_list(10)
-
-    # 5. Watchlist summary
+    # 4. Watchlist summary
     watchlist_count = await db.watchlist_cards.count_documents({"user_id": user_id})
     monitor_total = await db.ebay_listings.count_documents({"user_id": user_id, "status": {"$ne": "deleted"}})
     monitor_new = await db.ebay_listings.count_documents({"user_id": user_id, "status": "new"})
 
-    # 6. Inventory quick count
+    # 5. Inventory count
     inv_count = await db.inventory.count_documents({"user_id": user_id})
+
+    # 6. Active eBay listings WITH images (visual grid)
+    active_listings = []
+    ending_soon = []
+    active_count = 0
+    active_value = 0
+    if token:
+        try:
+            import xml.etree.ElementTree as ET
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ActiveList><Sort>TimeLeft</Sort><Pagination><EntriesPerPage>20</EntriesPerPage></Pagination></ActiveList>
+</GetMyeBaySellingRequest>'''
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={"X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                             "X-EBAY-API-CALL-NAME": "GetMyeBaySelling", "X-EBAY-API-IAF-TOKEN": token,
+                             "Content-Type": "text/xml"},
+                    content=xml_body
+                )
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            root = ET.fromstring(resp.text)
+            active_node = root.find(".//e:ActiveList", ns)
+            if active_node:
+                count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+                active_count = int(count_el.text) if count_el is not None else 0
+                for item_el in active_node.findall(".//e:Item", ns):
+                    title_el = item_el.find("e:Title", ns)
+                    price_el = item_el.find(".//e:CurrentPrice", ns)
+                    p = float(price_el.text) if price_el is not None else 0
+                    active_value += p
+                    tl = item_el.find("e:TimeLeft", ns)
+                    item_id_el = item_el.find("e:ItemID", ns)
+                    iid = item_id_el.text if item_id_el is not None else ""
+                    watchers_el = item_el.find("e:WatchCount", ns)
+                    bids_el = item_el.find("e:BidCount", ns) or item_el.find(".//e:BidCount", ns)
+                    pic_el = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
+                    if pic_el is None:
+                        pic_el = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
+                    listing_type_el = item_el.find("e:ListingType", ns)
+                    url_el = item_el.find(".//e:ListingDetails/e:ViewItemURL", ns)
+                    img = pic_el.text if pic_el is not None else ""
+                    if img:
+                        img = img.replace("s-l140", "s-l800").replace("s-l225", "s-l800")
+                    item_data = {
+                        "itemid": iid,
+                        "title": title_el.text if title_el is not None else "",
+                        "price": p,
+                        "image_url": img,
+                        "time_left": tl.text if tl is not None else "",
+                        "watchers": int(watchers_el.text) if watchers_el is not None else 0,
+                        "bids": int(bids_el.text) if bids_el is not None else 0,
+                        "listing_type": listing_type_el.text if listing_type_el is not None else "",
+                        "url": f"https://www.ebay.com/itm/{iid}",
+                    }
+                    active_listings.append(item_data)
+                ending_soon = active_listings[:6]
+        except Exception as e:
+            logger.warning(f"Command center active listings failed: {e}")
+
+    # 7. Recent sold items WITH proper images (from GetMyeBaySelling + Browse API fallback)
+    recent_sales = []
+    if token:
+        try:
+            xml_sold = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <SoldList><Sort>EndTime</Sort><Pagination><EntriesPerPage>8</EntriesPerPage></Pagination></SoldList>
+</GetMyeBaySellingRequest>'''
+            async with httpx.AsyncClient(timeout=15.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={"X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                             "X-EBAY-API-CALL-NAME": "GetMyeBaySelling", "X-EBAY-API-IAF-TOKEN": token,
+                             "Content-Type": "text/xml"},
+                    content=xml_sold
+                )
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            root_sold = ET.fromstring(resp.text)
+            sold_node = root_sold.find(".//e:SoldList", ns)
+            if sold_node:
+                for item_el in sold_node.findall(".//e:OrderTransaction", ns):
+                    actual_item = item_el.find(".//e:Item", ns)
+                    if actual_item is None:
+                        continue
+                    title_el = actual_item.find("e:Title", ns)
+                    item_id_el = actual_item.find("e:ItemID", ns)
+                    iid = item_id_el.text if item_id_el is not None else ""
+                    pic_el = actual_item.find(".//e:PictureDetails/e:PictureURL", ns)
+                    if pic_el is None:
+                        pic_el = actual_item.find(".//e:PictureDetails/e:GalleryURL", ns)
+                    img = pic_el.text if pic_el is not None else ""
+                    if img:
+                        img = img.replace("s-l140", "s-l800").replace("s-l225", "s-l800")
+                    trans = item_el.find(".//e:Transaction", ns)
+                    price_el = trans.find(".//e:TransactionPrice", ns) if trans is not None else None
+                    sale_price = float(price_el.text) if price_el is not None else 0
+                    buyer_el = trans.find(".//e:Buyer/e:UserID", ns) if trans is not None else None
+                    buyer = buyer_el.text if buyer_el is not None else ""
+                    date_el = trans.find("e:CreatedDate", ns) if trans is not None else None
+                    date_str = date_el.text[:10] if date_el is not None else ""
+                    recent_sales.append({
+                        "title": title_el.text if title_el is not None else "",
+                        "total": sale_price, "image": img, "buyer": buyer,
+                        "date": date_str, "item_id": iid,
+                        "url": f"https://www.ebay.com/itm/{iid}",
+                    })
+
+            # Fetch images via Browse API for sales missing them
+            no_img = [s for s in recent_sales if not s.get("image")]
+            if no_img:
+                try:
+                    from utils.ebay import get_ebay_app_token
+                    app_token = await get_ebay_app_token()
+                    if app_token:
+                        async with httpx.AsyncClient(timeout=15.0) as hc:
+                            for s_item in no_img:
+                                if not s_item.get("item_id"):
+                                    continue
+                                try:
+                                    br = await hc.get(
+                                        f"https://api.ebay.com/buy/browse/v1/item/v1|{s_item['item_id']}|0",
+                                        headers={"Authorization": f"Bearer {app_token}", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"})
+                                    if br.status_code == 200:
+                                        bi = br.json().get("image", {}).get("imageUrl", "")
+                                        if bi:
+                                            s_item["image"] = bi.replace("s-l140", "s-l800").replace("s-l225", "s-l800").replace("s-l500", "s-l800")
+                                except Exception:
+                                    pass
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.warning(f"Command center sold items failed: {e}")
 
     return {
         "snipes": {
             "active": active_snipes,
-            "stats": {"active": snipe_active, "won": snipe_won, "lost": snipe_lost, "total": snipe_total}
+            "stats": {"active": len(active_snipes), "won": snipe_won, "lost": snipe_lost, "total": snipe_total}
         },
         "monitor": {
             "recent_items": recent_monitor,
@@ -362,6 +494,12 @@ async def get_command_center(request: Request):
             "new_count": monitor_new,
             "watchlist_count": watchlist_count,
         },
-        "recent_actions": recent_actions,
+        "active_listings": active_listings[:8],
+        "ending_soon": ending_soon,
+        "recent_sales": recent_sales,
         "inventory_count": inv_count,
+        "listings_summary": {
+            "active_count": active_count,
+            "active_value": round(active_value, 2),
+        },
     }
