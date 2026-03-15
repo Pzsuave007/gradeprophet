@@ -241,7 +241,7 @@ const AuctionSniper = ({ prefillUrl }) => {
     loadSnipes();
   };
 
-  // Poll every 5s for active snipes (faster for alerts)
+  // Poll every 5s for active alerts
   useEffect(() => {
     loadSnipes();
     pollRef.current = setInterval(loadSnipes, 5000);
@@ -266,7 +266,7 @@ const AuctionSniper = ({ prefillUrl }) => {
     try {
       const r = await axios.post(`${apiBase}/snipes/check-item`, { ebay_url_or_id: url });
       if (!r.data.is_auction) {
-        setError('This is not an auction. Sniping only works on auction listings.');
+        setError('This is not an auction. Alerts only work on auction listings.');
         return;
       }
       setItemPreview(r.data);
@@ -292,14 +292,14 @@ const AuctionSniper = ({ prefillUrl }) => {
       setShowForm(false);
       loadSnipes();
     } catch (e) {
-      setError(e.response?.data?.detail || 'Failed to create snipe');
+      setError(e.response?.data?.detail || 'Failed to create alert');
     } finally { setCreating(false); }
   };
 
   const handleCancel = async (id) => {
     const snipe = snipes.find(s => s.id === id);
     const isActive = ['scheduled', 'monitoring', 'bidding'].includes(snipe?.status);
-    if (isActive && !window.confirm('Cancel this snipe?')) return;
+    if (isActive && !window.confirm('Cancel this alert?')) return;
     try {
       if (isActive) {
         await axios.delete(`${apiBase}/snipes/${id}`);
@@ -340,11 +340,11 @@ const AuctionSniper = ({ prefillUrl }) => {
         </div>
       </div>
 
-      {/* Add Snipe Button */}
+      {/* Add Alert Button */}
       <Button onClick={() => setShowForm(!showForm)}
         className="w-full bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10"
         data-testid="add-snipe-btn">
-        {showForm ? <><X className="w-4 h-4 mr-2" />Cancel</> : <><Crosshair className="w-4 h-4 mr-2" />New Snipe</>}
+        {showForm ? <><X className="w-4 h-4 mr-2" />Cancel</> : <><Crosshair className="w-4 h-4 mr-2" />New Alert</>}
       </Button>
 
       {/* Add Snipe Form */}
@@ -425,7 +425,7 @@ const AuctionSniper = ({ prefillUrl }) => {
         )}
       </AnimatePresence>
 
-      {/* Active Snipes */}
+      {/* Active Alerts */}
       {loading ? (
         <div className="text-center py-8 text-gray-600"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
       ) : (
@@ -433,7 +433,7 @@ const AuctionSniper = ({ prefillUrl }) => {
           {activeSnipes.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-[#3b82f6]" />Active Snipes ({activeSnipes.length})
+                <Zap className="w-3.5 h-3.5 text-[#3b82f6]" />Active Alerts ({activeSnipes.length})
               </h3>
               {activeSnipes.map(snipe => (
                 <SnipeCard key={snipe.id} snipe={snipe} onCancel={handleCancel} onRefresh={handleRefresh} onOpenEbay={handleOpenEbay} />
@@ -455,8 +455,8 @@ const AuctionSniper = ({ prefillUrl }) => {
           {snipes.length === 0 && (
             <div className="text-center py-12 text-gray-600 bg-[#111] border border-[#1a1a1a] rounded-lg">
               <Crosshair className="w-8 h-8 mx-auto mb-2 opacity-30" />
-              <p className="text-sm font-medium text-gray-500">No snipes yet</p>
-              <p className="text-xs text-gray-600 mt-1">Find an auction and set up your first snipe</p>
+              <p className="text-sm font-medium text-gray-500">No alerts yet</p>
+              <p className="text-xs text-gray-600 mt-1">Find an auction and set up your first alert</p>
             </div>
           )}
         </>

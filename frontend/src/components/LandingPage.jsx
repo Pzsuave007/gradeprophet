@@ -7,8 +7,8 @@ import {
 } from 'lucide-react';
 
 const FEATURES = [
-  { icon: Crosshair, title: 'Auction Sniper', desc: 'Set your max bid and walk away. FlipSlab fires your bid seconds before the auction ends. Never miss a deal. Never overpay.', color: '#f59e0b', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/fba2228e6311181cf9c2d1758f4ac11b2fe700cdbf249ce22a3eff98f953af1c.png' },
-  { icon: Radio, title: 'Live Market Monitor', desc: 'Track cards in real-time sorted by ending soonest. Filter by Auctions, Buy Now, or Best Offer. Snipe, buy, or make offers — all from one screen.', color: '#3b82f6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/e55c10ef10fe712afceb1276142359bc8eea37c5f41b41e73b19ce2d48a67d63.png' },
+  { icon: Crosshair, title: 'Auction Alerts', desc: 'Set a price target and relax. FlipSlab watches the auction, alerts you 1 minute before it ends, and opens eBay so you can bid. Never miss a deal.', color: '#f59e0b', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/fba2228e6311181cf9c2d1758f4ac11b2fe700cdbf249ce22a3eff98f953af1c.png' },
+  { icon: Radio, title: 'Live Market Monitor', desc: 'Track cards in real-time sorted by ending soonest. Filter by Auctions, Buy Now, or Best Offer. Set alerts, buy, or make offers — all from one screen.', color: '#3b82f6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/e55c10ef10fe712afceb1276142359bc8eea37c5f41b41e73b19ce2d48a67d63.png' },
   { icon: ScanLine, title: 'AI Card Scanner', desc: 'Snap a photo. AI identifies player, year, set, and condition instantly. Works with raw and graded cards.', color: '#8b5cf6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/0cdd6557949d1bf9e984114f7bcd8f3f5a12713dc1b8cbe21886898a9c4e61c5.png' },
   { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth at any moment.', color: '#10b981', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/f50dd5584cfb99121cef67089a584bb852a867365cd070af33bbda58717297c6.png' },
   { icon: Store, title: 'eBay Command Center', desc: 'List, manage, and end listings directly. AI-generated titles and descriptions. Track sold items with hi-res images.', color: '#ef4444', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/058bad830b54b29becf7a3ed070019fd1c53c0bf4914ff3e2f87f31b59c47207.png' },
@@ -16,7 +16,7 @@ const FEATURES = [
 ];
 
 const ACTIONS = [
-  { icon: Crosshair, label: 'Snipe Auctions', desc: 'Auto-bid seconds before end', color: '#f59e0b' },
+  { icon: Crosshair, label: 'Auction Alerts', desc: 'Get notified before auctions end', color: '#f59e0b' },
   { icon: ShoppingCart, label: 'Buy It Now', desc: 'One-click purchase from monitor', color: '#22c55e' },
   { icon: MessageSquare, label: 'Make Offers', desc: 'Send offers with custom messages', color: '#a855f7' },
   { icon: Filter, label: 'Smart Filters', desc: 'Auction / BIN / Best Offer', color: '#3b82f6' },
@@ -30,7 +30,7 @@ const PLANS = [
     price: 'Free',
     period: '',
     desc: 'Start tracking your collection',
-    features: ['Up to 50 cards', 'AI card identification', 'Basic portfolio value', 'eBay connection', 'Market monitor', '3 active snipes'],
+    features: ['Up to 50 cards', 'AI card identification', 'Basic portfolio value', 'eBay connection', 'Market monitor', '3 active alerts'],
     cta: 'Get Started',
     highlight: false,
   },
@@ -39,7 +39,7 @@ const PLANS = [
     price: '$9.99',
     period: '/mo',
     desc: 'For serious traders & flippers',
-    features: ['Unlimited cards', 'AI card identification', 'Real-time portfolio P&L', 'Unlimited snipes', 'Buy Now & Make Offers', 'Price alerts (unlimited)', 'Batch upload (20+ cards)', 'Auto market refresh', 'Multi-platform support', 'Priority support'],
+    features: ['Unlimited cards', 'AI card identification', 'Real-time portfolio P&L', 'Unlimited auction alerts', 'Buy Now & Make Offers', 'Price alerts (unlimited)', 'Batch upload (20+ cards)', 'Auto market refresh', 'Multi-platform support', 'Priority support'],
     cta: 'Start Free Trial',
     highlight: true,
   },
@@ -83,11 +83,11 @@ const LandingPage = ({ onGetStarted }) => {
               <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-4">The Trading Command Center</p>
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[0.9] tracking-tight">
                 SCAN.<br />
-                <span className="text-[#f59e0b]">SNIPE.</span><br />
+                <span className="text-[#f59e0b]">ALERT.</span><br />
                 <span className="text-[#3b82f6]">PROFIT.</span>
               </h1>
               <p className="text-lg text-gray-400 mt-6 max-w-lg leading-relaxed">
-                Monitor the market, snipe auctions automatically, buy instantly, and make offers — all from one platform. Your entire card business, one screen.
+                Monitor the market, get alerted before auctions end, buy instantly, and make offers — all from one platform. Your entire card business, one screen.
               </p>
               <div className="flex items-center gap-4 mt-8">
                 <button onClick={onGetStarted}
@@ -102,7 +102,7 @@ const LandingPage = ({ onGetStarted }) => {
               </div>
               <div className="flex items-center gap-6 mt-8 text-[11px] text-gray-500">
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Free to start</span>
-                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Auto snipe bids</span>
+                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Auction alerts</span>
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> eBay connected</span>
               </div>
             </motion.div>
@@ -128,9 +128,9 @@ const LandingPage = ({ onGetStarted }) => {
               <div className="flex items-center gap-2">
                 <Crosshair className="w-4 h-4 text-[#f59e0b]" />
                 <div>
-                  <p className="text-[9px] uppercase tracking-wider text-gray-500 font-medium">Snipe Armed</p>
+                  <p className="text-[9px] uppercase tracking-wider text-gray-500 font-medium">Alert Armed</p>
                   <p className="text-sm font-black text-[#f59e0b]">$73.00 max</p>
-                  <p className="text-[9px] text-gray-500">Fires in 3s</p>
+                  <p className="text-[9px] text-gray-500">Ends in 58s</p>
                 </div>
               </div>
             </div>
@@ -150,7 +150,7 @@ const LandingPage = ({ onGetStarted }) => {
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-8">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">Trading Actions</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Execute Trades From One Screen</h2>
-            <p className="text-sm text-gray-500 mt-3 max-w-xl mx-auto">Stop switching between tabs. Monitor, snipe, buy, and offer — all without leaving FlipSlab.</p>
+            <p className="text-sm text-gray-500 mt-3 max-w-xl mx-auto">Stop switching between tabs. Monitor, set alerts, buy, and offer — all without leaving FlipSlab.</p>
           </motion.div>
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
@@ -204,19 +204,19 @@ const LandingPage = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* HOW SNIPER WORKS */}
+      {/* HOW AUCTION ALERTS WORK */}
       <section className="relative z-10 px-6 lg:px-16 py-16">
         <div className="max-w-5xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">How It Works</p>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Snipe in 3 Steps</h2>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Alert in 3 Steps</h2>
           </motion.div>
 
           <div className="grid md:grid-cols-3 gap-6">
             {[
               { step: '01', title: 'Find the Card', desc: 'Search the market or browse your watchlist. Filter by auctions ending soonest.', icon: BarChart3, color: '#3b82f6' },
-              { step: '02', title: 'Set Your Max', desc: 'Enter your max bid and choose when to fire — 2 to 15 seconds before the auction ends.', icon: Target, color: '#f59e0b' },
-              { step: '03', title: 'Walk Away', desc: 'FlipSlab monitors the auction and fires your bid at the exact right moment. You win or pay nothing.', icon: Zap, color: '#22c55e' },
+              { step: '02', title: 'Set Your Alert', desc: 'Enter your max bid reference and arm the alert. We watch the auction for you.', icon: Target, color: '#f59e0b' },
+              { step: '03', title: 'Get Notified & Bid', desc: 'FlipSlab alerts you 1 minute before the end, opens eBay, and you place your bid with time to spare.', icon: Zap, color: '#22c55e' },
             ].map((s, i) => (
               <motion.div key={i}
                 initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}

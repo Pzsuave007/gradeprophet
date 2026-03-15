@@ -444,7 +444,7 @@ async def create_snipe(data: SnipeTaskCreate, request: Request):
         raise HTTPException(status_code=400, detail="Could not fetch item details from eBay. Check the URL/ID.")
 
     if not details["is_auction"]:
-        raise HTTPException(status_code=400, detail="This item is not an auction. Sniping only works on auction listings.")
+        raise HTTPException(status_code=400, detail="This item is not an auction. Alerts only work on auction listings.")
 
     if not details["auction_end_time"]:
         raise HTTPException(status_code=400, detail="Could not determine auction end time.")
@@ -462,7 +462,7 @@ async def create_snipe(data: SnipeTaskCreate, request: Request):
         "status": {"$in": ["scheduled", "monitoring"]}
     })
     if existing:
-        raise HTTPException(status_code=400, detail="You already have an active snipe for this item.")
+        raise HTTPException(status_code=400, detail="You already have an active alert for this item.")
 
     snipe = {
         "id": str(uuid.uuid4()),
@@ -547,8 +547,8 @@ async def cancel_snipe(snipe_id: str, request: Request):
         {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc).isoformat()}}
     )
     if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Active snipe not found")
-    return {"message": "Snipe cancelled"}
+        raise HTTPException(status_code=404, detail="Active alert not found")
+    return {"message": "Alert cancelled"}
 
 
 @router.post("/snipes/{snipe_id}/refresh")
