@@ -53,7 +53,7 @@ async def register(data: RegisterRequest, response: Response):
     })
 
     response.set_cookie("session_token", session_token, path="/", httponly=True, secure=True, samesite="none", max_age=7*24*3600)
-    return {"user_id": user_id, "email": user["email"], "name": user["name"], "picture": None}
+    return {"user_id": user_id, "email": user["email"], "name": user["name"], "picture": None, "onboarding_completed": False}
 
 
 @router.post("/login")
@@ -78,7 +78,7 @@ async def login(data: LoginRequest, response: Response):
     })
 
     response.set_cookie("session_token", session_token, path="/", httponly=True, secure=True, samesite="none", max_age=7*24*3600)
-    return {"user_id": user["user_id"], "email": user["email"], "name": user["name"], "picture": user.get("picture")}
+    return {"user_id": user["user_id"], "email": user["email"], "name": user["name"], "picture": user.get("picture"), "onboarding_completed": user.get("onboarding_completed", False)}
 
 
 @router.post("/session")
@@ -112,9 +112,11 @@ async def process_google_session(request: Request, response: Response):
     picture = google_data.get("picture")
 
     existing = await db.users.find_one({"email": email}, {"_id": 0})
+    is_new_user = existing is None
     if existing:
         user_id = existing["user_id"]
         await db.users.update_one({"email": email}, {"$set": {"name": name, "picture": picture}})
+        onboarding_completed = existing.get("onboarding_completed", False)
     else:
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         await db.users.insert_one({
@@ -126,6 +128,7 @@ async def process_google_session(request: Request, response: Response):
             "auth_provider": "google",
             "created_at": datetime.now(timezone.utc).isoformat(),
         })
+        onboarding_completed = False
 
     session_token = create_session_token()
     await db.user_sessions.insert_one({
@@ -136,7 +139,7 @@ async def process_google_session(request: Request, response: Response):
     })
 
     response.set_cookie("session_token", session_token, path="/", httponly=True, secure=True, samesite="none", max_age=7*24*3600)
-    return {"user_id": user_id, "email": email, "name": name, "picture": picture}
+    return {"user_id": user_id, "email": email, "name": name, "picture": picture, "onboarding_completed": onboarding_completed}
 
 
 @router.get("/me")
@@ -148,6 +151,7 @@ async def get_me(request: Request):
         "email": user.get("email"),
         "name": user.get("name"),
         "picture": user.get("picture"),
+        "onboarding_completed": user.get("onboarding_completed", False),
     }
 
 

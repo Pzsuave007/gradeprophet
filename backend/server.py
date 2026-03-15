@@ -41,6 +41,7 @@ from routers.dashboard import router as dashboard_router
 from routers.ebay import router as ebay_router
 from routers.flipfinder import router as flipfinder_router, sniper_background_loop
 from routers.settings import router as settings_router
+from routers.onboarding import router as onboarding_router
 
 # Create parent API router
 api_router = APIRouter(prefix="/api")
@@ -56,6 +57,7 @@ api_router.include_router(dashboard_router)
 api_router.include_router(ebay_router)
 api_router.include_router(flipfinder_router)
 api_router.include_router(settings_router)
+api_router.include_router(onboarding_router)
 
 
 # Root endpoint

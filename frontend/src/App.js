@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
+import OnboardingWizard from "./components/OnboardingWizard";
 import { Toaster } from "./components/ui/sonner";
 import axios from "axios";
 
@@ -15,8 +16,32 @@ const API = process.env.REACT_APP_BACKEND_URL;
 function App() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
-  const [view, setView] = useState('landing'); // landing, auth, app, oauth
+  const [view, setView] = useState('landing'); // landing, auth, app, oauth, onboarding
   const oauthProcessed = useRef(false);
+
+  const handleAuthSuccess = (u) => {
+    setUser(u);
+    if (u.onboarding_completed) {
+      setView('app');
+    } else {
+      setView('onboarding');
+    }
+  };
+
+  const handleOnboardingComplete = () => {
+    setUser(prev => ({ ...prev, onboarding_completed: true }));
+    localStorage.setItem('flipslab_user', JSON.stringify({ ...user, onboarding_completed: true }));
+    setView('app');
+  };
+
+  const handleOnboardingSkip = async () => {
+    try {
+      await axios.post(`${API}/api/onboarding/skip`);
+    } catch {}
+    setUser(prev => ({ ...prev, onboarding_completed: true }));
+    localStorage.setItem('flipslab_user', JSON.stringify({ ...user, onboarding_completed: true }));
+    setView('app');
+  };
 
   useEffect(() => {
     // CRITICAL: Check hash for session_id from Google OAuth
@@ -34,7 +59,11 @@ function App() {
             localStorage.setItem('flipslab_user', JSON.stringify(res.data));
             window.history.replaceState({}, '', '/');
             setUser(res.data);
-            setView('app');
+            if (res.data.onboarding_completed) {
+              setView('app');
+            } else {
+              setView('onboarding');
+            }
             setChecking(false);
           })
           .catch(err => {
@@ -54,7 +83,11 @@ function App() {
         try {
           const res = await axios.get(`${API}/api/auth/me`, { withCredentials: true });
           setUser(res.data);
-          setView('app');
+          if (res.data.onboarding_completed) {
+            setView('app');
+          } else {
+            setView('onboarding');
+          }
         } catch {
           localStorage.removeItem('flipslab_user');
         }
@@ -87,7 +120,7 @@ function App() {
     if (view === 'auth') {
       return (
         <>
-          <AuthPage onSuccess={(u) => { setUser(u); setView('app'); }} onBack={() => setView('landing')} />
+          <AuthPage onSuccess={handleAuthSuccess} onBack={() => setView('landing')} />
           <Toaster position="bottom-right" />
         </>
       );
@@ -95,6 +128,16 @@ function App() {
     return (
       <>
         <LandingPage onGetStarted={() => setView('auth')} />
+        <Toaster position="bottom-right" />
+      </>
+    );
+  }
+
+  // Onboarding
+  if (view === 'onboarding') {
+    return (
+      <>
+        <OnboardingWizard user={user} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
         <Toaster position="bottom-right" />
       </>
     );
