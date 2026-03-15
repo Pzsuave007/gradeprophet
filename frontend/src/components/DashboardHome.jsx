@@ -104,7 +104,7 @@ const CardGridItem = ({ image, title, price, subtitle, badge, badgeColor, link, 
       </div>
       {/* Badge */}
       {badge && (
-        <div className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider ${badgeColor || 'bg-[#3b82f6]/90 text-white'}`}>
+        <div className={`absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${badgeColor || 'bg-[#3b82f6]/90 text-white'}`}>
           {badge}
         </div>
       )}
@@ -115,15 +115,15 @@ const CardGridItem = ({ image, title, price, subtitle, badge, badgeColor, link, 
       {/* Link icon on hover */}
       {link && (
         <a href={link} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-black/60 p-1.5 rounded-lg transition-opacity">
-          <ExternalLink className="w-3 h-3 text-white" />
+          className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-black/60 p-2 rounded-lg transition-opacity">
+          <ExternalLink className="w-4 h-4 text-white" />
         </a>
       )}
     </div>
     {/* Info */}
-    <div className="p-2.5">
-      <p className="text-[11px] font-medium text-white truncate leading-tight">{title}</p>
-      {subtitle && <p className="text-[9px] text-gray-500 mt-0.5 truncate">{subtitle}</p>}
+    <div className="p-3">
+      <p className="text-xs font-semibold text-white truncate leading-tight">{title}</p>
+      {subtitle && <p className="text-[10px] text-gray-500 mt-1 truncate">{subtitle}</p>}
     </div>
   </motion.div>
 );
@@ -381,7 +381,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
   const handleKpiClick = (label) => {
     if (label === 'Total Revenue' || label === 'Net Profit') onSwitchTab?.('overview');
     else if (label === 'Active Listings') onNavigate?.('listings');
-    else if (label === 'Sniper') onNavigate?.('flipfinder');
+    else if (label === 'Alerts') onNavigate?.('flipfinder');
   };
 
   return (
@@ -392,7 +392,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
           { icon: DollarSign, label: 'Total Revenue', value: fmt(filteredStats.revenue), sub: `${filteredStats.count} sales`, color: 'from-emerald-600/20 to-emerald-900/5', border: 'border-emerald-500/20', accent: 'text-emerald-400', iconBg: 'bg-emerald-500' },
           { icon: TrendingUp, label: 'Net Profit', value: fmt(filteredStats.profit), sub: `${fmt(filteredStats.fees)} fees`, color: 'from-blue-600/20 to-blue-900/5', border: 'border-blue-500/20', accent: 'text-blue-400', iconBg: 'bg-blue-500' },
           { icon: Tag, label: 'Active Listings', value: lsSummary.active_count || 0, sub: `${fmt(lsSummary.active_value)} value`, color: 'from-amber-600/20 to-amber-900/5', border: 'border-amber-500/20', accent: 'text-amber-400', iconBg: 'bg-amber-500' },
-          { icon: Crosshair, label: 'Sniper', value: `${snipeStats.won || 0}W / ${snipeStats.lost || 0}L`, sub: `${snipeStats.active || 0} active`, color: 'from-red-600/20 to-red-900/5', border: 'border-red-500/20', accent: 'text-red-400', iconBg: 'bg-red-500' },
+          { icon: Crosshair, label: 'Alerts', value: `${snipeStats.won || 0}W / ${snipeStats.lost || 0}L`, sub: `${snipeStats.active || 0} active`, color: 'from-red-600/20 to-red-900/5', border: 'border-red-500/20', accent: 'text-red-400', iconBg: 'bg-red-500' },
         ].map((kpi, i) => (
           <motion.div key={kpi.label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.06 }}
             onClick={() => handleKpiClick(kpi.label)}
@@ -412,7 +412,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
           className="lg:col-span-2" data-testid="active-snipes-panel">
           <SectionHeader icon={Crosshair} color="text-red-400" title="Auction Alerts" count={activeSnipes.length}
-            action={{ label: 'Sniper', onClick: () => onNavigate?.('flipfinder') }} />
+            action={{ label: 'Alerts', onClick: () => onNavigate?.('flipfinder') }} />
           {activeSnipes.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               {activeSnipes.map((snipe, i) => {
@@ -437,19 +437,19 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
                         </div>
                       </div>
                       {/* Status badge */}
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-red-500/90 text-white">
+                      <div className="absolute top-2 left-2 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/90 text-white">
                         Armed
                       </div>
                     </div>
                     {/* Info + Actions */}
-                    <div className="p-2.5 space-y-2">
-                      <p className="text-[10px] font-medium text-white truncate">{snipe.item_title}</p>
+                    <div className="p-3 space-y-2">
+                      <p className="text-xs font-semibold text-white truncate">{snipe.item_title}</p>
                       <div className="flex items-center justify-between">
-                        <span className="text-[9px] text-gray-500">Max: <span className="text-emerald-400 font-bold">{fmt(snipe.max_bid)}</span></span>
+                        <span className="text-[10px] text-gray-500">Max: <span className="text-emerald-400 font-bold">{fmt(snipe.max_bid)}</span></span>
                         <a href={ebayUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[9px] font-bold transition-colors"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[10px] font-bold transition-colors"
                           data-testid={`snipe-ebay-btn-${i}`}>
-                          <ExternalLink className="w-2.5 h-2.5" /> eBay
+                          <ExternalLink className="w-3 h-3" /> eBay
                         </a>
                       </div>
                     </div>
@@ -477,7 +477,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
           <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4" data-testid="snipe-record">
             <div className="flex items-center gap-2 mb-3">
               <Target className="w-4 h-4 text-emerald-400" />
-              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Snipe Record</span>
+              <span className="text-[10px] uppercase tracking-widest text-gray-400 font-bold">Alert Record</span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div><p className="text-lg font-black text-emerald-400">{snipeStats.won || 0}</p><p className="text-[9px] text-gray-500">Won</p></div>

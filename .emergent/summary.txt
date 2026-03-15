@@ -12,7 +12,7 @@ The user wants to expand their web app, GradeProphet, into a full-fledged tradin
 8.  **Authentication & Landing Page:** Create a public-facing landing page and a full user authentication system.
 9.  **eBay Listing Management:** Users must be able to create and end listings directly from the platform.
 10. **Cross-Platform Sync:** Sync inventory between eBay and Whatnot, including auto-delisting items when sold on one platform.
-11. **Auction Sniping:** A feature to automatically place a bid on an eBay auction seconds before it ends.
+11. **Auction Sniping:** A feature to automatically place a bid on an eBay auction seconds before it ends. (Pivoted, see below)
 12. **Direct Purchase/Offers:** Ability to Buy It Now or Make Offer on eBay listings directly from the platform.
 
 **User's preferred language**: Spanish. The user communicates fluently in Spanish. The next agent MUST continue the conversation in Spanish to maintain rapport and clarity.
@@ -20,27 +20,52 @@ The user wants to expand their web app, GradeProphet, into a full-fledged tradin
 **what currently exists?**
 The FlipSlab Engine is a functional web app for sports card traders. The core features implemented are:
 *   **Authentication:** JWT-based Email/Password and Google Auth.
-*   **Listings Module:** Users can view their eBay listings with sorting, filtering, and high-resolution images.
-*   **Flip Finder Module:** This is the most advanced section, containing:
-    *   **Monitor:** A powerful search interface for eBay that now includes filters (Auction, Buy It Now, Best Offer), sorting (Ending Soonest, Newly Listed, Price), and displays real-time auction data (current price, bid count, time remaining).
-    *   **Action Buttons:** Users can initiate a Snipe, Buy Now, or Make Offer directly from the Monitor tab.
-    *   **Auction Sniper:** A fully implemented and tested feature that allows users to schedule bids to be placed automatically seconds before an eBay auction ends. This includes a dedicated UI to manage armed, won, and lost snipes.
-    *   **Updated Landing Page:** The homepage has been redesigned to market the new Auction Sniper and other advanced capabilities.
+*   **Listings Module:** Users can view their eBay listings.
+*   **Flip Finder Module:** This contains an  for searching listings and the new Auction Alert system.
+*   **Auction Alert System (formerly Sniper):** Due to eBay API policies prohibiting automated bidding, the Sniper was re-engineered. The new system allows a user to set an alert on an auction. One minute before it ends, the user receives a browser notification, a sound alert, and the eBay item page is automatically opened in a new tab for manual bidding.
+*   **Dynamic Dashboard (Command Center):** A highly interactive and visually rich dashboard that serves as the main hub. It displays:
+    *   KPI cards (Revenue, Profit, etc.).
+    *   My Watchlist (formerly Active Snipes) as a visual grid of cards.
+    *   Monitor Feed showing the latest items from saved searches.
+    *   Recent Sales in a visual grid with images.
+    *   Hobby Pulse news feed, which pulls from hobby news RSS feeds.
+    *   All elements are clickable, navigating to the relevant app section or opening a detail modal.
+*   **Deployment Assistance:** Custom scripts (, ) were created to help the user deploy on their specific server environment.
 
 **Last working item**:
-*   **Last item agent was working:** The user requested a complete overhaul of the Dashboard page. The goal is to transform it from a static placeholder into a dynamic command center that provides an at-a-glance overview of all important activity, such as active snipes, new items in the monitor, recent sales, and purchases. The agent had just started exploring the existing Dashboard-related files (, ) to assess the required changes.
+*   **Last item agent was working:** The user requested a global UI consistency and terminology update. The agent was in the process of implementing three main changes across the entire codebase:
+    1.  **Rename Snipe/Sniper**: All instances of Snipe, Sniper, and Active Snipes were being renamed to Auction Alert, Alerts, and My Watchlist respectively to reflect the feature's pivot.
+    2.  **Increase Font/Component Sizes**: The text, badges, buttons, and icons on all card components (e.g., My Watchlist, Recent Sales) were being enlarged for better legibility.
+    3.  **Update Landing Page**: The marketing copy on the  page was being rewritten to remove references to the prohibited sniping feature and accurately describe the new Auction Alert system.
 *   **Status:** IN PROGRESS
 *   **Agent Testing Done:** N
 *   **Which testing method agent to use?** both
 *   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-There are no outstanding bugs or issues.
+*   **Issue 1: Verify and Finalize Global UI/Text Refactor (P0)**
+    *   **Description:** The agent has run a large number of parallel  operations to rename Sniper to Auction Alert and increase UI element sizes across the app. These changes have not been fully tested and verified. The app might be in a broken state.
+    *   **Attempted fixes:** Multiple files were modified in parallel.
+    *   **Next debug checklist:**
+        1.  Restart the backend and frontend services.
+        2.  Check for compilation errors in the frontend (yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. or yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.). Check backend logs.
+        3.  Manually navigate through the entire application: Landing Page, Login, Dashboard, Flip Finder -> Alerts.
+        4.  Verify that all instances of Snipe/Sniper have been correctly renamed to Auction Alert, Alerts, or My Watchlist.
+        5.  Check the  landing page content.
+        6.  Inspect the card components on the dashboard (My Watchlist, Recent Sales) to confirm font, badge, and button sizes have increased and are legible.
+        7.  Run the testing agent to perform a full regression test.
+    *   **Why fix this issue and what will be achieved with the fix?** To ensure the application is consistent with the new feature branding and meets the user's latest UI/UX feedback.
+    *   **Status:** IN PROGRESS
+    *   **Is recurring issue?** N
+    *   **Should Test frontend/backend/both after fix?** both
+    *   **Blocked on other issue:** No
 
 **In progress Task List**:
-*   **Task 1: Redesign the Dashboard (P0)**
-    *   **Where to resume:** The agent has viewed  and . The next step is to plan and implement the necessary backend endpoints and frontend components to display dynamic data like active snipes, new monitor results, portfolio value, and recent sales/purchases on the dashboard.
-    *   **What will be achieved with this?** A highly engaging and useful landing page for logged-in users, providing immediate value and a clear overview of their trading activity.
+*   **Task 1: Complete UI/Text Refactoring (P0)**
+    *   **Where to resume:** The agent has already modified the necessary files (, , , , etc.). The next step is to test these changes thoroughly, fix any resulting bugs, and confirm with the user.
+    *   **What will be achieved with this?** A consistent user experience that accurately reflects the current features and improved legibility across the application.
     *   **Status:** IN PROGRESS
     *   **Should Test frontend/backend/both after fix?** both
     *   **Blocked on something:** No
@@ -54,109 +79,103 @@ There are no outstanding bugs or issues.
     *   **P4: Commercialize with Stripe:** Integrate a payment provider like Stripe to handle subscriptions for the Pro plan tier.
 
 **Completed work in this session**
-- **Auction Sniper Feature (Implemented & Tested):**
-    - A new Sniper tab was added to the Flip Finder module.
-    - A background task () was created on the backend using  to automatically place bids via the eBay API.
-    - Frontend UI () was built to arm new snipes and view their status.
-- **Enhanced Flip Finder Monitor Tab:**
-    - **Live Auction Data:** Fixed a critical bug to ensure auction listings refresh with the correct current price, bid count, and end time.
-    - **Advanced Sorting & Filtering:** Implemented filters for listing types (Auction, BIN, Best Offer) and a sort dropdown (Ending Soonest, Price, etc.). Auctions are now correctly sorted with those ending soonest appearing at the top.
-    - **Direct Action Buttons:** Added Buy Now and Make Offer buttons, with backend logic to call the respective eBay APIs. A graceful fallback redirects the user to eBay if API access is restricted.
-- **Landing Page Redesign:**
-    - The marketing content on the homepage () was completely rewritten to highlight the new Auction Sniper feature and the platform's power as a Trading Command Center.
-- **Repository Cleanup:**
-    - Removed several obsolete diagnostic shell and PHP scripts from the repository.
+- **Dashboard Command Center Implementation (Multiple Iterations):** A fully interactive and visually-rich dashboard was built and refined based on direct user feedback, featuring KPI cards, visual grids for sales/watchlist, and a news feed.
+- **Hobby News Feed Integration (Hobby Pulse):** Created a backend service using  to pull RSS news from hobby-related websites and display it with thumbnails on the dashboard.
+- **Critical Pivot: Sniper to Auction Alerts:**
+    - Investigated and confirmed that eBay's API policy explicitly prohibits automated bidding (sniping).
+    - Re-architected the feature into an Auction Alert system that opens the eBay item page for the user to bid manually 1 minute before the auction ends, complete with browser notifications and sound.
+- **Dashboard Interactivity:** Made all dashboard widgets clickable, linking to corresponding app sections (e.g., KPI card for Active Listings navigates to the Listings page) or opening detail modals (for recent sales).
+- **Deployment & Debugging Support:**
+    - Successfully diagnosed and resolved multiple complex issues in the user's custom production environment, including frontend build failures (, ), backend process management (, ), and incorrect environment variables in the frontend build.
+    - Created custom deployment scripts (, ) to streamline the user's workflow.
+- **Backend Bug Fixes:**
+    - Resolved an  error from the eBay API.
+    - Fixed an API routing conflict where a dynamic route was incorrectly capturing a static one.
+    - Corrected XML parsing to properly extract image URLs from eBay API responses.
+    - Implemented logic to filter out ended auctions from monitor results.
 
 **Earlier issues found/mentioned but not fixed**
-- **Issue 1:** Minor ESLint warnings from the frontend build process were noted in a previous session but remain unaddressed as they are non-critical.
+- **Issue 1:** Minor ESLint warnings from the frontend build process remain unaddressed as they are non-critical.
 
 **Known issue recurrence from previous fork**
-- **Deployment Fragility:** The user's custom cPanel/Apache server environment remains a potential point of failure. The deployment workflow ( then ============================================
-  FlipSlab Engine - Aplicando cambios
-============================================
-
-[1/3] Backend...
-  OK
-[2/3] Frontend...
-  JS: 
-[3/3] Reiniciando backend...
-  API: OK
-
-LISTO! Abre flipslabengine.com con Ctrl+Shift+R) is stable, but any deviation can cause issues. The  file is a known sensitive area.
+- **Deployment Fragility:** The user's custom cPanel/Apache server environment remains a potential point of failure. The agent has provided scripts to mitigate this, but any deviation can cause issues.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, MongoDB, APScheduler (for background tasks).
-- **Frontend:** React, Tailwind CSS, shadcn/ui,  for time formatting.
-- **eBay API:** Extensive use of the Trading API (, , ) and Browse API ().
-- **Feature:** Asynchronous task scheduling for auction sniping.
+- **Backend:** FastAPI, MongoDB, APScheduler (for background tasks),  (for RSS).
+- **Frontend:** React, Tailwind CSS, shadcn/ui, , .
+- **eBay API:** Extensive use of Trading and Browse APIs. Confirmed that  and  are restricted and cannot be used for automated bidding.
+- **Feature Pivot:** Shifted from an automated API-driven feature (sniper) to a user-assistance and notification-driven feature (alert system) due to platform policy limitations.
 
 **key DB schema**
-- ** (new collection):** 
-- ** (updated):** The schema now correctly stores  (current bid for auctions),  (count), and  (end date) and includes  and .
+- ** (collection now used for alerts):** . The  field now uses values like , , .
 
 **changes in tech stack**
-- **** was added to the backend dependencies to handle the background job for the auction sniper.
+- **** was added to the backend dependencies to handle the Hobby News RSS feed.
 
 **All files of reference**
-*   : Contains all new endpoints for snipe, buy, and offer.
-*   : Contains all the new business logic for interacting with eBay APIs.
-*   : Starts the background scheduler for the sniper.
-*   : Contains the enhanced Monitor UI with filters, sorting, and action buttons.
-*   : The UI for managing snipes.
-*   : The updated landing page.
-*   : The starting point for the next task.
+*   : The main file for the entire Command Center feature.
+*   : Contains the logic for the new Auction Alert system.
+*   : Contains the updated marketing copy.
+*   : Provides the API endpoints that power the dashboard.
+*   : Contains the updated logic for setting and triggering alerts.
+*   : The new RSS feed parsing utility.
+*   : The new master deployment script for the user's server.
 
 **Areas that need refactoring**:
-- None. The agent recently cleaned up obsolete scripts.
+- None.
 
 **key api endpoints**
-- : Updated to accept a  parameter.
-- : Creates a new snipe task.
-- : Retrieves all snipes for the current user.
-- : Deletes a snipe.
-- : Attempts to purchase a Buy It Now item.
-- : Attempts to make a Best Offer on an item.
+- : Gets all data for the Command Center UI.
+- : Gets parsed RSS feed news.
+- : (New) Polled by the frontend to check for triggered alerts.
+- : (New) Marks a triggered alert as acknowledged by the user.
+- : Creates a new auction alert.
 
 **Critical Info for New Agent**
-- You MUST communicate in **Spanish**. The user is highly engaged and provides excellent product feedback.
-- The next task is to redesign the **Dashboard**. The user wants it to be a command center showing dynamic information like active snipes, new search results, etc.
-- A major feature, **Auction Sniper**, has been fully implemented and tested.
-- The user has started the process of getting API access from **Whatnot** for a future integration. This is a high-priority item on the roadmap.
-- The Buy Now and Make Offer features may be restricted by eBay's API policy. The UI already has a fallback to redirect the user to eBay, which should be maintained.
+- **You MUST communicate in Spanish.**
+- **Auction Sniping is IMPOSSIBLE and FORBIDDEN by eBay.** Do not attempt to re-implement automated bidding. The current Auction Alert system (auto-opening the eBay page) is the accepted solution. The user understands this limitation. The terminology in the app has been changed to Auction Alert / My Watchlist.
+- The immediate task is to **verify and test the global UI/text refactoring** that was just performed. The app's stability is uncertain until this is tested.
+- Be prepared to assist with deployment on the user's custom server environment. The  script should be the primary tool.
 
 **documents and test reports created in this job**
--  (Auction Sniper Tests)
--  (Buy/Offer/Filter Tests)
--  (Updated with new features)
+*   
+*   
+*   
+*   
+*    (Updated throughout the session)
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. User confirms the fix for sorting and data accuracy and asks to deploy.
-9.  Agent provides deployment instructions.
-8.  User tries the new features.
-7.  User asks for the landing page to be updated to reflect the new sniper functionality.
-6.  Agent implements the landing page redesign.
-5.  Agent confirms deployment instructions for the landing page update.
-4.  **PENDING:** User requests a redesign of the Dashboard to be a command center, showing new items from the Monitor, active Snipes, recent sales, etc.
+10. User asks to change the title of Active Snipes as it is confusing. (DONE)
+9.  User reports the images in the My Watchlist grid are too large. (DONE)
+8.  User asks to change the Active Snipes list to a visual grid. (DONE)
+7.  User confirms they understand the Auction Alert pivot and asks to deploy the changes. (DONE)
+6.  User asks for a more valuable implementation of the Auction Alert system, suggesting notifications and opening the page 1 minute before. (DONE)
+5.  User receives the restricted application error again and understands it's a permanent eBay policy block. (ACKNOWLEDGED)
+4.  User tries a snipe after a code change and gets a restricted application error. (REPORTED)
+3.  User reports an  error on snipes. (FIXED)
+2.  User reports they cannot log in (Authentication fail) after a deployment. (FIXED by rebuilding frontend with correct prod URL)
+1.  **PENDING:** User asks for a global UI update: make all card text, badges, and icons bigger, and change all Snipe references throughout the entire app and landing page.
 
 **Project Health Check:**
-*   **Working:** The entire application, including the newly implemented Auction Sniper, enhanced Flip Finder Monitor, and redesigned landing page.
-*   **Broken:** None.
+*   **Working:** Most of the application is stable.
+*   **Broken:** Potentially the frontend and parts of the backend due to the last, untested, large-scale refactoring. Verification is the highest priority.
 *   **Mocked:** None.
 
 **3rd Party Integrations**
-*   **eBay API (Trading & Browse API):** Used for searching, listings, and all purchase/bid actions.
+*   **eBay API (Trading & Browse API):** Used for searching, listings, and auction data.
 *   **OpenAI GPT-4o:** Uses User-provided API Key.
 *   **Jina Reader API:** Fallback for market data.
 *   **Emergent Google Auth:** Continue with Google functionality.
+*   **RSS Feeds (via ):** For the Hobby Pulse news feed.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES (Twice, for the Sniper and the Monitor enhancements).
+- **Testing agent used after significant changes:** YES (used multiple times for dashboard and alert features).
 - **Troubleshoot agent used after agent stuck in loop:** NO
 - **Test files created:** None.
-- **Known regressions:** None.
+- **Known regressions:** None, but the last change was major and could have introduced regressions.
 
 **Credentials to test flow:**
 - User registration (Email/Password) is open. A new user can be created for testing.

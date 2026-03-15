@@ -194,7 +194,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
             <Search className="w-2.5 h-2.5" />Analyze</button>}
           {isAuction && onSnipeCard && <button onClick={() => onSnipeCard(listing)}
             className="text-[10px] bg-[#f59e0b]/10 text-[#f59e0b] px-2 py-1 rounded hover:bg-[#f59e0b]/20 inline-flex items-center gap-0.5" data-testid={`snipe-listing-${listing.id}`}>
-            <Crosshair className="w-2.5 h-2.5" />Snipe</button>}
+            <Crosshair className="w-2.5 h-2.5" />Alert</button>}
           {isBuyNow && <button onClick={() => setBuyModal(listing)}
             className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded hover:bg-emerald-500/20 inline-flex items-center gap-0.5" data-testid={`buy-listing-${listing.id}`}>
             <ShoppingCart className="w-2.5 h-2.5" />Buy</button>}

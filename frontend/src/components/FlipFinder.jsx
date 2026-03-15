@@ -59,7 +59,7 @@ const FlipFinder = () => {
 
   const subTabs = [
     { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
-    { id: 'sniper', label: 'Sniper', icon: Crosshair },
+    { id: 'sniper', label: 'Auction Alerts', icon: Crosshair },
     { id: 'scanner', label: 'Analyze', icon: Scan },
     { id: 'history', label: 'History', icon: History },
     { id: 'learning', label: 'AI', icon: Brain },
