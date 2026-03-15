@@ -414,7 +414,7 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
           <SectionHeader icon={Crosshair} color="text-red-400" title="Auction Alerts" count={activeSnipes.length}
             action={{ label: 'Sniper', onClick: () => onNavigate?.('flipfinder') }} />
           {activeSnipes.length > 0 ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
               {activeSnipes.map((snipe, i) => {
                 const itemId = snipe.ebay_item_id?.split('|')[1] || snipe.ebay_item_id;
                 const ebayUrl = `https://www.ebay.com/itm/${itemId}`;
