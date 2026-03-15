@@ -30,6 +30,8 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Price alerts
 - [x] Dashboard analytics (Sales Overview, Revenue/Profit charts)
 - [x] **Dashboard Command Center v2** - Visual grid-based hub showing active listings with hi-res images, ending soon cards with countdown badges, recent sales gallery, monitor feed grid, snipe panel, best sale, snipe record, and quick navigation
+- [x] **Dashboard Interactivity** - All cards clickable: Monitor→Flip Finder, Sales→Detail Modal (buyer info + eBay link), KPIs→sections, Snipes→Sniper
+- [x] **Hobby Pulse News Feed** - Mini-feed with thumbnails from Cardboard Connection, Beckett, Sports Collectors Digest RSS
 - [x] Flip Finder (watchlist + eBay monitor)
 - [x] Image processing pipeline
 - [x] Backend refactored to modular routers
