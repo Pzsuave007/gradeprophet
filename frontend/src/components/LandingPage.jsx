@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ScanLine, TrendingUp, Bell, Store, Layers, Zap, BarChart3,
-  Upload, Shield, ArrowRight, Check, ChevronRight, Star
+  Upload, ArrowRight, Check, Crosshair, ShoppingCart, MessageSquare,
+  Filter, Timer, Target, Radio
 } from 'lucide-react';
 
 const FEATURES = [
-  { icon: ScanLine, title: 'AI Card Scanner', desc: 'Snap a photo. AI identifies player, year, set, and condition instantly. Works with raw and graded cards.', color: '#3b82f6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/fba2228e6311181cf9c2d1758f4ac11b2fe700cdbf249ce22a3eff98f953af1c.png' },
-  { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth.', color: '#10b981', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/f50dd5584cfb99121cef67089a584bb852a867365cd070af33bbda58717297c6.png' },
-  { icon: Store, title: 'eBay Integration', desc: 'List directly to eBay with AI-generated titles, descriptions, and market-based pricing.', color: '#f59e0b', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/e55c10ef10fe712afceb1276142359bc8eea37c5f41b41e73b19ce2d48a67d63.png' },
-  { icon: Bell, title: 'Price Alerts', desc: 'Get notified when cards hit your target buy or sell price. Never miss a deal again.', color: '#ef4444', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/058bad830b54b29becf7a3ed070019fd1c53c0bf4914ff3e2f87f31b59c47207.png' },
-  { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically. Perfect for dealers.', color: '#8b5cf6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/8fb1feca0199f1312526368524b2f072e96315b1619225329c1abe52c84e4f81.png' },
-  { icon: BarChart3, title: 'Market Intelligence', desc: 'Price history charts, sold comparisons, and trend analysis powered by real eBay data.', color: '#06b6d4', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/0cdd6557949d1bf9e984114f7bcd8f3f5a12713dc1b8cbe21886898a9c4e61c5.png' },
+  { icon: Crosshair, title: 'Auction Sniper', desc: 'Set your max bid and walk away. FlipSlab fires your bid seconds before the auction ends. Never miss a deal. Never overpay.', color: '#f59e0b', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/fba2228e6311181cf9c2d1758f4ac11b2fe700cdbf249ce22a3eff98f953af1c.png' },
+  { icon: Radio, title: 'Live Market Monitor', desc: 'Track cards in real-time sorted by ending soonest. Filter by Auctions, Buy Now, or Best Offer. Snipe, buy, or make offers — all from one screen.', color: '#3b82f6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/e55c10ef10fe712afceb1276142359bc8eea37c5f41b41e73b19ce2d48a67d63.png' },
+  { icon: ScanLine, title: 'AI Card Scanner', desc: 'Snap a photo. AI identifies player, year, set, and condition instantly. Works with raw and graded cards.', color: '#8b5cf6', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/0cdd6557949d1bf9e984114f7bcd8f3f5a12713dc1b8cbe21886898a9c4e61c5.png' },
+  { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth at any moment.', color: '#10b981', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/f50dd5584cfb99121cef67089a584bb852a867365cd070af33bbda58717297c6.png' },
+  { icon: Store, title: 'eBay Command Center', desc: 'List, manage, and end listings directly. AI-generated titles and descriptions. Track sold items with hi-res images.', color: '#ef4444', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/058bad830b54b29becf7a3ed070019fd1c53c0bf4914ff3e2f87f31b59c47207.png' },
+  { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically. Built for dealers who move volume.', color: '#06b6d4', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/8fb1feca0199f1312526368524b2f072e96315b1619225329c1abe52c84e4f81.png' },
+];
+
+const ACTIONS = [
+  { icon: Crosshair, label: 'Snipe Auctions', desc: 'Auto-bid seconds before end', color: '#f59e0b' },
+  { icon: ShoppingCart, label: 'Buy It Now', desc: 'One-click purchase from monitor', color: '#22c55e' },
+  { icon: MessageSquare, label: 'Make Offers', desc: 'Send offers with custom messages', color: '#a855f7' },
+  { icon: Filter, label: 'Smart Filters', desc: 'Auction / BIN / Best Offer', color: '#3b82f6' },
+  { icon: Timer, label: 'Ending Soonest', desc: 'See what closes first', color: '#ef4444' },
+  { icon: Target, label: 'Price Alerts', desc: 'Never miss your target price', color: '#10b981' },
 ];
 
 const PLANS = [
@@ -20,7 +30,7 @@ const PLANS = [
     price: 'Free',
     period: '',
     desc: 'Start tracking your collection',
-    features: ['Up to 50 cards', 'AI card identification', 'Basic portfolio value', 'Manual market lookup', 'eBay connection'],
+    features: ['Up to 50 cards', 'AI card identification', 'Basic portfolio value', 'eBay connection', 'Market monitor', '3 active snipes'],
     cta: 'Get Started',
     highlight: false,
   },
@@ -29,7 +39,7 @@ const PLANS = [
     price: '$9.99',
     period: '/mo',
     desc: 'For serious traders & flippers',
-    features: ['Unlimited cards', 'AI card identification', 'Real-time portfolio P&L', 'Price alerts (unlimited)', 'Batch upload (20+ cards)', 'Auto market refresh', 'Priority support', 'Advanced analytics'],
+    features: ['Unlimited cards', 'AI card identification', 'Real-time portfolio P&L', 'Unlimited snipes', 'Buy Now & Make Offers', 'Price alerts (unlimited)', 'Batch upload (20+ cards)', 'Auto market refresh', 'Multi-platform support', 'Priority support'],
     cta: 'Start Free Trial',
     highlight: true,
   },
@@ -54,6 +64,7 @@ const LandingPage = ({ onGetStarted }) => {
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
           <a href="#features" className="hover:text-white transition-colors">Features</a>
+          <a href="#actions" className="hover:text-white transition-colors">Trading</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
         </div>
         <button onClick={onGetStarted}
@@ -65,19 +76,18 @@ const LandingPage = ({ onGetStarted }) => {
 
       {/* HERO */}
       <section className="relative z-10 px-6 lg:px-16 pt-20 pb-8 lg:pt-32 lg:pb-12">
-        {/* Blue orb glow */}
         <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-[#3b82f6]/[0.06] blur-[120px] pointer-events-none" />
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
           <div className="flex-1 text-left">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-4">The Operating System for Card Traders</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-4">The Trading Command Center</p>
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[0.9] tracking-tight">
                 SCAN.<br />
-                <span className="text-[#3b82f6]">FLIP.</span><br />
-                PROFIT.
+                <span className="text-[#f59e0b]">SNIPE.</span><br />
+                <span className="text-[#3b82f6]">PROFIT.</span>
               </h1>
               <p className="text-lg text-gray-400 mt-6 max-w-lg leading-relaxed">
-                AI-powered inventory management, real-time portfolio tracking, and instant eBay listings. Everything you need to run your card business.
+                Monitor the market, snipe auctions automatically, buy instantly, and make offers — all from one platform. Your entire card business, one screen.
               </p>
               <div className="flex items-center gap-4 mt-8">
                 <button onClick={onGetStarted}
@@ -92,37 +102,73 @@ const LandingPage = ({ onGetStarted }) => {
               </div>
               <div className="flex items-center gap-6 mt-8 text-[11px] text-gray-500">
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Free to start</span>
-                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> No credit card</span>
+                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Auto snipe bids</span>
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> eBay connected</span>
               </div>
             </motion.div>
           </div>
 
-          {/* Real Slab Cards */}
+          {/* Slab Cards */}
           <motion.div initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.8, delay: 0.3 }}
             className="flex-shrink-0 hidden lg:block relative w-[520px] h-[480px]">
-            {/* Kobe - back left */}
             <div className="absolute top-4 left-0 w-52 rounded-xl overflow-hidden transform -rotate-6 shadow-2xl shadow-black/60 border border-white/[0.08] hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 1 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/qj87a9o0_1996-topps-138-kobe-bryant-gem-mt-10-88551.webp" alt="1996 Topps Kobe Bryant PSA 10" className="w-full h-auto" />
             </div>
-            {/* Curry - front center */}
             <div className="absolute top-8 left-28 w-56 rounded-xl overflow-hidden transform rotate-3 shadow-2xl shadow-[#3b82f6]/20 border border-[#3b82f6]/20 hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 3 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/fs47xwop_curry-pas-10.webp" alt="2009 Topps Stephen Curry PSA 9" className="w-full h-auto" />
             </div>
-            {/* Brady - back right */}
             <div className="absolute top-4 right-0 w-56 rounded-xl overflow-hidden transform rotate-6 shadow-2xl shadow-black/50 border border-white/[0.06] hover:scale-105 transition-transform duration-500"
               style={{ zIndex: 2 }}>
               <img src="https://customer-assets.emergentagent.com/job_06cf1e32-7d3e-41b3-a599-d6544d83f035/artifacts/46xv0kyq_tombrady.webp" alt="2000 Bowman Tom Brady PSA 9" className="w-full h-auto" />
             </div>
-            {/* P&L badge floating */}
-            <div className="absolute bottom-4 left-4 px-4 py-2.5 rounded-xl bg-[#111]/90 border border-emerald-500/20 backdrop-blur-xl shadow-xl" style={{ zIndex: 4 }}>
+            {/* Sniper badge */}
+            <div className="absolute bottom-12 left-4 px-4 py-2.5 rounded-xl bg-[#111]/90 border border-[#f59e0b]/20 backdrop-blur-xl shadow-xl" style={{ zIndex: 4 }}>
+              <div className="flex items-center gap-2">
+                <Crosshair className="w-4 h-4 text-[#f59e0b]" />
+                <div>
+                  <p className="text-[9px] uppercase tracking-wider text-gray-500 font-medium">Snipe Armed</p>
+                  <p className="text-sm font-black text-[#f59e0b]">$73.00 max</p>
+                  <p className="text-[9px] text-gray-500">Fires in 3s</p>
+                </div>
+              </div>
+            </div>
+            {/* P&L badge */}
+            <div className="absolute bottom-4 right-4 px-4 py-2.5 rounded-xl bg-[#111]/90 border border-emerald-500/20 backdrop-blur-xl shadow-xl" style={{ zIndex: 4 }}>
               <p className="text-[9px] uppercase tracking-wider text-gray-500 font-medium">Portfolio</p>
               <p className="text-lg font-black text-emerald-400">+$1,247</p>
               <p className="text-[9px] text-emerald-400">+18.3% ROI</p>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* TRADING ACTIONS STRIP */}
+      <section id="actions" className="relative z-10 px-6 lg:px-16 py-12">
+        <div className="max-w-7xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-8">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">Trading Actions</p>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Execute Trades From One Screen</h2>
+            <p className="text-sm text-gray-500 mt-3 max-w-xl mx-auto">Stop switching between tabs. Monitor, snipe, buy, and offer — all without leaving FlipSlab.</p>
+          </motion.div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {ACTIONS.map((a, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: i * 0.06 }}
+                className="text-center p-4 rounded-xl bg-[#111] border border-white/[0.06] hover:border-white/[0.15] transition-all group"
+                data-testid={`action-${i}`}>
+                <div className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center mb-3 transition-transform group-hover:scale-110"
+                  style={{ background: `${a.color}15`, border: `1px solid ${a.color}30` }}>
+                  <a.icon className="w-5 h-5" style={{ color: a.color }} />
+                </div>
+                <p className="text-xs font-bold text-white mb-0.5">{a.label}</p>
+                <p className="text-[10px] text-gray-600 leading-relaxed">{a.desc}</p>
+              </motion.div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -141,7 +187,6 @@ const LandingPage = ({ onGetStarted }) => {
                 transition={{ delay: i * 0.1, duration: 0.5 }}
                 className={`group rounded-2xl border border-white/[0.06] bg-[#111] overflow-hidden hover:border-white/[0.15] transition-all duration-500 hover:-translate-y-1 hover:shadow-xl ${i === 0 ? 'lg:col-span-2 lg:row-span-2' : ''}`}
                 data-testid={`feature-${i}`}>
-                {/* Image */}
                 <div className={`relative overflow-hidden ${i === 0 ? 'h-64 lg:h-80' : 'h-44'}`}>
                   <img src={f.img} alt={f.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
                   <div className="absolute inset-0 bg-gradient-to-t from-[#111] via-[#111]/40 to-transparent" />
@@ -149,11 +194,42 @@ const LandingPage = ({ onGetStarted }) => {
                     <f.icon className="w-5 h-5" style={{ color: f.color }} strokeWidth={1.8} />
                   </div>
                 </div>
-                {/* Text */}
                 <div className="p-5">
                   <h3 className="text-base font-bold text-white mb-1.5 group-hover:text-[var(--accent)] transition-colors" style={{ '--accent': f.color }}>{f.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
                 </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* HOW SNIPER WORKS */}
+      <section className="relative z-10 px-6 lg:px-16 py-16">
+        <div className="max-w-5xl mx-auto">
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">How It Works</p>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Snipe in 3 Steps</h2>
+          </motion.div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {[
+              { step: '01', title: 'Find the Card', desc: 'Search the market or browse your watchlist. Filter by auctions ending soonest.', icon: BarChart3, color: '#3b82f6' },
+              { step: '02', title: 'Set Your Max', desc: 'Enter your max bid and choose when to fire — 2 to 15 seconds before the auction ends.', icon: Target, color: '#f59e0b' },
+              { step: '03', title: 'Walk Away', desc: 'FlipSlab monitors the auction and fires your bid at the exact right moment. You win or pay nothing.', icon: Zap, color: '#22c55e' },
+            ].map((s, i) => (
+              <motion.div key={i}
+                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                transition={{ delay: i * 0.15 }}
+                className="relative p-6 rounded-2xl bg-[#111] border border-white/[0.06]"
+                data-testid={`step-${i}`}>
+                <span className="text-5xl font-black text-white/[0.04] absolute top-3 right-4">{s.step}</span>
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
+                  style={{ background: `${s.color}15`, border: `1px solid ${s.color}30` }}>
+                  <s.icon className="w-6 h-6" style={{ color: s.color }} />
+                </div>
+                <h3 className="text-lg font-bold text-white mb-2">{s.title}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -166,7 +242,7 @@ const LandingPage = ({ onGetStarted }) => {
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Pick Your Plan</h2>
-            <p className="text-sm text-gray-500 mt-3">Start free. Upgrade when you're ready.</p>
+            <p className="text-sm text-gray-500 mt-3">Start free. Upgrade when you're ready to dominate.</p>
           </motion.div>
 
           <div className="grid md:grid-cols-2 gap-4 max-w-3xl mx-auto">
