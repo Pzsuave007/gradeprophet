@@ -1,7 +1,7 @@
 # FlipSlab Engine - Product Requirements Document
 
 ## Original Problem Statement
-Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features include AI-powered card identification, inventory management, eBay integration, market intelligence, portfolio tracking, and listing creation.
+Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features include AI-powered card identification, inventory management, eBay integration, market intelligence, portfolio tracking, listing creation, and auction sniping.
 
 ## Tech Stack
 - **Frontend:** React, Tailwind CSS, shadcn/ui, Recharts, Axios
@@ -45,15 +45,37 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Date Range for Sold: 7/30/60 days
 - [x] Page Size selector: 20/50/100/200
 - [x] Production deployment pipeline fixed (.htaccess corrected)
+- [x] **Auction Sniper** — Automated bid system integrated in Flip Finder
 
-## Bugs Fixed (March 14, 2026)
-- [x] Listings page blank (API response format mismatch: `listings` → `active`)
-- [x] Flip Finder blank (object vs array response)
-- [x] Low-res images (s-l140 → s-l800)
-- [x] Sold listings empty (added SoldList to API + Browse API image fallback)
-- [x] **Production deployment** — .htaccess was proxying to port 3000 instead of serving static files
+## Auction Sniper (March 15, 2026)
+- [x] Backend: eBay item details via Browse API (get_ebay_item_details)
+- [x] Backend: PlaceOffer via Trading API (place_ebay_bid)
+- [x] Backend: CRUD endpoints for snipe tasks (create, list, cancel, refresh, check-item, stats)
+- [x] Backend: Background sniper engine (auto-monitors and fires bids at precise time)
+- [x] Frontend: Sniper tab in Flip Finder with full UI (stats, form, list, countdown timers)
+- [x] Frontend: "Snipe" button on auction listings in Monitor tab
+- [x] Frontend: Pre-fill snipe form from Monitor listings
+- [x] Validation: only auctions, max_bid > 0, 2-30 seconds timing
+- [x] Repo cleanup: removed temporary debug scripts
+
+## Key API Endpoints - Sniper
+- `POST /api/snipes` - Create snipe task
+- `GET /api/snipes` - List all snipe tasks
+- `DELETE /api/snipes/{id}` - Cancel active snipe
+- `POST /api/snipes/{id}/refresh` - Refresh item details
+- `POST /api/snipes/check-item` - Validate eBay item before sniping
+- `GET /api/snipes-stats` - Get snipe statistics
 
 ## Next Tasks
-- P1: Auto-Refresh Portfolio Value
-- P2: Build Flip Finder Core Logic
-- P3: Commercialize with Stripe
+- P1: Whatnot API Integration (waiting for API access approval)
+- P1: Inventory Sync Engine (cross-listing eBay + Whatnot with auto-delist)
+- P2: Auto-Refresh Portfolio Value
+- P2: Build Flip Finder Core Logic (profitable flip detection)
+- P3: Commercialize with Stripe (Pro plan)
+
+## 3rd Party Integrations
+- **eBay API** (Trading + Browse API) — Listings, OAuth, market data, PlaceOffer (sniping)
+- **OpenAI GPT-4o** — User-provided API key for AI features
+- **Jina Reader API** — Fallback for market data scraping
+- **Emergent Google Auth** — "Continue with Google" functionality
+- **Whatnot Seller API** — PENDING (applied for access via sellerapi@whatnot.com)
