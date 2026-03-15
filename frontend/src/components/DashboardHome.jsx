@@ -407,44 +407,58 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
         ))}
       </div>
 
-      {/* #2 — ACTIVE SNIPES + BEST SALE / RECORD / QUICK NAV */}
+      {/* #2 — ACTIVE SNIPES as visual cards + RIGHT COLUMN */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="active-snipes-panel">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
-            <div className="flex items-center gap-2">
-              <Crosshair className="w-4 h-4 text-red-400" />
-              <h2 className="text-sm font-bold text-white">Active Snipes</h2>
-              {activeSnipes.length > 0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-500/20 text-red-400 font-bold">{activeSnipes.length}</span>}
-            </div>
-            <button onClick={() => onNavigate?.('flipfinder')} className="text-[10px] text-[#3b82f6] hover:text-[#60a5fa] font-bold uppercase tracking-wider flex items-center gap-1" data-testid="goto-sniper">
-              Sniper <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
+          className="lg:col-span-2" data-testid="active-snipes-panel">
+          <SectionHeader icon={Crosshair} color="text-red-400" title="Active Alerts" count={activeSnipes.length}
+            action={{ label: 'Sniper', onClick: () => onNavigate?.('flipfinder') }} />
           {activeSnipes.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 divide-[#1a1a1a]">
-              {activeSnipes.map((snipe, i) => (
-                <div key={snipe.id} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors border-b border-[#0f0f0f] last:border-0 cursor-pointer" onClick={() => onNavigate?.('flipfinder')} data-testid={`snipe-row-${i}`}>
-                  {snipe.item_image_url && <img src={snipe.item_image_url} alt="" className="w-12 h-12 rounded-lg object-cover bg-[#0a0a0a] flex-shrink-0" />}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-medium text-white truncate">{snipe.item_title}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[9px] text-gray-500">Max: {fmt(snipe.max_bid)}</span>
-                      <span className="text-[9px] text-gray-600">Now: {fmt(snipe.current_price)}</span>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {activeSnipes.map((snipe, i) => {
+                const itemId = snipe.ebay_item_id?.split('|')[1] || snipe.ebay_item_id;
+                const ebayUrl = `https://www.ebay.com/itm/${itemId}`;
+                return (
+                  <div key={snipe.id}
+                    className="group relative bg-gradient-to-br from-red-600/10 via-[#111] to-[#0a0a0a] border border-red-500/15 rounded-xl overflow-hidden hover:border-red-500/30 transition-all"
+                    data-testid={`snipe-card-${i}`}>
+                    {/* Image */}
+                    <div className="relative aspect-square bg-[#0a0a0a] overflow-hidden">
+                      {snipe.item_image_url ? (
+                        <img src={snipe.item_image_url} alt="" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center"><Crosshair className="w-8 h-8 text-gray-800" /></div>
+                      )}
+                      {/* Price overlay */}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2.5 pt-8">
+                        <div className="flex items-center justify-between">
+                          <p className="text-base font-black text-white">{fmt(snipe.current_price)}</p>
+                          <LiveCountdown endTime={snipe.auction_end_time} />
+                        </div>
+                      </div>
+                      {/* Status badge */}
+                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider bg-red-500/90 text-white">
+                        Armed
+                      </div>
+                    </div>
+                    {/* Info + Actions */}
+                    <div className="p-2.5 space-y-2">
+                      <p className="text-[10px] font-medium text-white truncate">{snipe.item_title}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] text-gray-500">Max: <span className="text-emerald-400 font-bold">{fmt(snipe.max_bid)}</span></span>
+                        <a href={ebayUrl} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-[#3b82f6] hover:bg-[#2563eb] text-white text-[9px] font-bold transition-colors"
+                          data-testid={`snipe-ebay-btn-${i}`}>
+                          <ExternalLink className="w-2.5 h-2.5" /> eBay
+                        </a>
+                      </div>
                     </div>
                   </div>
-                  <LiveCountdown endTime={snipe.auction_end_time} />
-                </div>
-              ))}
+                );
+              })}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 gap-2">
-              <Crosshair className="w-5 h-5 text-gray-700" />
-              <p className="text-[11px] text-gray-600">No active snipes</p>
-              <button onClick={() => onNavigate?.('flipfinder')} className="text-[10px] text-[#3b82f6] hover:underline font-semibold" data-testid="goto-sniper-empty">
-                Arm a snipe in Flip Finder
-              </button>
-            </div>
+            <EmptyGrid message="No active alerts" cta="Arm an alert in Flip Finder" onAction={() => onNavigate?.('flipfinder')} icon={Crosshair} />
           )}
         </motion.div>
 
