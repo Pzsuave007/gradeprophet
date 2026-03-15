@@ -275,7 +275,7 @@ async def get_listings(
     status: Optional[str] = None,
     listing_type: Optional[str] = None,
     skip: int = 0,
-    limit: int = 20
+    limit: int = 100
 ):
     """Get eBay listings"""
     user = await get_current_user(request)
@@ -293,7 +293,20 @@ async def get_listings(
             query["listing_type"] = listing_type
 
     total = await db.ebay_listings.count_documents(query)
-    listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).skip(skip).limit(limit).to_list(limit)
+    # Sort auctions by ending soonest (time_left ascending, nulls last)
+    if listing_type in ("auction", "offers"):
+        pipeline = [
+            {"$match": query},
+            {"$project": {"_id": 0}},
+            {"$addFields": {"_has_time": {"$cond": [{"$ifNull": ["$time_left", False]}, 0, 1]}}},
+            {"$sort": {"_has_time": 1, "time_left": 1}},
+            {"$project": {"_has_time": 0}},
+            {"$skip": skip},
+            {"$limit": limit},
+        ]
+        listings = await db.ebay_listings.aggregate(pipeline).to_list(limit)
+    else:
+        listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).skip(skip).limit(limit).to_list(limit)
     return {"total": total, "listings": listings}
 
 
