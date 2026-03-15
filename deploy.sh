@@ -14,13 +14,13 @@ cd "$REPO"
 git pull origin main
 echo "  OK"
 
-# 2. Build frontend (limpiando node_modules para evitar errores de ajv)
+# 2. Build frontend
 echo ""
 echo "[2/5] Build frontend..."
 cd "$REPO/frontend"
 rm -rf node_modules/.cache
-npm install --legacy-peer-deps
-npm install ajv@8 --legacy-peer-deps
+npm install --legacy-peer-deps 2>/dev/null
+npm install ajv@8 --legacy-peer-deps 2>/dev/null
 REACT_APP_BACKEND_URL=https://flipslabengine.com npx craco build
 if [ $? -ne 0 ]; then
   echo "  ERROR: Build falló."

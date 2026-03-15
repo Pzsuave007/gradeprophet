@@ -7,7 +7,7 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - **Frontend:** React, Tailwind CSS, shadcn/ui, Recharts, Axios, Framer Motion
 - **Backend:** FastAPI (modular routers), MongoDB, OpenAI SDK (GPT-4o), feedparser
 - **Auth:** JWT with httpOnly cookies (local), Emergent Google OAuth
-- **Deployment:** git pull -> bash fix.sh (copies to /home/flipcardsuni2/public_html/)
+- **Deployment:** git pull -> bash deploy.sh
 
 ## Production Server Setup
 - **Apache** with cPanel on `flipslabengine.com` (132.148.78.187)
@@ -15,7 +15,6 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - **Git repo:** `/home/gradeprophet/`
 - **Backend:** `/opt/gradeprophet/backend/` (uvicorn port 8001)
 - **.htaccess:** Proxies `/api` -> port 8001, serves static files from public_html
-- **IMPORTANT:** `.htaccess` must NOT proxy to port 3000.
 
 ## What's Been Implemented
 - [x] Landing page with auth (Email/Password + Google OAuth)
@@ -36,38 +35,44 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - [x] Image processing pipeline
 - [x] Backend refactored to modular routers
 - [x] Sold Listings tab with hi-res images, buyer info, sold dates
-- [x] Hi-res listing images (s-l800/s-l1600)
-- [x] Sorting: Newest/Oldest Listed, Price H/L, Watchers, Time Left, Title
-- [x] Date Range for Sold: 7/30/60 days
-- [x] Page Size selector: 20/50/100/200
-- [x] Production deployment pipeline fixed (.htaccess corrected)
-- [x] **Auction Alert System** - Notifies user 1 min before auction ends, opens eBay for manual bidding
+- [x] Auction Alert System - Notifies user 1 min before auction ends
 - [x] Monitor Filters - Filter by All Types / Auctions / Buy Now / Best Offer
-- [x] Buy Now Action - Buy BIN listings with modal + eBay redirect fallback
-- [x] Make Offer Action - Send offers with modal + message field
-- [x] Contextual Action Buttons - Alert on auctions, Buy on BIN, Offer on Best Offer
-- [x] **Global Terminology Refactor** - All "Snipe/Sniper" renamed to "Auction Alert/Alerts" across entire app (Mar 15, 2026)
-- [x] Landing page updated: "SCAN. ALERT. PROFIT." hero, updated features/pricing/how-it-works
+- [x] Buy Now Action, Make Offer Action, Contextual Action Buttons
+- [x] Global Terminology Refactor - "Snipe/Sniper" -> "Auction Alert/Alerts" (Mar 15, 2026)
+- [x] **Onboarding Wizard** - 4-step setup for new users (Mar 15, 2026):
+  - Step 1: Welcome with branding
+  - Step 2: Select sports/categories (8 options)
+  - Step 3: Raw/Graded/Both preference
+  - Step 4: Add card searches (with smart suggestions per sport)
+  - Auto-creates watchlist searches so dashboard is populated from day one
+  - Skip option available
 
 ## Key API Endpoints
+### Auth
+- `POST /api/auth/register` - Returns `onboarding_completed: false`
+- `POST /api/auth/login` - Returns `onboarding_completed` status
+- `GET /api/auth/me` - Returns user + `onboarding_completed`
+
+### Onboarding
+- `GET /api/onboarding/status` - Check onboarding status
+- `POST /api/onboarding/complete` - Save preferences + create watchlist searches
+- `POST /api/onboarding/skip` - Skip onboarding
+
 ### Dashboard
 - `GET /api/dashboard/command-center` - Aggregated command center data
 - `GET /api/dashboard/analytics` - Full sales/inventory/listings analytics
 - `GET /api/dashboard/hobby-news` - Hobby news RSS feed
 
-### Auction Alerts (API paths use /snipes for backward compat)
+### Auction Alerts
 - `POST /api/snipes` - Create auction alert
 - `GET /api/snipes` - List all alerts
-- `DELETE /api/snipes/{id}` - Cancel active alert
-- `POST /api/snipes/{id}/refresh` - Refresh item details
-- `POST /api/snipes/check-item` - Validate eBay item
-- `GET /api/snipes-stats` - Get alert statistics
+- `DELETE /api/snipes/{id}` - Cancel alert
 - `GET /api/snipes/firing` - Get triggered alerts
 - `POST /api/snipes/{id}/ack` - Acknowledge alert
 
 ## Known Limitations
-- **eBay automated bidding is prohibited** by eBay API policy. The Auction Alert system notifies users and opens eBay for manual bidding.
-- **eBay Buy Now/Make Offer APIs** require special app approval. Currently falls back to eBay redirect.
+- **eBay automated bidding is prohibited** by eBay API policy
+- **eBay Buy Now/Make Offer APIs** require special app approval
 
 ## Next Tasks
 - P1: Whatnot API Integration (waiting for API access approval)
@@ -77,9 +82,28 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - P3: Commercialize with Stripe (Pro plan)
 
 ## 3rd Party Integrations
-- **eBay API** (Trading + Browse API) - Listings, OAuth, market data
-- **OpenAI GPT-4o** - User-provided API key for AI features
-- **Jina Reader API** - Fallback for market data scraping
-- **Emergent Google Auth** - "Continue with Google" functionality
-- **RSS Feeds (feedparser)** - Hobby Pulse news feed
-- **Whatnot Seller API** - PENDING (applied for access)
+- **eBay API** (Trading + Browse API)
+- **OpenAI GPT-4o** - User-provided API key
+- **Jina Reader API** - Fallback for market data
+- **Emergent Google Auth** - Google OAuth
+- **RSS Feeds (feedparser)** - Hobby Pulse news
+- **Whatnot Seller API** - PENDING
+
+## Code Architecture
+```
+backend/routers/
+  auth.py          - Auth (register/login/session/me) + onboarding_completed field
+  onboarding.py    - NEW: Onboarding status/complete/skip endpoints
+  flipfinder.py    - Monitor, watchlist, alerts
+  dashboard.py     - Command center, analytics, hobby news
+  ...
+
+frontend/src/components/
+  OnboardingWizard.jsx  - NEW: 4-step onboarding wizard
+  LandingPage.jsx       - Updated marketing (alert terminology)
+  DashboardHome.jsx     - Command Center
+  AuctionSniper.jsx     - Auction Alert system
+  ...
+
+frontend/src/App.js    - Routes: landing -> auth -> onboarding -> dashboard
+```
