@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, History, Brain, ShoppingBag, ChevronLeft } from 'lucide-react';
+import { Scan, History, Brain, ShoppingBag, ChevronLeft, Crosshair } from 'lucide-react';
 import CardScanner from './CardScanner';
 import AnalysisResult from './AnalysisResult';
 import HistoryPanel from './HistoryPanel';
 import LearningPanel from './LearningPanel';
 import EbayMonitor from './EbayMonitor';
+import AuctionSniper from './AuctionSniper';
 import { Button } from './ui/button';
 
 const FlipFinder = () => {
@@ -17,6 +18,7 @@ const FlipFinder = () => {
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const [subTab, setSubTab] = useState('monitor');
   const [ebayUrlToImport, setEbayUrlToImport] = useState(null);
+  const [snipeUrl, setSnipeUrl] = useState(null);
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
@@ -50,8 +52,14 @@ const FlipFinder = () => {
 
   const handleEbayImportComplete = useCallback(() => { setEbayUrlToImport(null); }, []);
 
+  const handleSnipeFromMonitor = useCallback((listing) => {
+    setSnipeUrl(listing.listing_url || listing.item_url);
+    setSubTab('sniper');
+  }, []);
+
   const subTabs = [
     { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
+    { id: 'sniper', label: 'Sniper', icon: Crosshair },
     { id: 'scanner', label: 'Analyze', icon: Scan },
     { id: 'history', label: 'History', icon: History },
     { id: 'learning', label: 'AI', icon: Brain },
@@ -91,7 +99,13 @@ const FlipFinder = () => {
 
         {subTab === 'monitor' && (
           <motion.div key="monitor" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} />
+            <EbayMonitor onAnalyzeCard={handleAnalyzeFromEbay} onSnipeCard={handleSnipeFromMonitor} />
+          </motion.div>
+        )}
+
+        {subTab === 'sniper' && (
+          <motion.div key="sniper" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+            <AuctionSniper prefillUrl={snipeUrl} />
           </motion.div>
         )}
 

@@ -39,7 +39,7 @@ from routers.portfolio import router as portfolio_router
 from routers.alerts import router as alerts_router
 from routers.dashboard import router as dashboard_router
 from routers.ebay import router as ebay_router
-from routers.flipfinder import router as flipfinder_router
+from routers.flipfinder import router as flipfinder_router, sniper_background_loop
 from routers.settings import router as settings_router
 
 # Create parent API router
@@ -180,12 +180,16 @@ async def download_frontend():
 app.include_router(api_router)
 
 
+import asyncio
+
 # Startup/Shutdown events
 @app.on_event("startup")
 async def startup_db_client():
     logger.info("FlipSlab Engine API starting up...")
     collections = await db.list_collection_names()
     logger.info(f"Connected to MongoDB. Collections: {collections}")
+    asyncio.create_task(sniper_background_loop())
+    logger.info("Sniper background engine launched")
 
 
 @app.on_event("shutdown")

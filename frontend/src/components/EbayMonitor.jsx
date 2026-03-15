@@ -13,7 +13,7 @@ import { ViewToggle } from './ViewToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const EbayMonitor = ({ onAnalyzeCard }) => {
+const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
   const apiBase = `${API}/api`;
   const [watchlist, setWatchlist] = useState([]);
   const [newCardQuery, setNewCardQuery] = useState('');
@@ -263,6 +263,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                                   {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
                                     className="text-[10px] bg-[#22c55e]/10 text-[#22c55e] px-2 py-1 rounded hover:bg-[#22c55e]/20 inline-flex items-center gap-0.5" data-testid={`analyze-listing-${listing.id}`}>
                                     <Search className="w-2.5 h-2.5" />Analyze</button>}
+                                  {onSnipeCard && listing.listing_type === 'auction' && <button onClick={() => onSnipeCard(listing)}
+                                    className="text-[10px] bg-[#f59e0b]/10 text-[#f59e0b] px-2 py-1 rounded hover:bg-[#f59e0b]/20 inline-flex items-center gap-0.5" data-testid={`snipe-listing-${listing.id}`}>
+                                    <Gavel className="w-2.5 h-2.5" />Snipe</button>}
                                   <button onClick={() => handleDeleteListing(listing.id)}
                                     className="text-[10px] bg-red-500/10 text-red-500 px-2 py-1 rounded hover:bg-red-500/20 inline-flex items-center gap-0.5" data-testid={`delete-listing-${listing.id}`}>
                                     <Trash2 className="w-2.5 h-2.5" />Delete</button>
@@ -306,6 +309,9 @@ const EbayMonitor = ({ onAnalyzeCard }) => {
                                 {onAnalyzeCard && <button onClick={() => onAnalyzeCard(listing)}
                                   className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#22c55e]" data-testid={`analyze-listing-${listing.id}`}>
                                   <Search className="w-3.5 h-3.5" /></button>}
+                                {onSnipeCard && listing.listing_type === 'auction' && <button onClick={() => onSnipeCard(listing)}
+                                  className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-[#f59e0b]" data-testid={`snipe-listing-${listing.id}`}>
+                                  <Gavel className="w-3.5 h-3.5" /></button>}
                                 <button onClick={() => handleDeleteListing(listing.id)}
                                   className="p-1.5 rounded hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-listing-${listing.id}`}>
                                   <Trash2 className="w-3.5 h-3.5" /></button>

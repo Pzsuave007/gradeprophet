@@ -387,3 +387,131 @@ def suggest_image_type(index: int, total: int) -> str:
 
 # Import datetime for token functions
 from datetime import datetime, timezone
+
+
+async def get_ebay_item_details(item_id: str) -> dict:
+    """Get auction item details from eBay Browse API"""
+    try:
+        token = await get_ebay_app_token()
+        # Normalize item ID - Browse API uses v1|xxx|0 format
+        numeric_id = item_id.split("|")[1] if "|" in item_id else item_id
+        browse_id = f"v1|{numeric_id}|0"
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"https://api.ebay.com/buy/browse/v1/item/{browse_id}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                }
+            )
+            if resp.status_code != 200:
+                logger.warning(f"Browse API item details failed: {resp.status_code}")
+                return None
+
+            data = resp.json()
+            buying_options = data.get("buyingOptions", [])
+            is_auction = "AUCTION" in buying_options
+
+            # Get price info
+            current_price = 0.0
+            if data.get("currentBidPrice"):
+                current_price = float(data["currentBidPrice"].get("value", 0))
+            elif data.get("price"):
+                current_price = float(data["price"].get("value", 0))
+
+            min_to_bid = 0.0
+            if data.get("minimumPriceToBid"):
+                min_to_bid = float(data["minimumPriceToBid"].get("value", 0))
+
+            image_url = data.get("image", {}).get("imageUrl", "")
+            if image_url:
+                image_url = re.sub(r'/s-l\d+\.', '/s-l500.', image_url)
+
+            return {
+                "item_id": numeric_id,
+                "title": data.get("title", ""),
+                "current_price": current_price,
+                "minimum_to_bid": min_to_bid,
+                "bid_count": data.get("bidCount", 0),
+                "auction_end_time": data.get("itemEndDate", ""),
+                "image_url": image_url,
+                "item_url": data.get("itemWebUrl", ""),
+                "buying_options": buying_options,
+                "is_auction": is_auction,
+                "seller": data.get("seller", {}).get("username", ""),
+                "condition": data.get("condition", ""),
+            }
+    except Exception as e:
+        logger.error(f"get_ebay_item_details error: {e}")
+        return None
+
+
+async def place_ebay_bid(item_id: str, max_bid: float) -> dict:
+    """Place a bid on an eBay auction using Trading API PlaceOffer"""
+    try:
+        token = await get_ebay_user_token()
+        if not token:
+            return {"success": False, "error": "eBay not connected. Link your eBay account first."}
+
+        numeric_id = item_id.split("|")[1] if "|" in item_id else item_id
+
+        xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<PlaceOfferRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials>
+    <eBayAuthToken>{token}</eBayAuthToken>
+  </RequesterCredentials>
+  <ItemID>{numeric_id}</ItemID>
+  <Offer>
+    <Action>Bid</Action>
+    <MaxBid currencyID="USD">{max_bid:.2f}</MaxBid>
+    <Quantity>1</Quantity>
+  </Offer>
+</PlaceOfferRequest>"""
+
+        api_headers = {
+            "X-EBAY-API-SITEID": "0",
+            "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "PlaceOffer",
+            "X-EBAY-API-APP-NAME": EBAY_CLIENT_ID,
+            "Content-Type": "text/xml",
+        }
+
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                "https://api.ebay.com/ws/api.dll",
+                content=xml_body,
+                headers=api_headers
+            )
+            xml_text = resp.text
+
+        ack_match = re.search(r'<Ack>(\w+)</Ack>', xml_text)
+        ack = ack_match.group(1) if ack_match else "Unknown"
+
+        if ack in ("Success", "Warning"):
+            logger.info(f"Bid placed on {numeric_id}: ${max_bid:.2f}")
+            return {"success": True, "ack": ack}
+        else:
+            error_match = re.search(r'<ShortMessage>([^<]+)</ShortMessage>', xml_text)
+            long_match = re.search(r'<LongMessage>([^<]+)</LongMessage>', xml_text)
+            error_msg = long_match.group(1) if long_match else (error_match.group(1) if error_match else "Unknown error")
+            logger.warning(f"Bid failed on {numeric_id}: {error_msg}")
+            return {"success": False, "error": error_msg, "ack": ack}
+    except Exception as e:
+        logger.error(f"place_ebay_bid error: {e}")
+        return {"success": False, "error": str(e)}
+
+
+def extract_ebay_item_id(url_or_id: str) -> str:
+    """Extract numeric eBay item ID from URL or ID string"""
+    if url_or_id.isdigit():
+        return url_or_id
+    if "|" in url_or_id:
+        return url_or_id.split("|")[1]
+    m = re.search(r'/itm/(?:[^/]+/)?(\d+)', url_or_id)
+    if m:
+        return m.group(1)
+    m = re.search(r'(\d{10,15})', url_or_id)
+    if m:
+        return m.group(1)
+    return url_or_id

@@ -1,13 +1,17 @@
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
+import asyncio
 import logging
 import httpx
 from database import db
 from utils.auth import get_current_user
-from utils.ebay import get_ebay_app_token, get_ebay_user_token, ebay_browse_search
+from utils.ebay import (
+    get_ebay_app_token, get_ebay_user_token, ebay_browse_search,
+    get_ebay_item_details, place_ebay_bid, extract_ebay_item_id
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["flipfinder"])
@@ -244,7 +248,7 @@ async def get_listings(
 
     total = await db.ebay_listings.count_documents(query)
     listings = await db.ebay_listings.find(query, {"_id": 0}).sort("found_at", -1).skip(skip).limit(limit).to_list(limit)
-    return listings
+    return {"total": total, "listings": listings}
 
 
 @router.put("/listings/{listing_id}/status")
@@ -314,3 +318,364 @@ async def test_ebay_connection():
         }
     except Exception as e:
         return {"status": "error", "error": str(e)}
+
+
+# ---- Snipe Models ----
+
+class SnipeTaskCreate(BaseModel):
+    ebay_url_or_id: str
+    max_bid: float
+    snipe_seconds_before: int = 3
+
+class SnipeTaskResponse(BaseModel):
+    id: str
+    user_id: str
+    ebay_item_id: str
+    item_title: str
+    item_image_url: str
+    item_url: str
+    current_price: float
+    minimum_to_bid: float
+    bid_count: int
+    max_bid: float
+    snipe_seconds_before: int
+    auction_end_time: str
+    status: str
+    result_message: Optional[str] = None
+    bid_placed_at: Optional[str] = None
+    created_at: str
+    updated_at: str
+
+
+# ---- Snipe Routes ----
+
+@router.post("/snipes")
+async def create_snipe(data: SnipeTaskCreate, request: Request):
+    """Create an auction snipe task"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    # Validate max bid
+    if data.max_bid <= 0:
+        raise HTTPException(status_code=400, detail="Max bid must be greater than 0")
+    if data.snipe_seconds_before < 2 or data.snipe_seconds_before > 30:
+        raise HTTPException(status_code=400, detail="Snipe timing must be between 2-30 seconds")
+
+    # Extract item ID
+    item_id = extract_ebay_item_id(data.ebay_url_or_id)
+    if not item_id:
+        raise HTTPException(status_code=400, detail="Could not extract eBay item ID from input")
+
+    # Check eBay connection
+    token = await get_ebay_user_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="eBay account not connected. Link your eBay account first.")
+
+    # Get item details
+    details = await get_ebay_item_details(item_id)
+    if not details:
+        raise HTTPException(status_code=400, detail="Could not fetch item details from eBay. Check the URL/ID.")
+
+    if not details["is_auction"]:
+        raise HTTPException(status_code=400, detail="This item is not an auction. Sniping only works on auction listings.")
+
+    if not details["auction_end_time"]:
+        raise HTTPException(status_code=400, detail="Could not determine auction end time.")
+
+    # Check if auction has ended
+    end_time = datetime.fromisoformat(details["auction_end_time"].replace("Z", "+00:00"))
+    now = datetime.now(timezone.utc)
+    if end_time <= now:
+        raise HTTPException(status_code=400, detail="This auction has already ended.")
+
+    # Check for duplicate
+    existing = await db.snipe_tasks.find_one({
+        "user_id": user_id,
+        "ebay_item_id": item_id,
+        "status": {"$in": ["scheduled", "monitoring"]}
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have an active snipe for this item.")
+
+    snipe = {
+        "id": str(uuid.uuid4()),
+        "user_id": user_id,
+        "ebay_item_id": item_id,
+        "item_title": details["title"],
+        "item_image_url": details["image_url"],
+        "item_url": details["item_url"],
+        "current_price": details["current_price"],
+        "minimum_to_bid": details["minimum_to_bid"],
+        "bid_count": details["bid_count"],
+        "max_bid": data.max_bid,
+        "snipe_seconds_before": data.snipe_seconds_before,
+        "auction_end_time": details["auction_end_time"],
+        "status": "scheduled",
+        "result_message": None,
+        "bid_placed_at": None,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+
+    await db.snipe_tasks.insert_one(snipe)
+    snipe.pop("_id", None)
+    return snipe
+
+
+@router.get("/snipes")
+async def get_snipes(request: Request):
+    """Get all snipe tasks for the user"""
+    user = await get_current_user(request)
+    snipes = await db.snipe_tasks.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(100)
+    return snipes
+
+
+@router.get("/snipes/{snipe_id}")
+async def get_snipe(snipe_id: str, request: Request):
+    """Get a specific snipe task"""
+    user = await get_current_user(request)
+    snipe = await db.snipe_tasks.find_one(
+        {"id": snipe_id, "user_id": user["user_id"]},
+        {"_id": 0}
+    )
+    if not snipe:
+        raise HTTPException(status_code=404, detail="Snipe not found")
+    return snipe
+
+
+@router.delete("/snipes/{snipe_id}")
+async def cancel_snipe(snipe_id: str, request: Request):
+    """Cancel a snipe task"""
+    user = await get_current_user(request)
+    result = await db.snipe_tasks.update_one(
+        {"id": snipe_id, "user_id": user["user_id"], "status": {"$in": ["scheduled", "monitoring"]}},
+        {"$set": {"status": "cancelled", "updated_at": datetime.now(timezone.utc).isoformat()}}
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Active snipe not found")
+    return {"message": "Snipe cancelled"}
+
+
+@router.post("/snipes/{snipe_id}/refresh")
+async def refresh_snipe(snipe_id: str, request: Request):
+    """Refresh item details for a snipe"""
+    user = await get_current_user(request)
+    snipe = await db.snipe_tasks.find_one(
+        {"id": snipe_id, "user_id": user["user_id"]},
+        {"_id": 0}
+    )
+    if not snipe:
+        raise HTTPException(status_code=404, detail="Snipe not found")
+
+    details = await get_ebay_item_details(snipe["ebay_item_id"])
+    if not details:
+        raise HTTPException(status_code=500, detail="Could not refresh item details")
+
+    updates = {
+        "current_price": details["current_price"],
+        "minimum_to_bid": details["minimum_to_bid"],
+        "bid_count": details["bid_count"],
+        "auction_end_time": details["auction_end_time"],
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.snipe_tasks.update_one({"id": snipe_id}, {"$set": updates})
+
+    snipe.update(updates)
+    return snipe
+
+
+@router.get("/snipes-stats")
+async def get_snipe_stats(request: Request):
+    """Get snipe statistics"""
+    user = await get_current_user(request)
+    uq = {"user_id": user["user_id"]}
+    active = await db.snipe_tasks.count_documents({**uq, "status": {"$in": ["scheduled", "monitoring"]}})
+    won = await db.snipe_tasks.count_documents({**uq, "status": "won"})
+    lost = await db.snipe_tasks.count_documents({**uq, "status": {"$in": ["lost", "outbid"]}})
+    total = await db.snipe_tasks.count_documents(uq)
+    return {"active": active, "won": won, "lost": lost, "total": total}
+
+
+@router.post("/snipes/check-item")
+async def check_item_for_snipe(request: Request):
+    """Check an eBay item before creating a snipe"""
+    await get_current_user(request)
+    body = await request.json()
+    url_or_id = body.get("ebay_url_or_id", "")
+
+    item_id = extract_ebay_item_id(url_or_id)
+    if not item_id:
+        raise HTTPException(status_code=400, detail="Could not extract eBay item ID")
+
+    details = await get_ebay_item_details(item_id)
+    if not details:
+        raise HTTPException(status_code=400, detail="Could not fetch item details")
+
+    return details
+
+
+# ---- Sniper Background Engine ----
+
+_spawned_snipe_ids = set()
+
+
+async def sniper_background_loop():
+    """Background loop that monitors and executes snipe tasks"""
+    logger.info("Sniper background engine started")
+    while True:
+        try:
+            now = datetime.now(timezone.utc)
+            active_snipes = await db.snipe_tasks.find(
+                {"status": {"$in": ["scheduled", "monitoring"]}},
+                {"_id": 0}
+            ).to_list(200)
+
+            for snipe in active_snipes:
+                snipe_id = snipe["id"]
+
+                # Skip already spawned
+                if snipe_id in _spawned_snipe_ids:
+                    continue
+
+                try:
+                    end_str = snipe.get("auction_end_time", "")
+                    if not end_str:
+                        continue
+                    end_time = datetime.fromisoformat(end_str.replace("Z", "+00:00"))
+                except (ValueError, TypeError):
+                    continue
+
+                fire_time = end_time - timedelta(seconds=snipe.get("snipe_seconds_before", 3))
+                seconds_until_fire = (fire_time - now).total_seconds()
+
+                # Auction already ended - mark as missed
+                if (end_time - now).total_seconds() < -60:
+                    await db.snipe_tasks.update_one(
+                        {"id": snipe_id},
+                        {"$set": {"status": "missed", "result_message": "Auction ended before snipe fired", "updated_at": now.isoformat()}}
+                    )
+                    continue
+
+                # Within 90 seconds of fire time - spawn precise task
+                if seconds_until_fire <= 90:
+                    _spawned_snipe_ids.add(snipe_id)
+                    asyncio.create_task(_execute_snipe_task(snipe, fire_time))
+                    logger.info(f"Snipe {snipe_id} spawned - fires in {seconds_until_fire:.0f}s")
+
+                # Within 5 minutes - update to monitoring
+                elif seconds_until_fire <= 300:
+                    if snipe["status"] != "monitoring":
+                        await db.snipe_tasks.update_one(
+                            {"id": snipe_id},
+                            {"$set": {"status": "monitoring", "updated_at": now.isoformat()}}
+                        )
+
+        except Exception as e:
+            logger.error(f"Sniper loop error: {e}")
+
+        await asyncio.sleep(10)
+
+
+async def _execute_snipe_task(snipe: dict, fire_time: datetime):
+    """Execute a snipe at the precise time"""
+    snipe_id = snipe["id"]
+    try:
+        now = datetime.now(timezone.utc)
+        wait_seconds = (fire_time - now).total_seconds()
+
+        if wait_seconds > 0:
+            logger.info(f"Snipe {snipe_id}: waiting {wait_seconds:.1f}s before bidding")
+            await db.snipe_tasks.update_one(
+                {"id": snipe_id},
+                {"$set": {"status": "monitoring", "updated_at": now.isoformat()}}
+            )
+            await asyncio.sleep(max(0, wait_seconds - 5))
+
+            # Final refresh 5 seconds before
+            details = await get_ebay_item_details(snipe["ebay_item_id"])
+            if details:
+                await db.snipe_tasks.update_one(
+                    {"id": snipe_id},
+                    {"$set": {
+                        "current_price": details["current_price"],
+                        "bid_count": details["bid_count"],
+                        "updated_at": datetime.now(timezone.utc).isoformat()
+                    }}
+                )
+                if details["current_price"] > snipe["max_bid"]:
+                    await db.snipe_tasks.update_one(
+                        {"id": snipe_id},
+                        {"$set": {
+                            "status": "skipped",
+                            "result_message": f"Price ${details['current_price']:.2f} exceeds max bid ${snipe['max_bid']:.2f}",
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+                    _spawned_snipe_ids.discard(snipe_id)
+                    return
+
+            # Wait remaining time
+            remaining = (fire_time - datetime.now(timezone.utc)).total_seconds()
+            if remaining > 0:
+                await asyncio.sleep(remaining)
+
+        # FIRE THE BID
+        logger.info(f"Snipe {snipe_id}: FIRING BID ${snipe['max_bid']:.2f} on item {snipe['ebay_item_id']}")
+        await db.snipe_tasks.update_one(
+            {"id": snipe_id},
+            {"$set": {"status": "bidding", "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+
+        result = await place_ebay_bid(snipe["ebay_item_id"], snipe["max_bid"])
+        bid_time = datetime.now(timezone.utc).isoformat()
+
+        if result["success"]:
+            await db.snipe_tasks.update_one(
+                {"id": snipe_id},
+                {"$set": {
+                    "status": "bid_placed",
+                    "bid_placed_at": bid_time,
+                    "result_message": "Bid placed successfully! Waiting for auction to end.",
+                    "updated_at": bid_time
+                }}
+            )
+            logger.info(f"Snipe {snipe_id}: bid placed successfully")
+
+            # Wait for auction to end + check result
+            await asyncio.sleep(30)
+            details = await get_ebay_item_details(snipe["ebay_item_id"])
+            if details:
+                end_time = datetime.fromisoformat(details["auction_end_time"].replace("Z", "+00:00"))
+                if datetime.now(timezone.utc) > end_time:
+                    await db.snipe_tasks.update_one(
+                        {"id": snipe_id},
+                        {"$set": {
+                            "status": "won" if details["current_price"] <= snipe["max_bid"] else "outbid",
+                            "current_price": details["current_price"],
+                            "bid_count": details["bid_count"],
+                            "result_message": f"Final price: ${details['current_price']:.2f}",
+                            "updated_at": datetime.now(timezone.utc).isoformat()
+                        }}
+                    )
+        else:
+            await db.snipe_tasks.update_one(
+                {"id": snipe_id},
+                {"$set": {
+                    "status": "error",
+                    "result_message": result.get("error", "Bid failed"),
+                    "updated_at": bid_time
+                }}
+            )
+            logger.warning(f"Snipe {snipe_id}: bid failed - {result.get('error')}")
+
+    except Exception as e:
+        logger.error(f"Snipe {snipe_id} execution error: {e}")
+        await db.snipe_tasks.update_one(
+            {"id": snipe_id},
+            {"$set": {"status": "error", "result_message": str(e), "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    finally:
+        _spawned_snipe_ids.discard(snipe_id)
