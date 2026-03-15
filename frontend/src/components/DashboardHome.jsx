@@ -488,32 +488,38 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
         </motion.div>
       </div>
 
-      {/* #3 — MONITOR FEED GRID (Ending Soon style: compact 6-col) */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-        data-testid="monitor-feed-grid">
-        <SectionHeader icon={Eye} color="text-purple-400" title="Monitor Feed" count={cc?.monitor?.total}
-          action={{ label: 'Flip Finder', onClick: () => onNavigate?.('flipfinder') }}
-          extra={cc?.monitor?.new_count > 0 ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold">{cc.monitor.new_count} new</span> : null}
-        />
-        {monitorItems.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-            {monitorItems.map((item, i) => (
-              <CardGridItem key={item.id || i}
-                image={item.image_url}
-                title={item.title}
-                price={item.price}
-                subtitle={item.search_query}
-                badge={item.listing_type === 'auction' ? 'Auction' : item.accepts_offers ? 'Offers' : 'BIN'}
-                badgeColor={item.listing_type === 'auction' ? 'bg-amber-500/90 text-white' : 'bg-blue-500/90 text-white'}
-                onClick={() => onNavigate?.('flipfinder')}
-                testId={`monitor-item-${i}`}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyGrid message="No monitor items yet" cta="Set up a watchlist search" onAction={() => onNavigate?.('flipfinder')} icon={Search} />
-        )}
-      </motion.div>
+      {/* #3 — MONITOR FEED + HOBBY NEWS (side by side) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* Monitor Feed - left 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+          className="lg:col-span-2" data-testid="monitor-feed-grid">
+          <SectionHeader icon={Eye} color="text-purple-400" title="Monitor Feed" count={cc?.monitor?.total}
+            action={{ label: 'Flip Finder', onClick: () => onNavigate?.('flipfinder') }}
+            extra={cc?.monitor?.new_count > 0 ? <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-400 font-bold">{cc.monitor.new_count} new</span> : null}
+          />
+          {monitorItems.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {monitorItems.map((item, i) => (
+                <CardGridItem key={item.id || i}
+                  image={item.image_url}
+                  title={item.title}
+                  price={item.price}
+                  subtitle={item.search_query}
+                  badge={item.listing_type === 'auction' ? 'Auction' : item.accepts_offers ? 'Offers' : 'BIN'}
+                  badgeColor={item.listing_type === 'auction' ? 'bg-amber-500/90 text-white' : 'bg-blue-500/90 text-white'}
+                  onClick={() => onNavigate?.('flipfinder')}
+                  testId={`monitor-item-${i}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyGrid message="No monitor items yet" cta="Set up a watchlist search" onAction={() => onNavigate?.('flipfinder')} icon={Search} />
+          )}
+        </motion.div>
+
+        {/* Hobby News - right 1 col */}
+        <HobbyNewsFeed />
+      </div>
 
       {/* #4 — RECENT SALES GRID (Ending Soon style: compact 6-col) */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
@@ -539,9 +545,6 @@ const CommandCenterTab = ({ cc, analytics, filteredStats, onNavigate, onSelectSa
           <EmptyGrid message="No sales yet" cta="View Listings" onAction={() => onNavigate?.('listings')} icon={DollarSign} />
         )}
       </motion.div>
-
-      {/* #5 — HOBBY NEWS FEED */}
-      <HobbyNewsFeed />
     </>
   );
 };
