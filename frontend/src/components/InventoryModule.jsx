@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
-  Upload, Image as ImageIcon, Save, RefreshCw,
+  Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp
 } from 'lucide-react';
 import axios from 'axios';
@@ -311,6 +311,17 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
     setShowCreateListing(true);
   };
 
+  const [flippedCards, setFlippedCards] = useState(new Set());
+  const toggleFlip = (e, itemId) => {
+    e.stopPropagation();
+    setFlippedCards(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  };
+
   // Show Create Listing view
   if (showCreateListing) {
     const selectedItems = items.filter(i => selected.has(i.id));
@@ -427,14 +438,41 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
             <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
               onClick={() => selectMode && toggleSelect(item.id)}
               className={`bg-[#111] border rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#1a1a1a]'}`} data-testid={`inventory-item-${i}`}>
-              <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
-                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
-                  : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+              <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative" style={{ perspective: '600px' }}>
+                <div
+                  className="w-full h-full transition-transform duration-500"
+                  style={{
+                    transformStyle: 'preserve-3d',
+                    transform: flippedCards.has(item.id) ? 'rotateY(180deg)' : 'rotateY(0deg)',
+                  }}
+                >
+                  {/* FRONT */}
+                  <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
+                    {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                      : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                  </div>
+                  {/* BACK */}
+                  {item.back_image && (
+                    <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                      <img src={`data:image/jpeg;base64,${item.back_image}`} alt={`${item.card_name} back`} className="w-full h-full object-contain" />
+                    </div>
+                  )}
+                </div>
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
                 {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
-                {item.back_image && <span className="absolute bottom-2 right-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/80 text-white uppercase font-bold">F+B</span>}
+                {item.back_image && (
+                  <button
+                    onClick={(e) => toggleFlip(e, item.id)}
+                    className="absolute bottom-1.5 right-1.5 flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 hover:bg-emerald-400 text-white text-[10px] font-bold uppercase transition-colors shadow-lg backdrop-blur-sm"
+                    data-testid={`flip-card-${i}`}
+                    title={flippedCards.has(item.id) ? 'Show Front' : 'Show Back'}
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    {flippedCards.has(item.id) ? 'FRONT' : 'BACK'}
+                  </button>
+                )}
                 {/* Select checkbox */}
                 {selectMode && (
                   <div className={`absolute top-2 right-2 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected.has(item.id) ? 'bg-[#3b82f6] border-[#3b82f6]' : 'bg-black/50 border-gray-500'}`}>
