@@ -1,7 +1,6 @@
 """
-FlipSlab Scanner Companion v1.1
-Uses WIA (Windows Image Acquisition) - works with any scanner on Windows.
-No need for TWAIN drivers. Just plug in your scanner and go.
+FlipSlab Scanner Companion v1.2
+Duplex scanning with saved settings for sports cards.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -16,11 +15,10 @@ import tempfile
 
 # ─── Config ────────────────────────────────────────────────
 APP_NAME = "FlipSlab Scanner"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".flipslab_scanner.json")
 SCAN_FOLDER = os.path.join(os.path.expanduser("~"), "FlipSlab Scans")
 
-# Colors (match FlipSlab dark theme)
 BG = "#0a0a0a"
 BG2 = "#111111"
 BG3 = "#1a1a1a"
@@ -31,6 +29,15 @@ RED = "#ef4444"
 WHITE = "#ffffff"
 GRAY = "#9ca3af"
 DARK_GRAY = "#4b5563"
+
+# Default scan settings for sports cards (2.5" x 3.5" + margin)
+DEFAULT_SETTINGS = {
+    "dpi": 150,
+    "color": True,
+    "duplex": True,
+    "width_inches": 3.0,    # slightly larger than card
+    "height_inches": 4.0,
+}
 
 
 def load_config():
@@ -45,23 +52,32 @@ def save_config(data):
         json.dump(data, f)
 
 
-# ─── WIA Scanner Interface ──────────────────────────────
+# ─── WIA Scanner ─────────────────────────────────────────
 class WIAScanner:
-    """Windows Image Acquisition scanner interface."""
-
     WIA_DEVICE_TYPE_SCANNER = 1
-    WIA_FORMAT_PNG = "{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}"
     WIA_FORMAT_BMP = "{B96B3CAB-0728-11D3-9D7B-0000F81EF32E}"
-    WIA_FORMAT_JPEG = "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}"
 
-    # WIA property IDs for scanner settings
-    WIA_HORIZONTAL_RESOLUTION = 6147
-    WIA_VERTICAL_RESOLUTION = 6148
-    WIA_COLOR_MODE = 6146  # 0=BW, 1=Grayscale, 2=Color
+    # Property IDs
+    HORIZONTAL_RES = 6147
+    VERTICAL_RES = 6148
+    COLOR_MODE = 6146
+    HORIZONTAL_START = 6149
+    VERTICAL_START = 6150
+    HORIZONTAL_EXTENT = 6151
+    VERTICAL_EXTENT = 6152
+
+    # Document handling
+    DOC_HANDLING_SELECT = 3088
+    DOC_HANDLING_STATUS = 3087
+    PAGES = 3096
+
+    FEEDER = 1
+    FLATBED = 2
+    DUPLEX = 4
+    FEED_READY = 1
 
     def __init__(self):
         self.device_manager = None
-        self.selected_device_id = None
 
     def _get_manager(self):
         import win32com.client
@@ -70,7 +86,6 @@ class WIAScanner:
         return self.device_manager
 
     def list_scanners(self):
-        """Return list of (device_id, device_name) tuples."""
         scanners = []
         try:
             mgr = self._get_manager()
@@ -84,90 +99,118 @@ class WIAScanner:
             raise Exception(f"Error listing scanners: {e}")
         return scanners
 
-    def scan(self, device_id, dpi=300):
-        """Scan an image and return PIL Image. Uses WIA CommonDialog for max compatibility."""
+    def _set_prop(self, item, prop_id, value):
+        try:
+            item.Properties(prop_id).Value = value
+        except:
+            pass
+
+    def _set_device_prop(self, device, prop_id, value):
+        try:
+            device.Properties(prop_id).Value = value
+        except:
+            pass
+
+    def scan_card(self, device_id, settings):
+        """Scan a card with given settings. Returns list of PIL Images (front, back if duplex)."""
         import win32com.client
 
-        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+        dpi = settings.get("dpi", 150)
+        color = settings.get("color", True)
+        duplex = settings.get("duplex", True)
+        width_in = settings.get("width_inches", 3.0)
+        height_in = settings.get("height_inches", 4.0)
 
-        # Method 1: CommonDialog with device selection UI
+        # Convert inches to pixels
+        width_px = int(width_in * dpi)
+        height_px = int(height_in * dpi)
+        color_mode = 2 if color else 1  # 2=Color, 1=Grayscale
+
+        images = []
+
         try:
-            dialog = win32com.client.Dispatch("WIA.CommonDialog")
-            # ShowAcquireImage with full UI control
-            image_file = dialog.ShowAcquireImage(
-                1,   # DeviceType: Scanner
-                2,   # Intent: Color
-                1,   # Bias: MaximizeQuality
-                self.WIA_FORMAT_BMP,
-                False,  # AlwaysSelectDevice
-                True,   # UseCommonUI - shows scanner dialog
-                False   # CancelError
-            )
+            mgr = self._get_manager()
+            device = None
+            for i in range(1, mgr.DeviceInfos.Count + 1):
+                info = mgr.DeviceInfos.Item(i)
+                if info.DeviceID == device_id:
+                    device = info.Connect()
+                    break
 
-            if image_file:
+            if not device:
+                raise Exception("Scanner not found. Is it connected?")
+
+            # Set document handling (feeder + duplex)
+            if duplex:
+                self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+            else:
+                self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
+
+            # Set pages to scan
+            self._set_device_prop(device, self.PAGES, 2 if duplex else 1)
+
+            # Scan pages
+            pages_to_scan = 2 if duplex else 1
+            for page_num in range(pages_to_scan):
+                # Get scan item
+                item = device.Items(1)
+
+                # Set scan properties
+                self._set_prop(item, self.HORIZONTAL_RES, dpi)
+                self._set_prop(item, self.VERTICAL_RES, dpi)
+                self._set_prop(item, self.COLOR_MODE, color_mode)
+                self._set_prop(item, self.HORIZONTAL_START, 0)
+                self._set_prop(item, self.VERTICAL_START, 0)
+                self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
+                self._set_prop(item, self.VERTICAL_EXTENT, height_px)
+
+                # Transfer
+                image_file = item.Transfer(self.WIA_FORMAT_BMP)
+
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}_{page_num}.bmp")
                 image_file.SaveFile(tmp)
                 img = Image.open(tmp).convert("RGB")
+                images.append(img)
+
                 try:
                     os.remove(tmp)
                 except:
                     pass
-                return img
-            return None
 
-        except Exception as e1:
-            error_str = str(e1)
-
-            # Method 2: Direct device connection without UI
-            try:
-                mgr = self._get_manager()
-                device = None
-                for i in range(1, mgr.DeviceInfos.Count + 1):
-                    info = mgr.DeviceInfos.Item(i)
-                    if info.DeviceID == device_id:
-                        device = info.Connect()
+                # Check if feeder has more pages
+                if page_num == 0 and duplex:
+                    try:
+                        status = device.Properties(self.DOC_HANDLING_STATUS).Value
+                        if not (status & self.FEED_READY):
+                            break
+                    except:
                         break
 
-                if not device:
-                    raise Exception("Scanner not found")
-
-                # Try each item (flatbed = 1, feeder = 2, etc.)
-                for item_idx in range(1, device.Items.Count + 1):
-                    try:
-                        item = device.Items(item_idx)
-                        for prop_id, value in [
-                            (self.WIA_HORIZONTAL_RESOLUTION, dpi),
-                            (self.WIA_VERTICAL_RESOLUTION, dpi),
-                            (self.WIA_COLOR_MODE, 2),
-                        ]:
-                            try:
-                                item.Properties(prop_id).Value = value
-                            except:
-                                pass
-
-                        image_file = item.Transfer(self.WIA_FORMAT_BMP)
+        except Exception as e:
+            error_msg = str(e)
+            if not images:
+                # Try CommonDialog as fallback
+                try:
+                    dialog = win32com.client.Dispatch("WIA.CommonDialog")
+                    image_file = dialog.ShowAcquireImage(1, 2, 1, self.WIA_FORMAT_BMP, False, True, False)
+                    if image_file:
+                        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_dialog.bmp")
                         image_file.SaveFile(tmp)
                         img = Image.open(tmp).convert("RGB")
+                        images.append(img)
                         try:
                             os.remove(tmp)
                         except:
                             pass
-                        return img
-                    except:
-                        continue
+                except Exception as e2:
+                    raise Exception(
+                        f"Scan failed. Check:\n"
+                        f"1. Card is in the scanner feeder\n"
+                        f"2. Scanner is on and ready\n\n"
+                        f"Error: {error_msg}"
+                    )
 
-                raise Exception("Could not scan from any source")
-
-            except Exception as e2:
-                # Give helpful error message
-                if "paper" in str(e2).lower() or "feed" in str(e2).lower() or "empty" in str(e2).lower():
-                    raise Exception("No paper in feeder. Place a card in the scanner and try again.")
-                raise Exception(
-                    f"Scan failed. Please check:\n"
-                    f"1. Is there a card/paper in the scanner?\n"
-                    f"2. Is the scanner lid closed?\n"
-                    f"3. Try: Windows Settings > Devices > Scanners\n\n"
-                    f"Error: {error_str}"
-                )
+        return images
 
 
 # ─── Main App ────────────────────────────────────────────
@@ -175,31 +218,26 @@ class FlipSlabScanner:
     def __init__(self, root):
         self.root = root
         self.root.title(f"{APP_NAME} v{VERSION}")
-        self.root.geometry("900x700")
+        self.root.geometry("960x720")
         self.root.configure(bg=BG)
         self.root.minsize(800, 600)
 
-        # State
         self.config = load_config()
         self.server_url = self.config.get("server_url", "https://flipslabengine.com")
+        self.scan_settings = self.config.get("scan_settings", DEFAULT_SETTINGS.copy())
         self.session_cookie = None
         self.logged_in = False
         self.scanned_images = []
-        self.current_preview = None
         self.scanning = False
 
-        # Scanner
         self.wia = WIAScanner()
         self.scanners = []
         self.selected_scanner_id = None
 
         os.makedirs(SCAN_FOLDER, exist_ok=True)
-
         self._build_ui()
 
-    # ─── UI ──────────────────────────────────────────────
     def _build_ui(self):
-        # Top bar
         top = tk.Frame(self.root, bg=BG2, height=50)
         top.pack(fill="x")
         top.pack_propagate(False)
@@ -215,21 +253,20 @@ class FlipSlabScanner:
                                    fg=GREEN, bg=BG2)
         self.user_label.pack(side="right", padx=5)
 
-        # Main content
         main = tk.Frame(self.root, bg=BG)
         main.pack(fill="both", expand=True, padx=15, pady=10)
 
-        # Left panel - Controls
-        left = tk.Frame(main, bg=BG, width=280)
+        left = tk.Frame(main, bg=BG, width=290)
         left.pack(side="left", fill="y", padx=(0, 10))
         left.pack_propagate(False)
 
         self._build_login_section(left)
         self._build_scanner_section(left)
+        self._build_settings_section(left)
         self._build_actions_section(left)
         self._build_queue_section(left)
 
-        # Right panel - Preview
+        # Right - Preview
         right = tk.Frame(main, bg=BG2, relief="flat", bd=1)
         right.pack(side="right", fill="both", expand=True)
 
@@ -239,58 +276,56 @@ class FlipSlabScanner:
 
     def _section_title(self, parent, text):
         tk.Label(parent, text=text, font=("Segoe UI", 8, "bold"),
-                 fg=DARK_GRAY, bg=BG, anchor="w").pack(fill="x", pady=(12, 4))
+                 fg=DARK_GRAY, bg=BG, anchor="w").pack(fill="x", pady=(10, 3))
 
     def _build_login_section(self, parent):
         self._section_title(parent, "FLIPSLAB ACCOUNT")
 
-        self.login_frame = tk.Frame(parent, bg=BG3, relief="flat")
+        self.login_frame = tk.Frame(parent, bg=BG3)
         self.login_frame.pack(fill="x")
 
-        inner = tk.Frame(self.login_frame, bg=BG3, padx=10, pady=8)
+        inner = tk.Frame(self.login_frame, bg=BG3, padx=10, pady=6)
         inner.pack(fill="x")
 
         tk.Label(inner, text="Server URL", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
         self.url_entry = tk.Entry(inner, font=("Segoe UI", 9), bg=BG, fg=WHITE,
                                   insertbackground=WHITE, relief="flat", bd=0)
-        self.url_entry.pack(fill="x", pady=(2, 6), ipady=4)
+        self.url_entry.pack(fill="x", pady=(1, 4), ipady=3)
         self.url_entry.insert(0, self.server_url)
 
         tk.Label(inner, text="Email", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
         self.email_entry = tk.Entry(inner, font=("Segoe UI", 9), bg=BG, fg=WHITE,
                                     insertbackground=WHITE, relief="flat", bd=0)
-        self.email_entry.pack(fill="x", pady=(2, 6), ipady=4)
+        self.email_entry.pack(fill="x", pady=(1, 4), ipady=3)
         self.email_entry.insert(0, self.config.get("email", ""))
 
         tk.Label(inner, text="Password", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
         self.pass_entry = tk.Entry(inner, font=("Segoe UI", 9), bg=BG, fg=WHITE,
                                    insertbackground=WHITE, relief="flat", bd=0, show="*")
-        self.pass_entry.pack(fill="x", pady=(2, 6), ipady=4)
+        self.pass_entry.pack(fill="x", pady=(1, 4), ipady=3)
 
         self.login_btn = tk.Button(inner, text="Connect", font=("Segoe UI", 9, "bold"),
                                    bg=BLUE, fg=WHITE, relief="flat", cursor="hand2",
                                    command=self._login)
-        self.login_btn.pack(fill="x", ipady=4, pady=(4, 0))
+        self.login_btn.pack(fill="x", ipady=3, pady=(2, 0))
 
-        # Connected state (hidden initially)
         self.connected_frame = tk.Frame(parent, bg=BG3)
-        conn_inner = tk.Frame(self.connected_frame, bg=BG3, padx=10, pady=8)
+        conn_inner = tk.Frame(self.connected_frame, bg=BG3, padx=10, pady=6)
         conn_inner.pack(fill="x")
-        self.connected_label = tk.Label(conn_inner, text="Connected as: ", font=("Segoe UI", 9),
-                                        fg=GREEN, bg=BG3)
+        self.connected_label = tk.Label(conn_inner, text="", font=("Segoe UI", 9), fg=GREEN, bg=BG3)
         self.connected_label.pack(anchor="w")
         tk.Button(conn_inner, text="Disconnect", font=("Segoe UI", 8),
                   bg=BG, fg=RED, relief="flat", cursor="hand2",
-                  command=self._logout).pack(fill="x", ipady=2, pady=(4, 0))
+                  command=self._logout).pack(fill="x", ipady=2, pady=(3, 0))
 
     def _build_scanner_section(self, parent):
         self._section_title(parent, "SCANNER")
 
-        frame = tk.Frame(parent, bg=BG3, padx=10, pady=8)
+        frame = tk.Frame(parent, bg=BG3, padx=10, pady=6)
         frame.pack(fill="x")
 
         self.scanner_combo = ttk.Combobox(frame, state="readonly", font=("Segoe UI", 9))
-        self.scanner_combo.pack(fill="x", pady=(0, 6))
+        self.scanner_combo.pack(fill="x", pady=(0, 4))
         self.scanner_combo.set("Click 'Detect' to find scanners")
 
         btn_row = tk.Frame(frame, bg=BG3)
@@ -299,16 +334,86 @@ class FlipSlabScanner:
         self.detect_btn = tk.Button(btn_row, text="Detect Scanners", font=("Segoe UI", 8, "bold"),
                                     bg=BG, fg=AMBER, relief="flat", cursor="hand2",
                                     command=self._detect_scanners)
-        self.detect_btn.pack(side="left", expand=True, fill="x", padx=(0, 3), ipady=3)
+        self.detect_btn.pack(side="left", expand=True, fill="x", padx=(0, 3), ipady=2)
 
         self.select_btn = tk.Button(btn_row, text="Select", font=("Segoe UI", 8, "bold"),
                                     bg=BG, fg=BLUE, relief="flat", cursor="hand2",
                                     command=self._select_scanner)
-        self.select_btn.pack(side="right", expand=True, fill="x", padx=(3, 0), ipady=3)
+        self.select_btn.pack(side="right", expand=True, fill="x", padx=(3, 0), ipady=2)
 
         self.scanner_status = tk.Label(frame, text="No scanner selected", font=("Segoe UI", 8),
                                        fg=DARK_GRAY, bg=BG3)
-        self.scanner_status.pack(anchor="w", pady=(4, 0))
+        self.scanner_status.pack(anchor="w", pady=(3, 0))
+
+    def _build_settings_section(self, parent):
+        self._section_title(parent, "SCAN SETTINGS")
+
+        frame = tk.Frame(parent, bg=BG3, padx=10, pady=6)
+        frame.pack(fill="x")
+
+        s = self.scan_settings
+
+        # DPI
+        row1 = tk.Frame(frame, bg=BG3)
+        row1.pack(fill="x", pady=(0, 4))
+        tk.Label(row1, text="DPI:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=8, anchor="w").pack(side="left")
+        self.dpi_var = tk.StringVar(value=str(s.get("dpi", 150)))
+        dpi_combo = ttk.Combobox(row1, textvariable=self.dpi_var, values=["100", "150", "200", "300"],
+                                 state="readonly", font=("Segoe UI", 8), width=6)
+        dpi_combo.pack(side="left", padx=(0, 10))
+
+        # Color
+        self.color_var = tk.BooleanVar(value=s.get("color", True))
+        tk.Checkbutton(row1, text="Color", variable=self.color_var, font=("Segoe UI", 8),
+                       fg=WHITE, bg=BG3, selectcolor=BG, activebackground=BG3,
+                       activeforeground=WHITE).pack(side="left")
+
+        # Duplex
+        row2 = tk.Frame(frame, bg=BG3)
+        row2.pack(fill="x", pady=(0, 4))
+        self.duplex_var = tk.BooleanVar(value=s.get("duplex", True))
+        tk.Checkbutton(row2, text="Duplex (front + back)", variable=self.duplex_var,
+                       font=("Segoe UI", 8), fg=WHITE, bg=BG3, selectcolor=BG,
+                       activebackground=BG3, activeforeground=WHITE).pack(anchor="w")
+
+        # Scan area
+        row3 = tk.Frame(frame, bg=BG3)
+        row3.pack(fill="x", pady=(0, 2))
+        tk.Label(row3, text="Scan area:", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left")
+
+        self.width_var = tk.StringVar(value=str(s.get("width_inches", 3.0)))
+        tk.Entry(row3, textvariable=self.width_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                 insertbackground=WHITE, relief="flat", width=5).pack(side="left", padx=(4, 0), ipady=2)
+        tk.Label(row3, text="x", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left", padx=3)
+
+        self.height_var = tk.StringVar(value=str(s.get("height_inches", 4.0)))
+        tk.Entry(row3, textvariable=self.height_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                 insertbackground=WHITE, relief="flat", width=5).pack(side="left", ipady=2)
+        tk.Label(row3, text="inches", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left", padx=3)
+
+        # Card size hint
+        tk.Label(frame, text="Sports card = 2.5 x 3.5 in (default adds margin)",
+                 font=("Segoe UI", 7), fg=DARK_GRAY, bg=BG3).pack(anchor="w")
+
+        # Save button
+        tk.Button(frame, text="Save Settings", font=("Segoe UI", 8, "bold"),
+                  bg=BG, fg=GREEN, relief="flat", cursor="hand2",
+                  command=self._save_settings).pack(fill="x", ipady=2, pady=(4, 0))
+
+    def _save_settings(self):
+        try:
+            self.scan_settings = {
+                "dpi": int(self.dpi_var.get()),
+                "color": self.color_var.get(),
+                "duplex": self.duplex_var.get(),
+                "width_inches": float(self.width_var.get()),
+                "height_inches": float(self.height_var.get()),
+            }
+            self.config["scan_settings"] = self.scan_settings
+            save_config(self.config)
+            messagebox.showinfo("Saved", "Scan settings saved!")
+        except ValueError:
+            messagebox.showwarning("Invalid", "Check your numbers (DPI, width, height).")
 
     def _build_actions_section(self, parent):
         self._section_title(parent, "ACTIONS")
@@ -316,10 +421,10 @@ class FlipSlabScanner:
         frame = tk.Frame(parent, bg=BG)
         frame.pack(fill="x")
 
-        self.scan_btn = tk.Button(frame, text="SCAN CARD", font=("Segoe UI", 11, "bold"),
+        self.scan_btn = tk.Button(frame, text="SCAN CARD", font=("Segoe UI", 10, "bold"),
                                   bg=GREEN, fg=WHITE, relief="flat", cursor="hand2",
                                   command=self._scan_card, state="disabled")
-        self.scan_btn.pack(fill="x", ipady=8, pady=(0, 4))
+        self.scan_btn.pack(fill="x", ipady=6, pady=(0, 3))
 
         btn_row = tk.Frame(frame, bg=BG)
         btn_row.pack(fill="x")
@@ -327,18 +432,17 @@ class FlipSlabScanner:
         self.upload_btn = tk.Button(btn_row, text="Upload to FlipSlab", font=("Segoe UI", 9, "bold"),
                                     bg=BLUE, fg=WHITE, relief="flat", cursor="hand2",
                                     command=self._upload_all, state="disabled")
-        self.upload_btn.pack(side="left", expand=True, fill="x", padx=(0, 3), ipady=5)
+        self.upload_btn.pack(side="left", expand=True, fill="x", padx=(0, 3), ipady=4)
 
-        self.clear_btn = tk.Button(btn_row, text="Clear All", font=("Segoe UI", 9),
+        self.clear_btn = tk.Button(btn_row, text="Clear", font=("Segoe UI", 9),
                                    bg=BG3, fg=GRAY, relief="flat", cursor="hand2",
                                    command=self._clear_all)
-        self.clear_btn.pack(side="right", ipady=5, ipadx=10)
+        self.clear_btn.pack(side="right", ipady=4, ipadx=8)
 
-        # Import from folder
         self.import_btn = tk.Button(frame, text="Import from folder...", font=("Segoe UI", 8),
                                     bg=BG3, fg=GRAY, relief="flat", cursor="hand2",
                                     command=self._import_folder)
-        self.import_btn.pack(fill="x", ipady=3, pady=(4, 0))
+        self.import_btn.pack(fill="x", ipady=2, pady=(3, 0))
 
     def _build_queue_section(self, parent):
         self._section_title(parent, "SCAN QUEUE")
@@ -361,7 +465,6 @@ class FlipSlabScanner:
         url = self.url_entry.get().strip().rstrip("/")
         email = self.email_entry.get().strip()
         password = self.pass_entry.get().strip()
-
         if not all([url, email, password]):
             messagebox.showwarning("Missing Info", "Please fill all fields.")
             return
@@ -373,8 +476,7 @@ class FlipSlabScanner:
         def do_login():
             try:
                 resp = requests.post(f"{url}/api/auth/login",
-                                     json={"email": email, "password": password},
-                                     timeout=10)
+                                     json={"email": email, "password": password}, timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
                     self.session_cookie = resp.cookies.get("session_token")
@@ -392,9 +494,8 @@ class FlipSlabScanner:
         self.config["server_url"] = self.server_url
         self.config["email"] = email
         save_config(self.config)
-
         self.login_frame.pack_forget()
-        self.connected_label.config(text=f"Connected as: {name}")
+        self.connected_label.config(text=f"Connected: {name}")
         self.connected_frame.pack(fill="x")
         self.user_label.config(text=name)
         self.status_label.config(text="Connected", fg=GREEN)
@@ -420,8 +521,7 @@ class FlipSlabScanner:
         self.root.update()
 
         def do_detect():
-            scanners = []
-            error = None
+            scanners, error = [], None
             try:
                 scanners = self.wia.list_scanners()
             except Exception as e:
@@ -432,33 +532,24 @@ class FlipSlabScanner:
 
     def _on_detect_done(self, scanners, error):
         self.detect_btn.config(text="Detect Scanners", state="normal")
-
         if error:
-            messagebox.showerror("Scanner Error", f"Error detecting scanners:\n{error}")
+            messagebox.showerror("Error", error)
             return
-
         if not scanners:
             self.scanner_combo.set("No scanners found")
             messagebox.showinfo("No Scanners",
-                "No scanners detected.\n\n"
-                "Make sure:\n"
-                "1. Scanner is connected via USB\n"
-                "2. Scanner is turned ON\n"
-                "3. Scanner drivers are installed")
+                "No scanners found.\n\nCheck:\n1. Scanner connected via USB\n2. Scanner turned ON\n3. Drivers installed")
             return
-
         self.scanners = scanners
-        names = [name for _, name in scanners]
-        self.scanner_combo["values"] = names
+        self.scanner_combo["values"] = [name for _, name in scanners]
         self.scanner_combo.current(0)
         self.scanner_status.config(text=f"{len(scanners)} scanner(s) found", fg=AMBER)
 
     def _select_scanner(self):
         idx = self.scanner_combo.current()
         if idx < 0 or not self.scanners:
-            messagebox.showwarning("Select Scanner", "Please detect and select a scanner first.")
+            messagebox.showwarning("Select Scanner", "Detect and select a scanner first.")
             return
-
         self.selected_scanner_id = self.scanners[idx][0]
         name = self.scanners[idx][1]
         self.scanner_status.config(text=f"Ready: {name}", fg=GREEN)
@@ -467,86 +558,75 @@ class FlipSlabScanner:
     # ─── Scan ────────────────────────────────────────────
     def _scan_card(self):
         if not self.selected_scanner_id:
-            messagebox.showwarning("No Scanner", "Please select a scanner first.")
+            messagebox.showwarning("No Scanner", "Select a scanner first.")
             return
 
-        self.scanning = True
         self.scan_btn.config(text="Scanning...", state="disabled")
         self.root.update()
 
-        # Run scan in MAIN thread (WIA COM requires it for dialogs)
-        image = None
+        images = []
         error = None
         try:
-            image = self.wia.scan(self.selected_scanner_id, dpi=300)
+            images = self.wia.scan_card(self.selected_scanner_id, self.scan_settings)
         except Exception as e:
             error = str(e)
 
-        self._on_scan_done(image, error)
-
-    def _on_scan_done(self, image, error):
-        self.scanning = False
         self.scan_btn.config(text="SCAN CARD", state="normal")
 
         if error:
-            messagebox.showerror("Scan Error", f"Scan failed:\n{error}")
+            messagebox.showerror("Scan Error", error)
             return
 
-        if not image:
-            messagebox.showwarning("No Image", "Scanner did not return an image.")
+        if not images:
+            messagebox.showwarning("No Image", "Scanner didn't return an image.\nIs there a card in the feeder?")
             return
 
-        # Save to file
+        # Save each scanned image
         timestamp = int(time.time() * 1000)
-        filename = f"card_{timestamp}.png"
-        filepath = os.path.join(SCAN_FOLDER, filename)
+        sides = ["front", "back"]
+        for i, img in enumerate(images):
+            side = sides[i] if i < len(sides) else f"page{i+1}"
+            filename = f"card_{timestamp}_{side}.png"
+            filepath = os.path.join(SCAN_FOLDER, filename)
+            img.save(filepath, "PNG")
+            self.scanned_images.append({"path": filepath, "name": filename, "uploaded": False})
+            self.queue_listbox.insert(tk.END, f"  {filename}")
 
-        try:
-            image.save(filepath, "PNG")
-        except Exception as e:
-            messagebox.showerror("Save Error", f"Could not save image:\n{e}")
-            return
-
-        self.scanned_images.append({"path": filepath, "name": filename, "uploaded": False})
-        self.queue_listbox.insert(tk.END, f"  {filename}")
-        self.queue_count.config(text=f"{len(self.scanned_images)} card(s) scanned")
-        self._show_preview(filepath)
+        self.queue_count.config(text=f"{len(self.scanned_images)} image(s) scanned")
+        self._show_preview(self.scanned_images[-len(images)]["path"])
         self._update_buttons()
 
-    # ─── Import from folder ──────────────────────────────
+        side_text = "front + back" if len(images) > 1 else "front only"
+        messagebox.showinfo("Scan Complete", f"Card scanned! ({side_text})\n{len(images)} image(s) saved.")
+
+    # ─── Import ──────────────────────────────────────────
     def _import_folder(self):
-        folder = filedialog.askdirectory(title="Select folder with scanned card images")
+        folder = filedialog.askdirectory(title="Select folder with scanned images")
         if not folder:
             return
-
         count = 0
         for f in sorted(os.listdir(folder)):
-            ext = f.lower().split(".")[-1]
-            if ext in ("png", "jpg", "jpeg", "bmp", "tiff", "tif"):
+            if f.lower().split(".")[-1] in ("png", "jpg", "jpeg", "bmp", "tiff", "tif"):
                 filepath = os.path.join(folder, f)
                 self.scanned_images.append({"path": filepath, "name": f, "uploaded": False})
                 self.queue_listbox.insert(tk.END, f"  {f}")
                 count += 1
-
-        if count > 0:
-            self.queue_count.config(text=f"{len(self.scanned_images)} card(s) scanned")
+        if count:
+            self.queue_count.config(text=f"{len(self.scanned_images)} image(s)")
             self._show_preview(self.scanned_images[-1]["path"])
             self._update_buttons()
             messagebox.showinfo("Imported", f"{count} images imported!")
-        else:
-            messagebox.showinfo("No Images", "No image files found in selected folder.")
 
     # ─── Preview ─────────────────────────────────────────
     def _show_preview(self, filepath):
         try:
             img = Image.open(filepath)
-            preview_w = self.preview_label.winfo_width() or 550
-            preview_h = self.preview_label.winfo_height() or 550
-            img.thumbnail((preview_w - 20, preview_h - 20), Image.Resampling.LANCZOS)
+            pw = self.preview_label.winfo_width() or 550
+            ph = self.preview_label.winfo_height() or 550
+            img.thumbnail((pw - 20, ph - 20), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             self.preview_label.config(image=photo, text="")
             self.preview_label.image = photo
-            self.current_preview = filepath
         except Exception as e:
             self.preview_label.config(text=f"Preview error: {e}", image="")
 
@@ -558,12 +638,11 @@ class FlipSlabScanner:
     # ─── Upload ──────────────────────────────────────────
     def _upload_all(self):
         if not self.logged_in:
-            messagebox.showwarning("Not Connected", "Please connect to FlipSlab first.")
+            messagebox.showwarning("Not Connected", "Connect to FlipSlab first.")
             return
-
         pending = [img for img in self.scanned_images if not img["uploaded"]]
         if not pending:
-            messagebox.showinfo("Nothing to Upload", "All cards have been uploaded already.")
+            messagebox.showinfo("Done", "All cards already uploaded.")
             return
 
         self.upload_btn.config(text=f"Uploading 0/{len(pending)}...", state="disabled")
@@ -575,26 +654,20 @@ class FlipSlabScanner:
                 try:
                     self.root.after(0, lambda i=i: self.upload_btn.config(
                         text=f"Uploading {i+1}/{len(pending)}..."))
-
                     with open(img["path"], "rb") as f:
-                        files = {"file": (img["name"], f, "image/png")}
-                        cookies = {"session_token": self.session_cookie} if self.session_cookie else {}
                         resp = requests.post(
                             f"{self.server_url}/api/cards/scan-upload",
-                            files=files,
-                            cookies=cookies,
+                            files={"file": (img["name"], f, "image/png")},
+                            cookies={"session_token": self.session_cookie} if self.session_cookie else {},
                             timeout=60,
                         )
-
                     if resp.status_code == 200:
                         img["uploaded"] = True
                         success += 1
                         idx = self.scanned_images.index(img)
-                        self.root.after(0, lambda idx=idx, name=img["name"]:
-                            self._mark_uploaded(idx, name))
+                        self.root.after(0, lambda idx=idx, n=img["name"]: self._mark_uploaded(idx, n))
                 except Exception as e:
-                    print(f"Upload error for {img['name']}: {e}")
-
+                    print(f"Upload error: {e}")
             self.root.after(0, lambda: self._on_upload_done(success, len(pending)))
 
         threading.Thread(target=do_upload, daemon=True).start()
@@ -606,12 +679,12 @@ class FlipSlabScanner:
 
     def _on_upload_done(self, success, total):
         self.upload_btn.config(text="Upload to FlipSlab", state="normal")
-        messagebox.showinfo("Upload Complete", f"{success}/{total} cards uploaded to FlipSlab!\n\nThe AI will identify each card automatically.")
+        messagebox.showinfo("Upload", f"{success}/{total} uploaded!\nAI will identify each card.")
         self._update_buttons()
 
     # ─── Clear ───────────────────────────────────────────
     def _clear_all(self):
-        if self.scanned_images and not messagebox.askyesno("Clear All", "Remove all scanned cards from queue?"):
+        if self.scanned_images and not messagebox.askyesno("Clear", "Remove all from queue?"):
             return
         self.scanned_images.clear()
         self.queue_listbox.delete(0, tk.END)
@@ -620,7 +693,6 @@ class FlipSlabScanner:
         self.preview_label.image = None
         self._update_buttons()
 
-    # ─── Helpers ─────────────────────────────────────────
     def _update_buttons(self):
         has_scanner = self.selected_scanner_id is not None
         has_images = any(not img["uploaded"] for img in self.scanned_images)
@@ -628,13 +700,11 @@ class FlipSlabScanner:
         self.upload_btn.config(state="normal" if (self.logged_in and has_images) else "disabled")
 
 
-# ─── Main ────────────────────────────────────────────────
 if __name__ == "__main__":
     root = tk.Tk()
     style = ttk.Style()
     style.theme_use("clam")
-    style.configure("TCombobox",
-                    fieldbackground=BG, background=BG3, foreground=WHITE,
+    style.configure("TCombobox", fieldbackground=BG, background=BG3, foreground=WHITE,
                     selectbackground=BLUE, borderwidth=0)
     app = FlipSlabScanner(root)
     root.mainloop()
