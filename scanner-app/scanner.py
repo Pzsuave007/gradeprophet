@@ -112,7 +112,7 @@ class WIAScanner:
             pass
 
     def scan_card(self, device_id, settings):
-        """Scan a card with given settings. Returns list of PIL Images (front, back if duplex)."""
+        """Scan a card. Returns list of PIL Images (front, back if duplex)."""
         import win32com.client
 
         dpi = settings.get("dpi", 150)
@@ -120,100 +120,112 @@ class WIAScanner:
         duplex = settings.get("duplex", True)
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
-
-        width_px = int(width_in * dpi)
-        height_px = int(height_in * dpi)
         color_mode = 2 if color else 1
 
         images = []
 
-        try:
-            mgr = self._get_manager()
-            device = None
-            for i in range(1, mgr.DeviceInfos.Count + 1):
-                info = mgr.DeviceInfos.Item(i)
-                if info.DeviceID == device_id:
-                    device = info.Connect()
-                    break
+        mgr = self._get_manager()
+        device = None
+        for i in range(1, mgr.DeviceInfos.Count + 1):
+            info = mgr.DeviceInfos.Item(i)
+            if info.DeviceID == device_id:
+                device = info.Connect()
+                break
 
-            if not device:
-                raise Exception("Scanner not found. Is it connected?")
+        if not device:
+            raise Exception("Scanner not found. Is it connected?")
 
-            # Set document handling on device level
-            if duplex:
-                self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
-            else:
-                self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
+        # Enable duplex on device
+        if duplex:
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+        else:
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
 
-            # Scan all available items (front and back are separate items for duplex)
-            items_count = device.Items.Count
-            scan_count = min(items_count, 2) if duplex else 1
+        # Try scanning from each item (item 1 = front, item 2 = back for duplex)
+        items_count = device.Items.Count
 
-            for item_idx in range(1, scan_count + 1):
+        for item_idx in range(1, items_count + 1):
+            try:
+                item = device.Items(item_idx)
+
+                # Set DPI and color (these usually work)
+                self._set_prop(item, self.HORIZONTAL_RES, dpi)
+                self._set_prop(item, self.VERTICAL_RES, dpi)
+                self._set_prop(item, self.COLOR_MODE, color_mode)
+
+                # Try to set scan area, but don't fail if scanner doesn't support it
+                width_px = int(width_in * dpi)
+                height_px = int(height_in * dpi)
+                self._set_prop(item, self.HORIZONTAL_START, 0)
+                self._set_prop(item, self.VERTICAL_START, 0)
+                self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
+                self._set_prop(item, self.VERTICAL_EXTENT, height_px)
+
+                # Transfer image
+                image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_{item_idx}.bmp")
+                image_file.SaveFile(tmp)
+                img = Image.open(tmp).convert("RGB")
+
+                # Auto-crop to card size if image is much larger than expected
+                img = self._auto_crop(img, width_in, height_in, dpi)
+                images.append(img)
+
                 try:
-                    item = device.Items(item_idx)
-
-                    self._set_prop(item, self.HORIZONTAL_RES, dpi)
-                    self._set_prop(item, self.VERTICAL_RES, dpi)
-                    self._set_prop(item, self.COLOR_MODE, color_mode)
-                    self._set_prop(item, self.HORIZONTAL_START, 0)
-                    self._set_prop(item, self.VERTICAL_START, 0)
-                    self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
-                    self._set_prop(item, self.VERTICAL_EXTENT, height_px)
-
-                    image_file = item.Transfer(self.WIA_FORMAT_BMP)
-                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_{item_idx}.bmp")
-                    image_file.SaveFile(tmp)
-                    img = Image.open(tmp).convert("RGB")
-                    images.append(img)
-                    try:
-                        os.remove(tmp)
-                    except:
-                        pass
-                except Exception as item_err:
-                    if not images:
-                        raise item_err
-                    break
-
-            # If duplex requested but only 1 item existed, try second transfer from same item
-            if duplex and len(images) == 1 and items_count == 1:
-                try:
-                    item = device.Items(1)
-                    image_file = item.Transfer(self.WIA_FORMAT_BMP)
-                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
-                    image_file.SaveFile(tmp)
-                    img = Image.open(tmp).convert("RGB")
-                    images.append(img)
-                    try:
-                        os.remove(tmp)
-                    except:
-                        pass
+                    os.remove(tmp)
                 except:
                     pass
 
-        except Exception as e:
-            if not images:
-                try:
-                    dialog = win32com.client.Dispatch("WIA.CommonDialog")
-                    image_file = dialog.ShowAcquireImage(1, 2, 1, self.WIA_FORMAT_BMP, False, True, False)
-                    if image_file:
-                        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_dialog.bmp")
-                        image_file.SaveFile(tmp)
-                        img = Image.open(tmp).convert("RGB")
-                        images.append(img)
-                        try:
-                            os.remove(tmp)
-                        except:
-                            pass
-                except:
+                # If not duplex, only scan first item
+                if not duplex:
+                    break
+
+            except Exception as e:
+                if not images:
                     raise Exception(
                         f"Scan failed.\n\n"
                         f"1. Is the card in the feeder?\n"
                         f"2. Is the scanner on?\n\n"
                         f"Error: {e}"
                     )
+                break
+
+        # If duplex but only got 1 image from items, try transferring again
+        if duplex and len(images) == 1:
+            try:
+                item = device.Items(1)
+                self._set_prop(item, self.HORIZONTAL_RES, dpi)
+                self._set_prop(item, self.VERTICAL_RES, dpi)
+                self._set_prop(item, self.COLOR_MODE, color_mode)
+                image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
+                image_file.SaveFile(tmp)
+                img = Image.open(tmp).convert("RGB")
+                img = self._auto_crop(img, width_in, height_in, dpi)
+                images.append(img)
+                try:
+                    os.remove(tmp)
+                except:
+                    pass
+            except:
+                pass  # Back side didn't work, that's ok
 
         return images
+
+    def _auto_crop(self, img, target_w_in, target_h_in, dpi):
+        """Crop image to target size if it's significantly larger."""
+        target_w = int(target_w_in * dpi)
+        target_h = int(target_h_in * dpi)
+        w, h = img.size
+
+        # Only crop if scanned image is more than 20% larger than target
+        if w > target_w * 1.2 or h > target_h * 1.2:
+            # Crop from top-left (card goes through feeder top-first)
+            crop_w = min(target_w, w)
+            crop_h = min(target_h, h)
+            img = img.crop((0, 0, crop_w, crop_h))
+
+        return img
 
 
 # ─── Main App ────────────────────────────────────────────
