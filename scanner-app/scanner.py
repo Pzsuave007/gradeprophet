@@ -1287,31 +1287,58 @@ class FlipSlabScanner:
 
         def do_upload():
             success = 0
+            last_front_id = None  # Track the last front's item_id for back pairing
+
             for i, img in enumerate(pending):
                 try:
                     self.root.after(0, lambda i=i: self.upload_btn.config(
                         text=f"Uploading {i+1}/{len(pending)}..."))
+
+                    headers = {}
+                    is_back = "_back" in img["name"].lower()
+
+                    # If this is a back image, send the front's item_id
+                    if is_back and last_front_id:
+                        headers["X-FlipSlab-Item-Id"] = last_front_id
+
                     with open(img["path"], "rb") as f:
                         resp = requests.post(
                             f"{self.server_url}/api/cards/scan-upload",
                             files={"file": (img["name"], f, "image/png")},
+                            headers=headers,
                             cookies={"session_token": self.session_cookie} if self.session_cookie else {},
-                            timeout=60,
+                            timeout=120,
                         )
                     if resp.status_code == 200:
                         img["uploaded"] = True
                         success += 1
+                        data = resp.json()
+
+                        # Store the item_id from front uploads for back pairing
+                        if not is_back:
+                            last_front_id = data.get("id", "")
+
                         idx = self.scanned_images.index(img)
-                        self.root.after(0, lambda idx=idx, n=img["name"]: self._mark_uploaded(idx, n))
+                        side = data.get("side", "")
+                        self.root.after(0, lambda idx=idx, n=img["name"], s=side:
+                            self._mark_uploaded(idx, n, s))
+                    else:
+                        print(f"Upload failed ({resp.status_code}): {resp.text[:200]}")
+                        last_front_id = None
                 except Exception as e:
                     print(f"Upload error: {e}")
+                    last_front_id = None
             self.root.after(0, lambda: self._on_upload_done(success, len(pending)))
 
         threading.Thread(target=do_upload, daemon=True).start()
 
-    def _mark_uploaded(self, idx, name):
+    def _mark_uploaded(self, idx, name, side=""):
+        label = f"  {name}  [UPLOADED"
+        if side:
+            label += f" - {side}"
+        label += "]"
         self.queue_listbox.delete(idx)
-        self.queue_listbox.insert(idx, f"  {name}  [UPLOADED]")
+        self.queue_listbox.insert(idx, label)
         self.queue_listbox.itemconfig(idx, fg=GREEN)
 
     def _on_upload_done(self, success, total):

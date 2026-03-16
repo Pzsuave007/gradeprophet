@@ -564,14 +564,22 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     if is_back:
         matched_item = None
 
-        # First try: match by batch key (most reliable)
-        if batch_key:
+        # Method 1: match by explicit item_id from scanner (most reliable)
+        explicit_id = request.headers.get("X-FlipSlab-Item-Id", "").strip()
+        if explicit_id:
+            matched_item = await db.inventory.find_one(
+                {"id": explicit_id, "user_id": user_id},
+                {"_id": 0}
+            )
+
+        # Method 2: match by batch key from filename
+        if not matched_item and batch_key:
             matched_item = await db.inventory.find_one(
                 {"user_id": user_id, "source": "scanner", "scan_batch_key": batch_key},
                 {"_id": 0}
             )
 
-        # Fallback: find most recent scanner item without back_image
+        # Method 3: fallback - most recent scanner item without back_image
         if not matched_item:
             matched_item = await db.inventory.find_one(
                 {"user_id": user_id, "source": "scanner", "back_image": None},
