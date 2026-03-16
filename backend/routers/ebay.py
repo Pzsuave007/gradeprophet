@@ -552,6 +552,8 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request
             "year": item.get("year"), "condition": item.get("condition"),
             "grade": item.get("grade"), "grading_company": item.get("grading_company"),
             "image": item.get("image"),
+            "back_image": item.get("back_image"),
+            "has_back_image": bool(item.get("back_image")),
         }
     }
 
@@ -623,11 +625,17 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     for img_key, label in [("image", "front"), ("back_image", "back")]:
         if item.get(img_key):
             try:
+                logger.info(f"eBay upload: {label} image found ({len(item[img_key])} chars base64)")
                 url = await upload_image_to_ebay(item[img_key], label)
                 if url:
                     picture_urls.append(url)
+                    logger.info(f"eBay upload: {label} SUCCESS -> {url[:80]}...")
+                else:
+                    logger.warning(f"eBay upload: {label} returned no URL")
             except Exception as e:
                 logger.warning(f"Failed to upload {label} image: {e}")
+        else:
+            logger.info(f"eBay upload: {label} image NOT FOUND in inventory item")
 
     picture_xml = ""
     if picture_urls:

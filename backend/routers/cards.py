@@ -547,8 +547,9 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     contents = await file.read()
     img_base64 = base64.b64encode(contents).decode("utf-8")
 
-    # Process image
-    processed = process_card_image(img_base64)
+    # Scanner images are already cropped and enhanced - just convert to JPEG and keep full quality
+    # Skip auto_crop and enhance (only for scanner uploads)
+    processed = create_thumbnail(img_base64, max_size=1600)
 
     # Parse filename: card_{timestamp}_{number}_{side}.png
     filename = (file.filename or "").lower()
