@@ -70,6 +70,17 @@ async def root():
 
 
 # Download endpoint for deployment package
+@api_router.get("/download-scanner")
+async def download_scanner():
+    file_path = Path("/app/FlipSlabScanner.zip")
+    if not file_path.exists():
+        return {"error": "Scanner package not found"}
+    return FileResponse(
+        path=str(file_path),
+        filename="FlipSlabScanner.zip",
+        media_type="application/zip"
+    )
+
 @api_router.get("/download-update")
 async def download_update():
     file_path = Path(__file__).parent / "flipslab_update.tar.gz"
