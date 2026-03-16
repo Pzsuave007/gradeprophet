@@ -8,6 +8,7 @@ from tkinter import ttk, messagebox, filedialog
 from PIL import Image, ImageTk
 import threading
 import requests
+import re
 import os
 import io
 import json
@@ -42,6 +43,7 @@ DEFAULT_SETTINGS = {
     "naps2_path": "",
     "naps2_device": "fi-6130dj",
     "naps2_profile": "",
+    "swap_front_back": False,
 }
 
 # Paper size presets (width x height in inches)
@@ -291,9 +293,14 @@ class WIAScanner:
                 f"Error ejecutando NAPS2:\n{e}\n\nComando:\n{cmd_str}"
             )
 
-        # Read output images
+        # Read output images (MUST use numeric sort, not alphabetical!)
+        # Alphabetical sort breaks when there are 10+ files:
+        # scan_1, scan_10, scan_2, scan_3... instead of scan_1, scan_2, ..., scan_10
         images = []
-        scan_files = sorted(glob.glob(os.path.join(scan_tmp, "scan_*.png")))
+        scan_files = sorted(
+            glob.glob(os.path.join(scan_tmp, "scan_*.png")),
+            key=lambda f: int(re.search(r'scan_(\d+)', os.path.basename(f)).group(1))
+        )
 
         for scan_file in scan_files:
             try:
@@ -909,6 +916,14 @@ class FlipSlabScanner:
                   bg=BG, fg=BLUE, relief="flat", cursor="hand2",
                   command=self._auto_detect_naps2).pack(fill="x", ipady=2, pady=(2, 0))
 
+        # Swap front/back checkbox
+        self.swap_fb_var = tk.BooleanVar(value=s.get("swap_front_back", False))
+        swap_cb = tk.Checkbutton(naps2_frame, text="Invertir frente/reverso",
+                                 variable=self.swap_fb_var,
+                                 font=("Segoe UI", 8), fg=AMBER, bg=BG3,
+                                 selectcolor=BG, activebackground=BG3, activeforeground=AMBER)
+        swap_cb.pack(anchor="w", pady=(4, 0))
+
         # NAPS2 status
         self.naps2_status = tk.Label(naps2_frame, text="", font=("Segoe UI", 7),
                                      fg=DARK_GRAY, bg=BG3, wraplength=250, justify="left")
@@ -979,6 +994,7 @@ class FlipSlabScanner:
                 "naps2_path": self.naps2_path_var.get().strip(),
                 "naps2_device": self.naps2_device_var.get().strip(),
                 "naps2_profile": self.naps2_profile_var.get().strip(),
+                "swap_front_back": self.swap_fb_var.get(),
             }
             self.config["scan_settings"] = self.scan_settings
             save_config(self.config)
@@ -1197,25 +1213,31 @@ class FlipSlabScanner:
         # Name images: for duplex, alternate front/back per card
         timestamp = int(time.time() * 1000)
         cards_scanned = 0
+        swap_fb = self.scan_settings.get("swap_front_back", False)
 
         if is_duplex:
             # NAPS2 duplex outputs paired: front1, back1, front2, back2, ...
             for i in range(0, len(images), 2):
                 cards_scanned += 1
-                # Front
-                front_name = f"card_{timestamp}_{cards_scanned}_front.png"
-                front_path = os.path.join(SCAN_FOLDER, front_name)
-                images[i].save(front_path, "PNG")
-                self.scanned_images.append({"path": front_path, "name": front_name, "uploaded": False})
-                self.queue_listbox.insert(tk.END, f"  {front_name}")
 
-                # Back (if available)
+                # Determine which image is front and which is back
+                first_label = "back" if swap_fb else "front"
+                second_label = "front" if swap_fb else "back"
+
+                # First image of pair
+                name1 = f"card_{timestamp}_{cards_scanned}_{first_label}.png"
+                path1 = os.path.join(SCAN_FOLDER, name1)
+                images[i].save(path1, "PNG")
+                self.scanned_images.append({"path": path1, "name": name1, "uploaded": False})
+                self.queue_listbox.insert(tk.END, f"  {name1}")
+
+                # Second image of pair (if available)
                 if i + 1 < len(images):
-                    back_name = f"card_{timestamp}_{cards_scanned}_back.png"
-                    back_path = os.path.join(SCAN_FOLDER, back_name)
-                    images[i + 1].save(back_path, "PNG")
-                    self.scanned_images.append({"path": back_path, "name": back_name, "uploaded": False})
-                    self.queue_listbox.insert(tk.END, f"  {back_name}")
+                    name2 = f"card_{timestamp}_{cards_scanned}_{second_label}.png"
+                    path2 = os.path.join(SCAN_FOLDER, name2)
+                    images[i + 1].save(path2, "PNG")
+                    self.scanned_images.append({"path": path2, "name": name2, "uploaded": False})
+                    self.queue_listbox.insert(tk.END, f"  {name2}")
         else:
             # Single side: each image is a separate card front
             for i, img in enumerate(images):
