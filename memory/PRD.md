@@ -76,10 +76,16 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 
 ## Scanner App (Standalone Windows Desktop)
 - [x] WIA scanner integration with native driver UI
-- [x] Smart crop algorithm (tile-based card detection)
-- [x] 180° rotation for feeder scans
-- [x] Uniform gray margin (#E0E0E0, 40px) around cropped cards (v1.3 - Mar 16, 2026)
-- [x] Auto color/contrast enhancement (autocontrast + saturation + sharpness) (v1.3 - Mar 16, 2026)
+- [x] Smart crop algorithm (background-subtraction based card detection)
+- [x] 180 degree rotation for feeder scans
+- [x] Uniform gray margin proportional to card size (v1.4 - Mar 16, 2026)
+- [x] Auto color/contrast enhancement (autocontrast + saturation + sharpness)
+- [x] **v2.0 - Programmatic WIA scanning (NAPS2-style)** (Mar 16, 2026):
+  - No more Windows scan dialog - all settings controlled from within the app
+  - Source dropdown: Feeder (Both sides) / Feeder (Single) / Flatbed
+  - Paper Size presets: Sport Card, Sport Card Tight, Custom, Letter, Legal
+  - Color/Grayscale and DPI selection
+  - Fallback to native WIA dialog if programmatic scan fails
 - [x] Upload to FlipSlab web app
 - [x] One-click Windows installer (setup.bat)
 

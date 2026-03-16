@@ -1,6 +1,7 @@
 """
-FlipSlab Scanner Companion v1.4
-Duplex scanning with smart background-subtraction crop for sports cards.
+FlipSlab Scanner Companion v2.0
+Programmatic WIA scanning with NAPS2-style settings UI.
+No more Windows scan dialogs - full control from within the app.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -15,7 +16,7 @@ import tempfile
 
 # ─── Config ────────────────────────────────────────────────
 APP_NAME = "FlipSlab Scanner"
-VERSION = "1.4.0"
+VERSION = "2.0.0"
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".flipslab_scanner.json")
 SCAN_FOLDER = os.path.join(os.path.expanduser("~"), "FlipSlab Scans")
 
@@ -30,13 +31,29 @@ WHITE = "#ffffff"
 GRAY = "#9ca3af"
 DARK_GRAY = "#4b5563"
 
-# Default scan settings for sports cards (2.5" x 3.5" + margin)
+# Default scan settings for sports cards
 DEFAULT_SETTINGS = {
-    "dpi": 150,
+    "dpi": 300,
     "color": True,
-    "duplex": True,
-    "width_inches": 3.0,    # slightly larger than card
+    "source": "feeder_duplex",
+    "paper_size": "sport_card",
+    "width_inches": 3.0,
     "height_inches": 4.0,
+}
+
+# Paper size presets (width x height in inches)
+PAPER_SIZES = {
+    "sport_card": ("Sport Card (2.5 x 3.5 in)", 3.0, 4.0),
+    "sport_card_tight": ("Sport Card Tight (2.6 x 3.6 in)", 2.6, 3.6),
+    "custom": ("Custom", 3.0, 4.0),
+    "letter": ("Letter (8.5 x 11 in)", 8.5, 11.0),
+    "legal": ("Legal (8.5 x 14 in)", 8.5, 14.0),
+}
+
+SOURCE_OPTIONS = {
+    "feeder_duplex": "Feeder (Scan both sides)",
+    "feeder_single": "Feeder (Single side)",
+    "flatbed": "Flatbed",
 }
 
 
@@ -57,7 +74,7 @@ class WIAScanner:
     WIA_DEVICE_TYPE_SCANNER = 1
     WIA_FORMAT_BMP = "{B96B3CAB-0728-11D3-9D7B-0000F81EF32E}"
 
-    # Property IDs
+    # Item Property IDs
     HORIZONTAL_RES = 6147
     VERTICAL_RES = 6148
     COLOR_MODE = 6146
@@ -66,11 +83,12 @@ class WIAScanner:
     HORIZONTAL_EXTENT = 6151
     VERTICAL_EXTENT = 6152
 
-    # Document handling
+    # Device Property IDs
     DOC_HANDLING_SELECT = 3088
     DOC_HANDLING_STATUS = 3087
     PAGES = 3096
 
+    # Source flags
     FEEDER = 1
     FLATBED = 2
     DUPLEX = 4
@@ -102,56 +120,146 @@ class WIAScanner:
     def _set_prop(self, item, prop_id, value):
         try:
             item.Properties(prop_id).Value = value
+            return True
         except:
-            pass
+            return False
 
     def _set_device_prop(self, device, prop_id, value):
         try:
             device.Properties(prop_id).Value = value
+            return True
         except:
-            pass
+            return False
+
+    def _connect_device(self, device_id):
+        """Connect to a WIA device by its ID."""
+        import win32com.client
+        mgr = self._get_manager()
+        for i in range(1, mgr.DeviceInfos.Count + 1):
+            info = mgr.DeviceInfos.Item(i)
+            if info.DeviceID == device_id:
+                return info.Connect()
+        return None
 
     def scan_card(self, device_id, settings):
-        """Scan a card using native scanner UI for best compatibility."""
+        """Scan programmatically without showing any dialog (like NAPS2).
+        Falls back to native dialog if programmatic scan fails."""
+
+        try:
+            return self._scan_programmatic(device_id, settings)
+        except Exception as prog_err:
+            # Fallback to native dialog
+            try:
+                return self._scan_with_dialog(device_id, settings)
+            except Exception as dialog_err:
+                raise Exception(
+                    f"Programmatic scan failed: {prog_err}\n\n"
+                    f"Native dialog also failed: {dialog_err}\n\n"
+                    f"Check that the scanner is ON and a card is in the feeder."
+                )
+
+    def _scan_programmatic(self, device_id, settings):
+        """Direct WIA scan without UI - sets all properties programmatically."""
         import win32com.client
 
-        dpi = settings.get("dpi", 150)
+        dpi = settings.get("dpi", 300)
+        color = settings.get("color", True)
+        source = settings.get("source", "feeder_duplex")
+        width_in = settings.get("width_inches", 3.0)
+        height_in = settings.get("height_inches", 4.0)
+
+        device = self._connect_device(device_id)
+        if not device:
+            raise Exception("Could not connect to scanner device.")
+
+        # --- Configure source (feeder/flatbed/duplex) ---
+        if source == "flatbed":
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FLATBED)
+        elif source == "feeder_duplex":
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+        else:
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
+
+        # Set pages: 0 = scan all available, 1 = single, 2 = both sides
+        if source == "feeder_duplex":
+            self._set_device_prop(device, self.PAGES, 0)
+        else:
+            self._set_device_prop(device, self.PAGES, 1)
+
+        # --- Configure scan item properties ---
+        item = device.Items(1)
+
+        # DPI
+        self._set_prop(item, self.HORIZONTAL_RES, dpi)
+        self._set_prop(item, self.VERTICAL_RES, dpi)
+
+        # Color mode: 1=Color, 2=Grayscale, 4=B&W
+        self._set_prop(item, self.COLOR_MODE, 1 if color else 2)
+
+        # Scan area in pixels
+        width_px = int(width_in * dpi)
+        height_px = int(height_in * dpi)
+        self._set_prop(item, self.HORIZONTAL_START, 0)
+        self._set_prop(item, self.VERTICAL_START, 0)
+        self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
+        self._set_prop(item, self.VERTICAL_EXTENT, height_px)
+
+        # --- Scan pages ---
+        images = []
+        max_pages = 2 if source == "feeder_duplex" else 1
+
+        for page_num in range(max_pages):
+            try:
+                image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                if image_file:
+                    tmp = os.path.join(tempfile.gettempdir(),
+                                       f"flipslab_{int(time.time())}_{page_num+1}.bmp")
+                    image_file.SaveFile(tmp)
+                    img = Image.open(tmp).convert("RGB")
+                    img = self._auto_crop(img, width_in, height_in, dpi)
+                    images.append(img)
+                    try:
+                        os.remove(tmp)
+                    except:
+                        pass
+            except Exception:
+                if page_num == 0 and not images:
+                    raise  # first page failed = real error
+                break  # second page not available = normal for non-duplex
+
+        if not images:
+            raise Exception("Scanner returned no images.")
+
+        return images
+
+    def _scan_with_dialog(self, device_id, settings):
+        """Fallback: scan using native WIA dialog."""
+        import win32com.client
+
+        dpi = settings.get("dpi", 300)
         color = settings.get("color", True)
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
 
         images = []
-
-        # Use CommonDialog with native scanner UI
-        # This lets the user select "Feeder (Scan both sides)" for duplex
         dialog = win32com.client.Dispatch("WIA.CommonDialog")
+        intent = 1 if color else 2
 
-        # First scan (front, or both sides if user selects duplex in dialog)
-        try:
-            intent = 1 if color else 2  # 1=Color, 2=Grayscale
-            image_file = dialog.ShowAcquireImage(
-                1,      # DeviceType: Scanner
-                intent, # Intent
-                1,      # Bias: MaxQuality
-                self.WIA_FORMAT_BMP,
-                False,  # AlwaysSelectDevice
-                True,   # UseCommonUI = TRUE (show native scanner dialog)
-                False   # CancelError
-            )
+        image_file = dialog.ShowAcquireImage(
+            1, intent, 1, self.WIA_FORMAT_BMP, False, True, False)
 
-            if image_file:
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_1.bmp")
-                image_file.SaveFile(tmp)
-                img = Image.open(tmp).convert("RGB")
-                img = self._auto_crop(img, width_in, height_in, dpi)
-                images.append(img)
-                try:
-                    os.remove(tmp)
-                except:
-                    pass
+        if image_file:
+            tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_1.bmp")
+            image_file.SaveFile(tmp)
+            img = Image.open(tmp).convert("RGB")
+            img = self._auto_crop(img, width_in, height_in, dpi)
+            images.append(img)
+            try:
+                os.remove(tmp)
+            except:
+                pass
 
-            # Try to get second page (back side from duplex)
-            # Some WIA drivers deliver the second page on next ShowAcquireImage call
+            # Try second page
             try:
                 image_file2 = dialog.ShowAcquireImage(
                     1, intent, 1, self.WIA_FORMAT_BMP, False, False, False)
@@ -168,15 +276,8 @@ class WIAScanner:
             except:
                 pass
 
-        except Exception as e:
-            if not images:
-                raise Exception(
-                    f"Scan failed.\n\n"
-                    f"Tip: In the scan dialog, select:\n"
-                    f"- Source: 'Feeder (Scan both sides)'\n"
-                    f"- Color format: 'Color picture'\n\n"
-                    f"Error: {e}"
-                )
+        if not images:
+            raise Exception("No images returned from scanner dialog.")
 
         return images
 
@@ -391,47 +492,92 @@ class FlipSlabScanner:
 
         s = self.scan_settings
 
-        # DPI
-        row1 = tk.Frame(frame, bg=BG3)
-        row1.pack(fill="x", pady=(0, 4))
-        tk.Label(row1, text="DPI:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=8, anchor="w").pack(side="left")
-        self.dpi_var = tk.StringVar(value=str(s.get("dpi", 150)))
-        dpi_combo = ttk.Combobox(row1, textvariable=self.dpi_var, values=["100", "150", "200", "300"],
+        # Source (like NAPS2)
+        row_src = tk.Frame(frame, bg=BG3)
+        row_src.pack(fill="x", pady=(0, 4))
+        tk.Label(row_src, text="Source:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
+        self.source_var = tk.StringVar(value=s.get("source", "feeder_duplex"))
+        source_display = [SOURCE_OPTIONS[k] for k in SOURCE_OPTIONS]
+        self.source_combo = ttk.Combobox(row_src, values=source_display,
+                                         state="readonly", font=("Segoe UI", 8), width=22)
+        # Set current selection
+        current_source = s.get("source", "feeder_duplex")
+        source_keys = list(SOURCE_OPTIONS.keys())
+        self.source_combo.current(source_keys.index(current_source) if current_source in source_keys else 0)
+        self.source_combo.pack(side="left")
+
+        # Paper Size (like NAPS2)
+        row_paper = tk.Frame(frame, bg=BG3)
+        row_paper.pack(fill="x", pady=(0, 4))
+        tk.Label(row_paper, text="Paper size:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
+        paper_display = [PAPER_SIZES[k][0] for k in PAPER_SIZES]
+        self.paper_combo = ttk.Combobox(row_paper, values=paper_display,
+                                        state="readonly", font=("Segoe UI", 8), width=22)
+        current_paper = s.get("paper_size", "sport_card")
+        paper_keys = list(PAPER_SIZES.keys())
+        self.paper_combo.current(paper_keys.index(current_paper) if current_paper in paper_keys else 0)
+        self.paper_combo.pack(side="left")
+        self.paper_combo.bind("<<ComboboxSelected>>", self._on_paper_change)
+
+        # Color format (like NAPS2)
+        row_color = tk.Frame(frame, bg=BG3)
+        row_color.pack(fill="x", pady=(0, 4))
+        tk.Label(row_color, text="Color:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
+        self.color_var = tk.StringVar(value="Color" if s.get("color", True) else "Grayscale")
+        color_combo = ttk.Combobox(row_color, textvariable=self.color_var,
+                                   values=["Color", "Grayscale"], state="readonly",
+                                   font=("Segoe UI", 8), width=10)
+        color_combo.pack(side="left")
+
+        # DPI (like NAPS2)
+        row_dpi = tk.Frame(frame, bg=BG3)
+        row_dpi.pack(fill="x", pady=(0, 4))
+        tk.Label(row_dpi, text="DPI:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
+        self.dpi_var = tk.StringVar(value=str(s.get("dpi", 300)))
+        dpi_combo = ttk.Combobox(row_dpi, textvariable=self.dpi_var,
+                                 values=["150", "200", "300", "600"],
                                  state="readonly", font=("Segoe UI", 8), width=6)
-        dpi_combo.pack(side="left", padx=(0, 10))
+        dpi_combo.pack(side="left")
 
-        # Color
-        self.color_var = tk.BooleanVar(value=s.get("color", True))
-        tk.Checkbutton(row1, text="Color", variable=self.color_var, font=("Segoe UI", 8),
-                       fg=WHITE, bg=BG3, selectcolor=BG, activebackground=BG3,
-                       activeforeground=WHITE).pack(side="left")
+        # Custom scan area (shown only when paper_size = "custom")
+        self.custom_area_frame = tk.Frame(frame, bg=BG3)
 
-        # Duplex
-        row2 = tk.Frame(frame, bg=BG3)
-        row2.pack(fill="x", pady=(0, 4))
-        self.duplex_var = tk.BooleanVar(value=s.get("duplex", True))
-        tk.Checkbutton(row2, text="Duplex (front + back)", variable=self.duplex_var,
-                       font=("Segoe UI", 8), fg=WHITE, bg=BG3, selectcolor=BG,
-                       activebackground=BG3, activeforeground=WHITE).pack(anchor="w")
-
-        # Scan area
-        row3 = tk.Frame(frame, bg=BG3)
-        row3.pack(fill="x", pady=(0, 2))
-        tk.Label(row3, text="Scan area:", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left")
+        row_area = tk.Frame(self.custom_area_frame, bg=BG3)
+        row_area.pack(fill="x", pady=(0, 2))
+        tk.Label(row_area, text="Scan area:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
 
         self.width_var = tk.StringVar(value=str(s.get("width_inches", 3.0)))
-        tk.Entry(row3, textvariable=self.width_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
-                 insertbackground=WHITE, relief="flat", width=5).pack(side="left", padx=(4, 0), ipady=2)
-        tk.Label(row3, text="x", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left", padx=3)
+        tk.Entry(row_area, textvariable=self.width_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                 insertbackground=WHITE, relief="flat", width=5).pack(side="left", ipady=2)
+        tk.Label(row_area, text=" x ", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left")
 
         self.height_var = tk.StringVar(value=str(s.get("height_inches", 4.0)))
-        tk.Entry(row3, textvariable=self.height_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
+        tk.Entry(row_area, textvariable=self.height_var, font=("Segoe UI", 8), bg=BG, fg=WHITE,
                  insertbackground=WHITE, relief="flat", width=5).pack(side="left", ipady=2)
-        tk.Label(row3, text="inches", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left", padx=3)
+        tk.Label(row_area, text=" in", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(side="left")
 
-        # Card size hint
-        tk.Label(frame, text="Sports card = 2.5 x 3.5 in (default adds margin)",
-                 font=("Segoe UI", 7), fg=DARK_GRAY, bg=BG3).pack(anchor="w")
+        # Show custom area only if paper_size is custom
+        if current_paper == "custom":
+            self.custom_area_frame.pack(fill="x", pady=(0, 4))
+
+        # Save button
+        tk.Button(frame, text="Save Settings", font=("Segoe UI", 8, "bold"),
+                  bg=BG, fg=GREEN, relief="flat", cursor="hand2",
+                  command=self._save_settings).pack(fill="x", ipady=2, pady=(4, 0))
+
+    def _on_paper_change(self, event=None):
+        """Show/hide custom area fields based on paper size selection."""
+        paper_keys = list(PAPER_SIZES.keys())
+        idx = self.paper_combo.current()
+        key = paper_keys[idx] if idx >= 0 else "sport_card"
+        if key == "custom":
+            self.custom_area_frame.pack(fill="x", pady=(0, 4))
+        else:
+            self.custom_area_frame.pack_forget()
+            # Update width/height from preset
+            _, w, h = PAPER_SIZES[key]
+            self.width_var.set(str(w))
+            self.height_var.set(str(h))
 
         # Save button
         tk.Button(frame, text="Save Settings", font=("Segoe UI", 8, "bold"),
@@ -440,12 +586,30 @@ class FlipSlabScanner:
 
     def _save_settings(self):
         try:
+            # Get source key from combo index
+            source_keys = list(SOURCE_OPTIONS.keys())
+            source_idx = self.source_combo.current()
+            source_key = source_keys[source_idx] if source_idx >= 0 else "feeder_duplex"
+
+            # Get paper size key from combo index
+            paper_keys = list(PAPER_SIZES.keys())
+            paper_idx = self.paper_combo.current()
+            paper_key = paper_keys[paper_idx] if paper_idx >= 0 else "sport_card"
+
+            # Get width/height from preset or custom
+            if paper_key != "custom":
+                _, w_in, h_in = PAPER_SIZES[paper_key]
+            else:
+                w_in = float(self.width_var.get())
+                h_in = float(self.height_var.get())
+
             self.scan_settings = {
                 "dpi": int(self.dpi_var.get()),
-                "color": self.color_var.get(),
-                "duplex": self.duplex_var.get(),
-                "width_inches": float(self.width_var.get()),
-                "height_inches": float(self.height_var.get()),
+                "color": self.color_var.get() == "Color",
+                "source": source_key,
+                "paper_size": paper_key,
+                "width_inches": w_in,
+                "height_inches": h_in,
             }
             self.config["scan_settings"] = self.scan_settings
             save_config(self.config)
