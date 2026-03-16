@@ -1,7 +1,7 @@
 """
-FlipSlab Scanner Companion
-Scan sports cards with any TWAIN scanner and upload to FlipSlab Engine.
-Works with any scanner installed on Windows (Fujitsu, Epson, Canon, etc.)
+FlipSlab Scanner Companion v1.1
+Uses WIA (Windows Image Acquisition) - works with any scanner on Windows.
+No need for TWAIN drivers. Just plug in your scanner and go.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -13,11 +13,10 @@ import io
 import json
 import time
 import tempfile
-import sys
 
 # ─── Config ────────────────────────────────────────────────
 APP_NAME = "FlipSlab Scanner"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".flipslab_scanner.json")
 SCAN_FOLDER = os.path.join(os.path.expanduser("~"), "FlipSlab Scans")
 
@@ -46,6 +45,98 @@ def save_config(data):
         json.dump(data, f)
 
 
+# ─── WIA Scanner Interface ──────────────────────────────
+class WIAScanner:
+    """Windows Image Acquisition scanner interface."""
+
+    WIA_DEVICE_TYPE_SCANNER = 1
+    WIA_FORMAT_PNG = "{B96B3CAF-0728-11D3-9D7B-0000F81EF32E}"
+    WIA_FORMAT_BMP = "{B96B3CAB-0728-11D3-9D7B-0000F81EF32E}"
+    WIA_FORMAT_JPEG = "{B96B3CAE-0728-11D3-9D7B-0000F81EF32E}"
+
+    # WIA property IDs for scanner settings
+    WIA_HORIZONTAL_RESOLUTION = 6147
+    WIA_VERTICAL_RESOLUTION = 6148
+    WIA_COLOR_MODE = 6146  # 0=BW, 1=Grayscale, 2=Color
+
+    def __init__(self):
+        self.device_manager = None
+        self.selected_device_id = None
+
+    def _get_manager(self):
+        import win32com.client
+        if not self.device_manager:
+            self.device_manager = win32com.client.Dispatch("WIA.DeviceManager")
+        return self.device_manager
+
+    def list_scanners(self):
+        """Return list of (device_id, device_name) tuples."""
+        scanners = []
+        try:
+            mgr = self._get_manager()
+            for i in range(1, mgr.DeviceInfos.Count + 1):
+                info = mgr.DeviceInfos.Item(i)
+                if info.Type == self.WIA_DEVICE_TYPE_SCANNER:
+                    name = info.Properties("Name").Value
+                    dev_id = info.DeviceID
+                    scanners.append((dev_id, name))
+        except Exception as e:
+            raise Exception(f"Error listing scanners: {e}")
+        return scanners
+
+    def scan(self, device_id, dpi=300):
+        """Scan an image and return PIL Image."""
+        import win32com.client
+        try:
+            mgr = self._get_manager()
+
+            # Find and connect to device
+            device = None
+            for i in range(1, mgr.DeviceInfos.Count + 1):
+                info = mgr.DeviceInfos.Item(i)
+                if info.DeviceID == device_id:
+                    device = info.Connect()
+                    break
+
+            if not device:
+                raise Exception("Scanner not found. Is it still connected?")
+
+            # Get the scanner item (flatbed or feeder)
+            item = device.Items(1)
+
+            # Set scan properties
+            try:
+                # Set resolution
+                item.Properties(self.WIA_HORIZONTAL_RESOLUTION).Value = dpi
+                item.Properties(self.WIA_VERTICAL_RESOLUTION).Value = dpi
+                # Set color mode (2 = Color)
+                item.Properties(self.WIA_COLOR_MODE).Value = 2
+            except:
+                pass  # Some scanners don't support all properties
+
+            # Transfer image as BMP (most compatible)
+            image_file = item.Transfer(self.WIA_FORMAT_BMP)
+
+            # Save to temp file and load with PIL
+            tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+            image_file.SaveFile(tmp)
+
+            img = Image.open(tmp)
+            img = img.convert("RGB")
+
+            # Cleanup temp
+            try:
+                os.remove(tmp)
+            except:
+                pass
+
+            return img
+
+        except Exception as e:
+            raise Exception(f"Scan failed: {e}")
+
+
+# ─── Main App ────────────────────────────────────────────
 class FlipSlabScanner:
     def __init__(self, root):
         self.root = root
@@ -59,19 +150,18 @@ class FlipSlabScanner:
         self.server_url = self.config.get("server_url", "https://flipslabengine.com")
         self.session_cookie = None
         self.logged_in = False
-        self.scanner_source = None
         self.scanned_images = []
         self.current_preview = None
         self.scanning = False
 
-        # TWAIN
-        self.twain_manager = None
-        self.twain_source = None
+        # Scanner
+        self.wia = WIAScanner()
+        self.scanners = []
+        self.selected_scanner_id = None
 
         os.makedirs(SCAN_FOLDER, exist_ok=True)
 
         self._build_ui()
-        self._check_saved_session()
 
     # ─── UI ──────────────────────────────────────────────
     def _build_ui(self):
@@ -112,9 +202,6 @@ class FlipSlabScanner:
         self.preview_label = tk.Label(right, text="Scan a card to preview",
                                       font=("Segoe UI", 11), fg=DARK_GRAY, bg=BG2)
         self.preview_label.pack(expand=True)
-
-        self.preview_canvas = tk.Canvas(right, bg=BG2, highlightthickness=0)
-        self.preview_image_label = tk.Label(self.preview_canvas, bg=BG2)
 
     def _section_title(self, parent, text):
         tk.Label(parent, text=text, font=("Segoe UI", 8, "bold"),
@@ -256,7 +343,6 @@ class FlipSlabScanner:
                                      timeout=10)
                 if resp.status_code == 200:
                     data = resp.json()
-                    # Extract session cookie
                     self.session_cookie = resp.cookies.get("session_token")
                     self.root.after(0, lambda: self._on_login_success(data, email))
                 else:
@@ -269,13 +355,10 @@ class FlipSlabScanner:
     def _on_login_success(self, data, email):
         self.logged_in = True
         name = data.get("name", email)
-
-        # Save config
         self.config["server_url"] = self.server_url
         self.config["email"] = email
         save_config(self.config)
 
-        # Update UI
         self.login_frame.pack_forget()
         self.connected_label.config(text=f"Connected as: {name}")
         self.connected_frame.pack(fill="x")
@@ -297,10 +380,6 @@ class FlipSlabScanner:
         self.status_label.config(text="Disconnected", fg=GRAY)
         self._update_buttons()
 
-    def _check_saved_session(self):
-        # Try to reconnect with saved credentials
-        pass
-
     # ─── Scanner ─────────────────────────────────────────
     def _detect_scanners(self):
         self.detect_btn.config(text="Detecting...", state="disabled")
@@ -310,16 +389,9 @@ class FlipSlabScanner:
             scanners = []
             error = None
             try:
-                import pytwain
-                sm = pytwain.SourceManager()
-                sources = sm.source_list
-                scanners = list(sources) if sources else []
-                sm.close()
-            except ImportError:
-                error = "pytwain not installed.\nRun: pip install pytwain"
+                scanners = self.wia.list_scanners()
             except Exception as e:
                 error = str(e)
-
             self.root.after(0, lambda: self._on_detect_done(scanners, error))
 
         threading.Thread(target=do_detect, daemon=True).start()
@@ -328,31 +400,39 @@ class FlipSlabScanner:
         self.detect_btn.config(text="Detect Scanners", state="normal")
 
         if error:
-            messagebox.showerror("Scanner Error", error)
+            messagebox.showerror("Scanner Error", f"Error detecting scanners:\n{error}")
             return
 
         if not scanners:
             self.scanner_combo.set("No scanners found")
-            messagebox.showinfo("No Scanners", "No TWAIN scanners detected.\nMake sure your scanner is connected and drivers are installed.")
+            messagebox.showinfo("No Scanners",
+                "No scanners detected.\n\n"
+                "Make sure:\n"
+                "1. Scanner is connected via USB\n"
+                "2. Scanner is turned ON\n"
+                "3. Scanner drivers are installed")
             return
 
-        self.scanner_combo["values"] = scanners
+        self.scanners = scanners
+        names = [name for _, name in scanners]
+        self.scanner_combo["values"] = names
         self.scanner_combo.current(0)
         self.scanner_status.config(text=f"{len(scanners)} scanner(s) found", fg=AMBER)
 
     def _select_scanner(self):
-        selected = self.scanner_combo.get()
-        if not selected or selected.startswith("Click") or selected.startswith("No"):
+        idx = self.scanner_combo.current()
+        if idx < 0 or not self.scanners:
             messagebox.showwarning("Select Scanner", "Please detect and select a scanner first.")
             return
 
-        self.scanner_source = selected
-        self.scanner_status.config(text=f"Ready: {selected}", fg=GREEN)
+        self.selected_scanner_id = self.scanners[idx][0]
+        name = self.scanners[idx][1]
+        self.scanner_status.config(text=f"Ready: {name}", fg=GREEN)
         self._update_buttons()
 
     # ─── Scan ────────────────────────────────────────────
     def _scan_card(self):
-        if not self.scanner_source:
+        if not self.selected_scanner_id:
             messagebox.showwarning("No Scanner", "Please select a scanner first.")
             return
 
@@ -364,43 +444,14 @@ class FlipSlabScanner:
             image = None
             error = None
             try:
-                import pytwain
-                sm = pytwain.SourceManager()
-                src = sm.open_source(self.scanner_source)
-
-                # Configure for photos
-                try:
-                    src.set_capability(pytwain.CAP_XRESOLUTION, pytwain.TWTY_FIX32, 300.0)
-                    src.set_capability(pytwain.CAP_YRESOLUTION, pytwain.TWTY_FIX32, 300.0)
-                except:
-                    pass  # Not all scanners support setting resolution
-
-                try:
-                    src.set_capability(pytwain.ICAP_PIXELTYPE, pytwain.TWTY_UINT16, 2)  # RGB color
-                except:
-                    pass
-
-                src.request_acquire(show_ui=False, modal_ui=True)
-
-                # Wait for image
-                rv = src.xfer_image_natively()
-                if rv:
-                    handle, count = rv
-                    image = pytwain.dib_to_bm_file(handle)
-
-                src.close()
-                sm.close()
-
-            except ImportError:
-                error = "pytwain not installed.\nRun: pip install pytwain"
+                image = self.wia.scan(self.selected_scanner_id, dpi=300)
             except Exception as e:
                 error = str(e)
-
             self.root.after(0, lambda: self._on_scan_done(image, error))
 
         threading.Thread(target=do_scan, daemon=True).start()
 
-    def _on_scan_done(self, image_data, error):
+    def _on_scan_done(self, image, error):
         self.scanning = False
         self.scan_btn.config(text="SCAN CARD", state="normal")
 
@@ -408,7 +459,7 @@ class FlipSlabScanner:
             messagebox.showerror("Scan Error", f"Scan failed:\n{error}")
             return
 
-        if not image_data:
+        if not image:
             messagebox.showwarning("No Image", "Scanner did not return an image.")
             return
 
@@ -418,8 +469,7 @@ class FlipSlabScanner:
         filepath = os.path.join(SCAN_FOLDER, filename)
 
         try:
-            img = Image.open(io.BytesIO(image_data))
-            img.save(filepath, "PNG", quality=95)
+            image.save(filepath, "PNG")
         except Exception as e:
             messagebox.showerror("Save Error", f"Could not save image:\n{e}")
             return
@@ -449,7 +499,7 @@ class FlipSlabScanner:
             self.queue_count.config(text=f"{len(self.scanned_images)} card(s) scanned")
             self._show_preview(self.scanned_images[-1]["path"])
             self._update_buttons()
-            messagebox.showinfo("Imported", f"{count} images imported from folder.")
+            messagebox.showinfo("Imported", f"{count} images imported!")
         else:
             messagebox.showinfo("No Images", "No image files found in selected folder.")
 
@@ -457,12 +507,9 @@ class FlipSlabScanner:
     def _show_preview(self, filepath):
         try:
             img = Image.open(filepath)
-
-            # Fit to preview area
             preview_w = self.preview_label.winfo_width() or 550
             preview_h = self.preview_label.winfo_height() or 550
             img.thumbnail((preview_w - 20, preview_h - 20), Image.Resampling.LANCZOS)
-
             photo = ImageTk.PhotoImage(img)
             self.preview_label.config(image=photo, text="")
             self.preview_label.image = photo
@@ -509,13 +556,9 @@ class FlipSlabScanner:
                     if resp.status_code == 200:
                         img["uploaded"] = True
                         success += 1
-                        # Update listbox item
                         idx = self.scanned_images.index(img)
                         self.root.after(0, lambda idx=idx, name=img["name"]:
                             self._mark_uploaded(idx, name))
-                    else:
-                        print(f"Upload failed for {img['name']}: {resp.status_code} - {resp.text}")
-
                 except Exception as e:
                     print(f"Upload error for {img['name']}: {e}")
 
@@ -530,7 +573,7 @@ class FlipSlabScanner:
 
     def _on_upload_done(self, success, total):
         self.upload_btn.config(text="Upload to FlipSlab", state="normal")
-        messagebox.showinfo("Upload Complete", f"{success}/{total} cards uploaded to FlipSlab!")
+        messagebox.showinfo("Upload Complete", f"{success}/{total} cards uploaded to FlipSlab!\n\nThe AI will identify each card automatically.")
         self._update_buttons()
 
     # ─── Clear ───────────────────────────────────────────
@@ -546,9 +589,8 @@ class FlipSlabScanner:
 
     # ─── Helpers ─────────────────────────────────────────
     def _update_buttons(self):
-        has_scanner = self.scanner_source is not None
+        has_scanner = self.selected_scanner_id is not None
         has_images = any(not img["uploaded"] for img in self.scanned_images)
-
         self.scan_btn.config(state="normal" if has_scanner else "disabled")
         self.upload_btn.config(state="normal" if (self.logged_in and has_images) else "disabled")
 
@@ -556,16 +598,10 @@ class FlipSlabScanner:
 # ─── Main ────────────────────────────────────────────────
 if __name__ == "__main__":
     root = tk.Tk()
-
-    # Style for combobox
     style = ttk.Style()
     style.theme_use("clam")
     style.configure("TCombobox",
-                    fieldbackground=BG,
-                    background=BG3,
-                    foreground=WHITE,
-                    selectbackground=BLUE,
-                    borderwidth=0)
-
+                    fieldbackground=BG, background=BG3, foreground=WHITE,
+                    selectbackground=BLUE, borderwidth=0)
     app = FlipSlabScanner(root)
     root.mainloop()
