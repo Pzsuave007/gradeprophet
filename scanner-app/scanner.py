@@ -333,9 +333,65 @@ class WIAScanner:
         cropped = ImageEnhance.Contrast(cropped).enhance(1.1)
         cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
-        # === ADD UNIFORM GRAY BORDER ===
-        BORDER_COLOR = (206, 212, 218)
-        cropped = ImageOps.expand(cropped, border=25, fill=BORDER_COLOR)
+        # === ADD GRADIENT BORDER (fade from card edge to gray) ===
+        border = 25
+        BORDER_GRAY = np.array([206, 212, 218], dtype=np.float32)
+        arr_c = np.array(cropped, dtype=np.float32)
+        ch, cw = arr_c.shape[:2]
+
+        # Sample average edge colors
+        top_color = arr_c[0, :, :].mean(axis=0)
+        bot_color = arr_c[-1, :, :].mean(axis=0)
+        left_color = arr_c[:, 0, :].mean(axis=0)
+        right_color = arr_c[:, -1, :].mean(axis=0)
+
+        # Create new image with gray fill
+        new_h, new_w = ch + border * 2, cw + border * 2
+        result = np.full((new_h, new_w, 3), BORDER_GRAY, dtype=np.float32)
+
+        # Paste card in center
+        result[border:border+ch, border:border+cw] = arr_c
+
+        # Gradient fade for each border strip
+        for i in range(border):
+            t = i / border  # 0 (outer edge) to ~1 (card edge)
+
+            # Top strip
+            color = BORDER_GRAY * (1 - t) + top_color * t
+            result[i, border:border+cw] = color
+
+            # Bottom strip
+            color = BORDER_GRAY * (1 - t) + bot_color * t
+            result[new_h - 1 - i, border:border+cw] = color
+
+            # Left strip
+            color = BORDER_GRAY * (1 - t) + left_color * t
+            result[border:border+ch, i] = color
+
+            # Right strip
+            color = BORDER_GRAY * (1 - t) + right_color * t
+            result[border:border+ch, new_w - 1 - i] = color
+
+        # Corners: blend between adjacent edge colors
+        for i in range(border):
+            for j in range(border):
+                t_v = i / border
+                t_h = j / border
+                t = max(t_v, t_h)
+                # Top-left
+                c = BORDER_GRAY * (1 - t) + ((top_color + left_color) / 2) * t
+                result[i, j] = c
+                # Top-right
+                c = BORDER_GRAY * (1 - t) + ((top_color + right_color) / 2) * t
+                result[i, new_w - 1 - j] = c
+                # Bottom-left
+                c = BORDER_GRAY * (1 - t) + ((bot_color + left_color) / 2) * t
+                result[new_h - 1 - i, j] = c
+                # Bottom-right
+                c = BORDER_GRAY * (1 - t) + ((bot_color + right_color) / 2) * t
+                result[new_h - 1 - i, new_w - 1 - j] = c
+
+        cropped = Image.fromarray(np.clip(result, 0, 255).astype(np.uint8))
 
         return cropped
 
