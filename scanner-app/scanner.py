@@ -1198,26 +1198,8 @@ class FlipSlabScanner:
         timestamp = int(time.time() * 1000)
         cards_scanned = 0
 
-        if is_duplex and len(images) >= 2:
-            # NAPS2 duplex with ADF may output pages in different orders:
-            # Some scanners: front1, back1, front2, back2 (paired)
-            # Some scanners: front1, front2, ..., back_n, ..., back1 (fronts first, backs reversed)
-            # The fi-6130Z with NAPS2/TWAIN outputs: all fronts, then all backs reversed
-            n_pages = len(images)
-            half = n_pages // 2
-
-            if n_pages % 2 == 0 and half > 1:
-                # Deinterleave: first half = fronts, second half = backs (reversed)
-                fronts = images[:half]
-                backs = list(reversed(images[half:]))
-                # Rebuild as paired: front1, back1, front2, back2
-                reordered = []
-                for f, b in zip(fronts, backs):
-                    reordered.append(f)
-                    reordered.append(b)
-                images = reordered
-
-            # Group in pairs: [front1, back1, front2, back2, ...]
+        if is_duplex:
+            # NAPS2 duplex outputs paired: front1, back1, front2, back2, ...
             for i in range(0, len(images), 2):
                 cards_scanned += 1
                 # Front
@@ -1234,20 +1216,6 @@ class FlipSlabScanner:
                     images[i + 1].save(back_path, "PNG")
                     self.scanned_images.append({"path": back_path, "name": back_name, "uploaded": False})
                     self.queue_listbox.insert(tk.END, f"  {back_name}")
-        elif is_duplex and len(images) == 2:
-            # Single card duplex - simple pair (no reorder needed)
-            cards_scanned = 1
-            front_name = f"card_{timestamp}_1_front.png"
-            front_path = os.path.join(SCAN_FOLDER, front_name)
-            images[0].save(front_path, "PNG")
-            self.scanned_images.append({"path": front_path, "name": front_name, "uploaded": False})
-            self.queue_listbox.insert(tk.END, f"  {front_name}")
-
-            back_name = f"card_{timestamp}_1_back.png"
-            back_path = os.path.join(SCAN_FOLDER, back_name)
-            images[1].save(back_path, "PNG")
-            self.scanned_images.append({"path": back_path, "name": back_name, "uploaded": False})
-            self.queue_listbox.insert(tk.END, f"  {back_name}")
         else:
             # Single side: each image is a separate card front
             for i, img in enumerate(images):
