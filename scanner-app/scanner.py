@@ -142,21 +142,16 @@ class WIAScanner:
         return None
 
     def scan_card(self, device_id, settings):
-        """Scan programmatically without showing any dialog (like NAPS2).
-        Falls back to native dialog if programmatic scan fails."""
+        """Scan using native dialog, then process the image afterward.
+        The scanner handles the scanning; our software handles the image processing."""
 
         try:
             return self._scan_programmatic(device_id, settings)
-        except Exception as prog_err:
-            # Fallback to native dialog
-            try:
-                return self._scan_with_dialog(device_id, settings)
-            except Exception as dialog_err:
-                raise Exception(
-                    f"Programmatic scan failed: {prog_err}\n\n"
-                    f"Native dialog also failed: {dialog_err}\n\n"
-                    f"Check that the scanner is ON and a card is in the feeder."
-                )
+        except Exception:
+            pass
+
+        # Primary method: native dialog (most reliable)
+        return self._scan_with_dialog(device_id, settings)
 
     def _scan_programmatic(self, device_id, settings):
         """Direct WIA scan without UI - sets all properties programmatically."""
@@ -282,8 +277,8 @@ class WIAScanner:
         return images
 
     def _auto_crop(self, img, target_w_in, target_h_in, dpi):
-        """Smart crop using per-row/column variance detection.
-        Works reliably for both white and dark cards on any scanner background."""
+        """Post-scan image processing: detect card edges, crop, enhance, add border.
+        Uses two-pass variance detection that works regardless of scanner settings."""
         import numpy as np
         from PIL import ImageEnhance, ImageOps, ImageFilter
 
@@ -291,35 +286,38 @@ class WIAScanner:
         target_w = int(target_w_in * dpi)
         target_h = int(target_h_in * dpi)
 
-        # If image is already close to target size, just rotate
+        # If image is already close to card size, skip detection
         if w <= target_w * 1.3 and h <= target_h * 1.3:
             cropped = img.rotate(180)
         else:
-            # --- STEP 1: Blur to reduce scanner noise, then grayscale ---
+            # Blur to reduce scanner noise
             blurred = img.filter(ImageFilter.GaussianBlur(radius=3))
             gray = np.mean(np.array(blurred, dtype=np.float32), axis=2)
 
-            # --- STEP 2: Compute per-row and per-column std ---
-            # Card content rows have HIGH std (text, images, colors = variation)
-            # Background rows have LOW std (uniform white or uniform backing)
+            # === PASS 1: Find card ROWS (row std across full width) ===
             row_stds = np.array([gray[r, :].std() for r in range(gray.shape[0])])
-            col_stds = np.array([gray[:, c].std() for c in range(gray.shape[1])])
-
-            # --- STEP 3: Adaptive threshold ---
-            # Background std is the median; card content is much higher
             bg_row_std = np.median(row_stds)
-            bg_col_std = np.median(col_stds)
             ROW_THRESH = max(8, bg_row_std * 3)
-            COL_THRESH = max(8, bg_col_std * 3)
-
             content_rows = np.where(row_stds > ROW_THRESH)[0]
-            content_cols = np.where(col_stds > COL_THRESH)[0]
 
-            if len(content_rows) == 0 or len(content_cols) == 0:
-                # Fallback: no content detected, just rotate
+            if len(content_rows) == 0:
                 cropped = img.rotate(180)
             else:
-                # --- STEP 4: Crop to content bounding box ---
+                r_start = content_rows[0]
+                r_end = content_rows[-1] + 1
+
+                # === PASS 2: Find card COLUMNS (within detected rows only) ===
+                card_region = gray[r_start:r_end, :]
+                col_stds = np.array([card_region[:, c].std() for c in range(card_region.shape[1])])
+                bg_col_std = np.median(col_stds)
+                COL_THRESH = max(8, bg_col_std * 2)
+                content_cols = np.where(col_stds > COL_THRESH)[0]
+
+                if len(content_cols) == 0:
+                    # Fallback: use full width of content rows
+                    content_cols = np.arange(w)
+
+                # Crop with small margin
                 rmin = max(0, content_rows[0] - 5)
                 rmax = min(h, content_rows[-1] + 6)
                 cmin = max(0, content_cols[0] - 5)
@@ -335,10 +333,9 @@ class WIAScanner:
         cropped = ImageEnhance.Contrast(cropped).enhance(1.1)
         cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
-        # === ADD UNIFORM GRAY BORDER ===
+        # === ADD UNIFORM GRAY BORDER (25px) ===
         BORDER_COLOR = (206, 212, 218)
-        border_size = max(15, int(min(cropped.size) * 0.05))
-        cropped = ImageOps.expand(cropped, border=border_size, fill=BORDER_COLOR)
+        cropped = ImageOps.expand(cropped, border=25, fill=BORDER_COLOR)
 
         return cropped
 
