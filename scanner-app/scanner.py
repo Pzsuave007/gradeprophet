@@ -121,10 +121,9 @@ class WIAScanner:
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
 
-        # Convert inches to pixels
         width_px = int(width_in * dpi)
         height_px = int(height_in * dpi)
-        color_mode = 2 if color else 1  # 2=Color, 1=Grayscale
+        color_mode = 2 if color else 1
 
         images = []
 
@@ -140,61 +139,65 @@ class WIAScanner:
             if not device:
                 raise Exception("Scanner not found. Is it connected?")
 
-            # Set document handling (feeder + duplex)
+            # Set document handling on device level
             if duplex:
                 self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
             else:
                 self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
 
-            # Set pages to scan
-            self._set_device_prop(device, self.PAGES, 2 if duplex else 1)
+            # Scan all available items (front and back are separate items for duplex)
+            items_count = device.Items.Count
+            scan_count = min(items_count, 2) if duplex else 1
 
-            # Scan pages
-            pages_to_scan = 2 if duplex else 1
-            for page_num in range(pages_to_scan):
-                # Get scan item
-                item = device.Items(1)
-
-                # Set scan properties
-                self._set_prop(item, self.HORIZONTAL_RES, dpi)
-                self._set_prop(item, self.VERTICAL_RES, dpi)
-                self._set_prop(item, self.COLOR_MODE, color_mode)
-                self._set_prop(item, self.HORIZONTAL_START, 0)
-                self._set_prop(item, self.VERTICAL_START, 0)
-                self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
-                self._set_prop(item, self.VERTICAL_EXTENT, height_px)
-
-                # Transfer
-                image_file = item.Transfer(self.WIA_FORMAT_BMP)
-
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}_{page_num}.bmp")
-                image_file.SaveFile(tmp)
-                img = Image.open(tmp).convert("RGB")
-                images.append(img)
-
+            for item_idx in range(1, scan_count + 1):
                 try:
-                    os.remove(tmp)
+                    item = device.Items(item_idx)
+
+                    self._set_prop(item, self.HORIZONTAL_RES, dpi)
+                    self._set_prop(item, self.VERTICAL_RES, dpi)
+                    self._set_prop(item, self.COLOR_MODE, color_mode)
+                    self._set_prop(item, self.HORIZONTAL_START, 0)
+                    self._set_prop(item, self.VERTICAL_START, 0)
+                    self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
+                    self._set_prop(item, self.VERTICAL_EXTENT, height_px)
+
+                    image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_{item_idx}.bmp")
+                    image_file.SaveFile(tmp)
+                    img = Image.open(tmp).convert("RGB")
+                    images.append(img)
+                    try:
+                        os.remove(tmp)
+                    except:
+                        pass
+                except Exception as item_err:
+                    if not images:
+                        raise item_err
+                    break
+
+            # If duplex requested but only 1 item existed, try second transfer from same item
+            if duplex and len(images) == 1 and items_count == 1:
+                try:
+                    item = device.Items(1)
+                    image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
+                    image_file.SaveFile(tmp)
+                    img = Image.open(tmp).convert("RGB")
+                    images.append(img)
+                    try:
+                        os.remove(tmp)
+                    except:
+                        pass
                 except:
                     pass
 
-                # Check if feeder has more pages
-                if page_num == 0 and duplex:
-                    try:
-                        status = device.Properties(self.DOC_HANDLING_STATUS).Value
-                        if not (status & self.FEED_READY):
-                            break
-                    except:
-                        break
-
         except Exception as e:
-            error_msg = str(e)
             if not images:
-                # Try CommonDialog as fallback
                 try:
                     dialog = win32com.client.Dispatch("WIA.CommonDialog")
                     image_file = dialog.ShowAcquireImage(1, 2, 1, self.WIA_FORMAT_BMP, False, True, False)
                     if image_file:
-                        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_dialog.bmp")
+                        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_dialog.bmp")
                         image_file.SaveFile(tmp)
                         img = Image.open(tmp).convert("RGB")
                         images.append(img)
@@ -202,12 +205,12 @@ class WIAScanner:
                             os.remove(tmp)
                         except:
                             pass
-                except Exception as e2:
+                except:
                     raise Exception(
-                        f"Scan failed. Check:\n"
-                        f"1. Card is in the scanner feeder\n"
-                        f"2. Scanner is on and ready\n\n"
-                        f"Error: {error_msg}"
+                        f"Scan failed.\n\n"
+                        f"1. Is the card in the feeder?\n"
+                        f"2. Is the scanner on?\n\n"
+                        f"Error: {e}"
                     )
 
         return images
@@ -597,7 +600,10 @@ class FlipSlabScanner:
         self._update_buttons()
 
         side_text = "front + back" if len(images) > 1 else "front only"
-        messagebox.showinfo("Scan Complete", f"Card scanned! ({side_text})\n{len(images)} image(s) saved.")
+        messagebox.showinfo("Scan Complete",
+            f"Card scanned! ({side_text})\n"
+            f"{len(images)} image(s) saved.\n\n"
+            f"Saved to: {SCAN_FOLDER}")
 
     # ─── Import ──────────────────────────────────────────
     def _import_folder(self):
@@ -621,14 +627,13 @@ class FlipSlabScanner:
     def _show_preview(self, filepath):
         try:
             img = Image.open(filepath)
-            pw = self.preview_label.winfo_width() or 550
-            ph = self.preview_label.winfo_height() or 550
-            img.thumbnail((pw - 20, ph - 20), Image.Resampling.LANCZOS)
+            # Use fixed size for preview (don't rely on widget size)
+            img.thumbnail((500, 500), Image.Resampling.LANCZOS)
             photo = ImageTk.PhotoImage(img)
             self.preview_label.config(image=photo, text="")
             self.preview_label.image = photo
         except Exception as e:
-            self.preview_label.config(text=f"Preview error: {e}", image="")
+            self.preview_label.config(text=f"Saved to: {filepath}", image="")
 
     def _on_queue_select(self, event):
         sel = self.queue_listbox.curselection()
