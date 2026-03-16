@@ -71,6 +71,30 @@ echo.
 echo  [OK] Dependencias instaladas.
 echo.
 
+:: Install TWAIN DSM (required for duplex scanning)
+echo  [*] Instalando TWAIN DSM para duplex scanning...
+set "TWAIN_DLL=%SYSTEMROOT%\System32\TWAINDSM.DLL"
+if not exist "%TWAIN_DLL%" (
+    powershell -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri 'https://github.com/twain/twain-dsm/releases/download/v2.5.1/TWAINDSM_2.5.1.msi' -OutFile '%TEMP%\twaindsm.msi'; Write-Host '  TWAIN DSM descargado.' } catch { Write-Host '  [!] No se pudo descargar TWAIN DSM' }"
+    if exist "%TEMP%\twaindsm.msi" (
+        echo  [*] Instalando TWAIN DSM...
+        msiexec /i "%TEMP%\twaindsm.msi" /quiet /norestart
+        timeout /t 3 /nobreak >nul
+        if exist "%TWAIN_DLL%" (
+            echo  [OK] TWAIN DSM instalado!
+        ) else (
+            echo  [!] TWAIN DSM no se instalo automaticamente.
+            echo  [!] Instala manualmente: %TEMP%\twaindsm.msi
+        )
+    ) else (
+        echo  [!] No se pudo descargar TWAIN DSM.
+        echo  [!] Descarga manualmente: https://github.com/twain/twain-dsm/releases
+    )
+) else (
+    echo  [OK] TWAIN DSM ya esta instalado.
+)
+echo.
+
 :: Setup app folder
 set "APP_DIR=%USERPROFILE%\FlipSlabScanner"
 if not exist "%APP_DIR%" mkdir "%APP_DIR%"

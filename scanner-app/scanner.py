@@ -165,7 +165,19 @@ class WIAScanner:
     def _scan_twain(self, settings, window_handle=0):
         """Scan using TWAIN protocol - true duplex support.
         TWAIN handles duplex natively, unlike WIA."""
-        import twain
+        try:
+            import twain
+        except ImportError:
+            raise Exception("pytwain not installed. Run setup.bat to install.")
+        except OSError as e:
+            if "twaindsm" in str(e).lower():
+                raise Exception(
+                    "TWAIN DSM not installed.\n"
+                    "Run setup.bat again to install it,\n"
+                    "or download from: github.com/twain/twain-dsm/releases"
+                )
+            raise
+
         from io import BytesIO
 
         dpi = settings.get("dpi", 300)
