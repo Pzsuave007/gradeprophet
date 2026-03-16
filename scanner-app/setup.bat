@@ -76,13 +76,11 @@ set "APP_DIR=%USERPROFILE%\FlipSlabScanner"
 if not exist "%APP_DIR%" mkdir "%APP_DIR%"
 copy /Y "%~dp0scanner.py" "%APP_DIR%\scanner.py" >nul
 
-:: Create launcher
+:: Create launcher (pythonw = no console window)
 (
 echo @echo off
-echo title FlipSlab Scanner
 echo cd /d "%APP_DIR%"
-echo %PY% scanner.py
-echo if %%errorlevel%% neq 0 pause
+echo start "" %PY%w scanner.py
 ) > "%APP_DIR%\Launch.bat"
 
 :: Desktop shortcut
