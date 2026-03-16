@@ -539,7 +539,8 @@ async def crop_corners(data: CornerCropRequest):
 
 @router.post("/cards/scan-upload")
 async def scan_upload(request: Request, file: UploadFile = File(...)):
-    """Upload a scanned card image, analyze with AI, and add to inventory."""
+    """Upload a scanned card image, analyze with AI, and add to inventory.
+    For duplex scanning: front images create new items, back images update the last item."""
     user = await get_current_user(request)
     user_id = user["user_id"]
 
@@ -549,7 +550,37 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     # Process image
     processed = process_card_image(img_base64)
 
-    # AI identify card
+    # Determine if this is a front or back image from filename
+    filename = (file.filename or "").lower()
+    is_back = "_back" in filename
+
+    if is_back:
+        # Find the most recent scanner inventory item without a back_image
+        recent_item = await db.inventory.find_one(
+            {"user_id": user_id, "source": "scanner", "back_image": None},
+            {"_id": 0},
+            sort=[("created_at", -1)]
+        )
+        if recent_item:
+            await db.inventory.update_one(
+                {"id": recent_item["id"]},
+                {"$set": {
+                    "back_image": processed,
+                    "updated_at": datetime.now(timezone.utc).isoformat(),
+                }}
+            )
+            return {
+                "id": recent_item["id"],
+                "player_name": recent_item.get("player", "Unknown"),
+                "year": recent_item.get("year", ""),
+                "set_name": recent_item.get("set_name", ""),
+                "message": f"Back image added to: {recent_item.get('card_name', 'Unknown')}",
+                "side": "back",
+            }
+        # If no matching front found, create as new item
+        logger.warning("No matching front image found for back scan, creating new item")
+
+    # AI identify card (only for front images or unmatched backs)
     card_info = {}
     try:
         if openai_client:
@@ -569,7 +600,23 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     except Exception as e:
         logger.warning(f"AI identification failed: {e}")
 
-    # Save to inventory
+    # Build card_name from AI response
+    player = card_info.get("player_name", card_info.get("player", "Unknown"))
+    year = card_info.get("year", "")
+    set_name = card_info.get("set_name", "")
+    card_number = card_info.get("card_number", "")
+    variation = card_info.get("variation", "")
+
+    # Compose a card_name
+    name_parts = []
+    if year: name_parts.append(str(year))
+    if set_name: name_parts.append(set_name)
+    if player and player != "Unknown": name_parts.append(player)
+    if card_number: name_parts.append(f"#{card_number}")
+    if variation: name_parts.append(variation)
+    card_name = " ".join(name_parts) if name_parts else player
+
+    # Save to inventory with correct field names
     item_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     thumbnail = create_thumbnail(processed)
@@ -577,19 +624,25 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     doc = {
         "id": item_id,
         "user_id": user_id,
-        "player_name": card_info.get("player_name", "Unknown"),
-        "year": card_info.get("year", ""),
-        "set_name": card_info.get("set_name", ""),
-        "card_number": card_info.get("card_number", ""),
-        "variation": card_info.get("variation", ""),
+        "card_name": card_name,
+        "player": player,
+        "year": int(year) if str(year).isdigit() else None,
+        "set_name": set_name,
+        "card_number": card_number,
+        "variation": variation,
         "condition": card_info.get("condition", "Raw"),
         "grade": card_info.get("grade"),
         "grading_company": card_info.get("grading_company", ""),
         "purchase_price": 0,
         "estimated_value": card_info.get("estimated_value", 0),
+        "quantity": 1,
         "notes": "Scanned via FlipSlab Scanner",
-        "front_image": processed,
+        "image": processed,
+        "back_image": None,
         "thumbnail": thumbnail,
+        "listed": False,
+        "category": "for_sale",
+        "sport": card_info.get("sport", ""),
         "source": "scanner",
         "created_at": now,
         "updated_at": now,
@@ -598,8 +651,10 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
 
     return {
         "id": item_id,
-        "player_name": doc["player_name"],
+        "player_name": player,
         "year": doc["year"],
-        "set_name": doc["set_name"],
-        "message": f"Card added: {doc['player_name']} {doc['year']} {doc['set_name']}",
+        "set_name": set_name,
+        "card_name": card_name,
+        "message": f"Card added: {card_name}",
+        "side": "front",
     }
