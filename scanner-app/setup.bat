@@ -4,83 +4,97 @@ color 0B
 
 echo.
 echo  ============================================
-echo   FlipSlab Scanner - Instalador Automatico
+echo   FlipSlab Scanner - Instalador
 echo  ============================================
 echo.
 
 :: Check if Python is installed
-python --version >nul 2>&1
+where python >nul 2>&1
 if %errorlevel% neq 0 (
-    echo  [!] Python no esta instalado.
-    echo  [!] Descargando Python...
+    echo  [!] Python NO esta instalado en tu PC.
     echo.
-    
-    :: Download Python installer
-    powershell -Command "Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe' -OutFile '%TEMP%\python_installer.exe'"
-    
-    if not exist "%TEMP%\python_installer.exe" (
-        echo  [ERROR] No se pudo descargar Python.
-        echo  Por favor descarga Python manualmente desde: https://www.python.org/downloads/
-        echo  IMPORTANTE: Marca la casilla "Add Python to PATH" al instalar.
-        pause
-        exit /b 1
-    )
-    
-    echo  [*] Instalando Python (esto tarda 1-2 minutos)...
-    "%TEMP%\python_installer.exe" /quiet InstallAllUsers=0 PrependPath=1 Include_pip=1
-    
-    :: Refresh PATH
-    set "PATH=%LOCALAPPDATA%\Programs\Python\Python312;%LOCALAPPDATA%\Programs\Python\Python312\Scripts;%PATH%"
-    
-    echo  [OK] Python instalado.
+    echo  Necesitas instalar Python primero:
+    echo  1. Ve a: https://www.python.org/downloads/
+    echo  2. Descarga e instala Python
+    echo  3. MUY IMPORTANTE: Marca "Add Python to PATH"
+    echo  4. Despues corre este setup.bat de nuevo
     echo.
+    start https://www.python.org/downloads/
+    pause
+    exit /b 1
 )
 
-echo  [1/3] Python detectado:
+echo  [OK] Python encontrado:
 python --version
 echo.
 
 :: Install dependencies
-echo  [2/3] Instalando dependencias...
-pip install pytwain Pillow requests >nul 2>&1
+echo  [*] Instalando dependencias (pytwain, Pillow, requests)...
+echo     Esto puede tardar 1-2 minutos...
+python -m pip install --upgrade pip >nul 2>&1
+python -m pip install pytwain Pillow requests
+echo.
+
 if %errorlevel% neq 0 (
-    python -m pip install pytwain Pillow requests
+    echo  [ERROR] Fallo instalando dependencias.
+    echo  Intenta correr esto manualmente:
+    echo  python -m pip install pytwain Pillow requests
+    pause
+    exit /b 1
 )
+
 echo  [OK] Dependencias instaladas.
 echo.
 
 :: Create app folder
-set "APP_DIR=%USERPROFILE%\FlipSlab Scanner"
+set "APP_DIR=%USERPROFILE%\FlipSlabScanner"
+echo  [*] Creando carpeta: %APP_DIR%
 if not exist "%APP_DIR%" mkdir "%APP_DIR%"
 
-:: Copy scanner.py
+:: Copy scanner.py to app folder
 copy /Y "%~dp0scanner.py" "%APP_DIR%\scanner.py" >nul
+echo  [OK] scanner.py copiado.
 
 :: Create launcher bat
-(
-echo @echo off
-echo title FlipSlab Scanner
-echo cd /d "%APP_DIR%"
-echo python scanner.py
-echo if %%errorlevel%% neq 0 pause
-) > "%APP_DIR%\FlipSlabScanner.bat"
+echo @echo off > "%APP_DIR%\Launch.bat"
+echo title FlipSlab Scanner >> "%APP_DIR%\Launch.bat"
+echo cd /d "%APP_DIR%" >> "%APP_DIR%\Launch.bat"
+echo python scanner.py >> "%APP_DIR%\Launch.bat"
+echo if %%errorlevel%% neq 0 pause >> "%APP_DIR%\Launch.bat"
 
-:: Create desktop shortcut
-powershell -Command "$ws = New-Object -ComObject WScript.Shell; $s = $ws.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\FlipSlab Scanner.lnk'); $s.TargetPath = '%APP_DIR%\FlipSlabScanner.bat'; $s.WorkingDirectory = '%APP_DIR%'; $s.Description = 'FlipSlab Card Scanner'; $s.Save()"
+echo  [OK] Launcher creado.
 
-echo  [3/3] Shortcut creado en tu Desktop.
+:: Create desktop shortcut using PowerShell
+set "DESKTOP=%USERPROFILE%\Desktop"
+echo  [*] Creando shortcut en: %DESKTOP%
+
+powershell -ExecutionPolicy Bypass -Command ^
+  "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%DESKTOP%\FlipSlab Scanner.lnk'); $s.TargetPath = '%APP_DIR%\Launch.bat'; $s.WorkingDirectory = '%APP_DIR%'; $s.Description = 'FlipSlab Card Scanner'; $s.Save(); Write-Host '  [OK] Shortcut creado!'"
+
+if not exist "%DESKTOP%\FlipSlab Scanner.lnk" (
+    echo.
+    echo  [!] No se pudo crear el shortcut automaticamente.
+    echo  [!] Pero la app esta instalada. Para abrirla:
+    echo      1. Abre la carpeta: %APP_DIR%
+    echo      2. Doble click en Launch.bat
+    echo.
+    explorer "%APP_DIR%"
+)
+
 echo.
 echo  ============================================
-echo   LISTO! 
-echo   Haz doble click en "FlipSlab Scanner" 
-echo   en tu escritorio para abrir la app.
+echo   INSTALACION COMPLETA!
+echo.
+echo   Para abrir FlipSlab Scanner:
+echo   - Doble click "FlipSlab Scanner" en tu Desktop
+echo   - O abre: %APP_DIR%\Launch.bat
 echo  ============================================
 echo.
-echo  Abriendo FlipSlab Scanner...
-echo.
+echo  Quieres abrir la app ahora? (S/N)
+set /p OPEN="> "
+if /i "%OPEN%"=="S" (
+    cd /d "%APP_DIR%"
+    start "" python scanner.py
+)
 
-:: Launch the app
-cd /d "%APP_DIR%"
-start "" python scanner.py
-
-timeout /t 5 >nul
+pause
