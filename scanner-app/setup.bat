@@ -59,7 +59,7 @@ echo  [OK] Python encontrado:
 echo.
 echo  [*] Instalando dependencias...
 %PY% -m pip install --upgrade pip >nul 2>&1
-%PY% -m pip install Pillow requests pywin32 numpy
+%PY% -m pip install Pillow requests pywin32 numpy pytwain
 
 if %errorlevel% neq 0 (
     echo  [ERROR] Fallo instalando dependencias.

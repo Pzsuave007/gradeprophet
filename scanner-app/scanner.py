@@ -141,17 +141,109 @@ class WIAScanner:
                 return info.Connect()
         return None
 
-    def scan_card(self, device_id, settings):
-        """Scan using native dialog, then process the image afterward.
-        The scanner handles the scanning; our software handles the image processing."""
+    def scan_card(self, device_id, settings, window_handle=0):
+        """Scan card(s). Uses TWAIN for duplex (both sides), WIA for single side."""
+        source = settings.get("source", "feeder_duplex")
+        is_duplex = source == "feeder_duplex"
 
+        # For duplex: try TWAIN first (WIA doesn't support duplex on most scanners)
+        if is_duplex:
+            try:
+                return self._scan_twain(settings, window_handle)
+            except Exception:
+                pass  # TWAIN not available, fall through
+
+        # Try WIA programmatic
         try:
             return self._scan_programmatic(device_id, settings)
         except Exception:
             pass
 
-        # Primary method: native dialog (most reliable)
+        # Fallback: native WIA dialog
         return self._scan_with_dialog(device_id, settings)
+
+    def _scan_twain(self, settings, window_handle=0):
+        """Scan using TWAIN protocol - true duplex support.
+        TWAIN handles duplex natively, unlike WIA."""
+        import twain
+        from io import BytesIO
+
+        dpi = settings.get("dpi", 300)
+        color = settings.get("color", True)
+        source = settings.get("source", "feeder_duplex")
+        is_duplex = source == "feeder_duplex"
+        width_in = settings.get("width_inches", 3.0)
+        height_in = settings.get("height_inches", 4.0)
+
+        images = []
+
+        sm = twain.SourceManager(window_handle)
+        try:
+            # Open the default TWAIN source (scanner)
+            src = sm.open_source()
+            if not src:
+                raise Exception("No TWAIN scanner source found.")
+
+            try:
+                # Enable feeder
+                try:
+                    src.set_capability(twain.CAP_FEEDERENABLED, twain.TWON_ONEVALUE, twain.TWTY_BOOL, True)
+                except Exception:
+                    pass
+
+                # Enable duplex
+                if is_duplex:
+                    try:
+                        src.set_capability(twain.CAP_DUPLEXENABLED, twain.TWON_ONEVALUE, twain.TWTY_BOOL, True)
+                    except Exception:
+                        pass
+
+                # Set DPI
+                try:
+                    src.set_capability(twain.ICAP_XRESOLUTION, twain.TWON_ONEVALUE, twain.TWTY_FIX32, float(dpi))
+                    src.set_capability(twain.ICAP_YRESOLUTION, twain.TWON_ONEVALUE, twain.TWTY_FIX32, float(dpi))
+                except Exception:
+                    pass
+
+                # Color mode
+                try:
+                    pixel_type = twain.TWPT_RGB if color else twain.TWPT_GRAY
+                    src.set_capability(twain.ICAP_PIXELTYPE, twain.TWON_ONEVALUE, twain.TWTY_UINT16, pixel_type)
+                except Exception:
+                    pass
+
+                # Start scanning (no UI - we control settings)
+                src.request_acquire(show_ui=False, modal_ui=False)
+
+                # Get all images from feeder (front + back for each card)
+                while True:
+                    try:
+                        (handle, remaining_count) = src.xfer_image_natively()
+                        bmp_bytes = twain.dib_to_bm_file(handle)
+                        img = Image.open(BytesIO(bmp_bytes)).convert("RGB")
+                        img = self._auto_crop(img, width_in, height_in, dpi)
+                        images.append(img)
+
+                        if remaining_count == 0:
+                            break
+                    except Exception:
+                        break
+
+            finally:
+                try:
+                    src.close()
+                except Exception:
+                    pass
+        finally:
+            try:
+                sm.close()
+            except Exception:
+                pass
+
+        if not images:
+            raise Exception("TWAIN scan returned no images.")
+
+        return images
 
     def _scan_programmatic(self, device_id, settings):
         """Direct WIA scan - scans ALL pages from feeder in one pass.
@@ -871,7 +963,8 @@ class FlipSlabScanner:
         images = []
         error = None
         try:
-            images = self.wia.scan_card(self.selected_scanner_id, self.scan_settings)
+            hwnd = self.root.winfo_id()
+            images = self.wia.scan_card(self.selected_scanner_id, self.scan_settings, window_handle=hwnd)
         except Exception as e:
             error = str(e)
 
