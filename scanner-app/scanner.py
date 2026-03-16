@@ -282,8 +282,8 @@ class WIAScanner:
         return images
 
     def _auto_crop(self, img, target_w_in, target_h_in, dpi):
-        """Smart crop: detect card via background subtraction, crop tight, rotate 180°,
-        enhance colors, add uniform gray margin."""
+        """Smart crop using per-row/column variance detection.
+        Works reliably for both white and dark cards on any scanner background."""
         import numpy as np
         from PIL import ImageEnhance, ImageOps, ImageFilter
 
@@ -295,44 +295,35 @@ class WIAScanner:
         if w <= target_w * 1.3 and h <= target_h * 1.3:
             cropped = img.rotate(180)
         else:
-            arr = np.array(img, dtype=np.float32)
+            # --- STEP 1: Blur to reduce scanner noise, then grayscale ---
+            blurred = img.filter(ImageFilter.GaussianBlur(radius=3))
+            gray = np.mean(np.array(blurred, dtype=np.float32), axis=2)
 
-            # --- STEP 1: Detect background color from corners ---
-            corner_size = 30
-            corners = np.concatenate([
-                arr[:corner_size, :corner_size].reshape(-1, 3),       # top-left
-                arr[:corner_size, -corner_size:].reshape(-1, 3),      # top-right
-                arr[-corner_size:, :corner_size].reshape(-1, 3),      # bottom-left
-                arr[-corner_size:, -corner_size:].reshape(-1, 3),     # bottom-right
-            ])
-            bg_color = np.median(corners, axis=0)
+            # --- STEP 2: Compute per-row and per-column std ---
+            # Card content rows have HIGH std (text, images, colors = variation)
+            # Background rows have LOW std (uniform white or uniform backing)
+            row_stds = np.array([gray[r, :].std() for r in range(gray.shape[0])])
+            col_stds = np.array([gray[:, c].std() for c in range(gray.shape[1])])
 
-            # --- STEP 2: Create difference mask (distance from background) ---
-            diff = np.sqrt(np.sum((arr - bg_color) ** 2, axis=2))
+            # --- STEP 3: Adaptive threshold ---
+            # Background std is the median; card content is much higher
+            bg_row_std = np.median(row_stds)
+            bg_col_std = np.median(col_stds)
+            ROW_THRESH = max(8, bg_row_std * 3)
+            COL_THRESH = max(8, bg_col_std * 3)
 
-            # Threshold: pixels more than 30 color-distance from background = card
-            CARD_THRESH = 30
-            card_mask = (diff > CARD_THRESH).astype(np.uint8)
+            content_rows = np.where(row_stds > ROW_THRESH)[0]
+            content_cols = np.where(col_stds > COL_THRESH)[0]
 
-            # --- STEP 3: Clean up mask with morphological ops ---
-            # Use row/column density to find card bounds more robustly
-            # A row/column belongs to the card if enough pixels are "card"
-            MIN_DENSITY = 0.15  # at least 15% of pixels in row/col must be card
-
-            row_density = card_mask.mean(axis=1)
-            col_density = card_mask.mean(axis=0)
-
-            card_rows = np.where(row_density > MIN_DENSITY)[0]
-            card_cols = np.where(col_density > MIN_DENSITY)[0]
-
-            if len(card_rows) == 0 or len(card_cols) == 0:
+            if len(content_rows) == 0 or len(content_cols) == 0:
+                # Fallback: no content detected, just rotate
                 cropped = img.rotate(180)
             else:
-                # --- STEP 4: Find tight bounding box ---
-                rmin = max(0, card_rows[0] - 3)
-                rmax = min(arr.shape[0], card_rows[-1] + 4)
-                cmin = max(0, card_cols[0] - 3)
-                cmax = min(arr.shape[1], card_cols[-1] + 4)
+                # --- STEP 4: Crop to content bounding box ---
+                rmin = max(0, content_rows[0] - 5)
+                rmax = min(h, content_rows[-1] + 6)
+                cmin = max(0, content_cols[0] - 5)
+                cmax = min(w, content_cols[-1] + 6)
 
                 cropped = img.crop((cmin, rmin, cmax, rmax))
                 cropped = cropped.rotate(180)
@@ -345,8 +336,8 @@ class WIAScanner:
         cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
         # === ADD UNIFORM GRAY BORDER ===
-        BORDER_COLOR = (206, 212, 218)  # subtle gray matching sample
-        border_size = max(15, int(min(cropped.size) * 0.05))  # 5% of smallest dimension, min 15px
+        BORDER_COLOR = (206, 212, 218)
+        border_size = max(15, int(min(cropped.size) * 0.05))
         cropped = ImageOps.expand(cropped, border=border_size, fill=BORDER_COLOR)
 
         return cropped
