@@ -1,50 +1,67 @@
 # FlipSlab Engine - Product Requirements Document
 
-## Vision
-"Operating System for Sports Card Traders" - A full-fledged trading platform for sports card collectors and flippers.
-
-## Core Components
-1. **Web Application** (FlipSlab Engine) - React + FastAPI + MongoDB
-2. **Desktop Scanner App** (FlipSlab Scanner) - Python + Tkinter + WIA
-
----
-
-## Scanner App (Standalone Windows Desktop) - COMPLETE
-- [x] WIA scanner integration with native driver UI
-- [x] Programmatic WIA scanning (NAPS2-style) with fallback to dialog
-- [x] NAPS2-style settings UI: Source, Paper Size, Color, DPI dropdowns
-- [x] **Two-pass variance card detection algorithm** (v2.0 - Mar 16, 2026):
-  - Pass 1: Detect card ROWS via per-row std (content vs uniform background)
-  - Pass 2: Within card rows, detect COLUMNS via per-column std
-  - Works for white/dark cards, any scanner background, any page size
-- [x] 180 degree rotation for feeder scans
-- [x] Auto color/contrast enhancement (autocontrast + sharpness + saturation)
-- [x] Uniform 25px gray border (#CED4DA)
-- [x] Upload to FlipSlab web app
-- [x] One-click Windows installer (setup.bat)
-- [x] User tested and confirmed working (Mar 16, 2026)
-
-## Web Application Features - IMPLEMENTED
-- [x] JWT + Google Auth authentication
-- [x] Command Center dashboard (KPIs, watchlist, live monitor, recent sales, news)
-- [x] Auction Alert system (1-min before auction end notifications)
-- [x] New User Onboarding Wizard (multi-step setup)
-- [x] Landing page
-- [x] Deployment scripts (deploy.sh, quickdeploy.sh)
-
-## Next Tasks
-- P1: Whatnot API Integration (waiting for API access approval)
-- P1: Inventory Sync Engine (cross-listing eBay + Whatnot)
-- P2: Auto-Refresh Portfolio Value
-- P2: Build Flip Finder Core Logic (profitable flip detection)
-- P3: Commercialize with Stripe (Pro plan)
+## Original Problem Statement
+The user wants to expand their web app, "GradeProphet," into a full-fledged trading platform named "FlipSlab Engine" - an "Operating System for Sports Card Traders." A key high-priority request is a standalone desktop application for Windows ("FlipSlab Scanner") that interfaces with the user's Fujitsu fi-6130Z scanner for batch duplex (two-sided) scanning.
 
 ## Architecture
-```
-/app/
-  backend/     - FastAPI + MongoDB
-  frontend/    - React + Tailwind + Shadcn
-  scanner-app/ - Python + Tkinter + WIA + PIL + NumPy
-```
+- **Web App:** React frontend + FastAPI backend + MongoDB
+- **Desktop Scanner App:** Python + Tkinter (GUI) + Pillow/NumPy (Image Processing) + pywin32 (WIA) + NAPS2 CLI (duplex scanning)
 
-## Key Routes: landing -> auth -> onboarding -> dashboard
+## Core Files
+- `scanner-app/scanner.py` - Main desktop scanner app (all logic, UI, scanning, image processing)
+- `scanner-app/setup.bat` - Windows installer script
+- `backend/` - FastAPI backend for web app
+- `frontend/` - React frontend for web app
+
+## What's Been Implemented
+
+### Desktop Scanner App (scanner-app)
+- [x] Full Tkinter GUI with dark theme
+- [x] WIA scanner detection and selection
+- [x] Advanced two-pass image cropping algorithm (variance detection)
+- [x] Image enhancement (autocontrast, sharpness, color, contrast, brightness)
+- [x] Gradient border effect on cropped cards
+- [x] Batch scanning logic with front/back naming convention
+- [x] NAPS2 CLI integration for duplex scanning (with `--device` flag)
+- [x] NAPS2 path auto-detection + manual configuration UI
+- [x] NAPS2 device name configuration (default: "fi-6130dj")
+- [x] NAPS2 profile support (use named profiles from NAPS2 GUI)
+- [x] Scrollable settings panel
+- [x] Import from folder feature
+- [x] Upload to FlipSlab server feature
+- [x] Scan queue with preview
+- [x] Error handling with full command display for debugging
+
+### Web App
+- [x] Authentication system
+- [x] Dashboard
+- [x] Auction alert system
+- [x] User onboarding wizard
+- [x] eBay API integration
+- [x] OpenAI GPT-4o integration
+- [x] Google Auth (Emergent)
+
+## Date: Feb 2026 - Fixed NAPS2 CLI Integration
+- Added `--device "fi-6130dj"` to NAPS2 command to prevent scanner selection dialog
+- Added NAPS2 configuration section in UI (path, device name, profile)
+- Added auto-detect and manual browse for NAPS2 path
+- Added profile-based scanning support (use NAPS2 GUI profiles)
+- Fixed broken `_on_paper_change` method (duplicate save button with undefined `frame`)
+- Improved error handling: shows exact command + stdout/stderr on failure
+- Made left panel scrollable to fit NAPS2 config section
+
+## Pending - Awaiting User Testing
+- P0: NAPS2 duplex scanning - user needs to test on their Windows machine
+
+## Backlog
+- P1: Whatnot Integration & Inventory Sync Engine (waiting for API access)
+- P2: Auto-Refresh Portfolio Value
+- P3: Flip Finder core logic
+- P4: Stripe commercialization
+
+## Abandoned Approaches
+- Direct WIA duplex control (driver doesn't expose duplex settings)
+- TWAIN via pytwain (TWAINDSM.DLL dependency issues on 64-bit Windows)
+
+## User Language
+Spanish - all communication must be in Spanish

@@ -39,6 +39,9 @@ DEFAULT_SETTINGS = {
     "paper_size": "sport_card",
     "width_inches": 3.0,
     "height_inches": 4.0,
+    "naps2_path": "",
+    "naps2_device": "fi-6130dj",
+    "naps2_profile": "",
 }
 
 # Paper size presets (width x height in inches)
@@ -141,54 +144,77 @@ class WIAScanner:
                 return info.Connect()
         return None
 
-    def scan_card(self, device_id, settings, window_handle=0):
+    def scan_card(self, device_id, settings, window_handle=0, scanner_name=""):
         """Scan card(s). Uses NAPS2 CLI for duplex (both sides), WIA for single side."""
         source = settings.get("source", "feeder_duplex")
         is_duplex = source == "feeder_duplex"
 
-        # For duplex: use NAPS2 CLI (only reliable way for duplex on most scanners)
+        # For duplex: ONLY use NAPS2 CLI (WIA cannot do duplex reliably)
         if is_duplex:
-            try:
-                return self._scan_naps2(settings)
-            except Exception as e:
-                # If NAPS2 not found, show helpful message
-                if "NAPS2 not found" in str(e):
-                    raise
-                pass  # Other errors: fall through to WIA
+            return self._scan_naps2(settings, scanner_name)
 
-        # Try WIA programmatic
+        # Single side: try WIA programmatic, then dialog
         try:
             return self._scan_programmatic(device_id, settings)
         except Exception:
             pass
-
-        # Fallback: native WIA dialog
         return self._scan_with_dialog(device_id, settings)
 
-    def _find_naps2(self):
-        """Find NAPS2 installation path."""
-        common_paths = [
-            os.path.join(os.environ.get("PROGRAMFILES", "C:\\Program Files"), "NAPS2", "NAPS2.Console.exe"),
-            os.path.join(os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)"), "NAPS2", "NAPS2.Console.exe"),
-            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "NAPS2", "NAPS2.Console.exe"),
-            os.path.join(os.environ.get("APPDATA", ""), "NAPS2", "NAPS2.Console.exe"),
-        ]
-        for p in common_paths:
+    def _find_naps2(self, custom_path=None):
+        """Find NAPS2 installation path. Checks custom path, common locations, and PATH."""
+        import shutil
+
+        # 1. Check custom configured path
+        if custom_path and os.path.isfile(custom_path):
+            return custom_path
+
+        # 2. Check common installation paths
+        search_paths = []
+        for env_var in ["PROGRAMFILES", "PROGRAMFILES(X86)", "LOCALAPPDATA"]:
+            base = os.environ.get(env_var, "")
+            if base:
+                search_paths.append(os.path.join(base, "NAPS2", "NAPS2.Console.exe"))
+                search_paths.append(os.path.join(base, "NAPS2", "App", "NAPS2.Console.exe"))
+
+        # Also check user profile paths
+        userprofile = os.environ.get("USERPROFILE", "")
+        if userprofile:
+            search_paths.append(os.path.join(userprofile, "AppData", "Local", "Programs", "NAPS2", "NAPS2.Console.exe"))
+            search_paths.append(os.path.join(userprofile, "Downloads", "NAPS2", "NAPS2.Console.exe"))
+            # Portable NAPS2
+            search_paths.append(os.path.join(userprofile, "Desktop", "NAPS2", "NAPS2.Console.exe"))
+
+        # Common drive roots
+        for drive in ["C:", "D:"]:
+            search_paths.append(os.path.join(drive, "\\NAPS2", "NAPS2.Console.exe"))
+            search_paths.append(os.path.join(drive, "\\Program Files", "NAPS2", "NAPS2.Console.exe"))
+            search_paths.append(os.path.join(drive, "\\Program Files (x86)", "NAPS2", "NAPS2.Console.exe"))
+
+        for p in search_paths:
             if os.path.isfile(p):
                 return p
+
+        # 3. Check if NAPS2.Console is in system PATH
+        found = shutil.which("NAPS2.Console") or shutil.which("NAPS2.Console.exe")
+        if found:
+            return found
+
         return None
 
-    def _scan_naps2(self, settings):
+    def _scan_naps2(self, settings, scanner_name=""):
         """Scan using NAPS2 command-line interface - true duplex via TWAIN driver."""
         import subprocess, glob
 
-        naps2_exe = self._find_naps2()
+        naps2_path = settings.get("naps2_path", "")
+        naps2_exe = self._find_naps2(custom_path=naps2_path)
         if not naps2_exe:
             raise Exception(
-                "NAPS2 not found!\n\n"
-                "For duplex scanning (both sides), NAPS2 is required.\n"
-                "Download free from: https://www.naps2.com\n\n"
-                "Install it and try again."
+                "NAPS2 no encontrado!\n\n"
+                "El escaneo duplex requiere NAPS2 (gratis).\n"
+                "1. Descarga de: https://www.naps2.com\n"
+                "2. Instalalo\n"
+                "3. Configura la ruta en la seccion NAPS2 (DUPLEX)\n\n"
+                "O usa 'Feeder (Single side)' para escanear sin NAPS2."
             )
 
         dpi = settings.get("dpi", 300)
@@ -196,6 +222,8 @@ class WIAScanner:
         source = settings.get("source", "feeder_duplex")
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
+        device_name = settings.get("naps2_device", "").strip()
+        profile_name = settings.get("naps2_profile", "").strip()
 
         # Create temp folder for scan output
         scan_tmp = os.path.join(tempfile.gettempdir(), "flipslab_naps2")
@@ -211,23 +239,34 @@ class WIAScanner:
         output_path = os.path.join(scan_tmp, "scan_$(n).png")
 
         # Build NAPS2 command
-        naps2_source = "duplex" if source == "feeder_duplex" else "feeder"
-        bitdepth = "color" if color else "gray"
-        pagesize = f"{width_in}x{height_in}in"
+        cmd = [naps2_exe, "-o", output_path]
 
-        cmd = [
-            naps2_exe,
-            "-o", output_path,
-            "--noprofile",
-            "--driver", "twain",
-            "--source", naps2_source,
-            "--dpi", str(dpi),
-            "--bitdepth", bitdepth,
-            "--pagesize", pagesize,
-            "--split",
-            "-f",
-            "-v",
-        ]
+        if profile_name:
+            # Use a named profile (configured in NAPS2 GUI)
+            cmd.extend(["--profile", profile_name])
+        else:
+            # Build settings from scratch
+            cmd.append("--noprofile")
+            cmd.extend(["--driver", "twain"])
+
+            naps2_source = "duplex" if source == "feeder_duplex" else "feeder"
+            cmd.extend(["--source", naps2_source])
+            cmd.extend(["--dpi", str(dpi)])
+
+            bitdepth = "color" if color else "gray"
+            cmd.extend(["--bitdepth", bitdepth])
+
+            pagesize = f"{width_in}x{height_in}in"
+            cmd.extend(["--pagesize", pagesize])
+
+        # CRITICAL: specify device to avoid scanner selection dialog
+        if device_name:
+            cmd.extend(["--device", device_name])
+
+        cmd.extend(["--split", "-f", "-v"])
+
+        # Show command for debugging
+        cmd_str = " ".join(f'"{c}"' if " " in c else c for c in cmd)
 
         # Run NAPS2 scan
         try:
@@ -235,12 +274,21 @@ class WIAScanner:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120,  # 2 min timeout
+                timeout=120,
             )
         except subprocess.TimeoutExpired:
-            raise Exception("Scan timed out (2 minutes). Try again.")
+            raise Exception(
+                f"Escaneo timeout (2 minutos).\n\nComando:\n{cmd_str}"
+            )
         except FileNotFoundError:
-            raise Exception(f"NAPS2 not found at: {naps2_exe}")
+            raise Exception(
+                f"NAPS2 no encontrado en:\n{naps2_exe}\n\n"
+                "Verifica la ruta en la seccion NAPS2 (DUPLEX)."
+            )
+        except Exception as e:
+            raise Exception(
+                f"Error ejecutando NAPS2:\n{e}\n\nComando:\n{cmd_str}"
+            )
 
         # Read output images
         images = []
@@ -260,8 +308,18 @@ class WIAScanner:
                     pass
 
         if not images:
-            error_msg = result.stderr.strip() if result.stderr else "Unknown error"
-            raise Exception(f"NAPS2 scan returned no images.\n\n{error_msg}")
+            stdout_msg = result.stdout.strip() if result.stdout else ""
+            stderr_msg = result.stderr.strip() if result.stderr else ""
+            exit_code = result.returncode
+
+            error_detail = f"NAPS2 no produjo imagenes.\n\n"
+            error_detail += f"Exit code: {exit_code}\n"
+            if stdout_msg:
+                error_detail += f"\nSTDOUT:\n{stdout_msg[:500]}\n"
+            if stderr_msg:
+                error_detail += f"\nSTDERR:\n{stderr_msg[:500]}\n"
+            error_detail += f"\nComando ejecutado:\n{cmd_str}"
+            raise Exception(error_detail)
 
         return images
 
@@ -568,9 +626,9 @@ class FlipSlabScanner:
     def __init__(self, root):
         self.root = root
         self.root.title(f"{APP_NAME} v{VERSION}")
-        self.root.geometry("960x720")
+        self.root.geometry("960x800")
         self.root.configure(bg=BG)
-        self.root.minsize(800, 600)
+        self.root.minsize(800, 700)
 
         self.config = load_config()
         self.server_url = self.config.get("server_url", "https://flipslabengine.com")
@@ -610,11 +668,29 @@ class FlipSlabScanner:
         left.pack(side="left", fill="y", padx=(0, 10))
         left.pack_propagate(False)
 
-        self._build_login_section(left)
-        self._build_scanner_section(left)
-        self._build_settings_section(left)
-        self._build_actions_section(left)
-        self._build_queue_section(left)
+        # Scrollable left panel
+        left_canvas = tk.Canvas(left, bg=BG, highlightthickness=0, width=270)
+        left_scrollbar = tk.Scrollbar(left, orient="vertical", command=left_canvas.yview)
+        self.left_inner = tk.Frame(left_canvas, bg=BG)
+
+        self.left_inner.bind("<Configure>",
+            lambda e: left_canvas.configure(scrollregion=left_canvas.bbox("all")))
+        left_canvas.create_window((0, 0), window=self.left_inner, anchor="nw", width=270)
+        left_canvas.configure(yscrollcommand=left_scrollbar.set)
+
+        left_canvas.pack(side="left", fill="both", expand=True)
+        left_scrollbar.pack(side="right", fill="y")
+
+        # Mousewheel scroll
+        def _on_mousewheel(event):
+            left_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        left_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+
+        self._build_login_section(self.left_inner)
+        self._build_scanner_section(self.left_inner)
+        self._build_settings_section(self.left_inner)
+        self._build_actions_section(self.left_inner)
+        self._build_queue_section(self.left_inner)
 
         # Right - Preview
         right = tk.Frame(main, bg=BG2, relief="flat", bd=1)
@@ -776,6 +852,71 @@ class FlipSlabScanner:
                   bg=BG, fg=GREEN, relief="flat", cursor="hand2",
                   command=self._save_settings).pack(fill="x", ipady=2, pady=(4, 0))
 
+        # ─── NAPS2 Configuration (for duplex scanning) ───
+        self._section_title(parent, "NAPS2 (DUPLEX)")
+
+        naps2_frame = tk.Frame(parent, bg=BG3, padx=10, pady=6)
+        naps2_frame.pack(fill="x")
+
+        # NAPS2 Path
+        tk.Label(naps2_frame, text="NAPS2 Path:", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
+        path_row = tk.Frame(naps2_frame, bg=BG3)
+        path_row.pack(fill="x", pady=(1, 4))
+        self.naps2_path_var = tk.StringVar(value=s.get("naps2_path", ""))
+        self.naps2_path_entry = tk.Entry(path_row, textvariable=self.naps2_path_var,
+                                         font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                                         insertbackground=WHITE, relief="flat")
+        self.naps2_path_entry.pack(side="left", fill="x", expand=True, ipady=2)
+        tk.Button(path_row, text="...", font=("Segoe UI", 8, "bold"),
+                  bg=BG, fg=AMBER, relief="flat", cursor="hand2", width=3,
+                  command=self._browse_naps2).pack(side="right", padx=(3, 0))
+
+        # Device name
+        tk.Label(naps2_frame, text="Device:", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
+        self.naps2_device_var = tk.StringVar(value=s.get("naps2_device", "fi-6130dj"))
+        tk.Entry(naps2_frame, textvariable=self.naps2_device_var,
+                 font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                 insertbackground=WHITE, relief="flat").pack(fill="x", ipady=2, pady=(1, 4))
+
+        # Profile name (optional)
+        tk.Label(naps2_frame, text="Profile (opcional):", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
+        self.naps2_profile_var = tk.StringVar(value=s.get("naps2_profile", ""))
+        tk.Entry(naps2_frame, textvariable=self.naps2_profile_var,
+                 font=("Segoe UI", 8), bg=BG, fg=WHITE,
+                 insertbackground=WHITE, relief="flat").pack(fill="x", ipady=2, pady=(1, 4))
+
+        # Auto-detect NAPS2 button
+        tk.Button(naps2_frame, text="Auto-detectar NAPS2", font=("Segoe UI", 8, "bold"),
+                  bg=BG, fg=BLUE, relief="flat", cursor="hand2",
+                  command=self._auto_detect_naps2).pack(fill="x", ipady=2, pady=(2, 0))
+
+        # NAPS2 status
+        self.naps2_status = tk.Label(naps2_frame, text="", font=("Segoe UI", 7),
+                                     fg=DARK_GRAY, bg=BG3, wraplength=250, justify="left")
+        self.naps2_status.pack(anchor="w", pady=(3, 0))
+
+    def _browse_naps2(self):
+        """Browse for NAPS2.Console.exe."""
+        path = filedialog.askopenfilename(
+            title="Selecciona NAPS2.Console.exe",
+            filetypes=[("NAPS2 Console", "NAPS2.Console.exe"), ("All EXE", "*.exe")],
+        )
+        if path:
+            self.naps2_path_var.set(path)
+            self.naps2_status.config(text=f"OK: {path}", fg=GREEN)
+
+    def _auto_detect_naps2(self):
+        """Try to auto-detect NAPS2 installation."""
+        found = self.wia._find_naps2()
+        if found:
+            self.naps2_path_var.set(found)
+            self.naps2_status.config(text=f"Encontrado: {found}", fg=GREEN)
+        else:
+            self.naps2_status.config(
+                text="No encontrado. Usa '...' para buscarlo manualmente.",
+                fg=RED
+            )
+
     def _on_paper_change(self, event=None):
         """Show/hide custom area fields based on paper size selection."""
         paper_keys = list(PAPER_SIZES.keys())
@@ -789,11 +930,6 @@ class FlipSlabScanner:
             _, w, h = PAPER_SIZES[key]
             self.width_var.set(str(w))
             self.height_var.set(str(h))
-
-        # Save button
-        tk.Button(frame, text="Save Settings", font=("Segoe UI", 8, "bold"),
-                  bg=BG, fg=GREEN, relief="flat", cursor="hand2",
-                  command=self._save_settings).pack(fill="x", ipady=2, pady=(4, 0))
 
     def _save_settings(self):
         try:
@@ -821,6 +957,9 @@ class FlipSlabScanner:
                 "paper_size": paper_key,
                 "width_inches": w_in,
                 "height_inches": h_in,
+                "naps2_path": self.naps2_path_var.get().strip(),
+                "naps2_device": self.naps2_device_var.get().strip(),
+                "naps2_profile": self.naps2_profile_var.get().strip(),
             }
             self.config["scan_settings"] = self.scan_settings
             save_config(self.config)
@@ -984,7 +1123,14 @@ class FlipSlabScanner:
         error = None
         try:
             hwnd = self.root.winfo_id()
-            images = self.wia.scan_card(self.selected_scanner_id, self.scan_settings, window_handle=hwnd)
+            scanner_name = ""
+            idx = self.scanner_combo.current()
+            if idx >= 0 and self.scanners:
+                scanner_name = self.scanners[idx][1]
+            images = self.wia.scan_card(
+                self.selected_scanner_id, self.scan_settings,
+                window_handle=hwnd, scanner_name=scanner_name
+            )
         except Exception as e:
             error = str(e)
 

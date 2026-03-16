@@ -1,184 +1,147 @@
 <analysis>**original_problem_statement:**
 The user wants to expand their web app, GradeProphet, into a full-fledged trading platform named FlipSlab Engine. The vision is to create an Operating System for Sports Card Traders.
 
-**PRODUCT REQUIREMENTS:**
-1.  **New Platform Structure:** Reorganize the app with a new sidebar: Dashboard, Inventory, Market, Flip Finder, Listings, Account.
-2.  **AI-Powered Inventory:** When adding a card, an AI should identify it from a photo and auto-fill details.
-3.  **User Profile:** An Account module for users to manage settings.
-4.  **AI-Powered Listing Creation:** The listing form must auto-populate all eBay fields, use AI for titles/descriptions, and suggest prices.
-5.  **Advanced Image Processing:** Photos of cards should be automatically cropped, enhanced, and background-removed.
-6.  **Batch Upload:** A feature to upload multiple scanned cards at once.
-7.  **Card Ladder Features:** Integrate market intelligence features like a portfolio value tracker, price alerts, and historical price charts.
-8.  **Authentication & Landing Page:** Create a public-facing landing page and a full user authentication system.
-9.  **eBay Listing Management:** Users must be able to create and end listings directly from the platform.
-10. **Cross-Platform Sync:** Sync inventory between eBay and Whatnot, including auto-delisting items when sold on one platform.
-11. **Auction Sniping:** A feature to automatically place a bid on an eBay auction seconds before it ends. (Pivoted, see below)
-12. **Direct Purchase/Offers:** Ability to Buy It Now or Make Offer on eBay listings directly from the platform.
+A key high-priority request is a standalone desktop application for Windows (FlipSlab Scanner) that can interface with the user's Fujitsu fi-6130Z scanner. This application must scan sports cards (front and back), process the images (crop, rotate, enhance), and prepare them for upload. A critical requirement is enabling batch duplex (two-sided) scanning.
 
-**User's preferred language**: Spanish. The user communicates fluently in Spanish. The next agent MUST continue the conversation in Spanish to maintain rapport and clarity.
+**PRODUCT REQUIREMENTS:**
+*   **New Platform Structure:** Reorganize the app with a new sidebar: Dashboard, Inventory, Market, Flip Finder, Listings, Account.
+*   **AI-Powered Inventory:** When adding a card, an AI should identify it from a photo and auto-fill details.
+*   **User Profile:** An Account module for users to manage settings.
+*   **AI-Powered Listing Creation:** The listing form must auto-populate all eBay fields, use AI for titles/descriptions, and suggest prices.
+*   **Advanced Image Processing:** Photos of cards should be automatically cropped, enhanced, and background-removed.
+*   **Batch Upload:** A feature to upload multiple scanned cards at once.
+*   **Card Ladder Features:** Integrate market intelligence features like a portfolio value tracker, price alerts, and historical price charts.
+*   **Authentication & Landing Page:** Create a public-facing landing page and a full user authentication system.
+*   **eBay Listing Management:** Users must be able to create and end listings directly from the platform.
+*   **Cross-Platform Sync:** Sync inventory between eBay and Whatnot.
+*   **New User Onboarding:** First-time users should go through a setup wizard to connect their eBay account and set up initial search preferences.
+*   **Windows Scanner App:** A standalone desktop application to control a TWAIN/WIA scanner, automatically scan both sides of a card in a single pass (duplex), crop, rotate, enhance the image, and save it locally.
+
+**User's preferred language**: Spanish. The user communicates fluently in Spanish. The next agent MUST continue the conversation in Spanish.
 
 **what currently exists?**
-The FlipSlab Engine is a functional web app for sports card traders. The core features implemented are:
-*   **Authentication:** JWT-based Email/Password and Google Auth.
-*   **Listings Module:** Users can view their eBay listings.
-*   **Flip Finder Module:** This contains an  for searching listings and the new Auction Alert system.
-*   **Auction Alert System (formerly Sniper):** Due to eBay API policies prohibiting automated bidding, the Sniper was re-engineered. The new system allows a user to set an alert on an auction. One minute before it ends, the user receives a browser notification, a sound alert, and the eBay item page is automatically opened in a new tab for manual bidding.
-*   **Dynamic Dashboard (Command Center):** A highly interactive and visually rich dashboard that serves as the main hub. It displays:
-    *   KPI cards (Revenue, Profit, etc.).
-    *   My Watchlist (formerly Active Snipes) as a visual grid of cards.
-    *   Monitor Feed showing the latest items from saved searches.
-    *   Recent Sales in a visual grid with images.
-    *   Hobby Pulse news feed, which pulls from hobby news RSS feeds.
-    *   All elements are clickable, navigating to the relevant app section or opening a detail modal.
-*   **Deployment Assistance:** Custom scripts (, ) were created to help the user deploy on their specific server environment.
+The project has two main parts: the FlipSlab Engine web application and the FlipSlab Scanner desktop application.
+
+*   **Web App:** A stable full-stack application with authentication, a dashboard, an auction alert system, and a user onboarding wizard. It is not the current focus of work.
+*   **Desktop Scanner App ():** A Python/Tkinter application designed to control the user's scanner. It has a highly effective, multi-stage image processing algorithm that can automatically detect, crop, and enhance scanned cards from a full-page scan. However, its most critical feature, batch duplex scanning, is not working. The current strategy is to delegate the scanning process to the NAPS2 command-line tool, which the user already has installed and confirmed works for duplex scanning.
 
 **Last working item**:
-*   **Last item agent was working:** The user requested a global UI consistency and terminology update. The agent was in the process of implementing three main changes across the entire codebase:
-    1.  **Rename Snipe/Sniper**: All instances of Snipe, Sniper, and Active Snipes were being renamed to Auction Alert, Alerts, and My Watchlist respectively to reflect the feature's pivot.
-    2.  **Increase Font/Component Sizes**: The text, badges, buttons, and icons on all card components (e.g., My Watchlist, Recent Sales) were being enlarged for better legibility.
-    3.  **Update Landing Page**: The marketing copy on the  page was being rewritten to remove references to the prohibited sniping feature and accurately describe the new Auction Alert system.
-*   **Status:** IN PROGRESS
+*   **Last item agent was working:** Trying to implement reliable batch duplex (two-sided) scanning in the  by calling the  command-line tool. The user reported that this approach is failing; instead of NAPS2 taking over, the application falls back to showing a generic Windows (WIA) scanner selection dialog which does not support duplex scanning for this hardware. The user wants the scanner app to seamlessly use the same duplex capability as the NAPS2 desktop application.
+*   **Status:** BLOCKED
 *   **Agent Testing Done:** N
-*   **Which testing method agent to use?** both
-*   **User Testing Done:** N
+*   **Which testing method agent to use?** Manual testing by the user. The agent must package the updated  and its dependencies into a  file and provide it to the user for testing on their Windows machine.
+*   **User Testing Done:** Y
 
 **All Pending/In progress Issue list**:
-*   **Issue 1: Verify and Finalize Global UI/Text Refactor (P0)**
-    *   **Description:** The agent has run a large number of parallel  operations to rename Sniper to Auction Alert and increase UI element sizes across the app. These changes have not been fully tested and verified. The app might be in a broken state.
-    *   **Attempted fixes:** Multiple files were modified in parallel.
+*   **Issue 1: Duplex Scanning via NAPS2 CLI is Failing (P0)**
+    *   **Description:** The scanner app is supposed to use  for duplex scanning, but the command is either not being found or executed correctly. This causes the app to silently fall back to the old WIA method, which opens a scanner selection dialog that lacks the duplex option. The goal is to successfully call the NAPS2 CLI with the correct parameters to perform a duplex scan without any extra dialogs appearing.
+    *   **Attempted fixes:**
+        1.  **Direct WIA Control:** Failed as the WIA driver for the fi-6130Z doesn't expose duplex settings programmatically.
+        2.  **TWAIN Protocol via :** Failed due to persistent  dependency issues on the user's 64-bit Windows system. This approach has been abandoned.
+        3.  **NAPS2 CLI Integration:** The current approach. It is failing because the application cannot correctly locate and execute  with the right arguments, causing it to fall back.
     *   **Next debug checklist:**
-        1.  Restart the backend and frontend services.
-        2.  Check for compilation errors in the frontend (yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. or yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.). Check backend logs.
-        3.  Manually navigate through the entire application: Landing Page, Login, Dashboard, Flip Finder -> Alerts.
-        4.  Verify that all instances of Snipe/Sniper have been correctly renamed to Auction Alert, Alerts, or My Watchlist.
-        5.  Check the  landing page content.
-        6.  Inspect the card components on the dashboard (My Watchlist, Recent Sales) to confirm font, badge, and button sizes have increased and are legible.
-        7.  Run the testing agent to perform a full regression test.
-    *   **Why fix this issue and what will be achieved with the fix?** To ensure the application is consistent with the new feature branding and meets the user's latest UI/UX feedback.
-    *   **Status:** IN PROGRESS
-    *   **Is recurring issue?** N
-    *   **Should Test frontend/backend/both after fix?** both
-    *   **Blocked on other issue:** No
+        1.  Edit .
+        2.  **Improve NAPS2 Path Detection:** Enhance the function that finds . Search in multiple common paths (, ) and also check the system's  environment variable.
+        3.  **Specify Device in Command:** Add the  argument to the NAPS2 command line call. This should prevent the NAPS2 scanner selection dialog from appearing. You may need to confirm the exact device name with the user.
+        4.  **Improve Error Handling:** Instead of silently falling back to the WIA dialog, if the NAPS2 command fails, display a  to the user with the command that was attempted and the error output. This will provide crucial debug information.
+        5.  **Add Manual Path Configuration:** Add a new text entry field and a Save button in the scanner app's settings panel to allow the user to manually specify the full path to . This provides a reliable fallback if automatic detection fails.
+    *   **Why fix this issue and what will be achieved with the fix?** This is the final and most important feature for the scanner application. It will enable the user's primary workflow: batch scanning multiple cards, front and back, in a single operation.
+    *   **Status:** BLOCKED
+    *   **Is recurring issue?** Y
+    *   **Should Test frontend/backend/both after fix?** Neither. This is a standalone Windows desktop app.
+    *   **Blocked on other issue:** No.
 
 **In progress Task List**:
-*   **Task 1: Complete UI/Text Refactoring (P0)**
-    *   **Where to resume:** The agent has already modified the necessary files (, , , , etc.). The next step is to test these changes thoroughly, fix any resulting bugs, and confirm with the user.
-    *   **What will be achieved with this?** A consistent user experience that accurately reflects the current features and improved legibility across the application.
+*   **Task 1: Fix NAPS2 CLI Integration for Duplex Scanning (P0)**
+    *   **Where to resume:** In , focusing on the  function (or similarly named function) that builds and executes the  command.
+    *   **What will be achieved with this?** A fully functional, reliable batch duplex scanning feature, completing the scanner application's core functionality.
     *   **Status:** IN PROGRESS
-    *   **Should Test frontend/backend/both after fix?** both
-    *   **Blocked on something:** No
+    *   **Should Test frontend/backend/both after fix?** Neither.
+    *   **Blocked on something:** The inability to correctly call the NAPS2 CLI.
 
 **Upcoming and Future Tasks**
 *   **Upcoming Tasks:**
-    *   **P1: Implement Whatnot Integration & Inventory Sync Engine:** The user has sent an email to Whatnot requesting API access. Once approved, the priority is to build the integration and the Inventory Sync Engine to manage cross-listing and auto-delisting between eBay and Whatnot.
+    *   **P1: Implement Whatnot Integration & Inventory Sync Engine:** Once the user gets API access from Whatnot, build the integration and the sync engine for managing listings between eBay and Whatnot.
 *   **Future Tasks:**
     *   **P2: Auto-Refresh Portfolio Value:** Add a feature to automatically refresh the market value of all cards in a user's portfolio periodically.
     *   **P3: Flip Finder Core Logic:** Implement the original GradeProphet functionality to analyze market data and identify profitable card flipping opportunities.
-    *   **P4: Commercialize with Stripe:** Integrate a payment provider like Stripe to handle subscriptions for the Pro plan tier.
+    *   **P4: Commercialize with Stripe:** Integrate a payment provider to handle subscriptions.
 
 **Completed work in this session**
-- **Dashboard Command Center Implementation (Multiple Iterations):** A fully interactive and visually-rich dashboard was built and refined based on direct user feedback, featuring KPI cards, visual grids for sales/watchlist, and a news feed.
-- **Hobby News Feed Integration (Hobby Pulse):** Created a backend service using  to pull RSS news from hobby-related websites and display it with thumbnails on the dashboard.
-- **Critical Pivot: Sniper to Auction Alerts:**
-    - Investigated and confirmed that eBay's API policy explicitly prohibits automated bidding (sniping).
-    - Re-architected the feature into an Auction Alert system that opens the eBay item page for the user to bid manually 1 minute before the auction ends, complete with browser notifications and sound.
-- **Dashboard Interactivity:** Made all dashboard widgets clickable, linking to corresponding app sections (e.g., KPI card for Active Listings navigates to the Listings page) or opening detail modals (for recent sales).
-- **Deployment & Debugging Support:**
-    - Successfully diagnosed and resolved multiple complex issues in the user's custom production environment, including frontend build failures (, ), backend process management (, ), and incorrect environment variables in the frontend build.
-    - Created custom deployment scripts (, ) to streamline the user's workflow.
-- **Backend Bug Fixes:**
-    - Resolved an  error from the eBay API.
-    - Fixed an API routing conflict where a dynamic route was incorrectly capturing a static one.
-    - Corrected XML parsing to properly extract image URLs from eBay API responses.
-    - Implemented logic to filter out ended auctions from monitor results.
+- **Advanced Image Cropping Algorithm:** Developed, tested, and iterated on a robust, two-pass image cropping algorithm using standard deviation analysis. This algorithm successfully detects and crops cards from full-page scans, even with varied backgrounds, solving a major previous blocker.
+- **Image Border and Enhancement:** Implemented and refined image enhancements () and borders (gray, gradient fade) based on detailed user feedback.
+- **Attempted and Ruled Out Duplex Strategies:** Systematically attempted and invalidated two major approaches for duplex scanning (direct WIA control, TWAIN via ), leading to the current, more promising strategy of using the NAPS2 CLI.
+- **Batch Scanning Logic:** Implemented the UI and file-naming logic to handle scanning multiple cards in a batch (, , etc.). This logic is ready to be used once the underlying duplex scan command is fixed.
 
 **Earlier issues found/mentioned but not fixed**
-- **Issue 1:** Minor ESLint warnings from the frontend build process remain unaddressed as they are non-critical.
+- Minor ESLint warnings from the frontend build process remain unaddressed as they are non-critical.
 
 **Known issue recurrence from previous fork**
-- **Deployment Fragility:** The user's custom cPanel/Apache server environment remains a potential point of failure. The agent has provided scripts to mitigate this, but any deviation can cause issues.
+- **Duplex Scanning Implementation:** This has become a recurring and difficult issue. Multiple approaches (WIA, TWAIN) have failed, making the current NAPS2 CLI approach critical to get right.
+- **Deployment Fragility:** The main web app's custom server environment remains a potential point of failure.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Backend:** FastAPI, MongoDB, APScheduler (for background tasks),  (for RSS).
-- **Frontend:** React, Tailwind CSS, shadcn/ui, , .
-- **eBay API:** Extensive use of Trading and Browse APIs. Confirmed that  and  are restricted and cannot be used for automated bidding.
-- **Feature Pivot:** Shifted from an automated API-driven feature (sniper) to a user-assistance and notification-driven feature (alert system) due to platform policy limitations.
+- **Desktop Scanner App:** Python, Tkinter (GUI), Pillow/NumPy (Image Processing),  (for WIA fallback).
+- **External Tool Integration:** Using Python's  module to call  to handle the actual scanning. This is the current core strategy.
 
 **key DB schema**
-- ** (collection now used for alerts):** . The  field now uses values like , , .
+- No changes in this session.
 
 **changes in tech stack**
-- **** was added to the backend dependencies to handle the Hobby News RSS feed.
+- **Abandoned:**  for TWAIN control.
+- **Adopted:** Integration with an external application (NAPS2) via its Command Line Interface (CLI) as the primary engine for duplex scanning.
 
 **All files of reference**
-*   : The main file for the entire Command Center feature.
-*   : Contains the logic for the new Auction Alert system.
-*   : Contains the updated marketing copy.
-*   : Provides the API endpoints that power the dashboard.
-*   : Contains the updated logic for setting and triggering alerts.
-*   : The new RSS feed parsing utility.
-*   : The new master deployment script for the user's server.
-
-**Areas that need refactoring**:
-- None.
+*   : The single most important file. Contains all the application logic, including the failing NAPS2 CLI call, the image processing pipeline, and the Tkinter UI.
+*   : The installer script. It was modified to handle TWAIN dependencies but should now be simplified since that approach was abandoned.
 
 **key api endpoints**
-- : Gets all data for the Command Center UI.
-- : Gets parsed RSS feed news.
-- : (New) Polled by the frontend to check for triggered alerts.
-- : (New) Marks a triggered alert as acknowledged by the user.
-- : Creates a new auction alert.
+- No API changes in this session.
 
 **Critical Info for New Agent**
 - **You MUST communicate in Spanish.**
-- **Auction Sniping is IMPOSSIBLE and FORBIDDEN by eBay.** Do not attempt to re-implement automated bidding. The current Auction Alert system (auto-opening the eBay page) is the accepted solution. The user understands this limitation. The terminology in the app has been changed to Auction Alert / My Watchlist.
-- The immediate task is to **verify and test the global UI/text refactoring** that was just performed. The app's stability is uncertain until this is tested.
-- Be prepared to assist with deployment on the user's custom server environment. The  script should be the primary tool.
+- The immediate and only task is to fix the duplex scanning in the . **Do not get distracted by other features.**
+- **The current strategy is to use the NAPS2 CLI.** Do NOT revert to TWAIN or WIA. The problem is not the strategy, but its implementation. The  command is failing.
+- Follow the  for Issue 1. The key is to find the NAPS2 executable, pass the correct device name to it, and handle errors properly.
+- The user is your only tester. Your development cycle will be: modify , create , give it to the user, and analyze their feedback.
 
 **documents and test reports created in this job**
-*   
-*   
-*   
-*   
-*    (Updated throughout the session)
+*   Multiple versions of  have been created and provided to the user.
 
 **Last 10 User Messages and any pending HUMAN messages**
-10. User asks to change the title of Active Snipes as it is confusing. (DONE)
-9.  User reports the images in the My Watchlist grid are too large. (DONE)
-8.  User asks to change the Active Snipes list to a visual grid. (DONE)
-7.  User confirms they understand the Auction Alert pivot and asks to deploy the changes. (DONE)
-6.  User asks for a more valuable implementation of the Auction Alert system, suggesting notifications and opening the page 1 minute before. (DONE)
-5.  User receives the restricted application error again and understands it's a permanent eBay policy block. (ACKNOWLEDGED)
-4.  User tries a snipe after a code change and gets a restricted application error. (REPORTED)
-3.  User reports an  error on snipes. (FIXED)
-2.  User reports they cannot log in (Authentication fail) after a deployment. (FIXED by rebuilding frontend with correct prod URL)
-1.  **PENDING:** User asks for a global UI update: make all card text, badges, and icons bigger, and change all Snipe references throughout the entire app and landing page.
+10. **PENDING:** User confirms the NAPS2 CLI approach is failing. It's not scanning in duplex and is instead showing two unwanted dialogs: a scanner selection dialog and a profile selection dialog. The user provided a screenshot of the correct NAPS2 interface, which seems to be a native scanner dialog that NAPS2 can invoke correctly.
+9.  User is asked to test the NAPS2 CLI integration.
+8.  User reports the previous  approach failed with a  error, even after multiple attempts to fix the installation.
+7.  User is asked to test the  approach with an automated  installer.
+6.  User reports  failed because it could not find .
+5.  User is asked to test the initial  integration.
+4.  User reports that WIA programmatic duplex is only scanning one side and asks for research on a universal driver or better method.
+3.  User confirms batch scanning logic is desired (scan multiple cards in one go without flipping).
+2.  User confirms the scanned cards with toploaders look perfect.
+1.  User notes that the corners of cards scanned without a toploader look soft and asks if the software is causing it (Agent confirmed it's the scanner/card, not the software).
 
 **Project Health Check:**
-*   **Working:** Most of the application is stable.
-*   **Broken:** Potentially the frontend and parts of the backend due to the last, untested, large-scale refactoring. Verification is the highest priority.
-*   **Mocked:** None.
+*   **Broken:** The  is blocked on its most critical feature: duplex scanning. The rest of the app (cropping, UI) is working well.
+*   **Mocked:** N/A.
 
 **3rd Party Integrations**
-*   **eBay API (Trading & Browse API):** Used for searching, listings, and auction data.
-*   **OpenAI GPT-4o:** Uses User-provided API Key.
-*   **Jina Reader API:** Fallback for market data.
-*   **Emergent Google Auth:** Continue with Google functionality.
-*   **RSS Feeds (via ):** For the Hobby Pulse news feed.
+*   **eBay API:** Used in the web app.
+*   **OpenAI GPT-4o:** Used in the web app.
+*   **Emergent Google Auth:** Used in the web app.
+*   **NAPS2 (via CLI):** The new, critical integration for the desktop scanner app to enable duplex scanning. This is the focus.
+*   **WIA (Windows Image Acquisition):** Used as a fallback for single-sided scanning.
 
 **Testing status**
-- **Testing agent used after significant changes:** YES (used multiple times for dashboard and alert features).
+- **Testing agent used after significant changes:** NO (not applicable for the desktop app).
 - **Troubleshoot agent used after agent stuck in loop:** NO
 - **Test files created:** None.
-- **Known regressions:** None, but the last change was major and could have introduced regressions.
+- **Known regressions:** None.
 
 **Credentials to test flow:**
-- User registration (Email/Password) is open. A new user can be created for testing.
+- N/A. Testing requires the user's physical scanner.
 
 **What agent forgot to execute**
-- The non-critical ESLint warnings mentioned in the previous handoff remain unaddressed.</analysis>
+- The non-critical ESLint warnings in the frontend codebase remain unaddressed.</analysis>
