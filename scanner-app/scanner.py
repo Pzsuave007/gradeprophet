@@ -225,6 +225,31 @@ class WIAScanner:
                 cropped = img.crop((cmin, rmin, cmax, rmax))
                 cropped = cropped.rotate(180)
 
+        # === TRIM WHITE SCANNER BACKGROUND ===
+        # Remove any remaining white/near-white borders left by the scanner
+        arr_t = np.array(cropped)
+        WHITE_THRESH = 245  # pixels brighter than this are "white background"
+
+        # Find first/last non-white row
+        row_means = arr_t.mean(axis=(1, 2))
+        non_white_rows = np.where(row_means < WHITE_THRESH)[0]
+        if len(non_white_rows) > 0:
+            top = max(0, non_white_rows[0] - 2)
+            bot = min(arr_t.shape[0], non_white_rows[-1] + 3)
+        else:
+            top, bot = 0, arr_t.shape[0]
+
+        # Find first/last non-white column
+        col_means = arr_t.mean(axis=(0, 2))
+        non_white_cols = np.where(col_means < WHITE_THRESH)[0]
+        if len(non_white_cols) > 0:
+            left = max(0, non_white_cols[0] - 2)
+            right = min(arr_t.shape[1], non_white_cols[-1] + 3)
+        else:
+            left, right = 0, arr_t.shape[1]
+
+        cropped = cropped.crop((left, top, right, bot))
+
         # === ENHANCE COLORS ===
         # Auto-contrast to maximize dynamic range
         cropped = ImageOps.autocontrast(cropped, cutoff=0.5)
