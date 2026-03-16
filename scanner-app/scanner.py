@@ -154,7 +154,8 @@ class WIAScanner:
         return self._scan_with_dialog(device_id, settings)
 
     def _scan_programmatic(self, device_id, settings):
-        """Direct WIA scan without UI - sets all properties programmatically."""
+        """Direct WIA scan - scans ALL pages from feeder in one pass.
+        For duplex: front+back of each card. Supports batch (multiple cards)."""
         import win32com.client
 
         dpi = settings.get("dpi", 300)
@@ -170,28 +171,20 @@ class WIAScanner:
         # --- Configure source (feeder/flatbed/duplex) ---
         if source == "flatbed":
             self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FLATBED)
+            self._set_device_prop(device, self.PAGES, 1)
         elif source == "feeder_duplex":
             self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+            self._set_device_prop(device, self.PAGES, 0)  # 0 = ALL pages
         else:
             self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
-
-        # Set pages: 0 = scan all available, 1 = single, 2 = both sides
-        if source == "feeder_duplex":
-            self._set_device_prop(device, self.PAGES, 0)
-        else:
-            self._set_device_prop(device, self.PAGES, 1)
+            self._set_device_prop(device, self.PAGES, 0)  # 0 = ALL pages
 
         # --- Configure scan item properties ---
         item = device.Items(1)
-
-        # DPI
         self._set_prop(item, self.HORIZONTAL_RES, dpi)
         self._set_prop(item, self.VERTICAL_RES, dpi)
-
-        # Color mode: 1=Color, 2=Grayscale, 4=B&W
         self._set_prop(item, self.COLOR_MODE, 1 if color else 2)
 
-        # Scan area in pixels
         width_px = int(width_in * dpi)
         height_px = int(height_in * dpi)
         self._set_prop(item, self.HORIZONTAL_START, 0)
@@ -199,11 +192,12 @@ class WIAScanner:
         self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
         self._set_prop(item, self.VERTICAL_EXTENT, height_px)
 
-        # --- Scan pages ---
+        # --- Scan ALL pages from feeder ---
         images = []
-        max_pages = 2 if source == "feeder_duplex" else 1
+        page_num = 0
+        MAX_PAGES = 50  # safety limit
 
-        for page_num in range(max_pages):
+        while page_num < MAX_PAGES:
             try:
                 image_file = item.Transfer(self.WIA_FORMAT_BMP)
                 if image_file:
@@ -217,10 +211,12 @@ class WIAScanner:
                         os.remove(tmp)
                     except:
                         pass
+                    page_num += 1
+                else:
+                    break
             except Exception:
-                if page_num == 0 and not images:
-                    raise  # first page failed = real error
-                break  # second page not available = normal for non-duplex
+                # Feeder empty or no more pages - this is normal
+                break
 
         if not images:
             raise Exception("Scanner returned no images.")
@@ -228,7 +224,7 @@ class WIAScanner:
         return images
 
     def _scan_with_dialog(self, device_id, settings):
-        """Fallback: scan using native WIA dialog."""
+        """Fallback: scan using native WIA dialog, then get remaining pages programmatically."""
         import win32com.client
 
         dpi = settings.get("dpi", 300)
@@ -240,6 +236,7 @@ class WIAScanner:
         dialog = win32com.client.Dispatch("WIA.CommonDialog")
         intent = 1 if color else 2
 
+        # First page via dialog
         image_file = dialog.ShowAcquireImage(
             1, intent, 1, self.WIA_FORMAT_BMP, False, True, False)
 
@@ -254,25 +251,36 @@ class WIAScanner:
             except:
                 pass
 
-            # Try second page
+            # Try to get remaining pages by connecting to device directly
             try:
-                image_file2 = dialog.ShowAcquireImage(
-                    1, intent, 1, self.WIA_FORMAT_BMP, False, False, False)
-                if image_file2:
-                    tmp2 = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_2.bmp")
-                    image_file2.SaveFile(tmp2)
-                    img2 = Image.open(tmp2).convert("RGB")
-                    img2 = self._auto_crop(img2, width_in, height_in, dpi)
-                    images.append(img2)
-                    try:
-                        os.remove(tmp2)
-                    except:
-                        pass
-            except:
-                pass
+                device = self._connect_device(device_id)
+                if device:
+                    item = device.Items(1)
+                    page_num = 1
+                    while page_num < 50:
+                        try:
+                            img_file = item.Transfer(self.WIA_FORMAT_BMP)
+                            if img_file:
+                                tmp2 = os.path.join(tempfile.gettempdir(),
+                                                    f"flipslab_{int(time.time())}_{page_num+1}.bmp")
+                                img_file.SaveFile(tmp2)
+                                img2 = Image.open(tmp2).convert("RGB")
+                                img2 = self._auto_crop(img2, width_in, height_in, dpi)
+                                images.append(img2)
+                                try:
+                                    os.remove(tmp2)
+                                except:
+                                    pass
+                                page_num += 1
+                            else:
+                                break
+                        except Exception:
+                            break
+            except Exception:
+                pass  # OK, we at least have the first page
 
         if not images:
-            raise Exception("No images returned from scanner dialog.")
+            raise Exception("No images returned from scanner.")
 
         return images
 
@@ -667,7 +675,7 @@ class FlipSlabScanner:
         frame = tk.Frame(parent, bg=BG)
         frame.pack(fill="x")
 
-        self.scan_btn = tk.Button(frame, text="SCAN CARD", font=("Segoe UI", 10, "bold"),
+        self.scan_btn = tk.Button(frame, text="SCAN CARDS", font=("Segoe UI", 10, "bold"),
                                   bg=GREEN, fg=WHITE, relief="flat", cursor="hand2",
                                   command=self._scan_card, state="disabled")
         self.scan_btn.pack(fill="x", ipady=6, pady=(0, 3))
@@ -807,6 +815,9 @@ class FlipSlabScanner:
             messagebox.showwarning("No Scanner", "Select a scanner first.")
             return
 
+        source = self.scan_settings.get("source", "feeder_duplex")
+        is_duplex = source == "feeder_duplex"
+
         self.scan_btn.config(text="Scanning...", state="disabled")
         self.root.update()
 
@@ -817,7 +828,7 @@ class FlipSlabScanner:
         except Exception as e:
             error = str(e)
 
-        self.scan_btn.config(text="SCAN CARD", state="normal")
+        self.scan_btn.config(text="SCAN CARDS", state="normal")
 
         if error:
             messagebox.showerror("Scan Error", error)
@@ -827,26 +838,48 @@ class FlipSlabScanner:
             messagebox.showwarning("No Image", "Scanner didn't return an image.\nIs there a card in the feeder?")
             return
 
-        # Save each scanned image
+        # Name images: for duplex, alternate front/back per card
         timestamp = int(time.time() * 1000)
-        sides = ["front", "back"]
-        for i, img in enumerate(images):
-            side = sides[i] if i < len(sides) else f"page{i+1}"
-            filename = f"card_{timestamp}_{side}.png"
-            filepath = os.path.join(SCAN_FOLDER, filename)
-            img.save(filepath, "PNG")
-            self.scanned_images.append({"path": filepath, "name": filename, "uploaded": False})
-            self.queue_listbox.insert(tk.END, f"  {filename}")
+        cards_scanned = 0
+
+        if is_duplex:
+            # Group in pairs: [front1, back1, front2, back2, ...]
+            for i in range(0, len(images), 2):
+                cards_scanned += 1
+                # Front
+                front_name = f"card_{timestamp}_{cards_scanned}_front.png"
+                front_path = os.path.join(SCAN_FOLDER, front_name)
+                images[i].save(front_path, "PNG")
+                self.scanned_images.append({"path": front_path, "name": front_name, "uploaded": False})
+                self.queue_listbox.insert(tk.END, f"  {front_name}")
+
+                # Back (if available)
+                if i + 1 < len(images):
+                    back_name = f"card_{timestamp}_{cards_scanned}_back.png"
+                    back_path = os.path.join(SCAN_FOLDER, back_name)
+                    images[i + 1].save(back_path, "PNG")
+                    self.scanned_images.append({"path": back_path, "name": back_name, "uploaded": False})
+                    self.queue_listbox.insert(tk.END, f"  {back_name}")
+        else:
+            # Single side: each image is a separate card front
+            for i, img in enumerate(images):
+                cards_scanned += 1
+                filename = f"card_{timestamp}_{cards_scanned}_front.png"
+                filepath = os.path.join(SCAN_FOLDER, filename)
+                img.save(filepath, "PNG")
+                self.scanned_images.append({"path": filepath, "name": filename, "uploaded": False})
+                self.queue_listbox.insert(tk.END, f"  {filename}")
 
         self.queue_count.config(text=f"{len(self.scanned_images)} image(s) scanned")
-        self._show_preview(self.scanned_images[-len(images)]["path"])
+        self._show_preview(self.scanned_images[-1]["path"])
         self._update_buttons()
 
-        side_text = "front + back" if len(images) > 1 else "front only"
-        messagebox.showinfo("Scan Complete",
-            f"Card scanned! ({side_text})\n"
-            f"{len(images)} image(s) saved.\n\n"
-            f"Saved to: {SCAN_FOLDER}")
+        if is_duplex:
+            msg = f"{cards_scanned} card(s) scanned (front + back)\n{len(images)} total images"
+        else:
+            msg = f"{cards_scanned} card(s) scanned (front only)\n{len(images)} total images"
+
+        messagebox.showinfo("Scan Complete", f"{msg}\n\nSaved to: {SCAN_FOLDER}")
 
     # ─── Import ──────────────────────────────────────────
     def _import_folder(self):
