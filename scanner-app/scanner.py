@@ -112,7 +112,7 @@ class WIAScanner:
             pass
 
     def scan_card(self, device_id, settings):
-        """Scan a card. Returns list of PIL Images (front, back if duplex)."""
+        """Scan a card. Returns list of PIL Images."""
         import win32com.client
 
         dpi = settings.get("dpi", 150)
@@ -124,81 +124,54 @@ class WIAScanner:
 
         images = []
 
-        mgr = self._get_manager()
-        device = None
-        for i in range(1, mgr.DeviceInfos.Count + 1):
-            info = mgr.DeviceInfos.Item(i)
-            if info.DeviceID == device_id:
-                device = info.Connect()
-                break
-
-        if not device:
-            raise Exception("Scanner not found. Is it connected?")
-
-        # Enable duplex on device
-        if duplex:
-            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
-        else:
-            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
-
-        # Try scanning from each item (item 1 = front, item 2 = back for duplex)
-        items_count = device.Items.Count
-
-        for item_idx in range(1, items_count + 1):
-            try:
-                item = device.Items(item_idx)
-
-                # Set DPI and color (these usually work)
-                self._set_prop(item, self.HORIZONTAL_RES, dpi)
-                self._set_prop(item, self.VERTICAL_RES, dpi)
-                self._set_prop(item, self.COLOR_MODE, color_mode)
-
-                # Try to set scan area, but don't fail if scanner doesn't support it
-                width_px = int(width_in * dpi)
-                height_px = int(height_in * dpi)
-                self._set_prop(item, self.HORIZONTAL_START, 0)
-                self._set_prop(item, self.VERTICAL_START, 0)
-                self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
-                self._set_prop(item, self.VERTICAL_EXTENT, height_px)
-
-                # Transfer image
-                image_file = item.Transfer(self.WIA_FORMAT_BMP)
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_{item_idx}.bmp")
-                image_file.SaveFile(tmp)
-                img = Image.open(tmp).convert("RGB")
-
-                # Auto-crop to card size if image is much larger than expected
-                img = self._auto_crop(img, width_in, height_in, dpi)
-                images.append(img)
-
-                try:
-                    os.remove(tmp)
-                except:
-                    pass
-
-                # If not duplex, only scan first item
-                if not duplex:
+        # First, configure device properties
+        try:
+            mgr = self._get_manager()
+            device = None
+            for i in range(1, mgr.DeviceInfos.Count + 1):
+                info = mgr.DeviceInfos.Item(i)
+                if info.DeviceID == device_id:
+                    device = info.Connect()
                     break
 
-            except Exception as e:
-                if not images:
-                    raise Exception(
-                        f"Scan failed.\n\n"
-                        f"1. Is the card in the feeder?\n"
-                        f"2. Is the scanner on?\n\n"
-                        f"Error: {e}"
-                    )
-                break
+            if device:
+                # Set duplex mode
+                if duplex:
+                    self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+                else:
+                    self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
 
-        # If duplex but only got 1 image from items, try transferring again
-        if duplex and len(images) == 1:
-            try:
-                item = device.Items(1)
-                self._set_prop(item, self.HORIZONTAL_RES, dpi)
-                self._set_prop(item, self.VERTICAL_RES, dpi)
-                self._set_prop(item, self.COLOR_MODE, color_mode)
-                image_file = item.Transfer(self.WIA_FORMAT_BMP)
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
+                # Set properties on all items
+                for idx in range(1, device.Items.Count + 1):
+                    try:
+                        item = device.Items(idx)
+                        self._set_prop(item, self.HORIZONTAL_RES, dpi)
+                        self._set_prop(item, self.VERTICAL_RES, dpi)
+                        self._set_prop(item, self.COLOR_MODE, color_mode)
+                    except:
+                        pass
+        except:
+            pass
+
+        # Use CommonDialog to scan (most compatible with Fujitsu)
+        dialog = win32com.client.Dispatch("WIA.CommonDialog")
+
+        # Scan front side
+        try:
+            # Intent: 1=Color, 2=Grayscale, 4=Text
+            intent = 1 if color else 2
+            image_file = dialog.ShowAcquireImage(
+                1,      # DeviceType: Scanner
+                intent, # Intent
+                1,      # Bias: MaxQuality
+                self.WIA_FORMAT_BMP,
+                False,  # AlwaysSelectDevice (don't ask which scanner)
+                False,  # UseCommonUI = FALSE (no dialog, scan silent!)
+                False   # CancelError
+            )
+
+            if image_file:
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_front.bmp")
                 image_file.SaveFile(tmp)
                 img = Image.open(tmp).convert("RGB")
                 img = self._auto_crop(img, width_in, height_in, dpi)
@@ -207,8 +180,45 @@ class WIAScanner:
                     os.remove(tmp)
                 except:
                     pass
+        except Exception as e:
+            # If silent mode fails, try WITH UI
+            try:
+                image_file = dialog.ShowAcquireImage(1, 1, 1, self.WIA_FORMAT_BMP, False, True, False)
+                if image_file:
+                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_front.bmp")
+                    image_file.SaveFile(tmp)
+                    img = Image.open(tmp).convert("RGB")
+                    img = self._auto_crop(img, width_in, height_in, dpi)
+                    images.append(img)
+                    try:
+                        os.remove(tmp)
+                    except:
+                        pass
+            except Exception as e2:
+                raise Exception(
+                    f"Scan failed.\n\n"
+                    f"1. Is the card in the feeder?\n"
+                    f"2. Is the scanner on?\n\n"
+                    f"Error: {e2}"
+                )
+
+        # Scan back side (if duplex and got front)
+        if duplex and images:
+            try:
+                image_file = dialog.ShowAcquireImage(1, 1 if color else 2, 1,
+                    self.WIA_FORMAT_BMP, False, False, False)
+                if image_file:
+                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
+                    image_file.SaveFile(tmp)
+                    img = Image.open(tmp).convert("RGB")
+                    img = self._auto_crop(img, width_in, height_in, dpi)
+                    images.append(img)
+                    try:
+                        os.remove(tmp)
+                    except:
+                        pass
             except:
-                pass  # Back side didn't work, that's ok
+                pass  # Back side not available, that's ok
 
         return images
 
@@ -218,9 +228,7 @@ class WIAScanner:
         target_h = int(target_h_in * dpi)
         w, h = img.size
 
-        # Only crop if scanned image is more than 20% larger than target
         if w > target_w * 1.2 or h > target_h * 1.2:
-            # Crop from top-left (card goes through feeder top-first)
             crop_w = min(target_w, w)
             crop_h = min(target_h, h)
             img = img.crop((0, 0, crop_w, crop_h))
