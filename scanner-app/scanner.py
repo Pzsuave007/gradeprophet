@@ -531,7 +531,7 @@ class WIAScanner:
             if len(content_rows) == 0:
                 # No content detected - use full image
                 if from_naps2:
-                    cropped = img
+                    cropped = img.rotate(180)
                 else:
                     cropped = img.rotate(180)
             else:
@@ -556,9 +556,8 @@ class WIAScanner:
                 cmax = min(w, content_cols[-1] + 6)
 
                 cropped = img.crop((cmin, rmin, cmax, rmax))
-                # Only rotate for WIA scans (WIA on fi-6130Z outputs upside-down)
-                if not from_naps2:
-                    cropped = cropped.rotate(180)
+                # fi-6130Z outputs upside-down for both WIA and NAPS2/TWAIN
+                cropped = cropped.rotate(180)
 
         # === ENHANCE COLORS ===
         cropped = ImageOps.autocontrast(cropped, cutoff=0.5)
