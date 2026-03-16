@@ -727,6 +727,17 @@ class FlipSlabScanner:
         self.url_entry.pack(fill="x", pady=(1, 4), ipady=3)
         self.url_entry.insert(0, self.server_url)
 
+        # Scanner Token (for Google login users)
+        tk.Label(inner, text="Scanner Token (Google login)", font=("Segoe UI", 8), fg=AMBER, bg=BG3).pack(anchor="w")
+        self.token_entry = tk.Entry(inner, font=("Segoe UI", 9), bg=BG, fg=WHITE,
+                                    insertbackground=WHITE, relief="flat", bd=0, show="*")
+        self.token_entry.pack(fill="x", pady=(1, 4), ipady=3)
+        self.token_entry.insert(0, self.config.get("scanner_token", ""))
+
+        sep = tk.Frame(inner, bg=DARK_GRAY, height=1)
+        sep.pack(fill="x", pady=4)
+        tk.Label(inner, text="- o login con email -", font=("Segoe UI", 7), fg=DARK_GRAY, bg=BG3).pack()
+
         tk.Label(inner, text="Email", font=("Segoe UI", 8), fg=GRAY, bg=BG3).pack(anchor="w")
         self.email_entry = tk.Entry(inner, font=("Segoe UI", 9), bg=BG, fg=WHITE,
                                     insertbackground=WHITE, relief="flat", bd=0)
@@ -1023,10 +1034,39 @@ class FlipSlabScanner:
     # ─── Login ───────────────────────────────────────────
     def _login(self):
         url = self.url_entry.get().strip().rstrip("/")
+        token = self.token_entry.get().strip()
         email = self.email_entry.get().strip()
         password = self.pass_entry.get().strip()
-        if not all([url, email, password]):
-            messagebox.showwarning("Missing Info", "Please fill all fields.")
+
+        if not url:
+            messagebox.showwarning("Missing Info", "Server URL is required.")
+            return
+
+        # Token-based login (for Google login users)
+        if token:
+            self.server_url = url
+            self.login_btn.config(text="Connecting...", state="disabled")
+            self.root.update()
+
+            def do_token_login():
+                try:
+                    resp = requests.get(f"{url}/api/auth/me",
+                                        cookies={"session_token": token}, timeout=10)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        self.session_cookie = token
+                        self.root.after(0, lambda: self._on_login_success(data, data.get("email", ""), token=token))
+                    else:
+                        self.root.after(0, lambda: self._on_login_fail("Token invalido o expirado. Genera uno nuevo desde la web."))
+                except Exception as e:
+                    self.root.after(0, lambda: self._on_login_fail(str(e)))
+
+            threading.Thread(target=do_token_login, daemon=True).start()
+            return
+
+        # Email/password login
+        if not all([email, password]):
+            messagebox.showwarning("Missing Info", "Llena email y password, o usa un Scanner Token.")
             return
 
         self.server_url = url
@@ -1048,11 +1088,13 @@ class FlipSlabScanner:
 
         threading.Thread(target=do_login, daemon=True).start()
 
-    def _on_login_success(self, data, email):
+    def _on_login_success(self, data, email, token=None):
         self.logged_in = True
         name = data.get("name", email)
         self.config["server_url"] = self.server_url
         self.config["email"] = email
+        if token:
+            self.config["scanner_token"] = token
         save_config(self.config)
         self.login_frame.pack_forget()
         self.connected_label.config(text=f"Connected: {name}")

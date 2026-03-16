@@ -163,3 +163,31 @@ async def logout(request: Request, response: Response):
         await db.user_sessions.delete_one({"session_token": token})
     response.delete_cookie("session_token", path="/", secure=True, samesite="none")
     return {"success": True}
+
+
+@router.post("/scanner-token")
+async def generate_scanner_token(request: Request):
+    """Generate a long-lived token for the FlipSlab Scanner desktop app."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    # Create a long-lived token (90 days)
+    scanner_token = f"scan_{uuid.uuid4().hex}"
+    await db.user_sessions.insert_one({
+        "user_id": user_id,
+        "session_token": scanner_token,
+        "scanner_token": True,
+        "expires_at": datetime.now(timezone.utc).replace(
+            day=1,
+            month=((datetime.now(timezone.utc).month + 2) % 12) + 1
+        ),
+        "created_at": datetime.now(timezone.utc),
+    })
+
+    return {
+        "scanner_token": scanner_token,
+        "user_id": user_id,
+        "email": user.get("email"),
+        "name": user.get("name"),
+        "message": "Pega este token en el campo 'Scanner Token' de la app FlipSlab Scanner",
+    }

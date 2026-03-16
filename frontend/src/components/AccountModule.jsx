@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -11,6 +11,9 @@ const AccountModule = () => {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState({ display_name: '', postal_code: '', location: '', default_shipping: 'USPSFirstClass', default_sport: 'Basketball' });
   const [saving, setSaving] = useState(false);
+  const [scannerToken, setScannerToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
+  const [generatingToken, setGeneratingToken] = useState(false);
 
   const checkStatus = async () => {
     setLoading(true);
@@ -147,6 +150,57 @@ const AccountModule = () => {
                 className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb]"
                 data-testid="ebay-connect-btn"><Link2 className="w-4 h-4" />Connect eBay Account</button>
             </div>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Scanner Token */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+        className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#1a1a1a] flex items-center gap-2">
+          <Smartphone className="w-4 h-4 text-amber-400" />
+          <h2 className="text-sm font-bold text-white">FlipSlab Scanner Token</h2>
+        </div>
+        <div className="p-5 space-y-3">
+          <p className="text-xs text-gray-400">
+            Genera un token para conectar la app de escritorio FlipSlab Scanner.
+            Pega este token en el campo "Scanner Token" de la app.
+          </p>
+          {scannerToken ? (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <input readOnly value={showToken ? scannerToken : '************************************'}
+                  className={`${inputCls} font-mono text-xs`} data-testid="scanner-token-display" />
+                <button onClick={() => setShowToken(!showToken)}
+                  className="p-2 rounded-lg bg-[#1a1a1a] text-gray-400 hover:text-white transition-colors"
+                  data-testid="toggle-token-visibility">
+                  {showToken ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <button onClick={() => { navigator.clipboard.writeText(scannerToken); toast.success('Token copiado!'); }}
+                  className="p-2 rounded-lg bg-[#1a1a1a] text-gray-400 hover:text-white transition-colors"
+                  data-testid="copy-token-btn">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+              <p className="text-[11px] text-amber-400/70">Este token expira en 90 dias. Guardalo en un lugar seguro.</p>
+            </div>
+          ) : (
+            <button onClick={async () => {
+              setGeneratingToken(true);
+              try {
+                const res = await axios.post(`${API}/api/auth/scanner-token`);
+                setScannerToken(res.data.scanner_token);
+                setShowToken(true);
+                toast.success('Scanner token generado!');
+              } catch { toast.error('Error generando token'); }
+              finally { setGeneratingToken(false); }
+            }}
+              disabled={generatingToken}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-semibold hover:bg-amber-500/30 disabled:opacity-50 transition-colors"
+              data-testid="generate-scanner-token-btn">
+              {generatingToken ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
+              Generar Scanner Token
+            </button>
           )}
         </div>
       </motion.div>
