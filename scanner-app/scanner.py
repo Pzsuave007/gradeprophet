@@ -112,66 +112,35 @@ class WIAScanner:
             pass
 
     def scan_card(self, device_id, settings):
-        """Scan a card. Returns list of PIL Images."""
+        """Scan a card using native scanner UI for best compatibility."""
         import win32com.client
 
         dpi = settings.get("dpi", 150)
         color = settings.get("color", True)
-        duplex = settings.get("duplex", True)
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
-        color_mode = 2 if color else 1
 
         images = []
 
-        # First, configure device properties
-        try:
-            mgr = self._get_manager()
-            device = None
-            for i in range(1, mgr.DeviceInfos.Count + 1):
-                info = mgr.DeviceInfos.Item(i)
-                if info.DeviceID == device_id:
-                    device = info.Connect()
-                    break
-
-            if device:
-                # Set duplex mode
-                if duplex:
-                    self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
-                else:
-                    self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
-
-                # Set properties on all items
-                for idx in range(1, device.Items.Count + 1):
-                    try:
-                        item = device.Items(idx)
-                        self._set_prop(item, self.HORIZONTAL_RES, dpi)
-                        self._set_prop(item, self.VERTICAL_RES, dpi)
-                        self._set_prop(item, self.COLOR_MODE, color_mode)
-                    except:
-                        pass
-        except:
-            pass
-
-        # Use CommonDialog to scan (most compatible with Fujitsu)
+        # Use CommonDialog with native scanner UI
+        # This lets the user select "Feeder (Scan both sides)" for duplex
         dialog = win32com.client.Dispatch("WIA.CommonDialog")
 
-        # Scan front side
+        # First scan (front, or both sides if user selects duplex in dialog)
         try:
-            # Intent: 1=Color, 2=Grayscale, 4=Text
-            intent = 1 if color else 2
+            intent = 1 if color else 2  # 1=Color, 2=Grayscale
             image_file = dialog.ShowAcquireImage(
                 1,      # DeviceType: Scanner
                 intent, # Intent
                 1,      # Bias: MaxQuality
                 self.WIA_FORMAT_BMP,
-                False,  # AlwaysSelectDevice (don't ask which scanner)
-                False,  # UseCommonUI = FALSE (no dialog, scan silent!)
+                False,  # AlwaysSelectDevice
+                True,   # UseCommonUI = TRUE (show native scanner dialog)
                 False   # CancelError
             )
 
             if image_file:
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_front.bmp")
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_1.bmp")
                 image_file.SaveFile(tmp)
                 img = Image.open(tmp).convert("RGB")
                 img = self._auto_crop(img, width_in, height_in, dpi)
@@ -180,45 +149,34 @@ class WIAScanner:
                     os.remove(tmp)
                 except:
                     pass
-        except Exception as e:
-            # If silent mode fails, try WITH UI
-            try:
-                image_file = dialog.ShowAcquireImage(1, 1, 1, self.WIA_FORMAT_BMP, False, True, False)
-                if image_file:
-                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_front.bmp")
-                    image_file.SaveFile(tmp)
-                    img = Image.open(tmp).convert("RGB")
-                    img = self._auto_crop(img, width_in, height_in, dpi)
-                    images.append(img)
-                    try:
-                        os.remove(tmp)
-                    except:
-                        pass
-            except Exception as e2:
-                raise Exception(
-                    f"Scan failed.\n\n"
-                    f"1. Is the card in the feeder?\n"
-                    f"2. Is the scanner on?\n\n"
-                    f"Error: {e2}"
-                )
 
-        # Scan back side (if duplex and got front)
-        if duplex and images:
+            # Try to get second page (back side from duplex)
+            # Some WIA drivers deliver the second page on next ShowAcquireImage call
             try:
-                image_file = dialog.ShowAcquireImage(1, 1 if color else 2, 1,
-                    self.WIA_FORMAT_BMP, False, False, False)
-                if image_file:
-                    tmp = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_back.bmp")
-                    image_file.SaveFile(tmp)
-                    img = Image.open(tmp).convert("RGB")
-                    img = self._auto_crop(img, width_in, height_in, dpi)
-                    images.append(img)
+                image_file2 = dialog.ShowAcquireImage(
+                    1, intent, 1, self.WIA_FORMAT_BMP, False, False, False)
+                if image_file2:
+                    tmp2 = os.path.join(tempfile.gettempdir(), f"flipslab_{int(time.time())}_2.bmp")
+                    image_file2.SaveFile(tmp2)
+                    img2 = Image.open(tmp2).convert("RGB")
+                    img2 = self._auto_crop(img2, width_in, height_in, dpi)
+                    images.append(img2)
                     try:
-                        os.remove(tmp)
+                        os.remove(tmp2)
                     except:
                         pass
             except:
-                pass  # Back side not available, that's ok
+                pass
+
+        except Exception as e:
+            if not images:
+                raise Exception(
+                    f"Scan failed.\n\n"
+                    f"Tip: In the scan dialog, select:\n"
+                    f"- Source: 'Feeder (Scan both sides)'\n"
+                    f"- Color format: 'Color picture'\n\n"
+                    f"Error: {e}"
+                )
 
         return images
 
@@ -237,7 +195,7 @@ class WIAScanner:
         arr = np.array(img)
 
         # Tile-based detection: find tiles with high color variance (= card content)
-        tile_size = 50
+        tile_size = 40
         card_tiles = []
 
         for r in range(0, arr.shape[0], tile_size):
@@ -245,8 +203,8 @@ class WIAScanner:
                 tile = arr[r:r+tile_size, c:c+tile_size]
                 if tile.size == 0:
                     continue
-                # Card tiles have high variance (colorful) and aren't pure white
-                if tile.std() > 35 and tile.mean() < 220:
+                # Lower threshold to catch more card edges (dark borders, text at bottom)
+                if tile.std() > 25 and tile.mean() < 230:
                     card_tiles.append((r, c))
 
         if not card_tiles:
@@ -254,10 +212,13 @@ class WIAScanner:
 
         rows = [t[0] for t in card_tiles]
         cols = [t[1] for t in card_tiles]
-        rmin = max(0, min(rows) - 20)
-        rmax = min(arr.shape[0], max(rows) + tile_size + 20)
-        cmin = max(0, min(cols) - 20)
-        cmax = min(arr.shape[1], max(cols) + tile_size + 20)
+
+        # Generous margin to avoid cutting card edges
+        margin = 40
+        rmin = max(0, min(rows) - margin)
+        rmax = min(arr.shape[0], max(rows) + tile_size + margin)
+        cmin = max(0, min(cols) - margin)
+        cmax = min(arr.shape[1], max(cols) + tile_size + margin)
 
         cropped = img.crop((cmin, rmin, cmax, rmax))
 
