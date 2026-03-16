@@ -33,7 +33,7 @@ DARK_GRAY = "#4b5563"
 
 # Default scan settings for sports cards
 DEFAULT_SETTINGS = {
-    "dpi": 300,
+    "dpi": 600,
     "color": True,
     "source": "feeder_duplex",
     "paper_size": "sport_card",
@@ -830,7 +830,7 @@ class FlipSlabScanner:
         tk.Label(row_dpi, text="DPI:", font=("Segoe UI", 8), fg=GRAY, bg=BG3, width=10, anchor="w").pack(side="left")
         self.dpi_var = tk.StringVar(value=str(s.get("dpi", 300)))
         dpi_combo = ttk.Combobox(row_dpi, textvariable=self.dpi_var,
-                                 values=["150", "200", "300", "600"],
+                                 values=["150", "200", "300", "600", "1200"],
                                  state="readonly", font=("Segoe UI", 8), width=6)
         dpi_combo.pack(side="left")
 
