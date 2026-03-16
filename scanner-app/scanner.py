@@ -333,10 +333,6 @@ class WIAScanner:
         cropped = ImageEnhance.Contrast(cropped).enhance(1.1)
         cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
-        # === ADD UNIFORM GRAY BORDER (25px) ===
-        BORDER_COLOR = (206, 212, 218)
-        cropped = ImageOps.expand(cropped, border=25, fill=BORDER_COLOR)
-
         return cropped
 
 
