@@ -1,9 +1,10 @@
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, UploadFile, File
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 from datetime import datetime, timezone
 import uuid
 import json
+import base64
 import logging
 from database import db
 from config import openai_client
@@ -534,3 +535,71 @@ async def crop_corners(data: CornerCropRequest):
     except Exception as e:
         logger.error(f"Corner crop failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/cards/scan-upload")
+async def scan_upload(request: Request, file: UploadFile = File(...)):
+    """Upload a scanned card image, analyze with AI, and add to inventory."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    contents = await file.read()
+    img_base64 = base64.b64encode(contents).decode("utf-8")
+
+    # Process image
+    processed = process_card_image(img_base64)
+
+    # AI identify card
+    card_info = {}
+    try:
+        if openai_client:
+            response = await openai_client.chat.completions.create(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": CARD_IDENTIFY_PROMPT},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": "Identify this sports card."},
+                        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{processed}"}}
+                    ]}
+                ],
+                response_format={"type": "json_object"},
+                max_tokens=500,
+            )
+            card_info = json.loads(response.choices[0].message.content)
+    except Exception as e:
+        logger.warning(f"AI identification failed: {e}")
+
+    # Save to inventory
+    item_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    thumbnail = create_thumbnail(processed)
+
+    doc = {
+        "id": item_id,
+        "user_id": user_id,
+        "player_name": card_info.get("player_name", "Unknown"),
+        "year": card_info.get("year", ""),
+        "set_name": card_info.get("set_name", ""),
+        "card_number": card_info.get("card_number", ""),
+        "variation": card_info.get("variation", ""),
+        "condition": card_info.get("condition", "Raw"),
+        "grade": card_info.get("grade"),
+        "grading_company": card_info.get("grading_company", ""),
+        "purchase_price": 0,
+        "estimated_value": card_info.get("estimated_value", 0),
+        "notes": "Scanned via FlipSlab Scanner",
+        "front_image": processed,
+        "thumbnail": thumbnail,
+        "source": "scanner",
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.inventory.insert_one(doc)
+
+    return {
+        "id": item_id,
+        "player_name": doc["player_name"],
+        "year": doc["year"],
+        "set_name": doc["set_name"],
+        "message": f"Card added: {doc['player_name']} {doc['year']} {doc['set_name']}",
+    }
