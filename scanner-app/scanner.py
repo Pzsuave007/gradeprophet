@@ -88,49 +88,67 @@ class WIAScanner:
         """Scan an image and return PIL Image."""
         import win32com.client
         try:
-            mgr = self._get_manager()
-
-            # Find and connect to device
-            device = None
-            for i in range(1, mgr.DeviceInfos.Count + 1):
-                info = mgr.DeviceInfos.Item(i)
-                if info.DeviceID == device_id:
-                    device = info.Connect()
-                    break
-
-            if not device:
-                raise Exception("Scanner not found. Is it still connected?")
-
-            # Get the scanner item (flatbed or feeder)
-            item = device.Items(1)
-
-            # Set scan properties
+            # Method 1: Use WIA CommonDialog (most reliable - shows native Windows scan UI)
             try:
-                # Set resolution
-                item.Properties(self.WIA_HORIZONTAL_RESOLUTION).Value = dpi
-                item.Properties(self.WIA_VERTICAL_RESOLUTION).Value = dpi
-                # Set color mode (2 = Color)
-                item.Properties(self.WIA_COLOR_MODE).Value = 2
-            except:
-                pass  # Some scanners don't support all properties
+                dialog = win32com.client.Dispatch("WIA.CommonDialog")
+                image_file = dialog.ShowAcquireImage(
+                    self.WIA_DEVICE_TYPE_SCANNER,  # DeviceType = Scanner
+                    0,  # Intent = Color
+                    0,  # Bias = MinimizeSize
+                    self.WIA_FORMAT_BMP,  # FormatID
+                    False,  # AlwaysSelectDevice
+                    True,  # UseCommonUI
+                    False  # CancelError
+                )
 
-            # Transfer image as BMP (most compatible)
-            image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                if not image_file:
+                    return None
 
-            # Save to temp file and load with PIL
-            tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
-            image_file.SaveFile(tmp)
+                # Save to temp and load with PIL
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+                image_file.SaveFile(tmp)
+                img = Image.open(tmp).convert("RGB")
+                try:
+                    os.remove(tmp)
+                except:
+                    pass
+                return img
 
-            img = Image.open(tmp)
-            img = img.convert("RGB")
+            except Exception as e1:
+                # Method 2: Direct device access (fallback)
+                mgr = self._get_manager()
+                device = None
+                for i in range(1, mgr.DeviceInfos.Count + 1):
+                    info = mgr.DeviceInfos.Item(i)
+                    if info.DeviceID == device_id:
+                        device = info.Connect()
+                        break
 
-            # Cleanup temp
-            try:
-                os.remove(tmp)
-            except:
-                pass
+                if not device:
+                    raise Exception("Scanner not found. Is it still connected?")
 
-            return img
+                item = device.Items(1)
+
+                # Try to set properties (ignore errors)
+                for prop_id, value in [
+                    (self.WIA_HORIZONTAL_RESOLUTION, dpi),
+                    (self.WIA_VERTICAL_RESOLUTION, dpi),
+                    (self.WIA_COLOR_MODE, 2),
+                ]:
+                    try:
+                        item.Properties(prop_id).Value = value
+                    except:
+                        pass
+
+                image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+                image_file.SaveFile(tmp)
+                img = Image.open(tmp).convert("RGB")
+                try:
+                    os.remove(tmp)
+                except:
+                    pass
+                return img
 
         except Exception as e:
             raise Exception(f"Scan failed: {e}")
