@@ -1,7 +1,6 @@
 """
-FlipSlab Scanner Companion v1.3
-Duplex scanning with saved settings for sports cards.
-Enhanced image processing: gray margin + auto-contrast + color boost.
+FlipSlab Scanner Companion v1.4
+Duplex scanning with smart background-subtraction crop for sports cards.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -16,7 +15,7 @@ import tempfile
 
 # ─── Config ────────────────────────────────────────────────
 APP_NAME = "FlipSlab Scanner"
-VERSION = "1.3.0"
+VERSION = "1.4.0"
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".flipslab_scanner.json")
 SCAN_FOLDER = os.path.join(os.path.expanduser("~"), "FlipSlab Scans")
 
@@ -182,9 +181,10 @@ class WIAScanner:
         return images
 
     def _auto_crop(self, img, target_w_in, target_h_in, dpi):
-        """Smart crop: detect card, crop, rotate 180°, add gray margin, enhance colors."""
+        """Smart crop: detect card via background subtraction, crop tight, rotate 180°,
+        enhance colors, add uniform gray margin."""
         import numpy as np
-        from PIL import ImageEnhance, ImageOps
+        from PIL import ImageEnhance, ImageOps, ImageFilter
 
         w, h = img.size
         target_w = int(target_w_in * dpi)
@@ -194,79 +194,59 @@ class WIAScanner:
         if w <= target_w * 1.3 and h <= target_h * 1.3:
             cropped = img.rotate(180)
         else:
-            arr = np.array(img)
+            arr = np.array(img, dtype=np.float32)
 
-            # Tile-based detection with smaller tiles for better edge accuracy
-            tile_size = 30
-            card_tiles = []
+            # --- STEP 1: Detect background color from corners ---
+            corner_size = 30
+            corners = np.concatenate([
+                arr[:corner_size, :corner_size].reshape(-1, 3),       # top-left
+                arr[:corner_size, -corner_size:].reshape(-1, 3),      # top-right
+                arr[-corner_size:, :corner_size].reshape(-1, 3),      # bottom-left
+                arr[-corner_size:, -corner_size:].reshape(-1, 3),     # bottom-right
+            ])
+            bg_color = np.median(corners, axis=0)
 
-            for r in range(0, arr.shape[0], tile_size):
-                for c in range(0, arr.shape[1], tile_size):
-                    tile = arr[r:r+tile_size, c:c+tile_size]
-                    if tile.size == 0:
-                        continue
-                    # Detect card content: has variance and isn't pure white/background
-                    if tile.std() > 20 and tile.mean() < 240:
-                        card_tiles.append((r, c))
+            # --- STEP 2: Create difference mask (distance from background) ---
+            diff = np.sqrt(np.sum((arr - bg_color) ** 2, axis=2))
 
-            if not card_tiles:
+            # Threshold: pixels more than 30 color-distance from background = card
+            CARD_THRESH = 30
+            card_mask = (diff > CARD_THRESH).astype(np.uint8)
+
+            # --- STEP 3: Clean up mask with morphological ops ---
+            # Use row/column density to find card bounds more robustly
+            # A row/column belongs to the card if enough pixels are "card"
+            MIN_DENSITY = 0.15  # at least 15% of pixels in row/col must be card
+
+            row_density = card_mask.mean(axis=1)
+            col_density = card_mask.mean(axis=0)
+
+            card_rows = np.where(row_density > MIN_DENSITY)[0]
+            card_cols = np.where(col_density > MIN_DENSITY)[0]
+
+            if len(card_rows) == 0 or len(card_cols) == 0:
                 cropped = img.rotate(180)
             else:
-                rows = [t[0] for t in card_tiles]
-                cols = [t[1] for t in card_tiles]
-
-                # Generous margin to avoid cutting off card edges
-                margin = 15
-                rmin = max(0, min(rows) - margin)
-                rmax = min(arr.shape[0], max(rows) + tile_size + margin)
-                cmin = max(0, min(cols) - margin)
-                cmax = min(arr.shape[1], max(cols) + tile_size + margin)
+                # --- STEP 4: Find tight bounding box ---
+                rmin = max(0, card_rows[0] - 3)
+                rmax = min(arr.shape[0], card_rows[-1] + 4)
+                cmin = max(0, card_cols[0] - 3)
+                cmax = min(arr.shape[1], card_cols[-1] + 4)
 
                 cropped = img.crop((cmin, rmin, cmax, rmax))
                 cropped = cropped.rotate(180)
 
-        # === TRIM WHITE SCANNER BACKGROUND ===
-        # Remove any remaining white/near-white borders left by the scanner
-        arr_t = np.array(cropped)
-        WHITE_THRESH = 245  # pixels brighter than this are "white background"
-
-        # Find first/last non-white row
-        row_means = arr_t.mean(axis=(1, 2))
-        non_white_rows = np.where(row_means < WHITE_THRESH)[0]
-        if len(non_white_rows) > 0:
-            top = max(0, non_white_rows[0] - 2)
-            bot = min(arr_t.shape[0], non_white_rows[-1] + 3)
-        else:
-            top, bot = 0, arr_t.shape[0]
-
-        # Find first/last non-white column
-        col_means = arr_t.mean(axis=(0, 2))
-        non_white_cols = np.where(col_means < WHITE_THRESH)[0]
-        if len(non_white_cols) > 0:
-            left = max(0, non_white_cols[0] - 2)
-            right = min(arr_t.shape[1], non_white_cols[-1] + 3)
-        else:
-            left, right = 0, arr_t.shape[1]
-
-        cropped = cropped.crop((left, top, right, bot))
-
         # === ENHANCE COLORS ===
-        # Auto-contrast to maximize dynamic range
         cropped = ImageOps.autocontrast(cropped, cutoff=0.5)
-        # Sharpness boost
         cropped = ImageEnhance.Sharpness(cropped).enhance(1.3)
-        # Boost color saturation for vibrant cards
         cropped = ImageEnhance.Color(cropped).enhance(1.15)
-        # Slight contrast boost
         cropped = ImageEnhance.Contrast(cropped).enhance(1.1)
-        # Slight brightness lift
         cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
         # === ADD UNIFORM GRAY BORDER ===
-        # Fixed gray color for clean, professional look
-        BORDER_COLOR = (224, 224, 224)  # #E0E0E0 light gray
-        border = 40
-        cropped = ImageOps.expand(cropped, border=border, fill=BORDER_COLOR)
+        BORDER_COLOR = (206, 212, 218)  # subtle gray matching sample
+        border_size = max(15, int(min(cropped.size) * 0.05))  # 5% of smallest dimension, min 15px
+        cropped = ImageOps.expand(cropped, border=border_size, fill=BORDER_COLOR)
 
         return cropped
 
