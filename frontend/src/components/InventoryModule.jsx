@@ -58,7 +58,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const identifyCard = async (frontImageData, backImageData = null) => {
     setIdentifying(true);
     try {
-      const payload = { image_base64: frontImageData };
+      const payload = { front_image_base64: frontImageData };
       if (backImageData) payload.back_image_base64 = backImageData;
       const res = await axios.post(`${API}/api/cards/identify`, payload);
       const d = res.data;

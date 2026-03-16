@@ -222,7 +222,7 @@ async def identify_card(request: Request):
         await get_current_user(request)  # Auth check
         body = await request.json()
 
-        front_image = body.get("front_image_base64", "")
+        front_image = body.get("front_image_base64", "") or body.get("image_base64", "")
         back_image = body.get("back_image_base64", "")
 
         if not front_image:

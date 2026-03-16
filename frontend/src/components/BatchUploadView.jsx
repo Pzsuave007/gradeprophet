@@ -219,7 +219,7 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
         }
 
         // Call AI identification
-        const payload = { image_base64: frontB64 };
+        const payload = { front_image_base64: frontB64 };
         if (backB64) payload.back_image_base64 = backB64;
 
         const res = await axios.post(`${API}/api/cards/identify`, payload);
