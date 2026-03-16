@@ -114,7 +114,7 @@ async def download_fix2():
     css_files = glob.glob(str(base / "static" / "css" / "main.*.css"))
     js_name = Path(js_files[0]).name if js_files else "main.js"
     css_name = Path(css_files[0]).name if css_files else "main.css"
-    api_base = "https://watchlist-command.preview.emergentagent.com"
+    api_base = "https://cardpro-image.preview.emergentagent.com"
 
     script = f"""#!/bin/bash
 echo "=== FlipSlab Frontend Update ==="

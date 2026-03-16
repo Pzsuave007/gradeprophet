@@ -74,6 +74,15 @@ Build "FlipSlab Engine" - an Operating System for Sports Card Traders. Features 
 - **eBay automated bidding is prohibited** by eBay API policy
 - **eBay Buy Now/Make Offer APIs** require special app approval
 
+## Scanner App (Standalone Windows Desktop)
+- [x] WIA scanner integration with native driver UI
+- [x] Smart crop algorithm (tile-based card detection)
+- [x] 180° rotation for feeder scans
+- [x] Uniform gray margin (#E0E0E0, 40px) around cropped cards (v1.3 - Mar 16, 2026)
+- [x] Auto color/contrast enhancement (autocontrast + saturation + sharpness) (v1.3 - Mar 16, 2026)
+- [x] Upload to FlipSlab web app
+- [x] One-click Windows installer (setup.bat)
+
 ## Next Tasks
 - P1: Whatnot API Integration (waiting for API access approval)
 - P1: Inventory Sync Engine (cross-listing eBay + Whatnot)

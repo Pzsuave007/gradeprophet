@@ -1,6 +1,7 @@
 """
-FlipSlab Scanner Companion v1.2
+FlipSlab Scanner Companion v1.3
 Duplex scanning with saved settings for sports cards.
+Enhanced image processing: gray margin + auto-contrast + color boost.
 """
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -15,7 +16,7 @@ import tempfile
 
 # ─── Config ────────────────────────────────────────────────
 APP_NAME = "FlipSlab Scanner"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".flipslab_scanner.json")
 SCAN_FOLDER = os.path.join(os.path.expanduser("~"), "FlipSlab Scans")
 
@@ -181,8 +182,9 @@ class WIAScanner:
         return images
 
     def _auto_crop(self, img, target_w_in, target_h_in, dpi):
-        """Smart crop: detect card in scanned page using tile analysis, crop it, rotate 180°."""
+        """Smart crop: detect card, crop, rotate 180°, add gray margin, enhance colors."""
         import numpy as np
+        from PIL import ImageEnhance, ImageOps
 
         w, h = img.size
         target_w = int(target_w_in * dpi)
@@ -190,40 +192,56 @@ class WIAScanner:
 
         # If image is already close to target size, just rotate
         if w <= target_w * 1.3 and h <= target_h * 1.3:
-            return img.rotate(180)
+            cropped = img.rotate(180)
+        else:
+            arr = np.array(img)
 
-        arr = np.array(img)
+            # Tile-based detection with smaller tiles for better edge accuracy
+            tile_size = 30
+            card_tiles = []
 
-        # Tile-based detection: find tiles with high color variance (= card content)
-        tile_size = 40
-        card_tiles = []
+            for r in range(0, arr.shape[0], tile_size):
+                for c in range(0, arr.shape[1], tile_size):
+                    tile = arr[r:r+tile_size, c:c+tile_size]
+                    if tile.size == 0:
+                        continue
+                    # Detect card content: has variance and isn't pure white/background
+                    if tile.std() > 20 and tile.mean() < 240:
+                        card_tiles.append((r, c))
 
-        for r in range(0, arr.shape[0], tile_size):
-            for c in range(0, arr.shape[1], tile_size):
-                tile = arr[r:r+tile_size, c:c+tile_size]
-                if tile.size == 0:
-                    continue
-                # Lower threshold to catch more card edges (dark borders, text at bottom)
-                if tile.std() > 25 and tile.mean() < 230:
-                    card_tiles.append((r, c))
+            if not card_tiles:
+                cropped = img.rotate(180)
+            else:
+                rows = [t[0] for t in card_tiles]
+                cols = [t[1] for t in card_tiles]
 
-        if not card_tiles:
-            return img.rotate(180)
+                # Generous margin to avoid cutting off card edges
+                margin = 15
+                rmin = max(0, min(rows) - margin)
+                rmax = min(arr.shape[0], max(rows) + tile_size + margin)
+                cmin = max(0, min(cols) - margin)
+                cmax = min(arr.shape[1], max(cols) + tile_size + margin)
 
-        rows = [t[0] for t in card_tiles]
-        cols = [t[1] for t in card_tiles]
+                cropped = img.crop((cmin, rmin, cmax, rmax))
+                cropped = cropped.rotate(180)
 
-        # Generous margin to avoid cutting card edges
-        margin = 40
-        rmin = max(0, min(rows) - margin)
-        rmax = min(arr.shape[0], max(rows) + tile_size + margin)
-        cmin = max(0, min(cols) - margin)
-        cmax = min(arr.shape[1], max(cols) + tile_size + margin)
+        # === ENHANCE COLORS ===
+        # Auto-contrast to maximize dynamic range
+        cropped = ImageOps.autocontrast(cropped, cutoff=0.5)
+        # Sharpness boost
+        cropped = ImageEnhance.Sharpness(cropped).enhance(1.3)
+        # Boost color saturation for vibrant cards
+        cropped = ImageEnhance.Color(cropped).enhance(1.15)
+        # Slight contrast boost
+        cropped = ImageEnhance.Contrast(cropped).enhance(1.1)
+        # Slight brightness lift
+        cropped = ImageEnhance.Brightness(cropped).enhance(1.02)
 
-        cropped = img.crop((cmin, rmin, cmax, rmax))
-
-        # Rotate 180° (ADF feeds cards upside down)
-        cropped = cropped.rotate(180)
+        # === ADD UNIFORM GRAY BORDER ===
+        # Fixed gray color for clean, professional look
+        BORDER_COLOR = (224, 224, 224)  # #E0E0E0 light gray
+        border = 40
+        cropped = ImageOps.expand(cropped, border=border, fill=BORDER_COLOR)
 
         return cropped
 
