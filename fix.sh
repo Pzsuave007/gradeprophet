@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================"
-echo "  FlipSlab Engine - Fix Scanner Upload + AI"
+echo "  FlipSlab Engine - Fix All Issues"
 echo "============================================"
 
 REPO="/home/gradeprophet"
@@ -15,15 +15,15 @@ cp -f "$REPO/backend/config.py" "$PROD/"
 cp -f "$REPO/backend/database.py" "$PROD/"
 cp -f "$REPO/backend/routers/"*.py "$PROD/routers/"
 cp -f "$REPO/backend/utils/"*.py "$PROD/utils/"
-cp -f "$REPO/backend/models/"*.py "$PROD/models/"
+cp -f "$REPO/backend/models/"*.py "$PROD/models/" 2>/dev/null
 echo "  OK"
 
 echo "[2/4] Frontend (pre-built)..."
 rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
-echo "  JS: $(grep -o 'main\.[a-f0-9]*\.js' "$WEB/index.html")"
+echo "  OK"
 
-echo "[3/4] Dependencias backend..."
+echo "[3/4] Dependencias..."
 "$PROD/venv/bin/pip" install feedparser -q 2>/dev/null
 
 echo "[4/4] Reiniciando backend..."
@@ -34,6 +34,4 @@ sleep 5
 curl -s http://localhost:8001/api/ | grep -q "FlipSlab" && echo "  API: OK" || echo "  ERROR: ver $PROD/backend.log"
 
 echo ""
-echo "============================================"
-echo "  LISTO! Abre flipslabengine.com con Ctrl+Shift+R"
-echo "============================================"
+echo "LISTO! Abre flipslabengine.com con Ctrl+Shift+R"
