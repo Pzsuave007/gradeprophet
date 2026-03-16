@@ -165,6 +165,18 @@ class WIAScanner:
     def _scan_twain(self, settings, window_handle=0):
         """Scan using TWAIN protocol - true duplex support.
         TWAIN handles duplex natively, unlike WIA."""
+
+        # Add app directory to DLL search path so TWAINDSM.DLL is found
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        dll_path = os.path.join(app_dir, "TWAINDSM.DLL")
+        if os.path.exists(dll_path):
+            try:
+                os.add_dll_directory(app_dir)
+            except (AttributeError, OSError):
+                # Python < 3.8 or already added
+                if app_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = app_dir + os.pathsep + os.environ.get("PATH", "")
+
         try:
             import twain
         except ImportError:
@@ -172,9 +184,11 @@ class WIAScanner:
         except OSError as e:
             if "twaindsm" in str(e).lower():
                 raise Exception(
-                    "TWAIN DSM not installed.\n"
-                    "Run setup.bat again to install it,\n"
-                    "or download from: github.com/twain/twain-dsm/releases"
+                    "TWAIN DSM not found.\n\n"
+                    "Run setup.bat as Administrator to install it,\n"
+                    "or download TWAINDSM.DLL from:\n"
+                    "github.com/twain/twain-dsm/releases\n\n"
+                    "Copy it to: " + app_dir
                 )
             raise
 
