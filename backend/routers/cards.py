@@ -588,19 +588,72 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
             )
 
         if matched_item:
+            # Save back image
+            update_fields = {
+                "back_image": processed,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+
+            # Re-identify card with BOTH front + back images for better accuracy
+            # (most card info like year, set, number is on the back)
+            front_image = matched_item.get("image", "")
+            if front_image and openai_client:
+                try:
+                    response = await openai_client.chat.completions.create(
+                        model="gpt-4o",
+                        messages=[
+                            {"role": "system", "content": CARD_IDENTIFY_PROMPT},
+                            {"role": "user", "content": [
+                                {"type": "text", "text": "Identify this sports card using BOTH the front and back images. The back usually has the year, set name, card number, and manufacturer. Look at both carefully."},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_image}"}},
+                                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{processed}"}},
+                            ]}
+                        ],
+                        response_format={"type": "json_object"},
+                        max_tokens=500,
+                    )
+                    card_info = json.loads(response.choices[0].message.content)
+
+                    # Build improved card_name
+                    player = card_info.get("player_name", card_info.get("player", ""))
+                    year = card_info.get("year", "")
+                    set_name = card_info.get("set_name", "")
+                    card_number = card_info.get("card_number", "")
+                    variation = card_info.get("variation", "")
+
+                    name_parts = []
+                    if year: name_parts.append(str(year))
+                    if set_name: name_parts.append(set_name)
+                    if player and player != "Unknown": name_parts.append(player)
+                    if card_number: name_parts.append(f"#{card_number}")
+                    if variation: name_parts.append(variation)
+                    card_name = " ".join(name_parts) if name_parts else player or matched_item.get("card_name", "Unknown")
+
+                    # Update card info with better identification
+                    if player: update_fields["player"] = player
+                    if year: update_fields["year"] = int(year) if str(year).isdigit() else None
+                    if set_name: update_fields["set_name"] = set_name
+                    if card_number: update_fields["card_number"] = card_number
+                    if variation: update_fields["variation"] = variation
+                    update_fields["card_name"] = card_name
+                    if card_info.get("sport"): update_fields["sport"] = card_info["sport"]
+
+                    logger.info(f"Re-identified with front+back: {card_name}")
+                except Exception as e:
+                    logger.warning(f"AI re-identification with back failed: {e}")
+
             await db.inventory.update_one(
                 {"id": matched_item["id"]},
-                {"$set": {
-                    "back_image": processed,
-                    "updated_at": datetime.now(timezone.utc).isoformat(),
-                }}
+                {"$set": update_fields}
             )
+
+            final_name = update_fields.get("card_name", matched_item.get("card_name", "Unknown"))
             return {
                 "id": matched_item["id"],
-                "player_name": matched_item.get("player", "Unknown"),
-                "year": matched_item.get("year", ""),
-                "set_name": matched_item.get("set_name", ""),
-                "message": f"Back image added to: {matched_item.get('card_name', 'Unknown')}",
+                "player_name": update_fields.get("player", matched_item.get("player", "Unknown")),
+                "year": update_fields.get("year", matched_item.get("year", "")),
+                "set_name": update_fields.get("set_name", matched_item.get("set_name", "")),
+                "message": f"Back added + re-identified: {final_name}",
                 "side": "back",
             }
         logger.warning("No matching front image found for back scan, creating new item")
