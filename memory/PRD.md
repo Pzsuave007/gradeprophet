@@ -10,50 +10,42 @@ The user wants to expand their web app, "GradeProphet," into a full-fledged trad
 ## Core Files
 - `scanner-app/scanner.py` - Main desktop scanner app
 - `scanner-app/setup.bat` - Windows installer script
-- `backend/routers/cards.py` - Scan upload endpoint with AI identification
+- `backend/routers/cards.py` - Scan upload endpoint with AI identification (front+back)
 - `backend/routers/ebay.py` - eBay listing creation/management
 - `backend/routers/inventory.py` - Inventory CRUD
+- `frontend/src/components/InventoryModule.jsx` - Inventory UI (F+B badge)
+- `frontend/src/components/ListingsModule.jsx` - eBay listing form (shows both images)
+- `frontend/src/components/AccountModule.jsx` - Scanner token generation
 
 ## What's Been Implemented
 
-### Desktop Scanner App (scanner-app) - COMPLETE
-- [x] Full Tkinter GUI with dark theme
-- [x] WIA scanner detection and selection
-- [x] Advanced two-pass image cropping algorithm (variance detection)
-- [x] Image enhancement (autocontrast, sharpness, color, contrast, brightness)
-- [x] Gradient border effect on cropped cards
+### Desktop Scanner App - COMPLETE
 - [x] Batch duplex scanning via NAPS2 CLI (tested: 4 cards, both sides)
-- [x] NAPS2 path auto-detection + manual configuration UI
-- [x] NAPS2 device name configuration (default: "fi-6130dj")
-- [x] NAPS2 profile support
+- [x] NAPS2 config UI (path, device "fi-6130dj", profile)
 - [x] 600 DPI default for high quality
+- [x] Advanced auto-crop with variance detection
 - [x] No console window (pythonw + VBS launcher)
-- [x] Import from folder feature
-- [x] Upload to FlipSlab server
-- [x] Scan queue with preview
+- [x] Token-based login (for Google Auth users)
+- [x] Upload with X-FlipSlab-Item-Id header for reliable front/back pairing
 
-### Batch Upload Backend - COMPLETE
-- [x] Front/back image pairing (detects _front/_back in filename)
-- [x] AI card identification via GPT-4o on front images
-- [x] Correct field names matching inventory model
-- [x] Back images auto-paired to matching front item
+### Scan Upload Backend - COMPLETE
+- [x] Front/back pairing via: item_id header > batch_key > fallback
+- [x] AI re-identification with BOTH front+back images (GPT-4o)
+- [x] Images stored at 1600px resolution (no server-side re-crop)
+- [x] scan_batch_key for filename-based matching
 
 ### Web App
-- [x] Authentication system
-- [x] Dashboard
-- [x] Auction alert system
-- [x] User onboarding wizard
-- [x] eBay API integration (OAuth, listings, orders)
-- [x] Inventory management (CRUD, search, filters)
-- [x] eBay listing creation from inventory
-- [x] OpenAI GPT-4o integration
-- [x] Google Auth (Emergent)
+- [x] Authentication (Google Auth + email/password)
+- [x] Scanner Token generation in Account page
+- [x] Inventory with F+B badge for cards with both images
+- [x] eBay listing form shows front + back images with status
+- [x] eBay uploads both front and back images
+- [x] Dashboard, Auction alerts, Onboarding wizard
 
 ## Backlog
-- P1: Whatnot Integration & Inventory Sync Engine (waiting for API access)
+- P1: Whatnot Integration & Inventory Sync Engine
 - P2: Auto-Refresh Portfolio Value
 - P3: Flip Finder core logic
 - P4: Stripe commercialization
 
-## User Language
-Spanish - all communication must be in Spanish
+## User Language: Spanish
