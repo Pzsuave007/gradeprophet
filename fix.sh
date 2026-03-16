@@ -23,12 +23,13 @@ rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  OK"
 
-echo "[3/5] Instalando llaves..."
+echo "[3/5] Llaves..."
 cp -f /home/flipcardsuni2/public_html/llaves.txt "$PROD/.env"
 echo "  OK"
 
 echo "[4/5] Dependencias..."
-"$PROD/venv/bin/pip" install feedparser -q 2>/dev/null
+"$PROD/venv/bin/pip" install openai httpx feedparser pillow numpy -q
+echo "  OK"
 
 echo "[5/5] Reiniciando backend..."
 pkill -f "uvicorn.*8001" 2>/dev/null
