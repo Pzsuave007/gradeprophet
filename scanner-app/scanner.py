@@ -85,27 +85,26 @@ class WIAScanner:
         return scanners
 
     def scan(self, device_id, dpi=300):
-        """Scan an image and return PIL Image."""
+        """Scan an image and return PIL Image. Uses WIA CommonDialog for max compatibility."""
         import win32com.client
+
+        tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+
+        # Method 1: CommonDialog with device selection UI
         try:
-            # Method 1: Use WIA CommonDialog (most reliable - shows native Windows scan UI)
-            try:
-                dialog = win32com.client.Dispatch("WIA.CommonDialog")
-                image_file = dialog.ShowAcquireImage(
-                    self.WIA_DEVICE_TYPE_SCANNER,  # DeviceType = Scanner
-                    0,  # Intent = Color
-                    0,  # Bias = MinimizeSize
-                    self.WIA_FORMAT_BMP,  # FormatID
-                    False,  # AlwaysSelectDevice
-                    True,  # UseCommonUI
-                    False  # CancelError
-                )
+            dialog = win32com.client.Dispatch("WIA.CommonDialog")
+            # ShowAcquireImage with full UI control
+            image_file = dialog.ShowAcquireImage(
+                1,   # DeviceType: Scanner
+                2,   # Intent: Color
+                1,   # Bias: MaximizeQuality
+                self.WIA_FORMAT_BMP,
+                False,  # AlwaysSelectDevice
+                True,   # UseCommonUI - shows scanner dialog
+                False   # CancelError
+            )
 
-                if not image_file:
-                    return None
-
-                # Save to temp and load with PIL
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
+            if image_file:
                 image_file.SaveFile(tmp)
                 img = Image.open(tmp).convert("RGB")
                 try:
@@ -113,9 +112,13 @@ class WIAScanner:
                 except:
                     pass
                 return img
+            return None
 
-            except Exception as e1:
-                # Method 2: Direct device access (fallback)
+        except Exception as e1:
+            error_str = str(e1)
+
+            # Method 2: Direct device connection without UI
+            try:
                 mgr = self._get_manager()
                 device = None
                 for i in range(1, mgr.DeviceInfos.Count + 1):
@@ -125,33 +128,46 @@ class WIAScanner:
                         break
 
                 if not device:
-                    raise Exception("Scanner not found. Is it still connected?")
+                    raise Exception("Scanner not found")
 
-                item = device.Items(1)
-
-                # Try to set properties (ignore errors)
-                for prop_id, value in [
-                    (self.WIA_HORIZONTAL_RESOLUTION, dpi),
-                    (self.WIA_VERTICAL_RESOLUTION, dpi),
-                    (self.WIA_COLOR_MODE, 2),
-                ]:
+                # Try each item (flatbed = 1, feeder = 2, etc.)
+                for item_idx in range(1, device.Items.Count + 1):
                     try:
-                        item.Properties(prop_id).Value = value
+                        item = device.Items(item_idx)
+                        for prop_id, value in [
+                            (self.WIA_HORIZONTAL_RESOLUTION, dpi),
+                            (self.WIA_VERTICAL_RESOLUTION, dpi),
+                            (self.WIA_COLOR_MODE, 2),
+                        ]:
+                            try:
+                                item.Properties(prop_id).Value = value
+                            except:
+                                pass
+
+                        image_file = item.Transfer(self.WIA_FORMAT_BMP)
+                        image_file.SaveFile(tmp)
+                        img = Image.open(tmp).convert("RGB")
+                        try:
+                            os.remove(tmp)
+                        except:
+                            pass
+                        return img
                     except:
-                        pass
+                        continue
 
-                image_file = item.Transfer(self.WIA_FORMAT_BMP)
-                tmp = os.path.join(tempfile.gettempdir(), f"flipslab_scan_{int(time.time())}.bmp")
-                image_file.SaveFile(tmp)
-                img = Image.open(tmp).convert("RGB")
-                try:
-                    os.remove(tmp)
-                except:
-                    pass
-                return img
+                raise Exception("Could not scan from any source")
 
-        except Exception as e:
-            raise Exception(f"Scan failed: {e}")
+            except Exception as e2:
+                # Give helpful error message
+                if "paper" in str(e2).lower() or "feed" in str(e2).lower() or "empty" in str(e2).lower():
+                    raise Exception("No paper in feeder. Place a card in the scanner and try again.")
+                raise Exception(
+                    f"Scan failed. Please check:\n"
+                    f"1. Is there a card/paper in the scanner?\n"
+                    f"2. Is the scanner lid closed?\n"
+                    f"3. Try: Windows Settings > Devices > Scanners\n\n"
+                    f"Error: {error_str}"
+                )
 
 
 # ─── Main App ────────────────────────────────────────────
@@ -458,16 +474,15 @@ class FlipSlabScanner:
         self.scan_btn.config(text="Scanning...", state="disabled")
         self.root.update()
 
-        def do_scan():
-            image = None
-            error = None
-            try:
-                image = self.wia.scan(self.selected_scanner_id, dpi=300)
-            except Exception as e:
-                error = str(e)
-            self.root.after(0, lambda: self._on_scan_done(image, error))
+        # Run scan in MAIN thread (WIA COM requires it for dialogs)
+        image = None
+        error = None
+        try:
+            image = self.wia.scan(self.selected_scanner_id, dpi=300)
+        except Exception as e:
+            error = str(e)
 
-        threading.Thread(target=do_scan, daemon=True).start()
+        self._on_scan_done(image, error)
 
     def _on_scan_done(self, image, error):
         self.scanning = False
