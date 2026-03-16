@@ -8,7 +8,7 @@ PROD="/opt/gradeprophet/backend"
 WEB="/home/flipcardsuni2/public_html"
 
 echo ""
-echo "[1/4] Backend..."
+echo "[1/5] Backend..."
 mkdir -p "$PROD/routers" "$PROD/utils" "$PROD/models"
 cp -f "$REPO/backend/server.py" "$PROD/"
 cp -f "$REPO/backend/config.py" "$PROD/"
@@ -18,15 +18,19 @@ cp -f "$REPO/backend/utils/"*.py "$PROD/utils/"
 cp -f "$REPO/backend/models/"*.py "$PROD/models/" 2>/dev/null
 echo "  OK"
 
-echo "[2/4] Frontend (pre-built)..."
+echo "[2/5] Frontend (pre-built)..."
 rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  OK"
 
-echo "[3/4] Dependencias..."
+echo "[3/5] Instalando llaves..."
+cp -f /home/flipcardsuni2/public_html/llaves.txt "$PROD/.env"
+echo "  OK"
+
+echo "[4/5] Dependencias..."
 "$PROD/venv/bin/pip" install feedparser -q 2>/dev/null
 
-echo "[4/4] Reiniciando backend..."
+echo "[5/5] Reiniciando backend..."
 pkill -f "uvicorn.*8001" 2>/dev/null
 sleep 2
 cd "$PROD" && nohup "$PROD/venv/bin/uvicorn" server:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
