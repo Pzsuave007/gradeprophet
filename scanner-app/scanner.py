@@ -155,7 +155,9 @@ class WIAScanner:
 
     def _scan_programmatic(self, device_id, settings):
         """Direct WIA scan - scans ALL pages from feeder in one pass.
-        For duplex: front+back of each card. Supports batch (multiple cards)."""
+        For duplex: front+back of each card. Supports batch (multiple cards).
+        
+        Key: Set ITEM properties BEFORE device properties (critical for ADF/duplex)."""
         import win32com.client
 
         dpi = settings.get("dpi", 300)
@@ -168,18 +170,7 @@ class WIAScanner:
         if not device:
             raise Exception("Could not connect to scanner device.")
 
-        # --- Configure source (feeder/flatbed/duplex) ---
-        if source == "flatbed":
-            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FLATBED)
-            self._set_device_prop(device, self.PAGES, 1)
-        elif source == "feeder_duplex":
-            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
-            self._set_device_prop(device, self.PAGES, 0)  # 0 = ALL pages
-        else:
-            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
-            self._set_device_prop(device, self.PAGES, 0)  # 0 = ALL pages
-
-        # --- Configure scan item properties ---
+        # --- CRITICAL: Set ITEM properties FIRST (before device props) ---
         item = device.Items(1)
         self._set_prop(item, self.HORIZONTAL_RES, dpi)
         self._set_prop(item, self.VERTICAL_RES, dpi)
@@ -192,17 +183,27 @@ class WIAScanner:
         self._set_prop(item, self.HORIZONTAL_EXTENT, width_px)
         self._set_prop(item, self.VERTICAL_EXTENT, height_px)
 
+        # --- THEN set DEVICE properties ---
+        if source == "flatbed":
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FLATBED)
+            self._set_device_prop(device, self.PAGES, 1)
+        elif source == "feeder_duplex":
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER | self.DUPLEX)
+            self._set_device_prop(device, self.PAGES, 0)  # 0 = ALL pages
+        else:
+            self._set_device_prop(device, self.DOC_HANDLING_SELECT, self.FEEDER)
+            self._set_device_prop(device, self.PAGES, 0)
+
         # --- Scan ALL pages from feeder ---
         images = []
-        page_num = 0
-        MAX_PAGES = 50  # safety limit
+        MAX_PAGES = 50
 
-        while page_num < MAX_PAGES:
+        while len(images) < MAX_PAGES:
             try:
                 image_file = item.Transfer(self.WIA_FORMAT_BMP)
                 if image_file:
                     tmp = os.path.join(tempfile.gettempdir(),
-                                       f"flipslab_{int(time.time())}_{page_num+1}.bmp")
+                                       f"flipslab_{int(time.time() * 1000)}_{len(images)+1}.bmp")
                     image_file.SaveFile(tmp)
                     img = Image.open(tmp).convert("RGB")
                     img = self._auto_crop(img, width_in, height_in, dpi)
@@ -211,12 +212,58 @@ class WIAScanner:
                         os.remove(tmp)
                     except:
                         pass
-                    page_num += 1
+                    time.sleep(0.3)  # let scanner prepare next page
                 else:
                     break
             except Exception:
-                # Feeder empty or no more pages - this is normal
-                break
+                if not images:
+                    raise  # first page failed = real error
+                break  # feeder empty
+
+        # --- If only 1 page for duplex, try WIA 2.0 sub-items (front/back) ---
+        if len(images) == 1 and source == "feeder_duplex":
+            try:
+                if device.Items.Count > 1:
+                    back_item = device.Items(2)
+                    self._set_prop(back_item, self.HORIZONTAL_RES, dpi)
+                    self._set_prop(back_item, self.VERTICAL_RES, dpi)
+                    self._set_prop(back_item, self.COLOR_MODE, 1 if color else 2)
+                    back_file = back_item.Transfer(self.WIA_FORMAT_BMP)
+                    if back_file:
+                        tmp = os.path.join(tempfile.gettempdir(),
+                                           f"flipslab_{int(time.time() * 1000)}_back.bmp")
+                        back_file.SaveFile(tmp)
+                        img2 = Image.open(tmp).convert("RGB")
+                        img2 = self._auto_crop(img2, width_in, height_in, dpi)
+                        images.append(img2)
+                        try:
+                            os.remove(tmp)
+                        except:
+                            pass
+            except Exception:
+                pass
+
+        # --- Last resort: reconnect to device for back side ---
+        if len(images) == 1 and source == "feeder_duplex":
+            try:
+                time.sleep(0.5)
+                device2 = self._connect_device(device_id)
+                if device2:
+                    item2 = device2.Items(1)
+                    back_file = item2.Transfer(self.WIA_FORMAT_BMP)
+                    if back_file:
+                        tmp = os.path.join(tempfile.gettempdir(),
+                                           f"flipslab_{int(time.time() * 1000)}_back2.bmp")
+                        back_file.SaveFile(tmp)
+                        img3 = Image.open(tmp).convert("RGB")
+                        img3 = self._auto_crop(img3, width_in, height_in, dpi)
+                        images.append(img3)
+                        try:
+                            os.remove(tmp)
+                        except:
+                            pass
+            except Exception:
+                pass
 
         if not images:
             raise Exception("Scanner returned no images.")
