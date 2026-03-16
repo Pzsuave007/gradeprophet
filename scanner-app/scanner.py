@@ -142,16 +142,19 @@ class WIAScanner:
         return None
 
     def scan_card(self, device_id, settings, window_handle=0):
-        """Scan card(s). Uses TWAIN for duplex (both sides), WIA for single side."""
+        """Scan card(s). Uses NAPS2 CLI for duplex (both sides), WIA for single side."""
         source = settings.get("source", "feeder_duplex")
         is_duplex = source == "feeder_duplex"
 
-        # For duplex: try TWAIN first (WIA doesn't support duplex on most scanners)
+        # For duplex: use NAPS2 CLI (only reliable way for duplex on most scanners)
         if is_duplex:
             try:
-                return self._scan_twain(settings, window_handle)
-            except Exception:
-                pass  # TWAIN not available, fall through
+                return self._scan_naps2(settings)
+            except Exception as e:
+                # If NAPS2 not found, show helpful message
+                if "NAPS2 not found" in str(e):
+                    raise
+                pass  # Other errors: fall through to WIA
 
         # Try WIA programmatic
         try:
@@ -162,112 +165,103 @@ class WIAScanner:
         # Fallback: native WIA dialog
         return self._scan_with_dialog(device_id, settings)
 
-    def _scan_twain(self, settings, window_handle=0):
-        """Scan using TWAIN protocol - true duplex support.
-        TWAIN handles duplex natively, unlike WIA."""
+    def _find_naps2(self):
+        """Find NAPS2 installation path."""
+        common_paths = [
+            os.path.join(os.environ.get("PROGRAMFILES", "C:\\Program Files"), "NAPS2", "NAPS2.Console.exe"),
+            os.path.join(os.environ.get("PROGRAMFILES(X86)", "C:\\Program Files (x86)"), "NAPS2", "NAPS2.Console.exe"),
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "NAPS2", "NAPS2.Console.exe"),
+            os.path.join(os.environ.get("APPDATA", ""), "NAPS2", "NAPS2.Console.exe"),
+        ]
+        for p in common_paths:
+            if os.path.isfile(p):
+                return p
+        return None
 
-        # Add app directory to DLL search path so TWAINDSM.DLL is found
-        app_dir = os.path.dirname(os.path.abspath(__file__))
-        dll_path = os.path.join(app_dir, "TWAINDSM.DLL")
-        if os.path.exists(dll_path):
-            try:
-                os.add_dll_directory(app_dir)
-            except (AttributeError, OSError):
-                # Python < 3.8 or already added
-                if app_dir not in os.environ.get("PATH", ""):
-                    os.environ["PATH"] = app_dir + os.pathsep + os.environ.get("PATH", "")
+    def _scan_naps2(self, settings):
+        """Scan using NAPS2 command-line interface - true duplex via TWAIN driver."""
+        import subprocess, glob
 
-        try:
-            import twain
-        except ImportError:
-            raise Exception("pytwain not installed. Run setup.bat to install.")
-        except OSError as e:
-            if "twaindsm" in str(e).lower():
-                raise Exception(
-                    "TWAIN DSM not found.\n\n"
-                    "Run setup.bat as Administrator to install it,\n"
-                    "or download TWAINDSM.DLL from:\n"
-                    "github.com/twain/twain-dsm/releases\n\n"
-                    "Copy it to: " + app_dir
-                )
-            raise
-
-        from io import BytesIO
+        naps2_exe = self._find_naps2()
+        if not naps2_exe:
+            raise Exception(
+                "NAPS2 not found!\n\n"
+                "For duplex scanning (both sides), NAPS2 is required.\n"
+                "Download free from: https://www.naps2.com\n\n"
+                "Install it and try again."
+            )
 
         dpi = settings.get("dpi", 300)
         color = settings.get("color", True)
         source = settings.get("source", "feeder_duplex")
-        is_duplex = source == "feeder_duplex"
         width_in = settings.get("width_inches", 3.0)
         height_in = settings.get("height_inches", 4.0)
 
-        images = []
+        # Create temp folder for scan output
+        scan_tmp = os.path.join(tempfile.gettempdir(), "flipslab_naps2")
+        os.makedirs(scan_tmp, exist_ok=True)
 
-        sm = twain.SourceManager(window_handle)
-        try:
-            # Open the default TWAIN source (scanner)
-            src = sm.open_source()
-            if not src:
-                raise Exception("No TWAIN scanner source found.")
-
+        # Clean previous scans
+        for old_file in glob.glob(os.path.join(scan_tmp, "scan_*.png")):
             try:
-                # Enable feeder
-                try:
-                    src.set_capability(twain.CAP_FEEDERENABLED, twain.TWON_ONEVALUE, twain.TWTY_BOOL, True)
-                except Exception:
-                    pass
-
-                # Enable duplex
-                if is_duplex:
-                    try:
-                        src.set_capability(twain.CAP_DUPLEXENABLED, twain.TWON_ONEVALUE, twain.TWTY_BOOL, True)
-                    except Exception:
-                        pass
-
-                # Set DPI
-                try:
-                    src.set_capability(twain.ICAP_XRESOLUTION, twain.TWON_ONEVALUE, twain.TWTY_FIX32, float(dpi))
-                    src.set_capability(twain.ICAP_YRESOLUTION, twain.TWON_ONEVALUE, twain.TWTY_FIX32, float(dpi))
-                except Exception:
-                    pass
-
-                # Color mode
-                try:
-                    pixel_type = twain.TWPT_RGB if color else twain.TWPT_GRAY
-                    src.set_capability(twain.ICAP_PIXELTYPE, twain.TWON_ONEVALUE, twain.TWTY_UINT16, pixel_type)
-                except Exception:
-                    pass
-
-                # Start scanning (no UI - we control settings)
-                src.request_acquire(show_ui=False, modal_ui=False)
-
-                # Get all images from feeder (front + back for each card)
-                while True:
-                    try:
-                        (handle, remaining_count) = src.xfer_image_natively()
-                        bmp_bytes = twain.dib_to_bm_file(handle)
-                        img = Image.open(BytesIO(bmp_bytes)).convert("RGB")
-                        img = self._auto_crop(img, width_in, height_in, dpi)
-                        images.append(img)
-
-                        if remaining_count == 0:
-                            break
-                    except Exception:
-                        break
-
-            finally:
-                try:
-                    src.close()
-                except Exception:
-                    pass
-        finally:
-            try:
-                sm.close()
-            except Exception:
+                os.remove(old_file)
+            except:
                 pass
 
+        output_path = os.path.join(scan_tmp, "scan_$(n).png")
+
+        # Build NAPS2 command
+        naps2_source = "duplex" if source == "feeder_duplex" else "feeder"
+        bitdepth = "color" if color else "gray"
+        pagesize = f"{width_in}x{height_in}in"
+
+        cmd = [
+            naps2_exe,
+            "-o", output_path,
+            "--noprofile",
+            "--driver", "twain",
+            "--source", naps2_source,
+            "--dpi", str(dpi),
+            "--bitdepth", bitdepth,
+            "--pagesize", pagesize,
+            "--split",
+            "-f",
+            "-v",
+        ]
+
+        # Run NAPS2 scan
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,  # 2 min timeout
+            )
+        except subprocess.TimeoutExpired:
+            raise Exception("Scan timed out (2 minutes). Try again.")
+        except FileNotFoundError:
+            raise Exception(f"NAPS2 not found at: {naps2_exe}")
+
+        # Read output images
+        images = []
+        scan_files = sorted(glob.glob(os.path.join(scan_tmp, "scan_*.png")))
+
+        for scan_file in scan_files:
+            try:
+                img = Image.open(scan_file).convert("RGB")
+                img = self._auto_crop(img, width_in, height_in, dpi)
+                images.append(img)
+            except Exception:
+                pass
+            finally:
+                try:
+                    os.remove(scan_file)
+                except:
+                    pass
+
         if not images:
-            raise Exception("TWAIN scan returned no images.")
+            error_msg = result.stderr.strip() if result.stderr else "Unknown error"
+            raise Exception(f"NAPS2 scan returned no images.\n\n{error_msg}")
 
         return images
 

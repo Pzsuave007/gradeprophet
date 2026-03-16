@@ -59,7 +59,7 @@ echo  [OK] Python encontrado:
 echo.
 echo  [*] Instalando dependencias...
 %PY% -m pip install --upgrade pip >nul 2>&1
-%PY% -m pip install Pillow requests pywin32 numpy pytwain
+%PY% -m pip install Pillow requests pywin32 numpy
 
 if %errorlevel% neq 0 (
     echo  [ERROR] Fallo instalando dependencias.
@@ -69,68 +69,6 @@ if %errorlevel% neq 0 (
 
 echo.
 echo  [OK] Dependencias instaladas.
-echo.
-
-:: Install TWAIN DSM (required for duplex scanning)
-echo  [*] Instalando TWAIN DSM para duplex scanning...
-set "TWAIN_DLL_APP=%APP_DIR%\TWAINDSM.DLL"
-set "TWAIN_DLL_SYS=%SYSTEMROOT%\System32\TWAINDSM.DLL"
-
-if exist "%TWAIN_DLL_SYS%" (
-    echo  [OK] TWAIN DSM ya esta en System32.
-    goto TWAIN_DONE
-)
-if exist "%TWAIN_DLL_APP%" (
-    echo  [OK] TWAIN DSM ya esta en la carpeta de la app.
-    goto TWAIN_DONE
-)
-
-echo  [*] Descargando TWAIN DSM...
-set "TWAIN_MSI=%TEMP%\twaindsm.msi"
-set "TWAIN_EXTRACT=%TEMP%\twain_extract"
-
-powershell -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri 'https://github.com/twain/twain-dsm/releases/download/v2.5.1/TWAINDSM_2.5.1.msi' -OutFile '%TWAIN_MSI%'; Write-Host '  Descarga completa.' } catch { Write-Host '  [!] Error descargando' }"
-
-if not exist "%TWAIN_MSI%" (
-    echo  [!] No se pudo descargar TWAIN DSM.
-    echo  [!] Descarga manualmente desde: https://github.com/twain/twain-dsm/releases
-    echo  [!] Copia TWAINDSM.DLL a: %APP_DIR%
-    goto TWAIN_DONE
-)
-
-:: Extract DLL from MSI to temp folder
-echo  [*] Extrayendo TWAINDSM.DLL...
-if exist "%TWAIN_EXTRACT%" rmdir /s /q "%TWAIN_EXTRACT%"
-mkdir "%TWAIN_EXTRACT%" 2>nul
-msiexec /a "%TWAIN_MSI%" /qn TARGETDIR="%TWAIN_EXTRACT%" >nul 2>&1
-timeout /t 3 /nobreak >nul
-
-:: Find and copy the DLL
-for /r "%TWAIN_EXTRACT%" %%f in (TWAINDSM.DLL twaindsm.dll) do (
-    if exist "%%f" (
-        copy /Y "%%f" "%APP_DIR%\TWAINDSM.DLL" >nul
-        echo  [OK] TWAINDSM.DLL copiado a la carpeta de la app!
-        goto TWAIN_CLEANUP
-    )
-)
-
-:: If extraction failed, try direct MSI install (needs admin)
-echo  [*] Intentando instalar MSI (puede pedir permisos de admin)...
-msiexec /i "%TWAIN_MSI%" /quiet /norestart >nul 2>&1
-timeout /t 3 /nobreak >nul
-if exist "%TWAIN_DLL_SYS%" (
-    echo  [OK] TWAIN DSM instalado en System32!
-) else (
-    echo  [!] No se pudo instalar automaticamente.
-    echo  [!] Instala manualmente: %TWAIN_MSI%
-    echo  [!] O copia TWAINDSM.DLL a: %APP_DIR%
-)
-
-:TWAIN_CLEANUP
-if exist "%TWAIN_EXTRACT%" rmdir /s /q "%TWAIN_EXTRACT%" 2>nul
-del "%TWAIN_MSI%" 2>nul
-
-:TWAIN_DONE
 echo.
 
 :: Setup app folder
