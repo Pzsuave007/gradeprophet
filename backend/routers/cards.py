@@ -540,7 +540,7 @@ async def crop_corners(data: CornerCropRequest):
 @router.post("/cards/scan-upload")
 async def scan_upload(request: Request, file: UploadFile = File(...)):
     """Upload a scanned card image, analyze with AI, and add to inventory.
-    For duplex scanning: front images create new items, back images update the last item."""
+    For duplex scanning: front images create new items, back images update matching front by batch key."""
     user = await get_current_user(request)
     user_id = user["user_id"]
 
@@ -550,34 +550,50 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     # Process image
     processed = process_card_image(img_base64)
 
-    # Determine if this is a front or back image from filename
+    # Parse filename: card_{timestamp}_{number}_{side}.png
     filename = (file.filename or "").lower()
     is_back = "_back" in filename
 
+    # Extract batch key from filename for front/back matching
+    # e.g. "card_1773685587533_2_front.png" -> batch_key = "1773685587533_2"
+    import re
+    batch_match = re.match(r"card_(\d+_\d+)_(front|back)", filename)
+    batch_key = batch_match.group(1) if batch_match else ""
+
     if is_back:
-        # Find the most recent scanner inventory item without a back_image
-        recent_item = await db.inventory.find_one(
-            {"user_id": user_id, "source": "scanner", "back_image": None},
-            {"_id": 0},
-            sort=[("created_at", -1)]
-        )
-        if recent_item:
+        matched_item = None
+
+        # First try: match by batch key (most reliable)
+        if batch_key:
+            matched_item = await db.inventory.find_one(
+                {"user_id": user_id, "source": "scanner", "scan_batch_key": batch_key},
+                {"_id": 0}
+            )
+
+        # Fallback: find most recent scanner item without back_image
+        if not matched_item:
+            matched_item = await db.inventory.find_one(
+                {"user_id": user_id, "source": "scanner", "back_image": None},
+                {"_id": 0},
+                sort=[("created_at", -1)]
+            )
+
+        if matched_item:
             await db.inventory.update_one(
-                {"id": recent_item["id"]},
+                {"id": matched_item["id"]},
                 {"$set": {
                     "back_image": processed,
                     "updated_at": datetime.now(timezone.utc).isoformat(),
                 }}
             )
             return {
-                "id": recent_item["id"],
-                "player_name": recent_item.get("player", "Unknown"),
-                "year": recent_item.get("year", ""),
-                "set_name": recent_item.get("set_name", ""),
-                "message": f"Back image added to: {recent_item.get('card_name', 'Unknown')}",
+                "id": matched_item["id"],
+                "player_name": matched_item.get("player", "Unknown"),
+                "year": matched_item.get("year", ""),
+                "set_name": matched_item.get("set_name", ""),
+                "message": f"Back image added to: {matched_item.get('card_name', 'Unknown')}",
                 "side": "back",
             }
-        # If no matching front found, create as new item
         logger.warning("No matching front image found for back scan, creating new item")
 
     # AI identify card (only for front images or unmatched backs)
@@ -644,6 +660,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
         "category": "for_sale",
         "sport": card_info.get("sport", ""),
         "source": "scanner",
+        "scan_batch_key": batch_key,
         "created_at": now,
         "updated_at": now,
     }
