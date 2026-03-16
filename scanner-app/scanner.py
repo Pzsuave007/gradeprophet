@@ -223,17 +223,48 @@ class WIAScanner:
         return images
 
     def _auto_crop(self, img, target_w_in, target_h_in, dpi):
-        """Crop image to target size if it's significantly larger."""
+        """Smart crop: detect card in scanned page using tile analysis, crop it, rotate 180°."""
+        import numpy as np
+
+        w, h = img.size
         target_w = int(target_w_in * dpi)
         target_h = int(target_h_in * dpi)
-        w, h = img.size
 
-        if w > target_w * 1.2 or h > target_h * 1.2:
-            crop_w = min(target_w, w)
-            crop_h = min(target_h, h)
-            img = img.crop((0, 0, crop_w, crop_h))
+        # If image is already close to target size, just rotate
+        if w <= target_w * 1.3 and h <= target_h * 1.3:
+            return img.rotate(180)
 
-        return img
+        arr = np.array(img)
+
+        # Tile-based detection: find tiles with high color variance (= card content)
+        tile_size = 50
+        card_tiles = []
+
+        for r in range(0, arr.shape[0], tile_size):
+            for c in range(0, arr.shape[1], tile_size):
+                tile = arr[r:r+tile_size, c:c+tile_size]
+                if tile.size == 0:
+                    continue
+                # Card tiles have high variance (colorful) and aren't pure white
+                if tile.std() > 35 and tile.mean() < 220:
+                    card_tiles.append((r, c))
+
+        if not card_tiles:
+            return img.rotate(180)
+
+        rows = [t[0] for t in card_tiles]
+        cols = [t[1] for t in card_tiles]
+        rmin = max(0, min(rows) - 20)
+        rmax = min(arr.shape[0], max(rows) + tile_size + 20)
+        cmin = max(0, min(cols) - 20)
+        cmax = min(arr.shape[1], max(cols) + tile_size + 20)
+
+        cropped = img.crop((cmin, rmin, cmax, rmax))
+
+        # Rotate 180° (ADF feeds cards upside down)
+        cropped = cropped.rotate(180)
+
+        return cropped
 
 
 # ─── Main App ────────────────────────────────────────────
