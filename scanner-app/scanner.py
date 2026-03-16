@@ -256,8 +256,9 @@ class WIAScanner:
             bitdepth = "color" if color else "gray"
             cmd.extend(["--bitdepth", bitdepth])
 
-            pagesize = f"{width_in}x{height_in}in"
-            cmd.extend(["--pagesize", pagesize])
+            # Use letter page size so scanner captures full area
+            # The auto-crop algorithm will detect and crop to the card
+            cmd.extend(["--pagesize", "letter"])
 
         # CRITICAL: specify device to avoid scanner selection dialog
         if device_name:
@@ -297,7 +298,7 @@ class WIAScanner:
         for scan_file in scan_files:
             try:
                 img = Image.open(scan_file).convert("RGB")
-                img = self._auto_crop(img, width_in, height_in, dpi)
+                img = self._auto_crop(img, width_in, height_in, dpi, from_naps2=True)
                 images.append(img)
             except Exception:
                 pass
@@ -501,9 +502,10 @@ class WIAScanner:
 
         return images
 
-    def _auto_crop(self, img, target_w_in, target_h_in, dpi):
+    def _auto_crop(self, img, target_w_in, target_h_in, dpi, from_naps2=False):
         """Post-scan image processing: detect card edges, crop, enhance, add border.
-        Uses two-pass variance detection that works regardless of scanner settings."""
+        Uses two-pass variance detection that works regardless of scanner settings.
+        from_naps2: if True, skip 180-degree rotation (NAPS2 outputs correct orientation)."""
         import numpy as np
         from PIL import ImageEnhance, ImageOps, ImageFilter
 
@@ -511,8 +513,9 @@ class WIAScanner:
         target_w = int(target_w_in * dpi)
         target_h = int(target_h_in * dpi)
 
-        # If image is already close to card size, skip detection
-        if w <= target_w * 1.3 and h <= target_h * 1.3:
+        # For WIA scans: if image is already close to card size, skip detection
+        # For NAPS2 scans: ALWAYS run detection (NAPS2 scans full page)
+        if not from_naps2 and w <= target_w * 1.3 and h <= target_h * 1.3:
             cropped = img.rotate(180)
         else:
             # Blur to reduce scanner noise
@@ -526,7 +529,11 @@ class WIAScanner:
             content_rows = np.where(row_stds > ROW_THRESH)[0]
 
             if len(content_rows) == 0:
-                cropped = img.rotate(180)
+                # No content detected - use full image
+                if from_naps2:
+                    cropped = img
+                else:
+                    cropped = img.rotate(180)
             else:
                 r_start = content_rows[0]
                 r_end = content_rows[-1] + 1
@@ -549,7 +556,9 @@ class WIAScanner:
                 cmax = min(w, content_cols[-1] + 6)
 
                 cropped = img.crop((cmin, rmin, cmax, rmax))
-                cropped = cropped.rotate(180)
+                # Only rotate for WIA scans (WIA on fi-6130Z outputs upside-down)
+                if not from_naps2:
+                    cropped = cropped.rotate(180)
 
         # === ENHANCE COLORS ===
         cropped = ImageOps.autocontrast(cropped, cutoff=0.5)
