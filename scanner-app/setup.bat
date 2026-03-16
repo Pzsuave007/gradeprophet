@@ -46,7 +46,7 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-set "PY=%PYTHON_DIR%\python.exe"
+set "PY=%PYTHON_DIR%\python"
 echo  [OK] Python instalado!
 goto DO_SETUP
 
@@ -74,35 +74,46 @@ echo.
 :: Setup app folder
 set "APP_DIR=%USERPROFILE%\FlipSlabScanner"
 if not exist "%APP_DIR%" mkdir "%APP_DIR%"
-copy /Y "%~dp0scanner.py" "%APP_DIR%\scanner.py" >nul
 
-:: Create launcher (pythonw = no console window)
+:: Copy scanner.py as .pyw (pythonw = NO console window)
+copy /Y "%~dp0scanner.py" "%APP_DIR%\scanner.pyw" >nul
+
+:: Find pythonw path
+where pythonw >nul 2>&1
+if %errorlevel% equ 0 (
+    for /f "delims=" %%i in ('where pythonw') do set "PYW=%%i"
+) else (
+    set "PYW=%PYTHON_DIR%\pythonw.exe"
+)
+
+:: Create invisible launcher (VBS = no console flash at all)
 (
-echo @echo off
-echo cd /d "%APP_DIR%"
-echo start "" %PY%w scanner.py
-) > "%APP_DIR%\Launch.bat"
+echo Set WshShell = CreateObject^("WScript.Shell"^)
+echo WshShell.CurrentDirectory = "%APP_DIR%"
+echo WshShell.Run """%PYW%"" ""%APP_DIR%\scanner.pyw""", 0, False
+) > "%APP_DIR%\Launch.vbs"
 
-:: Desktop shortcut
+:: Desktop shortcut (points to VBS launcher = completely silent)
 set "DESKTOP=%USERPROFILE%\Desktop"
-powershell -ExecutionPolicy Bypass -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%DESKTOP%\FlipSlab Scanner.lnk'); $s.TargetPath = '%APP_DIR%\Launch.bat'; $s.WorkingDirectory = '%APP_DIR%'; $s.Description = 'FlipSlab Card Scanner'; $s.Save()"
+powershell -ExecutionPolicy Bypass -Command "$s = (New-Object -ComObject WScript.Shell).CreateShortcut('%DESKTOP%\FlipSlab Scanner.lnk'); $s.TargetPath = '%APP_DIR%\Launch.vbs'; $s.WorkingDirectory = '%APP_DIR%'; $s.Description = 'FlipSlab Card Scanner'; $s.WindowStyle = 7; $s.Save()"
 
 if exist "%DESKTOP%\FlipSlab Scanner.lnk" (
     echo  [OK] Shortcut creado en Desktop!
 ) else (
-    echo  [!] Abre manualmente: %APP_DIR%\Launch.bat
+    echo  [!] Abre manualmente: %APP_DIR%\Launch.vbs
 )
 
 echo.
 echo  ============================================
 echo   LISTO!
 echo   Doble click "FlipSlab Scanner" en tu Desktop
+echo   (Ya no se abre ventana negra de Python!)
 echo  ============================================
 echo.
 set /p OPEN="  Abrir la app ahora? (S/N): "
 if /i "%OPEN%"=="S" (
     cd /d "%APP_DIR%"
-    start "" %PY% scanner.py
+    start "" "%PYW%" scanner.pyw
 )
 
 pause
