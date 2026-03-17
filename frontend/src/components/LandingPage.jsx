@@ -2,8 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ScanLine, TrendingUp, Bell, Store, Layers, Zap, BarChart3,
-  Upload, ArrowRight, Check, Crosshair, ShoppingCart, MessageSquare,
-  Filter, Timer, Target, Radio
+  Upload, ArrowRight, Check, Crosshair, Radio
 } from 'lucide-react';
 
 const FEATURES = [
@@ -15,13 +14,12 @@ const FEATURES = [
   { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically. Built for dealers who move volume.', color: '#06b6d4', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/8fb1feca0199f1312526368524b2f072e96315b1619225329c1abe52c84e4f81.png' },
 ];
 
-const ACTIONS = [
-  { icon: Crosshair, label: 'Auction Alerts', desc: 'Get notified before auctions end', color: '#f59e0b' },
-  { icon: ShoppingCart, label: 'Buy It Now', desc: 'One-click purchase from monitor', color: '#22c55e' },
-  { icon: MessageSquare, label: 'Make Offers', desc: 'Send offers with custom messages', color: '#a855f7' },
-  { icon: Filter, label: 'Smart Filters', desc: 'Auction / BIN / Best Offer', color: '#3b82f6' },
-  { icon: Timer, label: 'Ending Soonest', desc: 'See what closes first', color: '#ef4444' },
-  { icon: Target, label: 'Price Alerts', desc: 'Never miss your target price', color: '#10b981' },
+const WORKFLOW = [
+  { icon: ScanLine, label: 'Scan', desc: 'Snap a photo or batch scan', color: '#8b5cf6' },
+  { icon: Zap, label: 'AI Identifies', desc: 'Player, year, set — instant', color: '#f59e0b' },
+  { icon: Layers, label: 'Inventory', desc: 'Organize your collection', color: '#3b82f6' },
+  { icon: Store, label: 'List on eBay', desc: 'One-click AI listings', color: '#ef4444' },
+  { icon: BarChart3, label: 'Track P&L', desc: 'Real-time portfolio value', color: '#10b981' },
 ];
 
 const PLANS = [
@@ -64,7 +62,7 @@ const LandingPage = ({ onGetStarted }) => {
         </div>
         <div className="hidden md:flex items-center gap-8 text-sm text-gray-400">
           <a href="#features" className="hover:text-white transition-colors">Features</a>
-          <a href="#actions" className="hover:text-white transition-colors">Trading</a>
+          <a href="#actions" className="hover:text-white transition-colors">How It Works</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
         </div>
         <button onClick={onGetStarted}
@@ -80,14 +78,14 @@ const LandingPage = ({ onGetStarted }) => {
         <div className="max-w-7xl mx-auto flex flex-col lg:flex-row items-center gap-16">
           <div className="flex-1 text-left">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-4">The Trading Command Center</p>
+              <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-4">A Trading Dashboard for Sports Cards</p>
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-black leading-[0.9] tracking-tight">
-                SCAN.<br />
-                <span className="text-[#f59e0b]">ALERT.</span><br />
-                <span className="text-[#3b82f6]">PROFIT.</span>
+                TRACK.<br />
+                <span className="text-[#f59e0b]">FLIP.</span><br />
+                <span className="text-[#3b82f6]">SELL.</span>
               </h1>
               <p className="text-lg text-gray-400 mt-6 max-w-lg leading-relaxed">
-                Monitor the market, get alerted before auctions end, buy instantly, and make offers — all from one platform. Your entire card business, one screen.
+                AI identifies your cards instantly. Manage inventory, create eBay listings in one click, monitor the market for deals, and track your profit — all from one platform.
               </p>
               <div className="flex items-center gap-4 mt-8">
                 <button onClick={onGetStarted}
@@ -101,9 +99,9 @@ const LandingPage = ({ onGetStarted }) => {
                 </a>
               </div>
               <div className="flex items-center gap-6 mt-8 text-[11px] text-gray-500">
-                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Free to start</span>
-                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Auction alerts</span>
+                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> AI identification</span>
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> eBay connected</span>
+                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Portfolio tracking</span>
               </div>
             </motion.div>
           </div>
@@ -144,29 +142,33 @@ const LandingPage = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* TRADING ACTIONS STRIP */}
+      {/* WORKFLOW STRIP */}
       <section id="actions" className="relative z-10 px-6 lg:px-16 py-12">
         <div className="max-w-7xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-8">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">Trading Actions</p>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Execute Trades From One Screen</h2>
-            <p className="text-sm text-gray-500 mt-3 max-w-xl mx-auto">Stop switching between tabs. Monitor, set alerts, buy, and offer — all without leaving FlipSlab.</p>
+            <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">How It Works</p>
+            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">From Scan to Sale in Minutes</h2>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {ACTIONS.map((a, i) => (
-              <motion.div key={i}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: i * 0.06 }}
-                className="text-center p-4 rounded-xl bg-[#111] border border-white/[0.06] hover:border-white/[0.15] transition-all group"
-                data-testid={`action-${i}`}>
-                <div className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center mb-3 transition-transform group-hover:scale-110"
-                  style={{ background: `${a.color}15`, border: `1px solid ${a.color}30` }}>
-                  <a.icon className="w-5 h-5" style={{ color: a.color }} />
-                </div>
-                <p className="text-xs font-bold text-white mb-0.5">{a.label}</p>
-                <p className="text-[10px] text-gray-600 leading-relaxed">{a.desc}</p>
-              </motion.div>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-3">
+            {WORKFLOW.map((w, i) => (
+              <React.Fragment key={i}>
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className="text-center p-5 rounded-xl bg-[#111] border border-white/[0.06] hover:border-white/[0.15] transition-all group w-full md:w-40"
+                  data-testid={`workflow-${i}`}>
+                  <div className="w-10 h-10 rounded-xl mx-auto flex items-center justify-center mb-3 transition-transform group-hover:scale-110"
+                    style={{ background: `${w.color}15`, border: `1px solid ${w.color}30` }}>
+                    <w.icon className="w-5 h-5" style={{ color: w.color }} />
+                  </div>
+                  <p className="text-xs font-bold text-white mb-0.5">{w.label}</p>
+                  <p className="text-[10px] text-gray-600 leading-relaxed">{w.desc}</p>
+                </motion.div>
+                {i < WORKFLOW.length - 1 && (
+                  <ArrowRight className="hidden md:block w-4 h-4 text-gray-600 flex-shrink-0" />
+                )}
+              </React.Fragment>
             ))}
           </div>
         </div>
@@ -198,38 +200,6 @@ const LandingPage = ({ onGetStarted }) => {
                   <h3 className="text-base font-bold text-white mb-1.5 group-hover:text-[var(--accent)] transition-colors" style={{ '--accent': f.color }}>{f.title}</h3>
                   <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
                 </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* HOW AUCTION ALERTS WORK */}
-      <section className="relative z-10 px-6 lg:px-16 py-16">
-        <div className="max-w-5xl mx-auto">
-          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-            <p className="text-[11px] uppercase tracking-[0.3em] text-[#f59e0b] font-bold mb-3">How It Works</p>
-            <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Alert in 3 Steps</h2>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { step: '01', title: 'Find the Card', desc: 'Search the market or browse your watchlist. Filter by auctions ending soonest.', icon: BarChart3, color: '#3b82f6' },
-              { step: '02', title: 'Set Your Alert', desc: 'Enter your max bid reference and arm the alert. We watch the auction for you.', icon: Target, color: '#f59e0b' },
-              { step: '03', title: 'Get Notified & Bid', desc: 'FlipSlab alerts you 1 minute before the end, opens eBay, and you place your bid with time to spare.', icon: Zap, color: '#22c55e' },
-            ].map((s, i) => (
-              <motion.div key={i}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className="relative p-6 rounded-2xl bg-[#111] border border-white/[0.06]"
-                data-testid={`step-${i}`}>
-                <span className="text-5xl font-black text-white/[0.04] absolute top-3 right-4">{s.step}</span>
-                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4"
-                  style={{ background: `${s.color}15`, border: `1px solid ${s.color}30` }}>
-                  <s.icon className="w-6 h-6" style={{ color: s.color }} />
-                </div>
-                <h3 className="text-lg font-bold text-white mb-2">{s.title}</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">{s.desc}</p>
               </motion.div>
             ))}
           </div>
