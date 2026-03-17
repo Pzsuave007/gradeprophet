@@ -4,7 +4,7 @@ import {
   Search, TrendingUp, DollarSign, BarChart3, ExternalLink,
   RefreshCw, Layers, Tag, Package, Eye, Clock, ArrowRight,
   Heart, ArrowUpRight, ArrowDownRight, Plus, X, Flame,
-  Star, Target, Zap, ChevronRight, Bookmark, Bell
+  Star, Target, Zap, ChevronRight, Bookmark, Bell, Calendar
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -316,20 +316,64 @@ const MarketModule = () => {
       {/* === SEASONAL INTELLIGENCE === */}
       <SeasonalIntelligence />
 
-      {/* === HOT CARDS === */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-        className="space-y-3" data-testid="hot-cards-section">
-        <div className="flex items-center gap-2">
-          <Flame className="w-5 h-5 text-orange-500" />
-          <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
-          <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-          {hotCards.map((card, i) => (
-            <HotCardRow key={i} card={card} onLookup={handleLookup} />
-          ))}
-        </div>
-      </motion.div>
+      {/* === UPCOMING RELEASES + HOT CARDS === */}
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        {/* Upcoming Releases - 2 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="upcoming-releases-section">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+            <Calendar className="w-4 h-4 text-[#3b82f6]" />
+            <h2 className="text-sm font-bold text-white">Upcoming Releases</h2>
+            <span className="text-[9px] text-gray-600 ml-auto">2026</span>
+          </div>
+          <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
+            {(() => {
+              const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+              const releases = [
+                { date: 'Mar 4', name: 'Upper Deck Series 2 Hockey', sport: 'Hockey', color: '#06b6d4' },
+                { date: 'Mar 6', name: 'Leaf Optichrome Baseball', sport: 'Baseball', color: '#3b82f6' },
+                { date: 'Mar 27', name: 'Panini Silhouette Football', sport: 'Football', color: '#10b981' },
+                { date: 'Apr 1', name: 'WNBA Prizm', sport: 'Basketball', color: '#f59e0b' },
+                { date: 'Apr 15', name: 'Topps Series 2 Baseball', sport: 'Baseball', color: '#3b82f6' },
+                { date: 'May 7', name: 'Bowman Chrome Baseball', sport: 'Baseball', color: '#3b82f6' },
+                { date: 'Jun 4', name: 'Panini Prizm Football Draft', sport: 'Football', color: '#10b981' },
+                { date: 'Sep 10', name: 'Topps Football', sport: 'Football', color: '#10b981' },
+                { date: 'Oct 1', name: 'Topps Chrome Basketball', sport: 'Basketball', color: '#f59e0b' },
+                { date: 'Oct 15', name: 'Panini Prizm Basketball', sport: 'Basketball', color: '#f59e0b' },
+              ];
+              const cm = new Date().getMonth();
+              const upcoming = releases.filter(r => new Date(`${r.date} 2026`).getMonth() >= cm);
+              return upcoming.map((release, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-[#2a2a2a] transition-all">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: `${release.color}15` }}>
+                    <Calendar className="w-4 h-4" style={{ color: release.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-white truncate">{release.name}</p>
+                    <p className="text-[9px] text-gray-600">{release.sport}</p>
+                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 flex-shrink-0">{release.date}</span>
+                </div>
+              ));
+            })()}
+          </div>
+        </motion.div>
+
+        {/* Hot on Market - 3 cols */}
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+          className="lg:col-span-3 space-y-3" data-testid="hot-cards-section">
+          <div className="flex items-center gap-2">
+            <Flame className="w-5 h-5 text-orange-500" />
+            <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
+            <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+            {hotCards.map((card, i) => (
+              <HotCardRow key={i} card={card} onLookup={handleLookup} />
+            ))}
+          </div>
+        </motion.div>
+      </div>
 
       {/* === PRICE ALERTS === */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
