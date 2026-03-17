@@ -961,9 +961,9 @@ const ListingsModule = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#3b82f6]/50 transition-all cursor-pointer group"
+                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden hover:border-[#3b82f6]/50 transition-all cursor-pointer group"
                 onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
-                <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
+                <div className="aspect-square bg-[#111] overflow-hidden relative">
                   {item.image_url ? (
                     <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
@@ -1006,7 +1006,7 @@ const ListingsModule = () => {
           <div className="space-y-1.5">
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-[#3b82f6]/40 transition-colors cursor-pointer"
+                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#3b82f6]/40 transition-colors cursor-pointer"
                 onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="w-14 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
@@ -1050,9 +1050,9 @@ const ListingsModule = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {sortedSold.map((item, i) => (
               <motion.div key={item.item_id || i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-                className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
+                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
                 onClick={() => item.url && window.open(item.url, '_blank')} data-testid={`sold-listing-${i}`}>
-                <div className="aspect-square bg-[#0a0a0a] overflow-hidden relative">
+                <div className="aspect-square bg-[#111] overflow-hidden relative">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-2 px-2.5">
                     <span className="text-lg font-black text-emerald-400">${item.price}</span>
@@ -1080,7 +1080,7 @@ const ListingsModule = () => {
         ) : (
           <div className="space-y-1.5">
             {sortedSold.map((item, i) => (
-              <div key={item.item_id || i} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 flex items-center gap-3 hover:border-emerald-500/30 transition-colors" data-testid={`sold-listing-${i}`}>
+              <div key={item.item_id || i} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-emerald-500/30 transition-colors" data-testid={`sold-listing-${i}`}>
                 <div className="w-14 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
                 </div>

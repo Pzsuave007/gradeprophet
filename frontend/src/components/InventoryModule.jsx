@@ -459,8 +459,8 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
           {items.map((item, i) => (
             <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
               onClick={() => selectMode && toggleSelect(item.id)}
-              className={`bg-[#111] border rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#1a1a1a]'}`} data-testid={`inventory-item-${i}`}>
-              <div className="aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative" style={{ perspective: '600px' }}>
+              className={`bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-[#3a3a3a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#2a2a2a]'}`} data-testid={`inventory-item-${i}`}>
+              <div className="aspect-[3/4] bg-[#111] overflow-hidden relative" style={{ perspective: '600px' }}>
                 <div
                   className="w-full h-full transition-transform duration-500"
                   style={{
@@ -521,7 +521,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               </div>
               {/* Action buttons - below card info */}
               {!selectMode && (
-                <div className="flex items-stretch border-t border-[#1a1a1a] bg-[#0d0d0d]" data-testid={`card-actions-${i}`}>
+                <div className="flex items-stretch border-t border-[#2a2a2a] bg-[#151515]" data-testid={`card-actions-${i}`}>
                   {!item.listed && (
                     <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }}
                       className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-emerald-400 hover:bg-emerald-500/15 active:bg-emerald-500/25 transition-colors"
