@@ -336,6 +336,7 @@ const SeasonalDeals = () => {
   const [deals, setDeals] = useState([]);
   const [buySports, setBuySports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(8);
 
   useEffect(() => {
     const fetchDeals = async () => {
@@ -364,10 +365,13 @@ const SeasonalDeals = () => {
   if (deals.length === 0) return null;
 
   const sportColor = { Basketball: '#f59e0b', Football: '#10b981', Baseball: '#3b82f6', Hockey: '#06b6d4' };
+  const visibleDeals = deals.slice(0, visibleCount);
+  const hasMore = visibleCount < deals.length;
 
   return (
-    <div className="grid grid-cols-4 gap-2" data-testid="seasonal-deals">
-      {deals.map((deal, i) => (
+    <div data-testid="seasonal-deals">
+      <div className="grid grid-cols-4 gap-2">
+        {visibleDeals.map((deal, i) => (
         <motion.a
           key={deal.item_id || i}
           href={deal.ebay_url}
@@ -412,6 +416,16 @@ const SeasonalDeals = () => {
           </div>
         </motion.a>
       ))}
+      </div>
+      {hasMore && (
+        <button
+          onClick={() => setVisibleCount(prev => prev + 8)}
+          className="w-full mt-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all text-xs font-bold text-gray-400 hover:text-emerald-400"
+          data-testid="load-more-deals"
+        >
+          Load More ({deals.length - visibleCount} remaining)
+        </button>
+      )}
     </div>
   );
 };

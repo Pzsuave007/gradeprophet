@@ -263,9 +263,9 @@ async def get_seasonal_deals(request: Request):
     results = []
     for sport in buy_sports[:2]:
         queries = SEASONAL_QUERIES.get(sport, [])
-        for q in queries[:2]:
+        for q in queries[:4]:
             try:
-                items = await ebay_browse_search(q, limit=3, sort="price")
+                items = await ebay_browse_search(q, limit=4, sort="price")
                 for item in items:
                     image_url = ""
                     if item.get("image", {}).get("imageUrl"):
@@ -292,4 +292,4 @@ async def get_seasonal_deals(request: Request):
                 logger.warning(f"Seasonal deals search error for '{q}': {e}")
 
     results.sort(key=lambda x: x["price_value"])
-    return {"deals": results[:12], "buy_sports": buy_sports}
+    return {"deals": results[:24], "buy_sports": buy_sports}
