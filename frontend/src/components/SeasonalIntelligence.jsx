@@ -366,34 +366,42 @@ const SeasonalDeals = () => {
   const sportColor = { Basketball: '#f59e0b', Football: '#10b981', Baseball: '#3b82f6', Hockey: '#06b6d4' };
 
   return (
-    <div className="space-y-2" data-testid="seasonal-deals">
+    <div className="grid grid-cols-2 xl:grid-cols-3 gap-2.5" data-testid="seasonal-deals">
       {deals.map((deal, i) => (
         <motion.a
           key={deal.item_id || i}
           href={deal.ebay_url}
           target="_blank"
           rel="noopener noreferrer"
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: i * 0.04 }}
-          className="flex items-center gap-3 p-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all group cursor-pointer"
+          className="rounded-xl bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all group cursor-pointer overflow-hidden"
           data-testid={`deal-${i}`}
         >
           {/* Card image */}
-          <div className="w-12 h-16 rounded-md overflow-hidden bg-[#1a1a1a] flex-shrink-0">
+          <div className="w-full aspect-[3/4] bg-[#0a0a0a] overflow-hidden relative">
             {deal.image_url ? (
-              <img src={deal.image_url} alt="" className="w-full h-full object-cover" />
+              <img src={deal.image_url} alt="" className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
             ) : (
               <div className="w-full h-full flex items-center justify-center">
-                <ShoppingCart className="w-4 h-4 text-gray-700" />
+                <ShoppingCart className="w-6 h-6 text-gray-800" />
               </div>
             )}
+            {/* Price badge */}
+            <div className="absolute top-1.5 right-1.5 bg-black/80 backdrop-blur-sm px-2 py-0.5 rounded-md">
+              <span className="text-[11px] font-black text-emerald-400">{deal.price_value > 0 ? deal.price : 'Bid'}</span>
+            </div>
+            {/* External link icon on hover */}
+            <div className="absolute top-1.5 left-1.5 bg-black/80 backdrop-blur-sm p-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity">
+              <ExternalLink className="w-3 h-3 text-emerald-400" />
+            </div>
           </div>
           {/* Info */}
-          <div className="flex-1 min-w-0">
-            <p className="text-[10px] text-gray-300 font-medium truncate leading-tight">{deal.title}</p>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+          <div className="p-2.5">
+            <p className="text-[10px] text-gray-300 font-medium leading-tight line-clamp-2">{deal.title}</p>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
                 style={{ background: `${sportColor[deal.sport] || '#666'}15`, color: sportColor[deal.sport] || '#666' }}>
                 {deal.sport}
               </span>
@@ -401,11 +409,6 @@ const SeasonalDeals = () => {
                 <span className="text-[8px] text-gray-600 truncate">{deal.condition}</span>
               )}
             </div>
-          </div>
-          {/* Price + link */}
-          <div className="text-right flex-shrink-0">
-            <p className="text-xs font-black text-emerald-400">{deal.price_value > 0 ? deal.price : 'Bid'}</p>
-            <ExternalLink className="w-3 h-3 text-gray-700 group-hover:text-emerald-400 ml-auto mt-1 transition-colors" />
           </div>
         </motion.a>
       ))}
