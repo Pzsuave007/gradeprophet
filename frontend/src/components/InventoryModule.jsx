@@ -256,6 +256,127 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   );
 };
 
+// =========== CARD DETAIL FULLSCREEN ===========
+const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped }) => {
+  if (!item) return null;
+  const hasBack = !!item.back_image;
+  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
+  const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[90] bg-[#0a0a0a] flex flex-col overflow-y-auto"
+      data-testid="card-detail-modal"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a] shrink-0">
+        <button onClick={onClose} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors" data-testid="card-detail-close">
+          <ChevronLeft className="w-5 h-5" />
+          <span className="text-sm font-medium">Back</span>
+        </button>
+        <div className="flex items-center gap-2">
+          {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
+          {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
+          {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
+        </div>
+      </div>
+
+      {/* Card Image - Large */}
+      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: '50vh', perspective: '800px' }}>
+        <div
+          className="w-full h-full flex items-center justify-center transition-transform duration-500"
+          style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+        >
+          <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden' }}>
+            {frontSrc
+              ? <img src={frontSrc} alt={item.card_name} className="max-w-full max-h-full object-contain rounded-lg" />
+              : <div className="flex flex-col items-center gap-2 text-gray-700"><ImageIcon className="w-16 h-16" /><span className="text-xs">No image</span></div>
+            }
+          </div>
+          {hasBack && (
+            <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+              <img src={backSrc} alt={`${item.card_name} back`} className="max-w-full max-h-full object-contain rounded-lg" />
+            </div>
+          )}
+        </div>
+        {hasBack && (
+          <button onClick={onFlip}
+            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg active:scale-95 transition-transform"
+            data-testid="card-detail-flip">
+            <RotateCcw className="w-4 h-4" />
+            {isFlipped ? 'FRONT' : 'BACK'}
+          </button>
+        )}
+      </div>
+
+      {/* Card Info */}
+      <div className="px-4 pt-4 pb-2 space-y-3">
+        <h2 className="text-lg font-bold text-white leading-tight" data-testid="card-detail-name">{item.card_name}</h2>
+        <div className="flex flex-wrap gap-2">
+          {item.player && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.player}</span>}
+          {item.year && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.year}</span>}
+          {item.sport && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.sport}</span>}
+          {item.set_name && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.set_name}</span>}
+          {item.card_number && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">#{item.card_number}</span>}
+          {item.variation && <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300">{item.variation}</span>}
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Condition</p>
+            <p className={`text-sm font-bold mt-0.5 ${item.condition === 'Graded' ? 'text-amber-400' : 'text-gray-300'}`}>
+              {item.condition === 'Graded' && item.grade ? `${item.grading_company} ${item.grade}` : 'Raw'}
+            </p>
+          </div>
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Cost</p>
+            <p className="text-sm font-bold text-white mt-0.5">{item.purchase_price ? `$${Number(item.purchase_price).toFixed(2)}` : '-'}</p>
+          </div>
+          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.listed ? 'Listed' : 'Qty'}</p>
+            <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
+          </div>
+        </div>
+        {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
+      </div>
+
+      {/* Action Buttons - Large */}
+      <div className="px-4 pb-6 pt-2 grid grid-cols-2 gap-2">
+        {!item.listed && (
+          <button onClick={() => { onClose(); onList(item); }}
+            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-sm active:scale-95 transition-transform"
+            data-testid="card-detail-list">
+            <ShoppingBag className="w-5 h-5" /> List on eBay
+          </button>
+        )}
+        {item.listed && item.ebay_item_id && (
+          <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-sm active:scale-95 transition-transform">
+            <ExternalLink className="w-5 h-5" /> View on eBay
+          </a>
+        )}
+        <button onClick={() => { onClose(); onEdit(item); }}
+          className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-sm active:scale-95 transition-transform"
+          data-testid="card-detail-edit">
+          <Edit2 className="w-5 h-5" /> Edit Card
+        </button>
+        <button onClick={onClose}
+          className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 font-bold text-sm active:scale-95 transition-transform"
+          data-testid="card-detail-price">
+          <TrendingUp className="w-5 h-5" /> Price History
+        </button>
+        {!item.listed && (
+          <button onClick={() => { onClose(); onDelete(item.id); }}
+            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-sm active:scale-95 transition-transform col-span-2"
+            data-testid="card-detail-delete">
+            <Trash2 className="w-5 h-5" /> Delete Card
+          </button>
+        )}
+      </div>
+    </motion.div>
+  );
+};
+
 // =========== INVENTORY LIST VIEW ===========
 const InventoryList = ({ activeCategory, onCategoryChange }) => {
   const [items, setItems] = useState([]);
@@ -277,6 +398,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
   // Add/Edit inline view state
   const [showForm, setShowForm] = useState(false);
   const [chartCard, setChartCard] = useState(null); // card for price history chart
+  const [detailCard, setDetailCard] = useState(null); // fullscreen card detail on mobile
 
   const fetchInventory = useCallback(async (searchVal) => {
     try {
@@ -377,7 +499,8 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
 
   return (
     <>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+      {/* KPI Stats - hidden on mobile */}
+      <div className="hidden sm:grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         {[
           { icon: Package, label: 'Total Cards', val: s.total_cards || 0, color: 'bg-[#3b82f6]' },
           { icon: DollarSign, label: 'Invested', val: formatPrice(s.total_invested), color: 'bg-emerald-600' },
@@ -458,7 +581,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {items.map((item, i) => (
             <motion.div key={item.id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-              onClick={() => selectMode && toggleSelect(item.id)}
+              onClick={() => selectMode ? toggleSelect(item.id) : setDetailCard(item)}
               className={`bg-[#1a1a1a] border rounded-xl overflow-hidden hover:border-[#3a3a3a] transition-colors group cursor-pointer ${selected.has(item.id) ? 'border-[#3b82f6] ring-1 ring-[#3b82f6]/30' : 'border-[#2a2a2a]'}`} data-testid={`inventory-item-${i}`}>
               <div className="aspect-[3/4] bg-[#111] overflow-hidden relative" style={{ perspective: '600px' }}>
                 <div
@@ -627,6 +750,28 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               <PriceHistoryChart card={chartCard} />
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Card Detail Fullscreen Modal */}
+      <AnimatePresence>
+        {detailCard && (
+          <CardDetailModal
+            item={detailCard}
+            onClose={() => setDetailCard(null)}
+            onEdit={(item) => { setDetailCard(null); openEdit(item); }}
+            onDelete={(id) => { setDetailCard(null); handleDelete(id); }}
+            onList={(item) => { setDetailCard(null); listSingleItem(item); }}
+            onFlip={() => {
+              setFlippedCards(prev => {
+                const next = new Set(prev);
+                if (next.has(detailCard.id)) next.delete(detailCard.id);
+                else next.add(detailCard.id);
+                return next;
+              });
+            }}
+            isFlipped={flippedCards.has(detailCard.id)}
+          />
         )}
       </AnimatePresence>
     </>
