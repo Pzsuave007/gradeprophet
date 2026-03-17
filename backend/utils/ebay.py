@@ -112,9 +112,12 @@ async def ebay_browse_sold(query: str, limit: int = 10) -> list:
         return []
 
 
-async def get_ebay_user_token() -> str:
-    """Get stored eBay user access token, refresh if needed"""
-    token_doc = await db.ebay_tokens.find_one({"type": "user_token"}, {"_id": 0})
+async def get_ebay_user_token(user_id: str = None) -> str:
+    """Get stored eBay user access token, refresh if needed. Filters by user_id."""
+    query = {"type": "user_token"}
+    if user_id:
+        query["user_id"] = user_id
+    token_doc = await db.ebay_tokens.find_one(query, {"_id": 0})
     if not token_doc:
         return None
 
@@ -126,7 +129,7 @@ async def get_ebay_user_token() -> str:
             token_time = parse_date(updated_at)
             elapsed = (datetime.now(timezone.utc) - token_time).total_seconds()
             if elapsed > (expires_in - 300) and token_doc.get("refresh_token"):
-                refreshed = await refresh_ebay_user_token(token_doc["refresh_token"])
+                refreshed = await refresh_ebay_user_token(token_doc["refresh_token"], user_id)
                 if refreshed:
                     return refreshed
         except Exception:
@@ -135,7 +138,7 @@ async def get_ebay_user_token() -> str:
     return token_doc.get("access_token")
 
 
-async def refresh_ebay_user_token(refresh_token: str) -> str:
+async def refresh_ebay_user_token(refresh_token: str, user_id: str = None) -> str:
     """Refresh the eBay user access token"""
     try:
         credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
@@ -160,8 +163,11 @@ async def refresh_ebay_user_token(refresh_token: str) -> str:
 
         token_data = resp.json()
 
+        update_query = {"type": "user_token"}
+        if user_id:
+            update_query["user_id"] = user_id
         await db.ebay_tokens.update_one(
-            {"type": "user_token"},
+            update_query,
             {"$set": {
                 "access_token": token_data["access_token"],
                 "expires_in": token_data.get("expires_in", 7200),
@@ -447,10 +453,10 @@ async def get_ebay_item_details(item_id: str) -> dict:
         return None
 
 
-async def place_ebay_bid(item_id: str, max_bid: float) -> dict:
+async def place_ebay_bid(item_id: str, max_bid: float, user_id: str = None) -> dict:
     """Place a bid on an eBay auction using Trading API PlaceOffer"""
     try:
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user_id)
         if not token:
             return {"success": False, "error": "eBay not connected. Link your eBay account first."}
 
@@ -516,10 +522,10 @@ def extract_ebay_item_id(url_or_id: str) -> str:
     return url_or_id
 
 
-async def place_ebay_purchase(item_id: str, price: float, user_ip: str = "0.0.0.0") -> dict:
+async def place_ebay_purchase(item_id: str, price: float, user_ip: str = "0.0.0.0", user_id: str = None) -> dict:
     """Buy It Now on eBay using Trading API PlaceOffer"""
     try:
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user_id)
         if not token:
             return {"success": False, "error": "eBay not connected. Link your eBay account first."}
 
@@ -570,10 +576,10 @@ async def place_ebay_purchase(item_id: str, price: float, user_ip: str = "0.0.0.
         return {"success": False, "error": str(e)}
 
 
-async def place_ebay_offer(item_id: str, offer_amount: float, message: str = "") -> dict:
+async def place_ebay_offer(item_id: str, offer_amount: float, message: str = "", user_id: str = None) -> dict:
     """Make a Best Offer on eBay using Trading API MakeBestOffer"""
     try:
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user_id)
         if not token:
             return {"success": False, "error": "eBay not connected. Link your eBay account first."}
 

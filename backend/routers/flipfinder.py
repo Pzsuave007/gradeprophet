@@ -372,11 +372,12 @@ async def get_listings_stats(request: Request):
 
 
 @router.get("/test-ebay")
-async def test_ebay_connection():
+async def test_ebay_connection(request: Request):
     """Test eBay API connection"""
     try:
+        user = await get_current_user(request)
         items = await ebay_browse_search("sports card PSA 10", limit=3)
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user["user_id"])
         return {
             "browse_api": "connected" if items else "no results",
             "items_found": len(items),
@@ -434,7 +435,7 @@ async def create_snipe(data: SnipeTaskCreate, request: Request):
         raise HTTPException(status_code=400, detail="Could not extract eBay item ID from input")
 
     # Check eBay connection
-    token = await get_ebay_user_token()
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=400, detail="eBay account not connected. Link your eBay account first.")
 
@@ -630,7 +631,7 @@ async def buy_now(data: BuyNowRequest, request: Request):
     if data.price <= 0:
         raise HTTPException(status_code=400, detail="Price must be greater than 0")
 
-    token = await get_ebay_user_token()
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=400, detail="eBay account not connected.")
 
@@ -641,7 +642,7 @@ async def buy_now(data: BuyNowRequest, request: Request):
         user_ip = forwarded.split(",")[0].strip()
 
     item_id = extract_ebay_item_id(data.ebay_item_id)
-    result = await place_ebay_purchase(item_id, data.price, user_ip)
+    result = await place_ebay_purchase(item_id, data.price, user_ip, user["user_id"])
 
     # Log the action
     await db.purchase_log.insert_one({
@@ -668,12 +669,12 @@ async def make_offer(data: MakeOfferRequest, request: Request):
     if data.offer_amount <= 0:
         raise HTTPException(status_code=400, detail="Offer amount must be greater than 0")
 
-    token = await get_ebay_user_token()
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=400, detail="eBay account not connected.")
 
     item_id = extract_ebay_item_id(data.ebay_item_id)
-    result = await place_ebay_offer(item_id, data.offer_amount, data.message or "")
+    result = await place_ebay_offer(item_id, data.offer_amount, data.message or "", user["user_id"])
 
     # Log the action
     await db.purchase_log.insert_one({

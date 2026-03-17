@@ -118,19 +118,30 @@ def generate_listing_description(item: dict) -> str:
 async def ebay_authorize(request: Request):
     """Start eBay OAuth flow"""
     from urllib.parse import quote_plus
+    user = await get_current_user(request)
+    user_id = user["user_id"]
     if not EBAY_CLIENT_ID or not EBAY_RUNAME:
         raise HTTPException(status_code=500, detail="eBay API not configured")
-    redirect_url = f"https://auth.ebay.com/oauth2/authorize?client_id={EBAY_CLIENT_ID}&redirect_uri={quote_plus(EBAY_RUNAME)}&response_type=code&scope={quote_plus(EBAY_OAUTH_SCOPES)}"
+    state = base64.urlsafe_b64encode(user_id.encode()).decode()
+    redirect_url = f"https://auth.ebay.com/oauth2/authorize?client_id={EBAY_CLIENT_ID}&redirect_uri={quote_plus(EBAY_RUNAME)}&response_type=code&scope={quote_plus(EBAY_OAUTH_SCOPES)}&state={state}"
     return {"authorization_url": redirect_url}
 
 
 @router.get("/oauth/callback")
-async def ebay_callback(code: str = None, error: str = None):
+async def ebay_callback(code: str = None, error: str = None, state: str = None):
     """Handle eBay OAuth callback"""
     if error:
         return {"success": False, "error": error}
     if not code:
         return {"success": False, "error": "No authorization code received"}
+
+    # Extract user_id from state parameter
+    user_id = None
+    if state:
+        try:
+            user_id = base64.urlsafe_b64decode(state.encode()).decode()
+        except Exception:
+            pass
 
     credentials = base64.b64encode(f"{EBAY_CLIENT_ID}:{EBAY_CLIENT_SECRET}".encode()).decode()
 
@@ -147,15 +158,21 @@ async def ebay_callback(code: str = None, error: str = None):
 
         token_data = resp.json()
 
+        token_filter = {"type": "user_token"}
+        token_set = {
+            "type": "user_token",
+            "access_token": token_data["access_token"],
+            "refresh_token": token_data.get("refresh_token"),
+            "expires_in": token_data.get("expires_in", 7200),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if user_id:
+            token_filter["user_id"] = user_id
+            token_set["user_id"] = user_id
+
         await db.ebay_tokens.update_one(
-            {"type": "user_token"},
-            {"$set": {
-                "type": "user_token",
-                "access_token": token_data["access_token"],
-                "refresh_token": token_data.get("refresh_token"),
-                "expires_in": token_data.get("expires_in", 7200),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }},
+            token_filter,
+            {"$set": token_set},
             upsert=True
         )
 
@@ -166,17 +183,18 @@ async def ebay_callback(code: str = None, error: str = None):
 
 
 @router.get("/oauth/status")
-async def ebay_oauth_status():
-    """Check eBay connection status"""
-    token = await get_ebay_user_token()
+async def ebay_oauth_status(request: Request):
+    """Check eBay connection status for current user"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     return {"connected": bool(token)}
 
 
 @router.get("/seller/listings")
 async def get_seller_listings(request: Request, limit: int = 10, offset: int = 0):
     """Get seller's active eBay listings"""
-    await get_current_user(request)  # Auth check
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected")
 
@@ -250,8 +268,8 @@ async def get_seller_listings(request: Request, limit: int = 10, offset: int = 0
 @router.get("/seller/active-listings")
 async def get_active_listings_browse(request: Request, limit: int = 20):
     """Get seller's active listings via Browse API (fallback)"""
-    await get_current_user(request)  # Auth check
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
@@ -273,8 +291,8 @@ async def get_active_listings_browse(request: Request, limit: int = 20):
 @router.get("/seller/orders")
 async def get_seller_orders(request: Request, limit: int = 20):
     """Get seller's recent orders"""
-    await get_current_user(request)  # Auth check
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
@@ -303,8 +321,8 @@ async def get_my_listings_trading(
     sold_limit: int = 20
 ):
     """Get seller's active and sold listings via Trading API"""
-    await get_current_user(request)  # Auth check
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
@@ -563,7 +581,7 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     """Create and publish an eBay listing"""
     user = await get_current_user(request)
     user_id = user["user_id"]
-    token = await get_ebay_user_token()
+    token = await get_ebay_user_token(user_id)
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected")
 
@@ -755,9 +773,10 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
 
 
 @router.delete("/sell/{ebay_item_id}")
-async def end_ebay_listing(ebay_item_id: str, reason: str = "NotAvailable"):
+async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "NotAvailable"):
     """End an active eBay listing"""
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected")
 
@@ -807,9 +826,10 @@ async def get_created_listings(request: Request):
 
 
 @router.post("/sell/revise")
-async def revise_ebay_listing(data: ReviseListingRequest):
+async def revise_ebay_listing(data: ReviseListingRequest, request: Request):
     """Revise an active eBay listing"""
-    token = await get_ebay_user_token()
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 

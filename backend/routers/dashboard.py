@@ -19,7 +19,7 @@ async def get_dashboard_analytics(request: Request):
     user_id = user["user_id"]
 
     try:
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user_id)
     except Exception:
         token = None
 
@@ -319,7 +319,7 @@ async def get_command_center(request: Request):
     user_id = user["user_id"]
 
     try:
-        token = await get_ebay_user_token()
+        token = await get_ebay_user_token(user_id)
     except Exception:
         token = None
 
