@@ -30,14 +30,17 @@
 - [x] Onboarding wizard
 - [x] Mobile/Tablet Responsiveness (375px + 768px verified)
 - [x] Quick Scan Mobile Feature (camera → AI → inventory)
-- [x] **Best Offer Toggle (Feb 2026)** - Enable/disable Best Offers on BIN listings (create + edit)
-- [x] **PWE Envelope Shipping (Feb 2026)** - $2.50 flat rate for raw cards, US domestic only (create + edit)
+- [x] Best Offer Toggle (create + edit listings)
+- [x] PWE Envelope Shipping $2.50 US domestic (create + edit listings)
+- [x] **Image Compression Fix (Feb 2026)** - All image uploads now compressed to max 800px, JPEG 0.7 quality
 
-## eBay Listing Features
-- **Shipping profiles:** Free Shipping, PWE Envelope ($2.50 US), USPS First Class ($4.50), USPS Priority ($8.50)
-- **Best Offer:** Toggle available for Buy It Now format only (hidden for Auctions)
-- **Both features available in:** Create Listing modal AND Edit Listing view for existing listings
-- **Backend mapping:** PWEEnvelope → USPSFirstClass in eBay API XML
+## Image Compression Details
+- **Problem:** Phone cameras produce 5-15MB photos, causing "low memory" errors on mobile browsers
+- **Fix:** All 3 upload paths now compress images before processing:
+  - QuickScan: 800px max, JPEG 0.7 (was 1200px, 0.85)
+  - InventoryModule: 800px max, JPEG 0.7 (was NO compression)
+  - BatchUploadView: 800px max, JPEG 0.7 (was NO compression)
+- Canvas memory is freed after compression (canvas.width = 0)
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync (awaiting API access)

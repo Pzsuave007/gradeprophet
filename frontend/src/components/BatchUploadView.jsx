@@ -195,7 +195,28 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
 
   const fileToBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 800;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = (h / w) * MAX; w = MAX; }
+          else { w = (w / h) * MAX; h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const result = canvas.toDataURL('image/jpeg', 0.7);
+        canvas.width = 0;
+        canvas.height = 0;
+        resolve(result);
+      };
+      img.onerror = reject;
+      img.src = reader.result;
+    };
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });

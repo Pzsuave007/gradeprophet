@@ -81,34 +81,54 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
     finally { setIdentifying(false); }
   };
 
-  const handleImage = (e) => {
+  const compressMobileImage = useCallback((file) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new window.Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX = 800;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = (h / w) * MAX; w = MAX; }
+            else { w = (w / h) * MAX; h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          const result = canvas.toDataURL('image/jpeg', 0.7);
+          canvas.width = 0;
+          canvas.height = 0;
+          resolve(result);
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }, []);
+
+  const handleImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target.result;
-      setForm(f => ({ ...f, image_base64: dataUrl }));
-      setImagePreview(dataUrl);
-      identifyCard(dataUrl);
-    };
-    reader.readAsDataURL(file);
+    const dataUrl = await compressMobileImage(file);
+    setForm(f => ({ ...f, image_base64: dataUrl }));
+    setImagePreview(dataUrl);
+    identifyCard(dataUrl);
   };
 
-  const handleBackImage = (e) => {
+  const handleBackImage = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const backDataUrl = ev.target.result;
-      setForm(f => ({ ...f, back_image_base64: backDataUrl }));
-      setBackImagePreview(backDataUrl);
-      // Re-identify with both images if front image exists (back has year, card#, set info)
-      if (form.image_base64) {
-        toast.info('Re-identifying with front + back images...');
-        identifyCard(form.image_base64, backDataUrl);
-      }
-    };
-    reader.readAsDataURL(file);
+    const backDataUrl = await compressMobileImage(file);
+    setForm(f => ({ ...f, back_image_base64: backDataUrl }));
+    setBackImagePreview(backDataUrl);
+    // Re-identify with both images if front image exists (back has year, card#, set info)
+    if (form.image_base64) {
+      toast.info('Re-identifying with front + back images...');
+      identifyCard(form.image_base64, backDataUrl);
+    }
   };
 
   const handleSubmit = async (e) => {
