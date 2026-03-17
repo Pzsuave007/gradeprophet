@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================"
-echo "  FlipSlab Engine - Fix AI"
+echo "  FlipSlab Engine - Update"
 echo "============================================"
 
 REPO="/home/gradeprophet"
