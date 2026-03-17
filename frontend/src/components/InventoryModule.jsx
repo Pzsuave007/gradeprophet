@@ -521,35 +521,35 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
               </div>
               {/* Action buttons - below card info */}
               {!selectMode && (
-                <div className="flex items-stretch border-t border-[#1a1a1a]" data-testid={`card-actions-${i}`}>
+                <div className="flex items-stretch border-t border-[#1a1a1a] bg-[#0d0d0d]" data-testid={`card-actions-${i}`}>
                   {!item.listed && (
                     <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }}
-                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/5 transition-colors"
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-emerald-400 hover:bg-emerald-500/15 active:bg-emerald-500/25 transition-colors"
                       data-testid={`list-item-${i}`}>
-                      <ShoppingBag className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">List</span>
+                      <ShoppingBag className="w-4 h-4" /><span className="text-[9px] font-bold">List</span>
                     </button>
                   )}
                   {item.listed && item.ebay_item_id && (
                     <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
-                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-amber-400 hover:bg-amber-500/5 transition-colors">
-                      <ExternalLink className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">eBay</span>
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-amber-400 hover:bg-amber-500/15 active:bg-amber-500/25 transition-colors">
+                      <ExternalLink className="w-4 h-4" /><span className="text-[9px] font-bold">eBay</span>
                     </a>
                   )}
                   <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }}
-                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-colors"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-purple-400 hover:bg-purple-500/15 active:bg-purple-500/25 transition-colors"
                     data-testid={`chart-item-${i}`}>
-                    <TrendingUp className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Price</span>
+                    <TrendingUp className="w-4 h-4" /><span className="text-[9px] font-bold">Price</span>
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); openEdit(item); }}
-                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-colors"
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[#3b82f6] hover:bg-[#3b82f6]/15 active:bg-[#3b82f6]/25 transition-colors"
                     data-testid={`edit-item-${i}`}>
-                    <Edit2 className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Edit</span>
+                    <Edit2 className="w-4 h-4" /><span className="text-[9px] font-bold">Edit</span>
                   </button>
                   {!item.listed && (
                     <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-red-400 hover:bg-red-500/15 active:bg-red-500/25 transition-colors"
                       data-testid={`delete-item-${i}`}>
-                      <Trash2 className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Delete</span>
+                      <Trash2 className="w-4 h-4" /><span className="text-[9px] font-bold">Delete</span>
                     </button>
                   )}
                 </div>
