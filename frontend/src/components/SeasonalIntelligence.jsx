@@ -1,9 +1,13 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import {
   TrendingUp, TrendingDown, Thermometer, Calendar,
-  ChevronDown, ChevronUp, ArrowRight, Flame, Snowflake, Sun
+  ChevronDown, ChevronUp, ArrowRight, Flame, Snowflake, Sun,
+  ExternalLink, ShoppingCart, Loader2
 } from 'lucide-react';
+
+const API = process.env.REACT_APP_BACKEND_URL;
 
 // ===== SEASONAL DATA ENGINE =====
 const SPORTS = [
@@ -327,6 +331,88 @@ const UpcomingReleases = ({ currentMonth }) => {
   );
 };
 
+// ===== SEASONAL DEALS FROM EBAY =====
+const SeasonalDeals = () => {
+  const [deals, setDeals] = useState([]);
+  const [buySports, setBuySports] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDeals = async () => {
+      try {
+        const res = await axios.get(`${API}/api/market/seasonal-deals`);
+        setDeals(res.data.deals || []);
+        setBuySports(res.data.buy_sports || []);
+      } catch (e) {
+        console.warn('Seasonal deals fetch failed:', e);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDeals();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-5 h-5 text-gray-600 animate-spin" />
+        <span className="text-xs text-gray-600 ml-2">Loading deals...</span>
+      </div>
+    );
+  }
+
+  if (deals.length === 0) return null;
+
+  const sportColor = { Basketball: '#f59e0b', Football: '#10b981', Baseball: '#3b82f6', Hockey: '#06b6d4' };
+
+  return (
+    <div className="space-y-2" data-testid="seasonal-deals">
+      {deals.map((deal, i) => (
+        <motion.a
+          key={deal.item_id || i}
+          href={deal.ebay_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.04 }}
+          className="flex items-center gap-3 p-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all group cursor-pointer"
+          data-testid={`deal-${i}`}
+        >
+          {/* Card image */}
+          <div className="w-12 h-16 rounded-md overflow-hidden bg-[#1a1a1a] flex-shrink-0">
+            {deal.image_url ? (
+              <img src={deal.image_url} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <ShoppingCart className="w-4 h-4 text-gray-700" />
+              </div>
+            )}
+          </div>
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-gray-300 font-medium truncate leading-tight">{deal.title}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                style={{ background: `${sportColor[deal.sport] || '#666'}15`, color: sportColor[deal.sport] || '#666' }}>
+                {deal.sport}
+              </span>
+              {deal.condition && (
+                <span className="text-[8px] text-gray-600 truncate">{deal.condition}</span>
+              )}
+            </div>
+          </div>
+          {/* Price + link */}
+          <div className="text-right flex-shrink-0">
+            <p className="text-xs font-black text-emerald-400">{deal.price_value > 0 ? deal.price : 'Bid'}</p>
+            <ExternalLink className="w-3 h-3 text-gray-700 group-hover:text-emerald-400 ml-auto mt-1 transition-colors" />
+          </div>
+        </motion.a>
+      ))}
+    </div>
+  );
+};
+
 // ===== MAIN COMPONENT =====
 const SeasonalIntelligence = () => {
   const [expanded, setExpanded] = useState(true);
@@ -396,35 +482,49 @@ const SeasonalIntelligence = () => {
               </div>
             </div>
 
-            {/* Right: Season Timeline - 3 cols */}
-            <div className="lg:col-span-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
-              <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                <ArrowRight className="w-4 h-4 text-emerald-400" />
-                <h3 className="text-xs font-bold text-white">Season Calendar</h3>
-                <span className="text-[9px] text-gray-600 ml-auto">12-Month Cycle</span>
-              </div>
-              <div className="p-4">
-                <SeasonTimeline currentMonth={currentMonth} />
-                {/* Key Events below timeline */}
-                <div className="mt-5 pt-4 border-t border-[#1a1a1a]">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wider font-bold mb-3">Key Events This Month</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {SPORTS.flatMap(sport =>
-                      sport.keyEvents
-                        .filter(e => e.month === currentMonth)
-                        .map(e => (
-                          <div key={`${sport.abbr}-${e.label}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0d0d0d]">
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sport.color }} />
-                            <span className="text-[10px] text-gray-400">
-                              <span className="font-bold" style={{ color: sport.color }}>{sport.abbr}</span> — {e.label}
-                            </span>
-                          </div>
-                        ))
-                    )}
-                    {SPORTS.every(sport => sport.keyEvents.every(e => e.month !== currentMonth)) && (
-                      <p className="text-[10px] text-gray-600 col-span-2">No major events this month</p>
-                    )}
+            {/* Right: Season Timeline + Seasonal Deals - 3 cols */}
+            <div className="lg:col-span-3 space-y-4">
+              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+                  <ArrowRight className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-xs font-bold text-white">Season Calendar</h3>
+                  <span className="text-[9px] text-gray-600 ml-auto">12-Month Cycle</span>
+                </div>
+                <div className="p-4">
+                  <SeasonTimeline currentMonth={currentMonth} />
+                  {/* Key Events below timeline */}
+                  <div className="mt-5 pt-4 border-t border-[#1a1a1a]">
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wider font-bold mb-3">Key Events This Month</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {SPORTS.flatMap(sport =>
+                        sport.keyEvents
+                          .filter(e => e.month === currentMonth)
+                          .map(e => (
+                            <div key={`${sport.abbr}-${e.label}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0d0d0d]">
+                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sport.color }} />
+                              <span className="text-[10px] text-gray-400">
+                                <span className="font-bold" style={{ color: sport.color }}>{sport.abbr}</span> — {e.label}
+                              </span>
+                            </div>
+                          ))
+                      )}
+                      {SPORTS.every(sport => sport.keyEvents.every(e => e.month !== currentMonth)) && (
+                        <p className="text-[10px] text-gray-600 col-span-2">No major events this month</p>
+                      )}
+                    </div>
                   </div>
+                </div>
+              </div>
+
+              {/* Seasonal Deals from eBay */}
+              <div className="bg-[#111] border border-emerald-500/10 rounded-xl overflow-hidden">
+                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+                  <ShoppingCart className="w-4 h-4 text-emerald-400" />
+                  <h3 className="text-xs font-bold text-white">Buy Season Deals</h3>
+                  <span className="text-[9px] text-emerald-400/60 ml-auto">Live from eBay</span>
+                </div>
+                <div className="p-3 max-h-[400px] overflow-y-auto custom-scrollbar">
+                  <SeasonalDeals />
                 </div>
               </div>
             </div>

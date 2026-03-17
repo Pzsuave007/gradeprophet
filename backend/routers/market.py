@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Request, Body
+from datetime import datetime, timezone
 from typing import Optional
 from urllib.parse import quote_plus, unquote
 import logging
 import httpx
 from database import db
 from utils.auth import get_current_user
-from utils.ebay import get_ebay_app_token
+from utils.ebay import get_ebay_app_token, ebay_browse_search
 from utils.market import get_card_market_value, detect_sport
 
 logger = logging.getLogger(__name__)
@@ -209,3 +210,86 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
     except Exception as e:
         logger.error(f"Flip calc failed: {e}")
         return {"query": query, "error": str(e)}
+
+
+
+# ===== SEASONAL DEALS =====
+SEASONAL_QUERIES = {
+    "Basketball": [
+        "NBA Rookie PSA 10 card",
+        "Victor Wembanyama card",
+        "Luka Doncic Prizm card",
+        "LeBron James basketball card",
+    ],
+    "Football": [
+        "NFL Rookie PSA 10 card",
+        "Caleb Williams Prizm card",
+        "Patrick Mahomes card",
+        "CJ Stroud football card",
+    ],
+    "Baseball": [
+        "MLB Rookie PSA 10 card",
+        "Shohei Ohtani card",
+        "Elly De La Cruz card",
+        "Gunnar Henderson Topps card",
+    ],
+    "Hockey": [
+        "NHL Young Guns card",
+        "Connor Bedard card",
+        "Macklin Celebrini card",
+        "Connor McDavid card",
+    ],
+}
+
+SPORT_CYCLES = {
+    "Basketball": [3, 3, 3, 3, 3, 2, 1, 1, 1, 2, 3, 3],
+    "Football":   [3, 3, 1, 1, 1, 1, 2, 3, 3, 3, 3, 3],
+    "Baseball":   [1, 1, 2, 3, 3, 3, 3, 3, 3, 3, 1, 1],
+    "Hockey":     [3, 3, 3, 3, 3, 2, 1, 1, 2, 3, 3, 3],
+}
+
+
+@router.get("/seasonal-deals")
+async def get_seasonal_deals(request: Request):
+    """Get eBay listings for sports in BUY season"""
+    await get_current_user(request)
+
+    current_month = datetime.now(timezone.utc).month - 1  # 0-indexed
+
+    buy_sports = [sport for sport, cycle in SPORT_CYCLES.items() if cycle[current_month] == 1]
+    if not buy_sports:
+        buy_sports = [sport for sport, cycle in SPORT_CYCLES.items() if cycle[current_month] == 2]
+
+    results = []
+    for sport in buy_sports[:2]:
+        queries = SEASONAL_QUERIES.get(sport, [])
+        for q in queries[:2]:
+            try:
+                items = await ebay_browse_search(q, limit=3, sort="price")
+                for item in items:
+                    image_url = ""
+                    if item.get("image", {}).get("imageUrl"):
+                        image_url = item["image"]["imageUrl"]
+                    elif item.get("thumbnailImages"):
+                        image_url = item["thumbnailImages"][0].get("imageUrl", "")
+
+                    price_val = item.get("price", {}).get("value", "0")
+                    price_currency = item.get("price", {}).get("currency", "USD")
+
+                    results.append({
+                        "title": item.get("title", ""),
+                        "price": f"${price_val}",
+                        "currency": price_currency,
+                        "price_value": float(price_val),
+                        "image_url": image_url,
+                        "ebay_url": item.get("itemWebUrl", ""),
+                        "item_id": item.get("itemId", ""),
+                        "sport": sport,
+                        "condition": item.get("condition", ""),
+                        "buying_options": item.get("buyingOptions", []),
+                    })
+            except Exception as e:
+                logger.warning(f"Seasonal deals search error for '{q}': {e}")
+
+    results.sort(key=lambda x: x["price_value"])
+    return {"deals": results[:12], "buy_sports": buy_sports}
