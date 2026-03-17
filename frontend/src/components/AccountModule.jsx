@@ -45,7 +45,7 @@ const AccountModule = () => {
   const handleConnect = async () => {
     try {
       const res = await axios.get(`${API}/api/ebay/oauth/authorize`);
-      window.location.href = res.data.auth_url;
+      window.location.href = res.data.authorization_url;
     } catch { toast.error('Failed to generate eBay authorization URL'); }
   };
 
