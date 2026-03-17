@@ -13,6 +13,7 @@ import {
   CartesianGrid, BarChart, Bar, Cell
 } from 'recharts';
 import PriceAlerts from './PriceAlerts';
+import SeasonalIntelligence from './SeasonalIntelligence';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -305,6 +306,9 @@ const MarketModule = () => {
           <PriceLookupResult data={lookupResult} query={lookupQuery} onClose={() => setLookupResult(null)} />
         )}
       </AnimatePresence>
+
+      {/* === SEASONAL INTELLIGENCE === */}
+      <SeasonalIntelligence />
 
       {/* === KPI STRIP - Portfolio Overview === */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
