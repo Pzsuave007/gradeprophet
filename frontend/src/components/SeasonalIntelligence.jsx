@@ -336,7 +336,7 @@ const SeasonalDeals = () => {
   const [deals, setDeals] = useState([]);
   const [buySports, setBuySports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(12);
+  const [visibleCount, setVisibleCount] = useState(6);
 
   useEffect(() => {
     const fetchDeals = async () => {
@@ -422,7 +422,7 @@ const SeasonalDeals = () => {
       </div>
       {hasMore && (
         <button
-          onClick={() => setVisibleCount(prev => prev + 12)}
+          onClick={() => setVisibleCount(prev => prev + 6)}
           className="w-full mt-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all text-xs font-bold text-gray-400 hover:text-emerald-400"
           data-testid="load-more-deals"
         >

@@ -292,35 +292,6 @@ const MarketModule = () => {
       </div>
 
       {/* === SEARCH BAR - BIG AND PROMINENT === */}
-      <form onSubmit={handleSearch} className="relative" data-testid="market-search-form">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
-        <input className="w-full bg-[#111] border border-[#1a1a1a] rounded-xl pl-12 pr-28 py-4 text-base text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
-          placeholder='Look up any card... "LeBron James Prizm Silver PSA 10"'
-          value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-          data-testid="market-search-input" />
-        <button type="submit" disabled={searchLoading || !searchQuery.trim()}
-          className="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-bold hover:bg-[#2563eb] disabled:opacity-50 transition-colors"
-          data-testid="market-search-btn">
-          {searchLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Search'}
-        </button>
-      </form>
-
-      {/* Loading state */}
-      {searchLoading && (
-        <div className="text-center py-12 bg-[#111] border border-[#1a1a1a] rounded-xl">
-          <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin mx-auto mb-3" />
-          <p className="text-sm text-gray-400">Searching eBay sold listings...</p>
-          <p className="text-[10px] text-gray-600 mt-1">This may take a few seconds</p>
-        </div>
-      )}
-
-      {/* === LOOKUP RESULT (shown when search is done) === */}
-      <AnimatePresence>
-        {lookupResult && !searchLoading && (
-          <PriceLookupResult data={lookupResult} query={lookupQuery} onClose={() => setLookupResult(null)} />
-        )}
-      </AnimatePresence>
-
       {/* === SEASONAL INTELLIGENCE === */}
       <SeasonalIntelligence />
 
@@ -384,37 +355,6 @@ const MarketModule = () => {
         </motion.div>
       </div>
 
-      {/* === PRICE ALERTS === */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-        <PriceAlerts />
-      </motion.div>
-
-      {/* === MONTHLY PERFORMANCE BARS === */}
-      {(s.monthly_chart || []).length > 0 && (
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
-          className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="monthly-performance">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-            <BarChart3 className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-bold text-white">Monthly Performance</h2>
-            <div className="flex items-center gap-3 text-[10px] ml-auto">
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500" /> Revenue</span>
-              <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#3b82f6]" /> Profit</span>
-            </div>
-          </div>
-          <div className="p-4" style={{ height: 200 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={s.monthly_chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                <XAxis dataKey="month" stroke="#444" tick={{ fontSize: 10 }} />
-                <YAxis stroke="#444" tick={{ fontSize: 10 }} tickFormatter={v => `$${v}`} />
-                <Tooltip content={<ChartTooltip />} />
-                <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" name="Profit" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </motion.div>
-      )}
     </div>
   );
 };
