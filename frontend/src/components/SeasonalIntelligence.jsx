@@ -336,7 +336,7 @@ const SeasonalDeals = () => {
   const [deals, setDeals] = useState([]);
   const [buySports, setBuySports] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(8);
+  const [visibleCount, setVisibleCount] = useState(12);
 
   useEffect(() => {
     const fetchDeals = async () => {
@@ -370,7 +370,7 @@ const SeasonalDeals = () => {
 
   return (
     <div data-testid="seasonal-deals">
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2.5">
         {visibleDeals.map((deal, i) => (
         <motion.a
           key={deal.item_id || i}
@@ -422,7 +422,7 @@ const SeasonalDeals = () => {
       </div>
       {hasMore && (
         <button
-          onClick={() => setVisibleCount(prev => prev + 8)}
+          onClick={() => setVisibleCount(prev => prev + 12)}
           className="w-full mt-3 py-2.5 rounded-lg bg-[#0d0d0d] border border-[#1a1a1a] hover:border-emerald-500/30 hover:bg-emerald-500/[0.03] transition-all text-xs font-bold text-gray-400 hover:text-emerald-400"
           data-testid="load-more-deals"
         >
@@ -488,53 +488,63 @@ const SeasonalIntelligence = () => {
                   ))}
                 </div>
               </div>
-            </div>
 
-            {/* Right: Season Timeline + Seasonal Deals - 3 cols */}
-            <div className="lg:col-span-3 space-y-4">
+              {/* Upcoming Releases */}
               <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
                 <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                  <ArrowRight className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-xs font-bold text-white">Season Calendar</h3>
-                  <span className="text-[9px] text-gray-600 ml-auto">12-Month Cycle</span>
+                  <Calendar className="w-4 h-4 text-[#3b82f6]" />
+                  <h3 className="text-xs font-bold text-white">Upcoming Releases</h3>
+                  <span className="text-[9px] text-gray-600 ml-auto">2026</span>
                 </div>
-                <div className="p-4">
-                  <SeasonTimeline currentMonth={currentMonth} />
-                  {/* Key Events below timeline */}
-                  <div className="mt-5 pt-4 border-t border-[#1a1a1a]">
-                    <p className="text-[10px] text-gray-600 uppercase tracking-wider font-bold mb-3">Key Events This Month</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      {SPORTS.flatMap(sport =>
-                        sport.keyEvents
-                          .filter(e => e.month === currentMonth)
-                          .map(e => (
-                            <div key={`${sport.abbr}-${e.label}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0d0d0d]">
-                              <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sport.color }} />
-                              <span className="text-[10px] text-gray-400">
-                                <span className="font-bold" style={{ color: sport.color }}>{sport.abbr}</span> — {e.label}
-                              </span>
-                            </div>
-                          ))
-                      )}
-                      {SPORTS.every(sport => sport.keyEvents.every(e => e.month !== currentMonth)) && (
-                        <p className="text-[10px] text-gray-600 col-span-2">No major events this month</p>
-                      )}
-                    </div>
+                <div className="p-3">
+                  <UpcomingReleases currentMonth={currentMonth} />
+                </div>
+              </div>
+            </div>
+
+            {/* Right: Season Timeline - 3 cols */}
+            <div className="lg:col-span-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+                <ArrowRight className="w-4 h-4 text-emerald-400" />
+                <h3 className="text-xs font-bold text-white">Season Calendar</h3>
+                <span className="text-[9px] text-gray-600 ml-auto">12-Month Cycle</span>
+              </div>
+              <div className="p-4">
+                <SeasonTimeline currentMonth={currentMonth} />
+                {/* Key Events below timeline */}
+                <div className="mt-5 pt-4 border-t border-[#1a1a1a]">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wider font-bold mb-3">Key Events This Month</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {SPORTS.flatMap(sport =>
+                      sport.keyEvents
+                        .filter(e => e.month === currentMonth)
+                        .map(e => (
+                          <div key={`${sport.abbr}-${e.label}`} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#0d0d0d]">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sport.color }} />
+                            <span className="text-[10px] text-gray-400">
+                              <span className="font-bold" style={{ color: sport.color }}>{sport.abbr}</span> — {e.label}
+                            </span>
+                          </div>
+                        ))
+                    )}
+                    {SPORTS.every(sport => sport.keyEvents.every(e => e.month !== currentMonth)) && (
+                      <p className="text-[10px] text-gray-600 col-span-2">No major events this month</p>
+                    )}
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Seasonal Deals from eBay */}
-              <div className="bg-[#111] border border-emerald-500/10 rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                  <ShoppingCart className="w-4 h-4 text-emerald-400" />
-                  <h3 className="text-xs font-bold text-white">Buy Season Deals</h3>
-                  <span className="text-[9px] text-emerald-400/60 ml-auto">Live from eBay</span>
-                </div>
-                <div className="p-3 max-h-[400px] overflow-y-auto custom-scrollbar">
-                  <SeasonalDeals />
-                </div>
-              </div>
+          {/* Buy Season Deals - Full Width */}
+          <div className="bg-[#111] border border-emerald-500/10 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+              <ShoppingCart className="w-4 h-4 text-emerald-400" />
+              <h3 className="text-xs font-bold text-white">Buy Season Deals</h3>
+              <span className="text-[9px] text-emerald-400/60 ml-auto">Live from eBay</span>
+            </div>
+            <div className="p-3">
+              <SeasonalDeals />
             </div>
           </div>
         </motion.div>

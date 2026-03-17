@@ -316,82 +316,20 @@ const MarketModule = () => {
       {/* === SEASONAL INTELLIGENCE === */}
       <SeasonalIntelligence />
 
-      {/* === WATCHLIST + HOT CARDS === */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Watchlist - 2 cols */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="watchlist-section">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
-            <div className="flex items-center gap-2">
-              <Bookmark className="w-4 h-4 text-[#3b82f6]" />
-              <h2 className="text-sm font-bold text-white">My Watchlist</h2>
-            </div>
-            <button onClick={() => setShowAddWatchlist(!showAddWatchlist)}
-              className="p-1.5 rounded-lg bg-[#3b82f6]/10 hover:bg-[#3b82f6]/20 transition-colors"
-              data-testid="add-watchlist-btn">
-              <Plus className="w-3.5 h-3.5 text-[#3b82f6]" />
-            </button>
-          </div>
-
-          {/* Add form */}
-          <AnimatePresence>
-            {showAddWatchlist && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                className="border-b border-[#1a1a1a] overflow-hidden">
-                <div className="p-3 space-y-2">
-                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
-                    placeholder="Player or card name..." value={newWatchName} onChange={e => setNewWatchName(e.target.value)}
-                    data-testid="watchlist-name-input" />
-                  <div className="flex gap-2">
-                    <button onClick={() => setNewWatchType('player')}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${newWatchType === 'player' ? 'bg-[#3b82f6] text-white' : 'bg-[#0a0a0a] text-gray-500'}`}>
-                      Player
-                    </button>
-                    <button onClick={() => setNewWatchType('card')}
-                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${newWatchType === 'card' ? 'bg-[#3b82f6] text-white' : 'bg-[#0a0a0a] text-gray-500'}`}>
-                      Card
-                    </button>
-                    <button onClick={addToWatchlist} disabled={!newWatchName.trim()}
-                      className="px-4 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 disabled:opacity-50"
-                      data-testid="save-watchlist-btn">
-                      Add
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
-            {watchlist.length > 0 ? watchlist.map((item, i) => (
-              <WatchlistItem key={i} item={item} onLookup={handleLookup} onRemove={removeFromWatchlist} />
-            )) : (
-              <div className="text-center py-6">
-                <Bookmark className="w-6 h-6 text-gray-700 mx-auto mb-2" />
-                <p className="text-xs text-gray-600">Track players and cards you're interested in</p>
-                <button onClick={() => setShowAddWatchlist(true)} className="text-[10px] text-[#3b82f6] mt-1 hover:underline">
-                  Add your first item
-                </button>
-              </div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Hot on Market - 3 cols */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-          className="lg:col-span-3 space-y-3" data-testid="hot-cards-section">
-          <div className="flex items-center gap-2">
-            <Flame className="w-5 h-5 text-orange-500" />
-            <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
-            <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
-          </div>
-          <div className="space-y-2">
-            {hotCards.map((card, i) => (
-              <HotCardRow key={i} card={card} onLookup={handleLookup} />
-            ))}
-          </div>
-        </motion.div>
-      </div>
+      {/* === HOT CARDS === */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+        className="space-y-3" data-testid="hot-cards-section">
+        <div className="flex items-center gap-2">
+          <Flame className="w-5 h-5 text-orange-500" />
+          <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
+          <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
+          {hotCards.map((card, i) => (
+            <HotCardRow key={i} card={card} onLookup={handleLookup} />
+          ))}
+        </div>
+      </motion.div>
 
       {/* === PRICE ALERTS === */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
