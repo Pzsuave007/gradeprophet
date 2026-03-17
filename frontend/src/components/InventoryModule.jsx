@@ -503,11 +503,6 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                 )}
                 {!selectMode && (
                   <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1 rounded bg-emerald-600/80 text-white hover:bg-emerald-500" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3 h-3" /></button>}
-                    {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1 rounded bg-amber-600/80 text-white hover:bg-amber-500" title="View on eBay"><ExternalLink className="w-3 h-3" /></a>}
-                    <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }} className="p-1 rounded bg-black/60 text-white hover:bg-purple-500" data-testid={`chart-item-${i}`} title="Price History"><TrendingUp className="w-3 h-3" /></button>
-                    <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1 rounded bg-black/60 text-white hover:bg-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3 h-3" /></button>
-                    {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1 rounded bg-black/60 text-white hover:bg-red-500" data-testid={`delete-item-${i}`}><Trash2 className="w-3 h-3" /></button>}
                   </div>
                 )}
               </div>
@@ -524,6 +519,41 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
                   </p>
                 )}
               </div>
+              {/* Action buttons - below card info */}
+              {!selectMode && (
+                <div className="flex items-stretch border-t border-[#1a1a1a]" data-testid={`card-actions-${i}`}>
+                  {!item.listed && (
+                    <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }}
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/5 transition-colors"
+                      data-testid={`list-item-${i}`}>
+                      <ShoppingBag className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">List</span>
+                    </button>
+                  )}
+                  {item.listed && item.ebay_item_id && (
+                    <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-amber-400 hover:bg-amber-500/5 transition-colors">
+                      <ExternalLink className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">eBay</span>
+                    </a>
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }}
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-purple-400 hover:bg-purple-500/5 transition-colors"
+                    data-testid={`chart-item-${i}`}>
+                    <TrendingUp className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Price</span>
+                  </button>
+                  <button onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                    className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-[#3b82f6] hover:bg-[#3b82f6]/5 transition-colors"
+                    data-testid={`edit-item-${i}`}>
+                    <Edit2 className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Edit</span>
+                  </button>
+                  {!item.listed && (
+                    <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2 text-gray-500 hover:text-red-400 hover:bg-red-500/5 transition-colors"
+                      data-testid={`delete-item-${i}`}>
+                      <Trash2 className="w-3.5 h-3.5" /><span className="text-[8px] font-medium">Delete</span>
+                    </button>
+                  )}
+                </div>
+              )}
             </motion.div>
           ))}
         </div>
