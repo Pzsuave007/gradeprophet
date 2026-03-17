@@ -8,9 +8,9 @@
 2. **Inventory** - Card management with AI identification from photos, batch upload, front/back image pairing
 3. **Market** - Seasonal Intelligence with market pulse, season calendar, recommendations, and Buy Season Deals from eBay
 4. **Flip Finder** - Card flipping opportunity analysis (core logic P3)
-5. **Listings** - eBay listing creation and management with AI-powered titles/descriptions
+5. **Listings** - eBay listing creation/management with AI titles, Best Offer toggle, 4 shipping profiles
 6. **Account** - User settings, eBay connection, scanner token management
-7. **Quick Scan** - Mobile camera-based card capture with AI auto-identification (NEW Feb 2026)
+7. **Quick Scan** - Mobile camera-based card capture with AI auto-identification
 
 ## Tech Stack
 - Frontend: React + Tailwind CSS + Framer Motion + Shadcn UI
@@ -24,28 +24,20 @@
 - [x] Full authentication (Google Auth + JWT)
 - [x] Scanner desktop app with duplex scanning + natural sort fix
 - [x] AI card identification from photos
-- [x] eBay integration with per-user token isolation (CRITICAL FIX)
+- [x] eBay integration with per-user token isolation
 - [x] Landing page ("Track. Flip. Sell.")
-- [x] Market Seasonal Intelligence (pulse, calendar, recommendations, deals)
+- [x] Market Seasonal Intelligence
 - [x] Onboarding wizard
-- [x] Mobile/Tablet Responsiveness - All pages verified at 375px and 768px
-- [x] **Quick Scan Mobile Feature (Feb 2026)** - Camera-based card capture → AI identification → one-tap save
+- [x] Mobile/Tablet Responsiveness (375px + 768px verified)
+- [x] Quick Scan Mobile Feature (camera → AI → inventory)
+- [x] **Best Offer Toggle (Feb 2026)** - Enable/disable Best Offers on BIN listings (create + edit)
+- [x] **PWE Envelope Shipping (Feb 2026)** - $2.50 flat rate for raw cards, US domestic only (create + edit)
 
-## Quick Scan Feature Details
-- Accessible via: floating action button (FAB) on mobile + sidebar link
-- 3-step flow: Front photo → Back photo (optional) → AI Review → Save
-- Uses device camera via `capture="environment"` attribute
-- AI identifies card using existing `/api/cards/identify` endpoint (GPT-4o)
-- Saves directly to inventory via `/api/inventory` endpoint
-- Full-screen overlay with z-[100] for mobile-first experience
-- UI in Spanish (Tomar Foto, Cerrar, Guardar en Inventario)
-
-## Key Architecture Decisions
-- eBay tokens stored per user_id in `ebay_tokens` collection
-- Frontend pre-compiled with production URL for deployment
-- Season-based market intelligence using current month
-- Sidebar navigation with mobile hamburger menu + slide-in overlay
-- Quick Scan as fullscreen overlay, not a separate route
+## eBay Listing Features
+- **Shipping profiles:** Free Shipping, PWE Envelope ($2.50 US), USPS First Class ($4.50), USPS Priority ($8.50)
+- **Best Offer:** Toggle available for Buy It Now format only (hidden for Auctions)
+- **Both features available in:** Create Listing modal AND Edit Listing view for existing listings
+- **Backend mapping:** PWEEnvelope → USPSFirstClass in eBay API XML
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync (awaiting API access)
