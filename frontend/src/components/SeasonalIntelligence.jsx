@@ -404,13 +404,16 @@ const SeasonalDeals = () => {
           {/* Info */}
           <div className="p-2.5">
             <p className="text-[10px] text-gray-300 font-medium leading-tight line-clamp-2">{deal.title}</p>
-            <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
               <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
                 style={{ background: `${sportColor[deal.sport] || '#666'}15`, color: sportColor[deal.sport] || '#666' }}>
                 {deal.sport}
               </span>
-              {deal.condition && (
-                <span className="text-[8px] text-gray-600 truncate">{deal.condition}</span>
+              {deal.category && (
+                <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
+                  style={{ background: `${deal.category_color || '#666'}15`, color: deal.category_color || '#666' }}>
+                  {deal.category}
+                </span>
               )}
             </div>
           </div>

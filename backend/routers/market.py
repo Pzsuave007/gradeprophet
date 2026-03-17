@@ -215,30 +215,97 @@ async def flip_calculator(query: str, grading_cost: float = 30.0):
 
 # ===== SEASONAL DEALS =====
 SEASONAL_QUERIES = {
-    "Basketball": [
-        "NBA Rookie PSA 10 card",
-        "Victor Wembanyama card",
-        "Luka Doncic Prizm card",
-        "LeBron James basketball card",
-    ],
-    "Football": [
-        "NFL Rookie PSA 10 card",
-        "Caleb Williams Prizm card",
-        "Patrick Mahomes card",
-        "CJ Stroud football card",
-    ],
-    "Baseball": [
-        "MLB Rookie PSA 10 card",
-        "Shohei Ohtani card",
-        "Elly De La Cruz card",
-        "Gunnar Henderson Topps card",
-    ],
-    "Hockey": [
-        "NHL Young Guns card",
-        "Connor Bedard card",
-        "Macklin Celebrini card",
-        "Connor McDavid card",
-    ],
+    "Basketball": {
+        "rookies": [
+            "Victor Wembanyama Prizm rookie card",
+            "Chet Holmgren Prizm rookie card",
+            "Brandon Miller rookie card Panini",
+        ],
+        "proven_stars": [
+            "LeBron James Prizm PSA 10",
+            "Luka Doncic Prizm silver PSA",
+            "Giannis Antetokounmpo Prizm card",
+        ],
+        "graded_steals": [
+            "NBA Prizm PSA 10 rookie card",
+            "NBA Optic rated rookie PSA 10",
+        ],
+        "hype_picks": [
+            "Anthony Edwards Prizm card",
+            "Tyrese Maxey Prizm card",
+            "Paolo Banchero rookie Prizm",
+        ],
+    },
+    "Football": {
+        "rookies": [
+            "Caleb Williams Prizm rookie card",
+            "Drake Maye Prizm rookie card",
+            "Jayden Daniels Prizm rookie card",
+        ],
+        "proven_stars": [
+            "Patrick Mahomes Prizm PSA 10",
+            "Josh Allen Prizm silver card",
+            "Lamar Jackson Prizm card",
+        ],
+        "graded_steals": [
+            "NFL Prizm PSA 10 rookie card",
+            "NFL Optic rated rookie PSA 10",
+        ],
+        "hype_picks": [
+            "Saquon Barkley Prizm card",
+            "CJ Stroud Prizm rookie card",
+            "Brock Purdy Prizm card",
+        ],
+    },
+    "Baseball": {
+        "rookies": [
+            "Elly De La Cruz Topps Chrome rookie",
+            "Gunnar Henderson Topps rookie card",
+            "Corbin Carroll Topps Chrome rookie",
+        ],
+        "proven_stars": [
+            "Shohei Ohtani Topps Chrome PSA 10",
+            "Mike Trout Topps Chrome PSA",
+            "Ronald Acuna Jr Topps Chrome card",
+        ],
+        "graded_steals": [
+            "MLB Topps Chrome PSA 10 rookie",
+            "Bowman Chrome 1st PSA 10",
+        ],
+        "hype_picks": [
+            "Jackson Holliday Bowman Chrome card",
+            "Junior Caminero Topps card",
+            "Paul Skenes Topps Chrome rookie",
+        ],
+    },
+    "Hockey": {
+        "rookies": [
+            "Connor Bedard Young Guns rookie card",
+            "Macklin Celebrini Young Guns rookie",
+            "Leo Carlsson Upper Deck rookie card",
+        ],
+        "proven_stars": [
+            "Connor McDavid Young Guns PSA 10",
+            "Auston Matthews Young Guns PSA",
+            "Nathan MacKinnon Upper Deck card",
+        ],
+        "graded_steals": [
+            "NHL Young Guns PSA 10 rookie",
+            "Upper Deck Series 1 Young Guns PSA 10",
+        ],
+        "hype_picks": [
+            "Matvei Michkov Upper Deck rookie",
+            "Adam Fantilli Young Guns card",
+            "Logan Cooley Upper Deck rookie",
+        ],
+    },
+}
+
+CATEGORY_LABELS = {
+    "rookies": {"label": "Rookie Star", "color": "#f59e0b"},
+    "proven_stars": {"label": "Proven Star", "color": "#3b82f6"},
+    "graded_steals": {"label": "Graded Steal", "color": "#8b5cf6"},
+    "hype_picks": {"label": "Hype Pick", "color": "#ef4444"},
 }
 
 SPORT_CYCLES = {
@@ -262,34 +329,38 @@ async def get_seasonal_deals(request: Request):
 
     results = []
     for sport in buy_sports[:2]:
-        queries = SEASONAL_QUERIES.get(sport, [])
-        for q in queries[:4]:
-            try:
-                items = await ebay_browse_search(q, limit=4, sort="price")
-                for item in items:
-                    image_url = ""
-                    if item.get("image", {}).get("imageUrl"):
-                        image_url = item["image"]["imageUrl"]
-                    elif item.get("thumbnailImages"):
-                        image_url = item["thumbnailImages"][0].get("imageUrl", "")
+        sport_queries = SEASONAL_QUERIES.get(sport, {})
+        for category, queries in sport_queries.items():
+            cat_info = CATEGORY_LABELS.get(category, {"label": category, "color": "#666"})
+            for q in queries[:2]:
+                try:
+                    items = await ebay_browse_search(q, limit=3, sort="price")
+                    for item in items:
+                        image_url = ""
+                        if item.get("image", {}).get("imageUrl"):
+                            image_url = item["image"]["imageUrl"]
+                        elif item.get("thumbnailImages"):
+                            image_url = item["thumbnailImages"][0].get("imageUrl", "")
 
-                    price_val = item.get("price", {}).get("value", "0")
-                    price_currency = item.get("price", {}).get("currency", "USD")
+                        price_val = item.get("price", {}).get("value", "0")
+                        price_currency = item.get("price", {}).get("currency", "USD")
 
-                    results.append({
-                        "title": item.get("title", ""),
-                        "price": f"${price_val}",
-                        "currency": price_currency,
-                        "price_value": float(price_val),
-                        "image_url": image_url,
-                        "ebay_url": item.get("itemWebUrl", ""),
-                        "item_id": item.get("itemId", ""),
-                        "sport": sport,
-                        "condition": item.get("condition", ""),
-                        "buying_options": item.get("buyingOptions", []),
-                    })
-            except Exception as e:
-                logger.warning(f"Seasonal deals search error for '{q}': {e}")
+                        results.append({
+                            "title": item.get("title", ""),
+                            "price": f"${price_val}",
+                            "currency": price_currency,
+                            "price_value": float(price_val),
+                            "image_url": image_url,
+                            "ebay_url": item.get("itemWebUrl", ""),
+                            "item_id": item.get("itemId", ""),
+                            "sport": sport,
+                            "category": cat_info["label"],
+                            "category_color": cat_info["color"],
+                            "condition": item.get("condition", ""),
+                            "buying_options": item.get("buyingOptions", []),
+                        })
+                except Exception as e:
+                    logger.warning(f"Seasonal deals search error for '{q}': {e}")
 
     results.sort(key=lambda x: x["price_value"])
     return {"deals": results[:24], "buy_sports": buy_sports}
