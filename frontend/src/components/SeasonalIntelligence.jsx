@@ -366,7 +366,7 @@ const SeasonalDeals = () => {
   const sportColor = { Basketball: '#f59e0b', Football: '#10b981', Baseball: '#3b82f6', Hockey: '#06b6d4' };
 
   return (
-    <div className="grid grid-cols-2 xl:grid-cols-3 gap-2.5" data-testid="seasonal-deals">
+    <div className="grid grid-cols-4 gap-2" data-testid="seasonal-deals">
       {deals.map((deal, i) => (
         <motion.a
           key={deal.item_id || i}
