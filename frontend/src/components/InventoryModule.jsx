@@ -83,29 +83,29 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
 
   const compressMobileImage = useCallback((file) => {
     return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const img = new window.Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const MAX = 800;
-          let w = img.width, h = img.height;
-          if (w > MAX || h > MAX) {
-            if (w > h) { h = (h / w) * MAX; w = MAX; }
-            else { w = (w / h) * MAX; h = MAX; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          const result = canvas.toDataURL('image/jpeg', 0.7);
-          canvas.width = 0;
-          canvas.height = 0;
-          resolve(result);
-        };
-        img.src = e.target.result;
+      const url = URL.createObjectURL(file);
+      const img = new window.Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        const MAX = 600;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else { w = Math.round((w / h) * MAX); h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const result = canvas.toDataURL('image/jpeg', 0.6);
+        canvas.width = 0;
+        canvas.height = 0;
+        img.src = '';
+        resolve(result);
       };
-      reader.readAsDataURL(file);
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+      img.src = url;
     });
   }, []);
 
