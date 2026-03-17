@@ -216,7 +216,7 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
             {/* Price Comparison Summary - Always visible when data is loaded */}
             <div className="p-4 space-y-4">
               {/* Your Price vs Market - BIG prominent comparison */}
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
                   <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price</p>
                   <p className="text-2xl font-black text-white" data-testid="your-price-display">${listing.price}</p>
@@ -771,7 +771,7 @@ const ListingsModule = () => {
   return (
     <div className="space-y-5 pb-8" data-testid="listings-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold text-white tracking-tight">Listings</h1>
           <p className="text-xs text-gray-500 mt-0.5">Manage your eBay listings</p>
@@ -810,11 +810,11 @@ const ListingsModule = () => {
 
       {/* Tabs + Controls */}
       <div className="space-y-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex gap-1">
             {tabs.map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setActiveTab(id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
                   activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
                 }`} data-testid={`listings-tab-${id}`}>
                 <Icon className="w-4 h-4" />{label}

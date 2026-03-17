@@ -157,6 +157,7 @@ const Dashboard = ({ user, onLogout }) => {
               <nav className="py-3 px-2 space-y-0.5">
                 {modules.map(({ id, label, icon: Icon }) => (
                   <button key={id} onClick={() => { setActiveModule(id); setSidebarOpen(false); }}
+                    data-testid={`mobile-nav-${id}`}
                     className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
                       activeModule === id ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white hover:bg-white/5'
                     }`}>
@@ -170,8 +171,8 @@ const Dashboard = ({ user, onLogout }) => {
       </AnimatePresence>
 
       {/* Main Content */}
-      <main className="flex-1 lg:ml-56 min-h-screen">
-        <div className="pt-14 lg:pt-0 px-4 sm:px-6 py-4">
+      <main className="flex-1 lg:ml-56 min-h-screen overflow-x-hidden">
+        <div className="pt-14 lg:pt-0 px-4 sm:px-6 py-4 max-w-full">
           <AnimatePresence mode="wait">
             <motion.div key={activeModule} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {renderModule()}

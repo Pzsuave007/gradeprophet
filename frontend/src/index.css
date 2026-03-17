@@ -41,6 +41,15 @@ code {
   background: #3f3f46;
 }
 
+/* Hide scrollbar for tab bars on mobile */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 @layer base {
   :root {
     --background: 0 0% 4%;

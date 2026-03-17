@@ -321,16 +321,16 @@ const DashboardHome = ({ onNavigate }) => {
   return (
     <div className="space-y-5 pb-8" data-testid="dashboard-home">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">FlipSlab HQ</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">FlipSlab HQ</h1>
           <p className="text-xs text-gray-500 mt-0.5">Your trading command center</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="flex bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden" data-testid="date-range-filter">
             {['30d','90d','180d','all'].map(r => (
               <button key={r} onClick={() => setDateRange(r)}
-                className={`px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold transition-all ${dateRange === r ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white'}`}
+                className={`px-2.5 sm:px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold transition-all ${dateRange === r ? 'bg-[#3b82f6] text-white' : 'text-gray-500 hover:text-white'}`}
                 data-testid={`filter-${r}`}>{r === 'all' ? 'All' : r}</button>
             ))}
           </div>
@@ -341,17 +341,17 @@ const DashboardHome = ({ onNavigate }) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1" data-testid="dashboard-tabs">
+      <div className="flex gap-1 overflow-x-auto scrollbar-hide" data-testid="dashboard-tabs">
         {[
           { id: 'command', label: 'Command Center', icon: Activity },
           { id: 'overview', label: 'Sales Overview', icon: TrendingUp },
           { id: 'portfolio', label: 'Portfolio Value', icon: Wallet },
         ].map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setDashTab(id)}
-            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
               dashTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
             }`} data-testid={`dash-tab-${id}`}>
-            <Icon className="w-3.5 h-3.5" />{label}
+            <Icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{label}</span><span className="sm:hidden">{label.split(' ')[0]}</span>
           </button>
         ))}
       </div>
@@ -599,7 +599,7 @@ const EmptyGrid = ({ message, cta, onAction, icon: Icon }) => (
 // ========================
 const SalesOverviewTab = ({ filteredStats, filteredCumulative, s, inv, lst, onNavigate }) => (
   <>
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
       {[
         { icon: DollarSign, label: 'Revenue', value: fmt(filteredStats.revenue), sub: `${filteredStats.count} sales`, color: 'bg-emerald-600', accent: 'text-emerald-400' },
         { icon: TrendingUp, label: 'Profit', value: fmt(filteredStats.profit), sub: `${fmt(filteredStats.fees)} in fees`, color: 'bg-[#3b82f6]', accent: 'text-[#3b82f6]' },

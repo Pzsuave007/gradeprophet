@@ -109,8 +109,8 @@ const PriceLookupResult = ({ data, query, onClose }) => {
       </div>
 
       {/* Big Price Display */}
-      <div className="grid grid-cols-2 gap-0 border-b border-[#1a1a1a]">
-        <div className="p-5 border-r border-[#1a1a1a]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-0 border-b border-[#1a1a1a]">
+        <div className="p-5 sm:border-r border-b sm:border-b-0 border-[#1a1a1a]">
           <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-1">{primary.label || 'Primary'}</p>
           {pStats.count > 0 ? (
             <>
@@ -281,9 +281,9 @@ const MarketModule = () => {
   return (
     <div className="space-y-5 pb-8" data-testid="market-page">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-white tracking-tight">Market Intelligence</h1>
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Market Intelligence</h1>
           <p className="text-xs text-gray-500 mt-0.5">Real-time market data, trends & investment insights</p>
         </div>
         <button onClick={fetchData} className="p-2 rounded-lg bg-[#111] border border-[#1a1a1a] hover:border-[#3b82f6]/50 transition-colors" data-testid="market-refresh">

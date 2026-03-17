@@ -68,10 +68,10 @@ const FlipFinder = () => {
   return (
     <div className="w-full">
       {/* Sub-navigation */}
-      <div className="flex gap-1 mb-4">
+      <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide pb-1">
         {subTabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => { setSubTab(id); if (id === 'scanner') setCurrentView('scanner'); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap ${
               subTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
             }`} data-testid={`flip-tab-${id}`}>
             <Icon className="w-3.5 h-3.5" />{label}

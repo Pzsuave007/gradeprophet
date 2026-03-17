@@ -159,38 +159,40 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
           </div>
         </div>
 
-        {/* Front + Back images side by side */}
-        <div className="flex items-start gap-4">
-          {/* Front image */}
-          <div className="relative flex-shrink-0">
-            <label className={`${labelCls} text-center mb-1.5`}>Front</label>
-            <div onClick={() => fileRef.current?.click()}
-              className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
-              data-testid="image-upload-area">
-              {imagePreview ? <img src={imagePreview} alt="Front" className="w-full h-full object-contain" />
-                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Front Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
-            </div>
-            {identifying && (
-              <div className="absolute inset-0 mt-5 bg-black/70 rounded-xl flex flex-col items-center justify-center">
-                <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mb-1" />
-                <span className="text-[9px] text-[#3b82f6] font-medium">Identifying...</span>
+        {/* Front + Back images */}
+        <div className="flex flex-col sm:flex-row items-start gap-4">
+          <div className="flex gap-4">
+            {/* Front image */}
+            <div className="relative flex-shrink-0">
+              <label className={`${labelCls} text-center mb-1.5`}>Front</label>
+              <div onClick={() => fileRef.current?.click()}
+                className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-[#3b82f6]/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
+                data-testid="image-upload-area">
+                {imagePreview ? <img src={imagePreview} alt="Front" className="w-full h-full object-contain" />
+                  : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Front Photo</span><span className="text-[8px] text-[#3b82f6] block mt-0.5">AI Auto-Fill</span></div>}
+                <input ref={fileRef} type="file" accept="image/*" onChange={handleImage} className="hidden" />
               </div>
-            )}
-          </div>
-          {/* Back image */}
-          <div className="flex-shrink-0">
-            <label className={`${labelCls} text-center mb-1.5`}>Back</label>
-            <div onClick={() => backFileRef.current?.click()}
-              className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-amber-500/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
-              data-testid="back-image-upload-area">
-              {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-contain" />
-                : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span><span className="text-[8px] text-amber-400 block mt-0.5">Better ID</span></div>}
-              <input ref={backFileRef} type="file" accept="image/*" onChange={handleBackImage} className="hidden" />
+              {identifying && (
+                <div className="absolute inset-0 mt-5 bg-black/70 rounded-xl flex flex-col items-center justify-center">
+                  <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mb-1" />
+                  <span className="text-[9px] text-[#3b82f6] font-medium">Identifying...</span>
+                </div>
+              )}
+            </div>
+            {/* Back image */}
+            <div className="flex-shrink-0">
+              <label className={`${labelCls} text-center mb-1.5`}>Back</label>
+              <div onClick={() => backFileRef.current?.click()}
+                className="w-28 h-36 rounded-xl border-2 border-dashed border-[#222] hover:border-amber-500/50 flex items-center justify-center cursor-pointer overflow-hidden transition-colors"
+                data-testid="back-image-upload-area">
+                {backImagePreview ? <img src={backImagePreview} alt="Back" className="w-full h-full object-contain" />
+                  : <div className="text-center p-2"><Upload className="w-5 h-5 text-gray-600 mx-auto mb-1" /><span className="text-[9px] text-gray-500 block">Back Photo</span><span className="text-[8px] text-amber-400 block mt-0.5">Better ID</span></div>}
+                <input ref={backFileRef} type="file" accept="image/*" onChange={handleBackImage} className="hidden" />
+              </div>
             </div>
           </div>
           {/* Card name + player + year */}
-          <div className="flex-1 space-y-3">
+          <div className="flex-1 w-full space-y-3">
             <div><label className={labelCls}>Card Name *</label><input className={inputCls} placeholder="e.g. 1996 Topps Kobe Bryant #138" value={form.card_name} onChange={e => setForm(f => ({ ...f, card_name: e.target.value }))} data-testid="input-card-name" /></div>
             <div className="grid grid-cols-2 gap-3">
               <div><label className={labelCls}>Player</label><input className={inputCls} placeholder="Kobe Bryant" value={form.player} onChange={e => setForm(f => ({ ...f, player: e.target.value }))} data-testid="input-player" /></div>
@@ -206,19 +208,19 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
           </div>
         )}
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Set</label><input className={inputCls} placeholder="Topps Chrome" value={form.set_name} onChange={e => setForm(f => ({ ...f, set_name: e.target.value }))} data-testid="input-set" /></div>
           <div><label className={labelCls}>Card #</label><input className={inputCls} placeholder="#138" value={form.card_number} onChange={e => setForm(f => ({ ...f, card_number: e.target.value }))} data-testid="input-card-number" /></div>
           <div><label className={labelCls}>Variation</label><input className={inputCls} placeholder="Refractor..." value={form.variation} onChange={e => setForm(f => ({ ...f, variation: e.target.value }))} data-testid="input-variation" /></div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Condition</label><select className={inputCls} value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))} data-testid="select-condition">{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
           {form.condition === 'Graded' && (<>
             <div><label className={labelCls}>Grading Co.</label><select className={inputCls} value={form.grading_company} onChange={e => setForm(f => ({ ...f, grading_company: e.target.value }))} data-testid="select-grading-company"><option value="">Select...</option>{GRADING_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
             <div><label className={labelCls}>Grade</label><select className={inputCls} value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} data-testid="select-grade"><option value="">Select...</option>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
           </>)}
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Purchase Price ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.purchase_price} onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))} data-testid="input-price" /></div>
           <div><label className={labelCls}>Quantity</label><input className={inputCls} type="number" min="1" placeholder="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} data-testid="input-quantity" /></div>
           <div><label className={labelCls}>Notes</label><input className={inputCls} placeholder="Optional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" /></div>
@@ -369,18 +371,18 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
         ))}
       </div>
 
-      <div className="flex gap-1 border-b border-[#1a1a1a] pb-px mb-4">
+      <div className="flex gap-1 border-b border-[#1a1a1a] pb-px mb-4 overflow-x-auto scrollbar-hide">
         {categoryTabs.map(({ id, label, icon: Icon, count }) => (
           <button key={id} onClick={() => onCategoryChange(id)}
-            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${activeCategory === id ? 'border-[#3b82f6] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${activeCategory === id ? 'border-[#3b82f6] text-white' : 'border-transparent text-gray-500 hover:text-gray-300'}`}
             data-testid={`tab-${id}`}>{Icon && <Icon className="w-3.5 h-3.5" />}{label}
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeCategory === id ? 'bg-[#3b82f6]/20 text-[#3b82f6]' : 'bg-[#1a1a1a] text-gray-600'}`}>{count}</span>
           </button>
         ))}
       </div>
 
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1 relative">
+      <div className="flex gap-2 mb-3 flex-wrap">
+        <div className="flex-1 min-w-[150px] relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
           <input className="w-full bg-[#111] border border-[#1a1a1a] rounded-lg pl-9 pr-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
             placeholder="Search..." value={search} onChange={e => handleSearch(e.target.value)} data-testid="inventory-search" />
@@ -599,10 +601,10 @@ const InventoryModule = () => {
       <div className="flex items-center justify-between">
         <div><h1 className="text-xl font-bold text-white tracking-tight">Inventory</h1><p className="text-xs text-gray-500 mt-0.5">Manage your card collection</p></div>
       </div>
-      <div className="flex gap-1 mb-1">
+      <div className="flex gap-1 mb-1 overflow-x-auto scrollbar-hide">
         {[{ id: 'cards', label: 'My Cards', icon: Layers }, { id: 'batch', label: 'Batch Upload', icon: Upload }, { id: 'scan', label: 'Scan Card', icon: Scan }].map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setMainTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${mainTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'}`}
+            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors whitespace-nowrap ${mainTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'}`}
             data-testid={`inv-tab-${id}`}><Icon className="w-4 h-4" />{label}</button>
         ))}
       </div>
