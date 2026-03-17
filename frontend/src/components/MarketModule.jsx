@@ -46,31 +46,39 @@ const HotCardRow = ({ card, onLookup }) => {
     e.stopPropagation();
     window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(card.query)}&_sacat=212&LH_BIN=1&_sop=15`, '_blank');
   };
+  const signalColor = card.season_signal === 'Buy Now' ? '#22c55e' : card.season_signal === 'Warming Up' ? '#f59e0b' : '#ef4444';
   return (
     <motion.div
       initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-      className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 hover:border-orange-500/30 transition-all group cursor-pointer"
+      className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3.5 hover:border-orange-500/30 transition-all group cursor-pointer"
       onClick={openEbay}
       data-testid={`hot-card-${card.name.replace(/\s/g, '-').toLowerCase()}`}
     >
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}20` }}>
-          <Flame className="w-5 h-5" style={{ color: SPORT_COLORS[card.sport] || '#6b7280' }} />
+          <Flame className="w-4 h-4" style={{ color: SPORT_COLORS[card.sport] || '#6b7280' }} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">{card.name}</p>
-          <p className="text-[10px] text-gray-500 truncate mt-0.5">{card.query}</p>
+          <p className="text-xs font-bold text-white group-hover:text-orange-400 transition-colors">{card.name}</p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
+              style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}15`, color: SPORT_COLORS[card.sport] || '#6b7280' }}>
+              {card.sport}
+            </span>
+            <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-orange-500/10 text-orange-400">
+              {card.tag}
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="text-[9px] px-2 py-1 rounded-full font-bold uppercase tracking-wider"
-            style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}15`, color: SPORT_COLORS[card.sport] || '#6b7280' }}>
-            {card.tag}
-          </span>
-          <span className="text-[9px] px-2 py-1 rounded-full bg-[#1a1a1a] text-gray-500 uppercase">
-            {card.sport}
-          </span>
-          <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-orange-400 transition-colors" />
+        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+          {card.season_signal && (
+            <span className="text-[8px] font-black px-1.5 py-0.5 rounded"
+              style={{ background: `${signalColor}15`, color: signalColor }}>
+              {card.season_signal}
+            </span>
+          )}
+          <ExternalLink className="w-3.5 h-3.5 text-gray-600 group-hover:text-orange-400 transition-colors" />
         </div>
       </div>
     </motion.div>
@@ -317,18 +325,17 @@ const MarketModule = () => {
       <SeasonalIntelligence />
 
       {/* === UPCOMING RELEASES + HOT CARDS === */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">
         {/* Upcoming Releases - 2 cols */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="upcoming-releases-section">
+          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden flex flex-col" data-testid="upcoming-releases-section">
           <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
             <Calendar className="w-4 h-4 text-[#3b82f6]" />
             <h2 className="text-sm font-bold text-white">Upcoming Releases</h2>
             <span className="text-[9px] text-gray-600 ml-auto">2026</span>
           </div>
-          <div className="p-3 space-y-2 max-h-[400px] overflow-y-auto">
+          <div className="p-3 space-y-2 flex-1 overflow-y-auto">
             {(() => {
-              const MONTH_NAMES_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
               const releases = [
                 { date: 'Mar 4', name: 'Upper Deck Series 2 Hockey', sport: 'Hockey', color: '#06b6d4' },
                 { date: 'Mar 6', name: 'Leaf Optichrome Baseball', sport: 'Baseball', color: '#3b82f6' },
@@ -361,16 +368,18 @@ const MarketModule = () => {
 
         {/* Hot on Market - 3 cols */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
-          className="lg:col-span-3 space-y-3" data-testid="hot-cards-section">
-          <div className="flex items-center gap-2">
+          className="lg:col-span-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden flex flex-col" data-testid="hot-cards-section">
+          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
             <Flame className="w-5 h-5 text-orange-500" />
             <h2 className="text-sm font-bold text-white">Hot on the Market</h2>
-            <span className="text-[9px] text-gray-600 ml-1">Based on your interests</span>
+            <span className="text-[9px] text-gray-600 ml-auto">Based on buying season</span>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-            {hotCards.map((card, i) => (
-              <HotCardRow key={i} card={card} onLookup={handleLookup} />
-            ))}
+          <div className="p-3 flex-1 overflow-y-auto">
+            <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+              {hotCards.map((card, i) => (
+                <HotCardRow key={i} card={card} onLookup={handleLookup} />
+              ))}
+            </div>
           </div>
         </motion.div>
       </div>

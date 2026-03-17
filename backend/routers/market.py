@@ -126,53 +126,66 @@ async def get_portfolio_health(request: Request):
 
 @router.get("/hot-cards")
 async def get_hot_cards(request: Request):
-    """Get trending/hot cards"""
-    user = await get_current_user(request)
-    inventory = await db.inventory.find({"user_id": user["user_id"]}, {"_id": 0, "card_name": 1, "player": 1}).to_list(100)
-    sports = set()
-    for item in inventory:
-        sport = detect_sport(item.get("card_name", ""))
-        if sport != "Other":
-            sports.add(sport)
-    if not sports:
-        sports = {"Basketball", "Baseball"}
+    """Get trending/hot cards based on buying season"""
+    await get_current_user(request)
+
+    current_month = datetime.now(timezone.utc).month - 1  # 0-indexed
+
+    # Determine buy-season sports first, then warming, then sell
+    buy_sports = [s for s, c in SPORT_CYCLES.items() if c[current_month] == 1]
+    warming_sports = [s for s, c in SPORT_CYCLES.items() if c[current_month] == 2]
+    sell_sports = [s for s, c in SPORT_CYCLES.items() if c[current_month] == 3]
+
+    # Prioritize: buy season first (best deals), then warming (about to rise)
+    priority_sports = buy_sports + warming_sports + sell_sports
 
     hot_queries = {
         "Basketball": [
-            {"name": "Victor Wembanyama", "query": "Victor Wembanyama Prizm PSA 10", "tag": "ROY Candidate"},
-            {"name": "LeBron James", "query": "LeBron James Prizm Silver", "tag": "GOAT Debate"},
-            {"name": "Luka Doncic", "query": "Luka Doncic Prizm Silver PSA 10", "tag": "Star Rising"},
-            {"name": "Anthony Edwards", "query": "Anthony Edwards Prizm Silver", "tag": "Hot Market"},
-        ],
-        "Baseball": [
-            {"name": "Shohei Ohtani", "query": "Shohei Ohtani Topps Chrome PSA 10", "tag": "MVP Race"},
-            {"name": "Elly De La Cruz", "query": "Elly De La Cruz Topps Chrome", "tag": "Rookie Star"},
-            {"name": "Mike Trout", "query": "Mike Trout Topps Chrome PSA 10", "tag": "Evergreen"},
-            {"name": "Gunnar Henderson", "query": "Gunnar Henderson Topps Chrome", "tag": "Breakout"},
+            {"name": "Victor Wembanyama", "query": "Victor Wembanyama Prizm rookie card", "tag": "Generational Rookie"},
+            {"name": "Anthony Edwards", "query": "Anthony Edwards Prizm Silver", "tag": "MVP Candidate"},
+            {"name": "Luka Doncic", "query": "Luka Doncic Prizm Silver PSA 10", "tag": "Elite Floor"},
+            {"name": "LeBron James", "query": "LeBron James Prizm Silver", "tag": "GOAT Legacy"},
+            {"name": "Tyrese Maxey", "query": "Tyrese Maxey Prizm Silver", "tag": "Breakout Star"},
+            {"name": "Paolo Banchero", "query": "Paolo Banchero Prizm rookie", "tag": "Young Core"},
         ],
         "Football": [
-            {"name": "Patrick Mahomes", "query": "Patrick Mahomes Prizm Silver PSA 10", "tag": "Dynasty"},
-            {"name": "CJ Stroud", "query": "CJ Stroud Prizm Silver", "tag": "Rookie Star"},
-            {"name": "Caleb Williams", "query": "Caleb Williams Prizm", "tag": "Highly Anticipated"},
+            {"name": "Caleb Williams", "query": "Caleb Williams Prizm rookie card", "tag": "#1 Pick Rookie"},
+            {"name": "Jayden Daniels", "query": "Jayden Daniels Prizm rookie card", "tag": "ROY Winner"},
+            {"name": "Drake Maye", "query": "Drake Maye Prizm rookie card", "tag": "QB Prospect"},
+            {"name": "Patrick Mahomes", "query": "Patrick Mahomes Prizm Silver PSA 10", "tag": "Dynasty QB"},
+            {"name": "Saquon Barkley", "query": "Saquon Barkley Prizm card", "tag": "Comeback Season"},
+            {"name": "CJ Stroud", "query": "CJ Stroud Prizm Silver", "tag": "Young Franchise QB"},
+            {"name": "Brock Purdy", "query": "Brock Purdy Prizm Silver", "tag": "Mr. Irrelevant Star"},
+            {"name": "Lamar Jackson", "query": "Lamar Jackson Prizm Silver PSA 10", "tag": "MVP Caliber"},
         ],
-        "Soccer": [
-            {"name": "Lionel Messi", "query": "Lionel Messi Prizm PSA 10", "tag": "Legend"},
-            {"name": "Kylian Mbappe", "query": "Kylian Mbappe Topps Chrome", "tag": "Transfer Buzz"},
-            {"name": "Jude Bellingham", "query": "Jude Bellingham Topps Chrome", "tag": "Rising Star"},
+        "Baseball": [
+            {"name": "Shohei Ohtani", "query": "Shohei Ohtani Topps Chrome PSA 10", "tag": "Unicorn Player"},
+            {"name": "Elly De La Cruz", "query": "Elly De La Cruz Topps Chrome rookie", "tag": "Speed & Power"},
+            {"name": "Gunnar Henderson", "query": "Gunnar Henderson Topps Chrome", "tag": "All-Star Breakout"},
+            {"name": "Paul Skenes", "query": "Paul Skenes Topps Chrome rookie", "tag": "Pitching Phenom"},
+            {"name": "Jackson Holliday", "query": "Jackson Holliday Bowman Chrome", "tag": "#1 Prospect"},
+            {"name": "Corbin Carroll", "query": "Corbin Carroll Topps Chrome", "tag": "ROY Winner"},
         ],
         "Hockey": [
-            {"name": "Connor McDavid", "query": "Connor McDavid Young Guns PSA 10", "tag": "Generational"},
-            {"name": "Connor Bedard", "query": "Connor Bedard Upper Deck", "tag": "Rookie Hype"},
+            {"name": "Connor Bedard", "query": "Connor Bedard Young Guns rookie", "tag": "Generational Talent"},
+            {"name": "Macklin Celebrini", "query": "Macklin Celebrini Upper Deck rookie", "tag": "#1 Pick Rookie"},
+            {"name": "Connor McDavid", "query": "Connor McDavid Young Guns PSA 10", "tag": "Best In The World"},
+            {"name": "Matvei Michkov", "query": "Matvei Michkov Upper Deck rookie", "tag": "Russian Phenom"},
+            {"name": "Adam Fantilli", "query": "Adam Fantilli Young Guns rookie", "tag": "High Ceiling"},
         ],
     }
 
-    trending = []
-    for sport in sports:
-        if sport in hot_queries:
-            for q in hot_queries[sport]:
-                trending.append({**q, "sport": sport})
+    signal_label = {1: "Buy Now", 2: "Warming Up", 3: "At Peak"}
 
-    return {"trending": trending[:8], "user_sports": list(sports)}
+    trending = []
+    for sport in priority_sports:
+        if sport in hot_queries:
+            cycle_signal = SPORT_CYCLES[sport][current_month]
+            season_tag = signal_label.get(cycle_signal, "")
+            for q in hot_queries[sport]:
+                trending.append({**q, "sport": sport, "season_signal": season_tag})
+
+    return {"trending": trending[:12], "buy_sports": buy_sports, "priority_sports": priority_sports}
 
 
 @router.get("/card-value")
