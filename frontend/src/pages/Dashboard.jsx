@@ -183,7 +183,7 @@ const Dashboard = ({ user, onLogout }) => {
 
       {/* Main Content */}
       <main className="flex-1 lg:ml-56 min-h-screen overflow-x-hidden">
-        <div className="pt-14 lg:pt-0 px-4 sm:px-6 py-4 max-w-full">
+        <div className="pt-14 lg:pt-0 px-4 sm:px-6 py-4 pb-24 lg:pb-4 max-w-full">
           <AnimatePresence mode="wait">
             <motion.div key={activeModule} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
               {renderModule()}
@@ -192,14 +192,38 @@ const Dashboard = ({ user, onLogout }) => {
         </div>
       </main>
 
-      {/* Quick Scan FAB - Mobile only */}
-      <button
-        onClick={() => setQuickScanOpen(true)}
-        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#3b82f6] text-white shadow-lg shadow-[#3b82f6]/30 flex items-center justify-center hover:bg-[#2563eb] active:scale-90 transition-all"
-        data-testid="quick-scan-fab"
-      >
-        <Camera className="w-6 h-6" />
-      </button>
+      {/* Bottom Navigation Bar - Mobile only */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0a0a]/95 backdrop-blur-lg border-t border-[#1a1a1a] safe-area-bottom" data-testid="mobile-bottom-nav">
+        <div className="flex items-stretch justify-around">
+          {[
+            { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
+            { id: 'inventory', label: 'Inventory', icon: Package },
+            { id: 'quickscan', label: 'Scan', icon: Camera, special: true },
+            { id: 'listings', label: 'Listings', icon: Tag },
+            { id: 'market', label: 'Market', icon: TrendingUp },
+          ].map(({ id, label, icon: Icon, special }) => (
+            special ? (
+              <button key={id} onClick={() => setQuickScanOpen(true)}
+                className="flex flex-col items-center justify-center gap-0.5 py-2 px-1 -mt-4"
+                data-testid="bottom-nav-quickscan">
+                <div className="w-12 h-12 rounded-full bg-[#3b82f6] flex items-center justify-center shadow-lg shadow-[#3b82f6]/30">
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <span className="text-[9px] font-bold text-[#3b82f6]">{label}</span>
+              </button>
+            ) : (
+              <button key={id} onClick={() => setActiveModule(id)}
+                className={`flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 transition-colors ${
+                  activeModule === id ? 'text-[#3b82f6]' : 'text-gray-600'
+                }`}
+                data-testid={`bottom-nav-${id}`}>
+                <Icon className="w-5 h-5" />
+                <span className="text-[9px] font-bold">{label}</span>
+              </button>
+            )
+          ))}
+        </div>
+      </nav>
 
       {/* Quick Scan Overlay */}
       <AnimatePresence>

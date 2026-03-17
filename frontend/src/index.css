@@ -50,6 +50,11 @@ code {
   scrollbar-width: none;
 }
 
+/* Safe area for bottom nav on iPhones */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
 @layer base {
   :root {
     --background: 0 0% 4%;
