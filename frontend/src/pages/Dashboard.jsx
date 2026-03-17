@@ -11,7 +11,8 @@ import {
   X,
   Zap,
   LogOut,
-  Layers
+  Layers,
+  Camera
 } from 'lucide-react';
 import FlipFinder from '../components/FlipFinder';
 import DashboardHome from '../components/DashboardHome';
@@ -19,6 +20,7 @@ import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
 import MarketModule from '../components/MarketModule';
 import ListingsModule from '../components/ListingsModule';
+import QuickScan from '../components/QuickScan';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -54,6 +56,9 @@ const modules = [
 const Dashboard = ({ user, onLogout }) => {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickScanOpen, setQuickScanOpen] = useState(false);
+
+  const token = localStorage.getItem('flipslab_token');
 
   const renderModule = () => {
     switch (activeModule) {
@@ -164,6 +169,12 @@ const Dashboard = ({ user, onLogout }) => {
                     <Icon className="w-4 h-4" />{label}
                   </button>
                 ))}
+                <div className="border-t border-[#1a1a1a] my-2" />
+                <button onClick={() => { setQuickScanOpen(true); setSidebarOpen(false); }}
+                  data-testid="mobile-nav-quickscan"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-all">
+                  <Camera className="w-4 h-4" /> Quick Scan
+                </button>
               </nav>
             </motion.aside>
           </>
@@ -180,6 +191,31 @@ const Dashboard = ({ user, onLogout }) => {
           </AnimatePresence>
         </div>
       </main>
+
+      {/* Quick Scan FAB - Mobile only */}
+      <button
+        onClick={() => setQuickScanOpen(true)}
+        className="lg:hidden fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-[#3b82f6] text-white shadow-lg shadow-[#3b82f6]/30 flex items-center justify-center hover:bg-[#2563eb] active:scale-90 transition-all"
+        data-testid="quick-scan-fab"
+      >
+        <Camera className="w-6 h-6" />
+      </button>
+
+      {/* Quick Scan Overlay */}
+      <AnimatePresence>
+        {quickScanOpen && (
+          <QuickScan
+            token={token}
+            onClose={() => setQuickScanOpen(false)}
+            onCardAdded={() => {
+              if (activeModule === 'inventory') {
+                setActiveModule('dashboard');
+                setTimeout(() => setActiveModule('inventory'), 100);
+              }
+            }}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
