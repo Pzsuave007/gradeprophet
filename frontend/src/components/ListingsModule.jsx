@@ -39,6 +39,7 @@ const CONDITIONS = [
 
 const SHIPPING_OPTIONS = [
   { id: 'FreeShipping', label: 'Free Shipping', cost: 0 },
+  { id: 'PWEEnvelope', label: 'PWE Envelope', cost: 2.50, domestic: true },
   { id: 'USPSFirstClass', label: 'USPS First Class', cost: 4.50 },
   { id: 'USPSPriority', label: 'USPS Priority', cost: 8.50 },
 ];
@@ -60,7 +61,7 @@ const DURATIONS_AUCTION = [
 
 // =========== LISTING DETAIL / EDIT VIEW (INLINE, NO POPUP) ===========
 const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
-  const [form, setForm] = useState({ title: '', price: '', quantity: 1, description: '' });
+  const [form, setForm] = useState({ title: '', price: '', quantity: 1, description: '', best_offer: false, shipping_option: null, shipping_cost: 0 });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [marketData, setMarketData] = useState(null);
@@ -75,6 +76,9 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
         price: listing.price || '',
         quantity: listing.quantity_available || 1,
         description: '',
+        best_offer: false,
+        shipping_option: null,
+        shipping_cost: 0,
       });
       setDirty(false);
     }
@@ -114,6 +118,11 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
       if (parseFloat(form.price) !== listing.price) payload.price = parseFloat(form.price);
       if (parseInt(form.quantity) !== (listing.quantity_available || 1)) payload.quantity = parseInt(form.quantity);
       if (form.description.trim()) payload.description = form.description;
+      if (form.best_offer) payload.best_offer = true;
+      if (form.shipping_option) {
+        payload.shipping_option = form.shipping_option;
+        payload.shipping_cost = form.shipping_cost;
+      }
 
       const res = await axios.post(`${API}/api/ebay/sell/revise`, payload);
       if (res.data.success) {
@@ -376,6 +385,39 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
                 <textarea className={`${inputCls} h-20 resize-none`} placeholder="Leave empty to keep current description..." value={form.description} onChange={e => handleChange('description', e.target.value)} data-testid="edit-listing-desc" />
               </div>
 
+              {/* Best Offer Toggle */}
+              {listing.listing_type === 'FixedPriceItem' && (
+                <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#222] rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm text-white font-medium">Accept Best Offers</p>
+                    <p className="text-[10px] text-gray-500">Enable buyers to send price offers</p>
+                  </div>
+                  <button type="button" onClick={() => handleChange('best_offer', !form.best_offer)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${form.best_offer ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
+                    data-testid="edit-best-offer-toggle">
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${form.best_offer ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              )}
+
+              {/* Update Shipping */}
+              <div>
+                <label className={labelCls}>Update Shipping (optional)</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {SHIPPING_OPTIONS.map(({ id, label, cost, domestic }) => (
+                    <button key={id} type="button" onClick={() => { handleChange('shipping_option', id); setForm(f => ({ ...f, shipping_cost: cost })); }}
+                      className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium border transition-colors ${form.shipping_option === id ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
+                      data-testid={`edit-shipping-${id}`}>
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>{label}</span>
+                      <span className="text-[10px]">{cost > 0 ? `$${cost.toFixed(2)}` : 'Free'}</span>
+                      {domestic && <span className="text-[9px] text-amber-400">US Only</span>}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-gray-600 mt-1">Leave unselected to keep current shipping</p>
+              </div>
+
               {/* Save Button */}
               <button onClick={handleSave} disabled={saving || !dirty}
                 className="w-full py-3 rounded-lg text-sm font-bold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
@@ -403,7 +445,7 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
   const [form, setForm] = useState({
     title: '', description: '', price: '', listing_format: 'FixedPriceItem',
     duration: 'GTC', condition_id: 3000, condition_description: '',
-    shipping_option: 'FreeShipping', shipping_cost: 0,
+    shipping_option: 'FreeShipping', shipping_cost: 0, best_offer: false,
   });
 
   const filteredItems = inventoryItems.filter(i =>
@@ -434,6 +476,7 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
         price: parseFloat(form.price), listing_format: form.listing_format, duration: form.duration,
         condition_id: form.condition_id, condition_description: form.condition_description || null,
         shipping_option: form.shipping_option, shipping_cost: parseFloat(form.shipping_cost) || 0,
+        best_offer: form.best_offer,
       });
       setResult(res.data);
       if (res.data.success) { toast.success('Listing published on eBay!'); setStep(3); onSuccess?.(); }
@@ -444,7 +487,7 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
 
   const handleReset = () => {
     setStep(1); setSelectedItem(null); setResult(null);
-    setForm({ title: '', description: '', price: '', listing_format: 'FixedPriceItem', duration: 'GTC', condition_id: 3000, condition_description: '', shipping_option: 'FreeShipping', shipping_cost: 0 });
+    setForm({ title: '', description: '', price: '', listing_format: 'FixedPriceItem', duration: 'GTC', condition_id: 3000, condition_description: '', shipping_option: 'FreeShipping', shipping_cost: 0, best_offer: false });
   };
 
   if (!isOpen) return null;
@@ -571,14 +614,33 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
               </div>
               <div>
                 <label className={labelCls}>Shipping</label>
-                <div className="flex gap-2">
-                  {SHIPPING_OPTIONS.map(({ id, label, cost }) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {SHIPPING_OPTIONS.map(({ id, label, cost, domestic }) => (
                     <button key={id} type="button" onClick={() => setForm(f => ({ ...f, shipping_option: id, shipping_cost: cost }))}
-                      className={`flex-1 flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium border transition-colors ${form.shipping_option === id ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
-                      data-testid={`shipping-${id}`}><Truck className="w-3.5 h-3.5" /><span>{label}</span><span className="text-[10px]">{cost > 0 ? `$${cost.toFixed(2)}` : 'Free'}</span></button>
+                      className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium border transition-colors ${form.shipping_option === id ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
+                      data-testid={`shipping-${id}`}>
+                      <Truck className="w-3.5 h-3.5" />
+                      <span>{label}</span>
+                      <span className="text-[10px]">{cost > 0 ? `$${cost.toFixed(2)}` : 'Free'}</span>
+                      {domestic && <span className="text-[9px] text-amber-400">US Only</span>}
+                    </button>
                   ))}
                 </div>
               </div>
+              {/* Best Offer Toggle - Only for BIN format */}
+              {form.listing_format === 'FixedPriceItem' && (
+                <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#222] rounded-lg px-4 py-3">
+                  <div>
+                    <p className="text-sm text-white font-medium">Accept Best Offers</p>
+                    <p className="text-[10px] text-gray-500">Buyers can send you price offers</p>
+                  </div>
+                  <button type="button" onClick={() => setForm(f => ({ ...f, best_offer: !f.best_offer }))}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${form.best_offer ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
+                    data-testid="best-offer-toggle">
+                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${form.best_offer ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                  </button>
+                </div>
+              )}
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={handleReset} className="px-4 py-2 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5">Back</button>
                 <button onClick={handlePublish} disabled={publishing || !form.price}

@@ -48,6 +48,7 @@ class EbayListingCreateRequest(BaseModel):
     card_number: Optional[str] = None
     grading_company: Optional[str] = None
     grade: Optional[str] = None
+    best_offer: bool = False
 
 class ReviseListingRequest(BaseModel):
     item_id: str
@@ -55,6 +56,9 @@ class ReviseListingRequest(BaseModel):
     price: Optional[float] = None
     quantity: Optional[int] = None
     description: Optional[str] = None
+    best_offer: Optional[bool] = None
+    shipping_option: Optional[str] = None
+    shipping_cost: Optional[float] = None
 
 class ListingAIRequest(BaseModel):
     card_name: str
@@ -590,11 +594,20 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
         raise HTTPException(status_code=404, detail="Inventory item not found")
 
     # Shipping XML
+    ebay_shipping_service = data.shipping_option
+    if data.shipping_option == "PWEEnvelope":
+        ebay_shipping_service = "USPSFirstClass"
+    
     if data.shipping_option == "FreeShipping":
         shipping_xml = """<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>USPSFirstClass</ShippingService><FreeShipping>true</FreeShipping><ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
     else:
-        shipping_cost = data.shipping_cost if data.shipping_cost > 0 else (4.50 if data.shipping_option == "USPSFirstClass" else 8.50)
-        shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{data.shipping_option}</ShippingService><ShippingServiceCost currencyID="USD">{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+        shipping_cost = data.shipping_cost if data.shipping_cost > 0 else (2.50 if data.shipping_option == "PWEEnvelope" else 4.50 if data.shipping_option == "USPSFirstClass" else 8.50)
+        shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{ebay_shipping_service}</ShippingService><ShippingServiceCost currencyID="USD">{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+
+    # Best Offer XML
+    best_offer_xml = ""
+    if data.best_offer and data.listing_format == "FixedPriceItem":
+        best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
 
     api_call = "AddFixedPriceItem" if data.listing_format == "FixedPriceItem" else "AddItem"
     duration = data.duration if data.listing_format == "FixedPriceItem" else (data.duration if data.duration in ["Days_3", "Days_5", "Days_7", "Days_10"] else "Days_7")
@@ -710,7 +723,7 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     <Location>{html.escape(data.location)}</Location>
     <DispatchTimeMax>1</DispatchTimeMax>
     <ListingDuration>{duration}</ListingDuration><ListingType>{data.listing_format}</ListingType>
-    {picture_xml}{shipping_xml}{item_specifics_xml}
+    {picture_xml}{shipping_xml}{item_specifics_xml}{best_offer_xml}
     <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
   </Item>
 </{api_call}Request>'''
@@ -838,6 +851,17 @@ async def revise_ebay_listing(data: ReviseListingRequest, request: Request):
     if data.price is not None: fields_xml += f'<StartPrice currencyID="USD">{data.price:.2f}</StartPrice>\n'
     if data.quantity is not None: fields_xml += f"<Quantity>{data.quantity}</Quantity>\n"
     if data.description: fields_xml += f"<Description>{html.escape(data.description)}</Description>\n"
+    if data.best_offer is not None:
+        fields_xml += f"<BestOfferDetails><BestOfferEnabled>{'true' if data.best_offer else 'false'}</BestOfferEnabled></BestOfferDetails>\n"
+    if data.shipping_option is not None:
+        ebay_service = data.shipping_option
+        if data.shipping_option == "PWEEnvelope":
+            ebay_service = "USPSFirstClass"
+        if data.shipping_option == "FreeShipping":
+            fields_xml += '<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>USPSFirstClass</ShippingService><FreeShipping>true</FreeShipping><ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>\n'
+        else:
+            s_cost = data.shipping_cost if data.shipping_cost and data.shipping_cost > 0 else (2.50 if data.shipping_option == "PWEEnvelope" else 4.50 if data.shipping_option == "USPSFirstClass" else 8.50)
+            fields_xml += f'<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{ebay_service}</ShippingService><ShippingServiceCost currencyID="USD">{s_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>\n'
 
     if not fields_xml.strip():
         return {"success": False, "message": "No changes provided"}
