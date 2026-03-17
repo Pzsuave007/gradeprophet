@@ -131,12 +131,12 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
         back_image_base64: backImage,
       };
 
-      await axios.post(`${API}/api/inventory`, payload, {
+      const res = await axios.post(`${API}/api/inventory`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       toast.success('Carta guardada en inventario');
-      onCardAdded?.();
+      onCardAdded?.(res.data);
       onClose();
     } catch (err) {
       toast.error('Error al guardar la carta');

@@ -57,13 +57,14 @@ const Dashboard = ({ user, onLogout }) => {
   const [activeModule, setActiveModule] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickScanOpen, setQuickScanOpen] = useState(false);
+  const [pendingDetailCard, setPendingDetailCard] = useState(null);
 
   const token = localStorage.getItem('flipslab_token');
 
   const renderModule = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
-      case 'inventory': return <InventoryModule />;
+      case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} />;
       case 'market': return <MarketModule />;
       case 'flipfinder': return <FlipFinder />;
       case 'listings': return <ListingsModule />;
@@ -231,10 +232,10 @@ const Dashboard = ({ user, onLogout }) => {
           <QuickScan
             token={token}
             onClose={() => setQuickScanOpen(false)}
-            onCardAdded={() => {
-              if (activeModule === 'inventory') {
-                setActiveModule('dashboard');
-                setTimeout(() => setActiveModule('inventory'), 100);
+            onCardAdded={(newCard) => {
+              if (newCard) {
+                setPendingDetailCard(newCard);
+                setActiveModule('inventory');
               }
             }}
           />

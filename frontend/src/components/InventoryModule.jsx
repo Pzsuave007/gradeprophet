@@ -378,7 +378,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
 };
 
 // =========== INVENTORY LIST VIEW ===========
-const InventoryList = ({ activeCategory, onCategoryChange }) => {
+const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, onDetailCardConsumed }) => {
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -424,11 +424,28 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
 
   useEffect(() => { fetchInventory(search); }, [fetchInventory]);
 
+  // Handle pending detail card from Quick Scan or external navigation
+  useEffect(() => {
+    if (pendingDetailCard) {
+      setDetailCard(pendingDetailCard);
+      onDetailCardConsumed?.();
+    }
+  }, [pendingDetailCard, onDetailCardConsumed]);
+
   const handleSearch = (val) => { setSearch(val); clearTimeout(searchTimeout.current); searchTimeout.current = setTimeout(() => fetchInventory(val), 300); };
   const handleSave = async (payload, itemId) => {
-    if (itemId) { await axios.put(`${API}/api/inventory/${itemId}`, payload); toast.success('Card updated'); }
-    else { await axios.post(`${API}/api/inventory`, payload); toast.success('Card added'); }
-    setEditItem(null); fetchInventory(search);
+    if (itemId) { await axios.put(`${API}/api/inventory/${itemId}`, payload); toast.success('Card updated'); setEditItem(null); fetchInventory(search); }
+    else {
+      const res = await axios.post(`${API}/api/inventory`, payload);
+      toast.success('Card added');
+      setEditItem(null);
+      setShowForm(false);
+      await fetchInventory(search);
+      // Open the newly created card in detail view
+      if (res.data && res.data.id) {
+        setDetailCard(res.data);
+      }
+    }
   };
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
   const openEdit = (item) => { setEditItem(item); setShowForm(true); };
@@ -779,7 +796,7 @@ const InventoryList = ({ activeCategory, onCategoryChange }) => {
 };
 
 // =========== MAIN INVENTORY WITH SCANNER ===========
-const InventoryModule = () => {
+const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed }) => {
   const [mainTab, setMainTab] = useState('cards');
   const [activeCategory, setActiveCategory] = useState('all');
   const [scannerView, setScannerView] = useState('scan');
@@ -804,7 +821,7 @@ const InventoryModule = () => {
         ))}
       </div>
       <AnimatePresence mode="wait">
-        {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} /></motion.div>)}
+        {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} pendingDetailCard={pendingDetailCard} onDetailCardConsumed={onDetailCardConsumed} /></motion.div>)}
         {mainTab === 'batch' && (<motion.div key="batch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <BatchUploadView onBack={() => setMainTab('cards')} onComplete={() => { setMainTab('cards'); setActiveCategory('all'); }} />
         </motion.div>)}
