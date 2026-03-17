@@ -32,9 +32,9 @@ const DURATIONS = {
 
 const SHIPPING_OPTIONS = [
   { id: 'FreeShipping', label: 'Free Shipping', cost: 0, desc: 'You cover shipping cost' },
+  { id: 'PWEEnvelope', label: 'PWE Envelope', cost: 2.50, desc: 'Raw cards in envelope (US)', domestic: true },
   { id: 'USPSFirstClass', label: 'USPS First Class', cost: 4.50, desc: 'Standard envelope/package' },
   { id: 'USPSPriority', label: 'USPS Priority', cost: 8.50, desc: 'Faster 1-3 day delivery' },
-  { id: 'UPSGround', label: 'UPS Ground', cost: 9.99, desc: 'UPS standard delivery' },
 ];
 
 const SPORTS = ['Basketball', 'Baseball', 'Football', 'Soccer', 'Hockey', 'Wrestling', 'Racing', 'Golf', 'Tennis', 'Boxing', 'MMA', 'Other'];
@@ -189,7 +189,7 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                     data-testid={`season-input-${index}`} />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Set / Brand</label>
                   <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
@@ -203,6 +203,13 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                     value={f.card_number || ''} onChange={e => update('card_number', e.target.value)}
                     placeholder="#97"
                     data-testid={`card-number-input-${index}`} />
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Variation</label>
+                  <input className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none"
+                    value={f.variation || ''} onChange={e => update('variation', e.target.value)}
+                    placeholder="Refractor, Silver..."
+                    data-testid={`variation-input-${index}`} />
                 </div>
                 <div>
                   <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Graded?</label>
@@ -249,8 +256,43 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                   data-testid={`shipping-${s.id}-${index}`}>
                   <p className={`text-xs font-bold ${f.shipping_option === s.id ? 'text-[#3b82f6]' : 'text-gray-400'}`}>{s.label}</p>
                   <p className="text-[9px] text-gray-600">{s.cost > 0 ? `$${s.cost.toFixed(2)}` : 'Free'} — {s.desc}</p>
+                  {s.domestic && <p className="text-[9px] text-amber-400 mt-0.5">US Domestic Only</p>}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Best Offer + Quantity row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Best Offer Toggle - Only for BIN */}
+            {f.listing_format === 'FixedPriceItem' && (
+              <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-4 py-3">
+                <div>
+                  <p className="text-xs text-white font-medium">Accept Best Offers</p>
+                  <p className="text-[9px] text-gray-600">Buyers can send price offers</p>
+                </div>
+                <button type="button" onClick={() => update('best_offer', !f.best_offer)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${f.best_offer ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
+                  data-testid={`best-offer-toggle-${index}`}>
+                  <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${f.best_offer ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+            )}
+            {/* Quantity */}
+            <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-4 py-3">
+              <div>
+                <p className="text-xs text-white font-medium">Quantity</p>
+                <p className="text-[9px] text-gray-600">How many of this card?</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" onClick={() => update('quantity', Math.max(1, (f.quantity || 1) - 1))}
+                  className="w-7 h-7 rounded-lg bg-[#1a1a1a] text-gray-400 hover:text-white flex items-center justify-center text-sm font-bold"
+                  data-testid={`qty-minus-${index}`}>-</button>
+                <span className="text-sm text-white font-bold w-6 text-center" data-testid={`qty-value-${index}`}>{f.quantity || 1}</span>
+                <button type="button" onClick={() => update('quantity', (f.quantity || 1) + 1)}
+                  className="w-7 h-7 rounded-lg bg-[#1a1a1a] text-gray-400 hover:text-white flex items-center justify-center text-sm font-bold"
+                  data-testid={`qty-plus-${index}`}>+</button>
+              </div>
             </div>
           </div>
 
@@ -343,7 +385,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
       const defaultPostal = userSettings.postal_code || '';
       const defaultLocation = userSettings.location || '';
       const defaultShipping = userSettings.default_shipping || 'USPSFirstClass';
-      const shippingCosts = { FreeShipping: 0, USPSFirstClass: 4.50, USPSPriority: 8.50 };
+      const shippingCosts = { FreeShipping: 0, PWEEnvelope: 2.50, USPSFirstClass: 4.50, USPSPriority: 8.50 };
 
       const defaultSport = userSettings.default_sport || '';
 
@@ -381,9 +423,12 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             season: item.year ? String(item.year) : '',
             set_name: item.set_name || '',
             card_number: item.card_number || '',
+            variation: item.variation || '',
             is_graded: item.condition === 'Graded',
             grading_company: item.grading_company || '',
             grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
+            best_offer: false,
+            quantity: item.quantity || 1,
             status: null, error: null, ebay_item_id: null,
           });
         } catch {
@@ -396,9 +441,11 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             postal_code: defaultPostal, location: defaultLocation,
             sport: item.sport || defaultSport, player: item.player || '',
             season: item.year ? String(item.year) : '', set_name: item.set_name || '',
-            card_number: item.card_number || '', is_graded: item.condition === 'Graded',
+            card_number: item.card_number || '', variation: item.variation || '',
+            is_graded: item.condition === 'Graded',
             grading_company: item.grading_company || '',
             grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
+            best_offer: false, quantity: item.quantity || 1,
             status: null, error: null, ebay_item_id: null,
           });
         }
@@ -451,6 +498,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           card_number: form.card_number || '',
           grading_company: form.is_graded ? (form.grading_company || null) : null,
           grade: form.is_graded ? (form.grade || null) : null,
+          best_offer: form.best_offer || false,
         });
 
         if (res.data.success) {
@@ -549,9 +597,9 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
               ))}
             </div>
             <div className="w-px bg-[#1a1a1a]" />
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 flex-wrap">
               <span className="text-xs text-gray-500">Shipping:</span>
-              {SHIPPING_OPTIONS.slice(0, 3).map(s => (
+              {SHIPPING_OPTIONS.map(s => (
                 <button key={s.id} onClick={() => { applyToAll('shipping_option', s.id); applyToAll('shipping_cost', s.cost); }}
                   className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
                   data-testid={`batch-shipping-${s.id}`}>
