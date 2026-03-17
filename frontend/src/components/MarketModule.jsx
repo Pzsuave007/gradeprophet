@@ -41,35 +41,41 @@ const ChartTooltip = ({ active, payload, label }) => {
 };
 
 // =========== HOT CARD ROW ===========
-const HotCardRow = ({ card, onLookup }) => (
-  <motion.div
-    initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
-    className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 hover:border-[#2a2a2a] transition-all group cursor-pointer"
-    onClick={() => onLookup(card.query)}
-    data-testid={`hot-card-${card.name.replace(/\s/g, '-').toLowerCase()}`}
-  >
-    <div className="flex items-center gap-3">
-      <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
-        style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}20` }}>
-        <Flame className="w-5 h-5" style={{ color: SPORT_COLORS[card.sport] || '#6b7280' }} />
+const HotCardRow = ({ card, onLookup }) => {
+  const openEbay = (e) => {
+    e.stopPropagation();
+    window.open(`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(card.query)}&_sacat=212&LH_BIN=1&_sop=15`, '_blank');
+  };
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+      className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 hover:border-orange-500/30 transition-all group cursor-pointer"
+      onClick={openEbay}
+      data-testid={`hot-card-${card.name.replace(/\s/g, '-').toLowerCase()}`}
+    >
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+          style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}20` }}>
+          <Flame className="w-5 h-5" style={{ color: SPORT_COLORS[card.sport] || '#6b7280' }} />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-white group-hover:text-orange-400 transition-colors">{card.name}</p>
+          <p className="text-[10px] text-gray-500 truncate mt-0.5">{card.query}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="text-[9px] px-2 py-1 rounded-full font-bold uppercase tracking-wider"
+            style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}15`, color: SPORT_COLORS[card.sport] || '#6b7280' }}>
+            {card.tag}
+          </span>
+          <span className="text-[9px] px-2 py-1 rounded-full bg-[#1a1a1a] text-gray-500 uppercase">
+            {card.sport}
+          </span>
+          <ExternalLink className="w-4 h-4 text-gray-600 group-hover:text-orange-400 transition-colors" />
+        </div>
       </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-bold text-white">{card.name}</p>
-        <p className="text-[10px] text-gray-500 truncate mt-0.5">{card.query}</p>
-      </div>
-      <div className="flex items-center gap-2 flex-shrink-0">
-        <span className="text-[9px] px-2 py-1 rounded-full font-bold uppercase tracking-wider"
-          style={{ background: `${SPORT_COLORS[card.sport] || '#6b7280'}15`, color: SPORT_COLORS[card.sport] || '#6b7280' }}>
-          {card.tag}
-        </span>
-        <span className="text-[9px] px-2 py-1 rounded-full bg-[#1a1a1a] text-gray-500 uppercase">
-          {card.sport}
-        </span>
-        <ChevronRight className="w-4 h-4 text-gray-600 group-hover:text-[#3b82f6] transition-colors" />
-      </div>
-    </div>
-  </motion.div>
-);
+    </motion.div>
+  );
+};
 
 // =========== PRICE LOOKUP RESULT ===========
 const PriceLookupResult = ({ data, query, onClose }) => {
@@ -309,93 +315,6 @@ const MarketModule = () => {
 
       {/* === SEASONAL INTELLIGENCE === */}
       <SeasonalIntelligence />
-
-      {/* === KPI STRIP - Portfolio Overview === */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { icon: Package, label: 'Collection', value: `${pf.total_items} cards`, sub: `${fmt(pf.total_invested)} invested`, color: 'bg-amber-600', accent: 'text-amber-400' },
-          { icon: DollarSign, label: 'Revenue', value: fmt(s.total_revenue || 0), sub: `${s.total_orders || 0} total sales`, color: 'bg-emerald-600', accent: 'text-emerald-400' },
-          { icon: TrendingUp, label: 'Profit', value: fmt(s.total_profit || 0), sub: `${fmt(s.total_fees || 0)} in fees`, color: 'bg-[#3b82f6]', accent: 'text-[#3b82f6]' },
-          { icon: Target, label: 'Avg Sale', value: fmt(s.avg_sale || 0), sub: s.top_sale ? `Best: ${fmt(s.top_sale.total)}` : '', color: 'bg-purple-600', accent: 'text-purple-400' },
-        ].map((kpi, i) => (
-          <motion.div key={kpi.label} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3.5" data-testid={`market-kpi-${kpi.label.toLowerCase()}`}>
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${kpi.color}`}><kpi.icon className="w-3.5 h-3.5 text-white" /></div>
-              <span className="text-[9px] uppercase tracking-widest text-gray-600 font-bold">{kpi.label}</span>
-            </div>
-            <p className={`text-lg font-black ${kpi.accent}`}>{kpi.value}</p>
-            {kpi.sub && <p className="text-[10px] text-gray-600 mt-0.5">{kpi.sub}</p>}
-          </motion.div>
-        ))}
-      </div>
-
-      {/* === SALES CHART + PORTFOLIO BREAKDOWN === */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* Sales chart - 3 cols */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="lg:col-span-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="sales-chart">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-            <TrendingUp className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-sm font-bold text-white">Your Sales Performance</h2>
-          </div>
-          <div className="p-3" style={{ height: 220 }}>
-            {(s.cumulative_chart || []).length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={s.cumulative_chart} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="gRevM" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#10b981" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1a1a1a" />
-                  <XAxis dataKey="date" stroke="#444" tick={{ fontSize: 9 }} />
-                  <YAxis stroke="#444" tick={{ fontSize: 9 }} tickFormatter={v => `$${v}`} />
-                  <Tooltip content={<ChartTooltip />} />
-                  <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#10b981" fill="url(#gRevM)" strokeWidth={2} dot={false} />
-                  <Area type="monotone" dataKey="profit" name="Profit" stroke="#3b82f6" fill="transparent" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                </AreaChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-full text-gray-600 text-xs">Connect eBay to see sales</div>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Portfolio breakdown - 2 cols */}
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
-          className="lg:col-span-2 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="portfolio-breakdown">
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-            <Layers className="w-4 h-4 text-amber-400" />
-            <h2 className="text-sm font-bold text-white">Your Collection</h2>
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#1a1a1a] text-gray-500 font-bold ml-auto">{pf.total_items} cards</span>
-          </div>
-          <div className="divide-y divide-[#0a0a0a]">
-            {pf.items.length > 0 ? pf.items.map((item, i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.02] cursor-pointer"
-                onClick={() => handleLookup(item.card_name)} data-testid={`portfolio-item-${i}`}>
-                <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ background: SPORT_COLORS[item.sport] || '#6b7280' }} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-white truncate">{item.card_name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <span className="text-[9px] text-gray-600">{item.player}</span>
-                    {item.condition === 'Graded' && item.grade && (
-                      <span className="text-[9px] text-amber-400">{item.grading_company} {item.grade}</span>
-                    )}
-                  </div>
-                </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-sm font-bold text-white">{fmt(item.purchase_price)}</p>
-                  <p className="text-[9px] text-gray-600">Cost</p>
-                </div>
-              </div>
-            )) : (
-              <div className="text-center py-8 text-gray-600 text-xs">Add cards to inventory to track</div>
-            )}
-          </div>
-        </motion.div>
-      </div>
 
       {/* === WATCHLIST + HOT CARDS === */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">

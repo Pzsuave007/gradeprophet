@@ -488,18 +488,6 @@ const SeasonalIntelligence = () => {
                   ))}
                 </div>
               </div>
-
-              {/* Upcoming Releases */}
-              <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
-                <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-                  <Calendar className="w-4 h-4 text-[#3b82f6]" />
-                  <h3 className="text-xs font-bold text-white">Upcoming Releases</h3>
-                  <span className="text-[9px] text-gray-600 ml-auto">2026</span>
-                </div>
-                <div className="p-3">
-                  <UpcomingReleases currentMonth={currentMonth} />
-                </div>
-              </div>
             </div>
 
             {/* Right: Season Timeline + Seasonal Deals - 3 cols */}
