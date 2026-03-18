@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight,
-  RefreshCw, BarChart3, Package, Zap, ChevronRight, LayoutGrid, List, ShieldCheck
+  RefreshCw, BarChart3, Package, Zap, ChevronRight, LayoutGrid, List, ShieldCheck, RotateCw
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -38,6 +38,51 @@ const ChartTooltip = ({ active, payload, label }) => {
       {payload.map((p, i) => (
         <p key={i} style={{ color: p.color }} className="font-bold">{p.name}: ${p.value?.toFixed(2)}</p>
       ))}
+    </div>
+  );
+};
+
+const FlippableCardImage = ({ front, back, alt }) => {
+  const [flipped, setFlipped] = useState(false);
+  const hasBack = !!back;
+
+  return (
+    <div
+      className="aspect-[3/4] bg-[#111] relative cursor-pointer overflow-hidden group/flip"
+      style={{ perspective: '600px' }}
+      onClick={() => hasBack && setFlipped(f => !f)}
+      data-testid="flippable-card-image"
+    >
+      <div
+        className="w-full h-full transition-transform duration-500"
+        style={{
+          transformStyle: 'preserve-3d',
+          transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)',
+        }}
+      >
+        {/* Front */}
+        <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
+          {front ? (
+            <img src={`data:image/jpeg;base64,${front}`} alt={alt} className="w-full h-full object-contain" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <Package className="w-8 h-8 text-gray-700" />
+            </div>
+          )}
+        </div>
+        {/* Back */}
+        {hasBack && (
+          <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+            <img src={`data:image/jpeg;base64,${back}`} alt={`${alt} (back)`} className="w-full h-full object-contain" />
+          </div>
+        )}
+      </div>
+      {/* Flip indicator */}
+      {hasBack && (
+        <div className={`absolute top-1.5 right-1.5 p-1 rounded-full transition-opacity ${flipped ? 'bg-[#3b82f6]/80' : 'bg-black/50 opacity-0 group-hover/flip:opacity-100'}`}>
+          <RotateCw className="w-3 h-3 text-white" />
+        </div>
+      )}
     </div>
   );
 };
@@ -233,21 +278,12 @@ const PortfolioTracker = ({ onAddToCollection }) => {
           <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {data.cards.slice(0, 20).map((card, i) => {
               const pnl = card.market_value && card.purchase_price ? card.market_value - card.purchase_price : null;
-              const imgSrc = card.image ? `data:image/jpeg;base64,${card.image}` : null;
               return (
                 <motion.div key={card.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                   className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group"
                   data-testid={`portfolio-card-grid-${i}`}>
-                  {/* Card Image */}
-                  {imgSrc ? (
-                    <div className="aspect-[3/4] bg-[#111] flex items-center justify-center overflow-hidden">
-                      <img src={imgSrc} alt={card.card_name} className="w-full h-full object-contain" />
-                    </div>
-                  ) : (
-                    <div className="aspect-[3/4] bg-[#111] flex items-center justify-center">
-                      <Package className="w-8 h-8 text-gray-700" />
-                    </div>
-                  )}
+                  {/* Flippable Card Image */}
+                  <FlippableCardImage front={card.image} back={card.back_image} alt={card.card_name} />
                   {/* Card Info */}
                   <div className="p-2.5">
                     <div className="flex items-center justify-between mb-1">
