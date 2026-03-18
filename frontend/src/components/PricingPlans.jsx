@@ -19,6 +19,7 @@ const PLAN_META = {
     bg: 'bg-gray-900/40',
     badge: null,
     tagline: 'Start your journey',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/db4f4b7e60768bab8bdd8bac1c67cd8848aaecabdb87ce815aa6a9bfefe1ad56.png',
   },
   all_star: {
     icon: Star,
@@ -28,6 +29,7 @@ const PLAN_META = {
     bg: 'bg-blue-950/20',
     badge: null,
     tagline: 'For the serious seller',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/bff1af64f6dd2926c6bfbf9d266995be1bef42cf54b8a72722e7451c16d03c4f.png',
   },
   hall_of_fame: {
     icon: Trophy,
@@ -37,6 +39,7 @@ const PLAN_META = {
     bg: 'bg-amber-950/20',
     badge: 'MOST POPULAR',
     tagline: 'Everything you need',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/cd507eaca6f141c701cbbab826ae14f3c3423a1f61042a81f4f2556f0a6e4f99.png',
   },
   legend: {
     icon: Crown,
@@ -46,6 +49,7 @@ const PLAN_META = {
     bg: 'bg-purple-950/20',
     badge: 'UNLIMITED',
     tagline: 'For shops & enterprises',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/6dd52c1de09c03d447ff75fd570cb05338e16ab0141d5602d1c60c0b57353e6c.png',
   },
 };
 
@@ -162,6 +166,13 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
 
               {/* Plan Header */}
               <div className="p-4 sm:p-5 space-y-3">
+                {/* Card Holder Image */}
+                <div className="relative w-full h-28 sm:h-36 rounded-xl overflow-hidden mb-1">
+                  <img src={meta.cardImage} alt={`${plan.name} card`}
+                    className="w-full h-full object-contain drop-shadow-2xl"
+                    loading="lazy" />
+                </div>
+
                 <div className="flex items-center gap-2.5">
                   <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${meta.color} flex items-center justify-center shadow-lg`}>
                     <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />

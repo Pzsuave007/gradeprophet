@@ -34,6 +34,7 @@ const PLANS = [
     tagline: 'Start your journey',
     color: 'from-gray-600 to-gray-700',
     accent: 'text-gray-400',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/db4f4b7e60768bab8bdd8bac1c67cd8848aaecabdb87ce815aa6a9bfefe1ad56.png',
     limits: { cards: '30', scans: '30', listings: '30' },
     features: [
       { text: 'Dashboard (basic)', has: true },
@@ -55,6 +56,7 @@ const PLANS = [
     tagline: 'For the serious seller',
     color: 'from-blue-600 to-blue-700',
     accent: 'text-blue-400',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/bff1af64f6dd2926c6bfbf9d266995be1bef42cf54b8a72722e7451c16d03c4f.png',
     limits: { cards: '200', scans: '200', listings: '200' },
     features: [
       { text: 'Full Dashboard', has: true },
@@ -76,6 +78,7 @@ const PLANS = [
     tagline: 'Everything you need',
     color: 'from-amber-500 to-orange-600',
     accent: 'text-amber-400',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/cd507eaca6f141c701cbbab826ae14f3c3423a1f61042a81f4f2556f0a6e4f99.png',
     limits: { cards: '500', scans: '500', listings: '500' },
     features: [
       { text: 'Full Dashboard + Export', has: true },
@@ -98,6 +101,7 @@ const PLANS = [
     tagline: 'For shops & enterprises',
     color: 'from-purple-600 to-violet-700',
     accent: 'text-purple-400',
+    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/6dd52c1de09c03d447ff75fd570cb05338e16ab0141d5602d1c60c0b57353e6c.png',
     limits: { cards: 'Unlimited', scans: 'Unlimited', listings: 'Unlimited' },
     features: [
       { text: 'Everything in Hall of Fame', has: true },
@@ -309,6 +313,13 @@ const LandingPage = ({ onGetStarted }) => {
                   )}
 
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
+                    {/* Card Holder Image */}
+                    <div className="relative w-full h-36 sm:h-44 rounded-xl overflow-hidden bg-gradient-to-b from-transparent to-black/20 mb-1">
+                      <img src={plan.cardImage} alt={`${plan.name} card`}
+                        className="w-full h-full object-contain drop-shadow-2xl"
+                        loading="lazy" />
+                    </div>
+
                     {/* Icon + Name */}
                     <div className="flex items-center gap-2.5">
                       <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg`}>
