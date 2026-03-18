@@ -28,7 +28,11 @@ async def refresh_single_card_value(item_id: str, request: Request):
         cn = item["card_number"]
         parts.append(f"#{cn}" if not cn.startswith("#") else cn)
     if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
-        parts.append(f"{item['grading_company']} {item['grade']}")
+        try:
+            grade = str(float(item["grade"])).rstrip("0").rstrip(".")  # "9.0"->"9", "9.5"->"9.5", "10.0"->"10"
+        except (ValueError, TypeError):
+            grade = str(item["grade"])
+        parts.append(f"{item['grading_company']} {grade}")
     query = " ".join(parts) if parts else item.get("card_name", "")
 
     try:

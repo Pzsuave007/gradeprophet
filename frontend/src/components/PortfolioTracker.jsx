@@ -46,6 +46,7 @@ const PortfolioTracker = ({ onAddToCollection }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [refreshingCardId, setRefreshingCardId] = useState(null);
   const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [viewMode, setViewMode] = useState('grid');
   const abortRef = useRef(false);
@@ -83,15 +84,21 @@ const PortfolioTracker = ({ onAddToCollection }) => {
   };
 
   const refreshSingleCard = async (cardId) => {
-    setRefreshing(true);
+    setRefreshingCardId(cardId);
     try {
-      await axios.post(`${API}/api/portfolio/refresh-value/${cardId}`);
-      toast.success('Value updated!');
+      const res = await axios.post(`${API}/api/portfolio/refresh-value/${cardId}`);
+      const mv = res.data?.market_value;
+      if (mv && mv > 0) {
+        toast.success(`Value found: $${mv.toFixed(2)}`);
+      } else {
+        toast.error('No market data found for this card');
+      }
       fetchSummary();
-    } catch {
-      toast.error('Could not fetch value');
+    } catch (err) {
+      console.error('Refresh single card error:', err);
+      toast.error('Could not fetch value — try again');
     } finally {
-      setRefreshing(false);
+      setRefreshingCardId(null);
     }
   };
 
@@ -265,11 +272,11 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                         </div>
                       </div>
                     ) : (
-                      <button onClick={() => refreshSingleCard(card.id)} disabled={refreshing}
+                      <button onClick={() => refreshSingleCard(card.id)} disabled={refreshingCardId === card.id}
                         className="w-full mt-1.5 py-1.5 rounded-lg bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] text-[10px] font-bold active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-1"
                         data-testid={`get-value-${i}`}>
-                        {refreshing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-                        Get Value
+                        {refreshingCardId === card.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        {refreshingCardId === card.id ? 'Searching...' : 'Get Value'}
                       </button>
                     )}
                   </div>

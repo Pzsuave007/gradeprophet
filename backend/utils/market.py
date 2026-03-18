@@ -173,11 +173,7 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
         logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}' graded={is_graded} grade={detected_company} {detected_grade}")
 
         async def scrape_ebay_sold(search_q: str, limit: int = 12) -> list:
-            items = await _browse_api_search(search_q, limit)
-            if items:
-                logger.info(f"Browse API returned {len(items)} items for '{search_q}'")
-                return items
-
+            # Priority 1: Try Jina for REAL SOLD listings
             try:
                 def _sync_scrape():
                     encoded = quote_plus(search_q)
@@ -240,11 +236,20 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
                     return results
 
                 items = await asyncio.to_thread(_sync_scrape)
-                logger.info(f"Jina scraped {len(items)} sold items for '{search_q}'")
-                return items
+                if items:
+                    logger.info(f"Jina scraped {len(items)} SOLD items for '{search_q}'")
+                    return items
+                logger.info(f"Jina found 0 sold items for '{search_q}', trying Browse API")
             except Exception as e:
-                logger.warning(f"Jina scrape also failed for '{search_q}': {e}")
-                return []
+                logger.warning(f"Jina scrape failed for '{search_q}': {e}")
+
+            # Priority 2: Fallback to eBay Browse API (active listings)
+            items = await _browse_api_search(search_q, limit)
+            if items:
+                logger.info(f"Browse API returned {len(items)} active items for '{search_q}'")
+            else:
+                logger.warning(f"Both scrapers returned 0 results for '{search_q}'")
+            return items
 
         async def _browse_api_search(q, lim=10):
             try:
