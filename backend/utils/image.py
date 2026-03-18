@@ -173,9 +173,8 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
 
 
 def process_card_image(image_base64: str, max_size: int = 800) -> str:
-    """Full image processing pipeline: crop -> enhance -> resize"""
+    """Full image processing pipeline: crop -> resize (no color enhancement)"""
     processed = auto_crop_card(image_base64)
-    processed = enhance_card_image(processed)
     processed = create_thumbnail(processed, max_size=max_size)
     return processed
 
