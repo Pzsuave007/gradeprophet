@@ -569,7 +569,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
 };
 
 // =========== INVENTORY LIST VIEW ===========
-const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, onDetailCardConsumed }) => {
+const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, onDetailCardConsumed, pendingAddCategory, onAddCategoryConsumed }) => {
   const [items, setItems] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -622,6 +622,15 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
       onDetailCardConsumed?.();
     }
   }, [pendingDetailCard, onDetailCardConsumed]);
+
+  // Handle pending add category from Collection page
+  useEffect(() => {
+    if (pendingAddCategory) {
+      setShowForm(true);
+      setEditItem({ category: pendingAddCategory });
+      onAddCategoryConsumed?.();
+    }
+  }, [pendingAddCategory, onAddCategoryConsumed]);
 
   const handleSearch = (val) => { setSearch(val); clearTimeout(searchTimeout.current); searchTimeout.current = setTimeout(() => fetchInventory(val), 300); };
   const handleSave = async (payload, itemId) => {
@@ -988,7 +997,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 };
 
 // =========== MAIN INVENTORY WITH SCANNER ===========
-const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed }) => {
+const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCategory, onAddCategoryConsumed }) => {
   const [mainTab, setMainTab] = useState('cards');
   const [activeCategory, setActiveCategory] = useState('all');
   const [scannerView, setScannerView] = useState('scan');
@@ -1013,7 +1022,7 @@ const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed }) => {
         ))}
       </div>
       <AnimatePresence mode="wait">
-        {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} pendingDetailCard={pendingDetailCard} onDetailCardConsumed={onDetailCardConsumed} /></motion.div>)}
+        {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} pendingDetailCard={pendingDetailCard} onDetailCardConsumed={onDetailCardConsumed} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={onAddCategoryConsumed} /></motion.div>)}
         {mainTab === 'batch' && (<motion.div key="batch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           <BatchUploadView onBack={() => setMainTab('cards')} onComplete={() => { setMainTab('cards'); setActiveCategory('all'); }} />
         </motion.div>)}

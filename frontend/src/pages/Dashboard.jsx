@@ -20,6 +20,7 @@ import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
 import MarketModule from '../components/MarketModule';
 import ListingsModule from '../components/ListingsModule';
+import PortfolioTracker from '../components/PortfolioTracker';
 import QuickScan from '../components/QuickScan';
 
 // Placeholder components for future modules
@@ -47,6 +48,7 @@ const Account = () => (
 const modules = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventory', icon: Package },
+  { id: 'collection', label: 'Collection', icon: Layers },
   { id: 'market', label: 'Market', icon: TrendingUp },
   { id: 'flipfinder', label: 'Flip Finder', icon: Search },
   { id: 'listings', label: 'Listings', icon: Tag },
@@ -58,13 +60,15 @@ const Dashboard = ({ user, onLogout }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickScanOpen, setQuickScanOpen] = useState(false);
   const [pendingDetailCard, setPendingDetailCard] = useState(null);
+  const [pendingAddCategory, setPendingAddCategory] = useState(null);
 
   const token = localStorage.getItem('flipslab_token');
 
   const renderModule = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
-      case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} />;
+      case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} />;
+      case 'collection': return <PortfolioTracker onAddToCollection={() => { setPendingAddCategory('collection'); setActiveModule('inventory'); }} />;
       case 'market': return <MarketModule />;
       case 'flipfinder': return <FlipFinder />;
       case 'listings': return <ListingsModule />;
@@ -200,8 +204,8 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
             { id: 'inventory', label: 'Inventory', icon: Package },
             { id: 'quickscan', label: 'Scan', icon: Camera, special: true },
+            { id: 'collection', label: 'Collection', icon: Layers },
             { id: 'listings', label: 'Listings', icon: Tag },
-            { id: 'market', label: 'Market', icon: TrendingUp },
           ].map(({ id, label, icon: Icon, special }) => (
             special ? (
               <button key={id} onClick={() => setQuickScanOpen(true)}

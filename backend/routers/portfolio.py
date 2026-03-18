@@ -85,10 +85,10 @@ async def refresh_single_card_value(item_id: str, request: Request):
 
 @router.get("/summary")
 async def get_portfolio_summary(request: Request):
-    """Get portfolio summary: total value, invested, P&L, ROI"""
+    """Get collection summary: total value, invested, P&L, ROI — only 'collection' category cards"""
     user = await get_current_user(request)
     user_id = user["user_id"]
-    items = await db.inventory.find({"user_id": user_id, "listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+    items = await db.inventory.find({"user_id": user_id, "category": "collection"}, {"_id": 0}).to_list(500)
 
     total_invested = 0
     total_market_value = 0
@@ -142,10 +142,10 @@ async def get_portfolio_summary(request: Request):
 
 @router.post("/snapshot")
 async def save_portfolio_snapshot(request: Request):
-    """Save a portfolio valuation snapshot for trend tracking"""
+    """Save a collection valuation snapshot for trend tracking"""
     user = await get_current_user(request)
     user_id = user["user_id"]
-    items = await db.inventory.find({"user_id": user_id, "listed": {"$ne": True}}, {"_id": 0}).to_list(500)
+    items = await db.inventory.find({"user_id": user_id, "category": "collection"}, {"_id": 0}).to_list(500)
     total_invested = sum(float(i.get("purchase_price") or 0) for i in items)
     total_market_value = sum(float(i.get("market_value") or 0) for i in items if i.get("market_value"))
     valued = sum(1 for i in items if i.get("market_value"))

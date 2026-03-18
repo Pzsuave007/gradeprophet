@@ -42,7 +42,7 @@ const ChartTooltip = ({ active, payload, label }) => {
   );
 };
 
-const PortfolioTracker = () => {
+const PortfolioTracker = ({ onAddToCollection }) => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,10 +97,25 @@ const PortfolioTracker = () => {
 
   return (
     <div className="space-y-4" data-testid="portfolio-tracker">
+      {/* Header with Add Button */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-white">My Collection</h1>
+          <p className="text-xs text-gray-500 mt-0.5">{data.total_cards} cards in your personal collection</p>
+        </div>
+        {onAddToCollection && (
+          <button onClick={onAddToCollection}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-xs font-semibold hover:bg-[#2563eb] transition-colors active:scale-95"
+            data-testid="add-to-collection-btn">
+            <Package className="w-3.5 h-3.5" /> Add Card
+          </button>
+        )}
+      </div>
+
       {/* KPI Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {[
-          { label: 'Portfolio Value', value: fmt(data.total_market_value), icon: DollarSign, color: 'bg-[#3b82f6]', sub: `${data.valued_cards}/${data.total_cards} valued` },
+          { label: 'Collection Value', value: fmt(data.total_market_value), icon: DollarSign, color: 'bg-[#3b82f6]', sub: `${data.valued_cards}/${data.total_cards} valued` },
           { label: 'Total Invested', value: fmt(data.total_invested), icon: Package, color: 'bg-amber-600', sub: `${data.total_cards} cards` },
           { label: 'P&L', value: `${data.pnl >= 0 ? '+' : ''}${fmt(data.pnl)}`, icon: TrendingUp, color: data.pnl >= 0 ? 'bg-emerald-600' : 'bg-red-600', sub: `${data.roi >= 0 ? '+' : ''}${data.roi}% ROI` },
           { label: 'Avg Card Value', value: data.valued_cards > 0 ? fmt(data.total_market_value / data.valued_cards) : '-', icon: BarChart3, color: 'bg-purple-600', sub: data.unvalued_cards > 0 ? `${data.unvalued_cards} need refresh` : 'All valued' },
@@ -149,7 +164,7 @@ const PortfolioTracker = () => {
       {data.snapshots?.length > 1 && (
         <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4">
           <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-[#3b82f6]" /> Portfolio Value Trend
+            <TrendingUp className="w-4 h-4 text-[#3b82f6]" /> Collection Value Trend
           </h3>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={data.snapshots}>
