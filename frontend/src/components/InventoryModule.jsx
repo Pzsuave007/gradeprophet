@@ -889,10 +889,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
                 <div className="flex items-center justify-between mt-1.5">
                   {item.condition === 'Graded' && item.grade ? <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span> : <span className="text-[10px] text-gray-600">Raw</span>}
-                  <div className="text-right">
-                    <span className="text-[11px] font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</span>
-                    <p className="text-[8px] text-gray-500 uppercase tracking-wider">{item.listed ? 'Listed' : 'Invested'}</p>
-                  </div>
+                  <span className="text-[11px] text-white"><span className="text-[8px] text-gray-500 uppercase mr-1">Invested</span><span className="font-bold">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</span></span>
                 </div>
                 {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
                 {item.listed && item.listed_price && item.purchase_price > 0 && (
