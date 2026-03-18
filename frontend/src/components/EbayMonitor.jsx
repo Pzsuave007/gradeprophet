@@ -241,38 +241,38 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
 
   return (
     <>
-    <div className="grid lg:grid-cols-5 gap-4">
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
       {/* LEFT: Watchlist Controls */}
       <div className="lg:col-span-2 space-y-3">
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-2">
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
-            <div className="text-lg font-bold text-white">{stats.totalCards}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Cards</div>
+            <div className="text-base sm:text-lg font-bold text-white">{stats.totalCards}</div>
+            <div className="text-[8px] sm:text-[9px] text-gray-600 uppercase tracking-wider">Cards</div>
           </div>
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
-            <div className="text-lg font-bold text-[#22c55e]">{stats.newListings}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">New</div>
+            <div className="text-base sm:text-lg font-bold text-[#22c55e]">{stats.newListings}</div>
+            <div className="text-[8px] sm:text-[9px] text-gray-600 uppercase tracking-wider">New</div>
           </div>
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-2 text-center">
-            <div className="text-lg font-bold text-[#eab308]">{stats.interestedListings}</div>
-            <div className="text-[9px] text-gray-600 uppercase tracking-wider">Favorites</div>
+            <div className="text-base sm:text-lg font-bold text-[#eab308]">{stats.interestedListings}</div>
+            <div className="text-[8px] sm:text-[9px] text-gray-600 uppercase tracking-wider">Favorites</div>
           </div>
         </div>
 
         {/* Sort + Search */}
         <div className="flex gap-2">
           <select value={searchSort} onChange={(e) => setSearchSort(e.target.value)}
-            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg text-white text-xs px-2 h-10 min-w-[140px]"
+            className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg text-white text-[11px] sm:text-xs px-2 h-9 sm:h-10 w-[120px] sm:min-w-[140px] flex-shrink-0"
             data-testid="search-sort-select">
             <option value="endingSoonest">Ending Soonest</option>
             <option value="newlyListed">Newly Listed</option>
-            <option value="price">Price: Low to High</option>
-            <option value="-price">Price: High to Low</option>
+            <option value="price">Price: Low</option>
+            <option value="-price">Price: High</option>
           </select>
           <Button onClick={handleSearchAll} disabled={searching || watchlist.length === 0}
-            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-10" data-testid="search-all-btn">
-            {searching ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Searching...</> : <><Search className="w-4 h-4 mr-2" />Search</>}
+            className="flex-1 bg-[#3b82f6] hover:bg-[#2563eb] text-white font-heading uppercase tracking-wider h-9 sm:h-10 text-xs sm:text-sm" data-testid="search-all-btn">
+            {searching ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" />...</> : <><Search className="w-4 h-4 mr-1" />Search</>}
           </Button>
         </div>
 
@@ -312,7 +312,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
             )}
           </AnimatePresence>
 
-          <div className="divide-y divide-[#1a1a1a] max-h-[400px] overflow-y-auto">
+          <div className="divide-y divide-[#1a1a1a] max-h-[250px] sm:max-h-[400px] overflow-y-auto">
             {loadingWatchlist ? (
               <div className="p-6 text-center text-gray-600"><Loader2 className="w-5 h-5 animate-spin mx-auto" /></div>
             ) : watchlist.length === 0 ? (
@@ -355,18 +355,18 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
       {/* RIGHT: Listings */}
       <div className="lg:col-span-3 space-y-3">
         {/* Status Filter Tabs + View Toggle */}
-        <div className="flex gap-2 items-center">
-          <div className="flex gap-1 flex-1">
+        <div className="flex gap-1.5 sm:gap-2 items-center">
+          <div className="flex gap-1 flex-1 overflow-x-auto scrollbar-hide">
             {[
               { value: 'new', label: 'New', icon: AlertCircle },
-              { value: 'interested', label: 'Favorites', icon: Star },
+              { value: 'interested', label: 'Favs', icon: Star },
               { value: 'all', label: 'All', icon: Eye }
             ].map(({ value, label, icon: Icon }) => (
               <button key={value} onClick={() => setStatusFilter(value)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded text-xs font-semibold uppercase tracking-wider transition-colors ${
+                className={`flex-1 flex items-center justify-center gap-1 py-1.5 sm:py-2 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap ${
                   statusFilter === value ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
                 }`} data-testid={`filter-${value}`}>
-                <Icon className="w-3.5 h-3.5" />{label}
+                <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{label}
               </button>
             ))}
           </div>
@@ -374,16 +374,16 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
         </div>
 
         {/* Listing Type Filter */}
-        <div className="flex gap-1 items-center">
-          <Filter className="w-3.5 h-3.5 text-gray-600 mr-1" />
+        <div className="flex gap-1 items-center overflow-x-auto scrollbar-hide pb-0.5">
+          <Filter className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-600 mr-0.5 flex-shrink-0" />
           {[
-            { value: 'all', label: 'All Types', color: 'bg-[#3b82f6]' },
-            { value: 'auction', label: 'Auctions', color: 'bg-[#f59e0b]' },
-            { value: 'buy_now', label: 'Buy Now', color: 'bg-[#22c55e]' },
-            { value: 'offers', label: 'Best Offer', color: 'bg-purple-500' },
+            { value: 'all', label: 'All', color: 'bg-[#3b82f6]' },
+            { value: 'auction', label: 'Auction', color: 'bg-[#f59e0b]' },
+            { value: 'buy_now', label: 'BIN', color: 'bg-[#22c55e]' },
+            { value: 'offers', label: 'Offer', color: 'bg-purple-500' },
           ].map(({ value, label, color }) => (
             <button key={value} onClick={() => setTypeFilter(value)}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+              className={`px-2 sm:px-2.5 py-1 rounded text-[9px] sm:text-[10px] font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex-shrink-0 ${
                 typeFilter === value ? `${color} text-white` : 'bg-[#0a0a0a] text-gray-500 hover:text-white border border-[#1a1a1a]'
               }`} data-testid={`type-filter-${value}`}>
               {label}
@@ -416,7 +416,7 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
                   {(expandedListings[cardName] !== false) && (
                     <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
                       {viewMode === 'grid' ? (
-                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2.5 sm:gap-3 p-2.5 sm:p-3">
                           {cardListings.map((listing) => (
                             <div key={listing.id} className={`bg-[#0a0a0a] border rounded-lg overflow-hidden hover:border-[#3b82f6]/30 transition-all ${listing.status === 'interested' ? 'border-[#eab308]/30' : 'border-[#1a1a1a]'}`} data-testid={`listing-${listing.id}`}>
                               <div className="aspect-square bg-[#0a0a0a] relative">
@@ -449,14 +449,14 @@ const EbayMonitor = ({ onAnalyzeCard, onSnipeCard }) => {
                       ) : (
                         <div className="divide-y divide-[#1a1a1a]">
                           {cardListings.map((listing) => (
-                            <div key={listing.id} className={`flex items-center gap-3 p-3 hover:bg-white/[0.02] transition-colors ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
-                              <div className="w-12 h-12 rounded bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
+                            <div key={listing.id} className={`flex items-start sm:items-center gap-2.5 sm:gap-3 p-2.5 sm:p-3 hover:bg-white/[0.02] transition-colors ${listing.status === 'interested' ? 'bg-[#eab308]/5' : ''}`} data-testid={`listing-${listing.id}`}>
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                                 <img src={listing.image_url} alt="" className="w-full h-full object-contain"
                                   onError={(e) => { e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="200" height="200"><rect fill="%23121212" width="200" height="200"/></svg>'; }} />
                               </div>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs text-white font-medium truncate">{listing.title}</p>
-                                <div className="flex items-center gap-2 mt-0.5">
+                                <p className="text-[11px] sm:text-xs text-white font-medium truncate">{listing.title}</p>
+                                <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5 flex-wrap">
                                   <Badge variant="outline" className={`text-[9px] px-1.5 py-0 ${listing.listing_type === 'auction' ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[#3b82f6] text-[#3b82f6]'}`}>
                                     {listing.listing_type === 'auction' ? 'Auction' : 'BIN'}
                                   </Badge>

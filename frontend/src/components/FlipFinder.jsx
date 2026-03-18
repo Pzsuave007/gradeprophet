@@ -59,22 +59,22 @@ const FlipFinder = () => {
 
   const subTabs = [
     { id: 'monitor', label: 'Monitor', icon: ShoppingBag },
-    { id: 'sniper', label: 'Auction Alerts', icon: Crosshair },
+    { id: 'sniper', label: 'Alerts', icon: Crosshair },
     { id: 'scanner', label: 'Analyze', icon: Scan },
     { id: 'history', label: 'History', icon: History },
     { id: 'learning', label: 'AI', icon: Brain },
   ];
 
   return (
-    <div className="w-full">
+    <div className="w-full overflow-x-hidden">
       {/* Sub-navigation */}
-      <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide pb-1">
+      <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
         {subTabs.map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => { setSubTab(id); if (id === 'scanner') setCurrentView('scanner'); }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap ${
+            className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex-shrink-0 ${
               subTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
             }`} data-testid={`flip-tab-${id}`}>
-            <Icon className="w-3.5 h-3.5" />{label}
+            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{label}
           </button>
         ))}
       </div>
