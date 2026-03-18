@@ -273,9 +273,9 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                           </div>
                         </div>
                         <button onClick={() => refreshSingleCard(card.id)} disabled={refreshingCardId === card.id}
-                          className="w-full mt-2 py-1 rounded-lg bg-white/[0.03] border border-[#2a2a2a] text-gray-400 text-[9px] font-medium hover:bg-white/[0.06] hover:text-white active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                          className="w-full mt-2 py-1.5 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/25 text-[#3b82f6] text-[10px] font-semibold hover:bg-[#3b82f6]/20 active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
                           data-testid={`refresh-value-grid-${i}`}>
-                          {refreshingCardId === card.id ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                          {refreshingCardId === card.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
                           {refreshingCardId === card.id ? 'Updating...' : 'Refresh Value'}
                         </button>
                       </div>
