@@ -18,6 +18,12 @@
 ## Mobile Bottom Nav
 Home | Inventory | Scan | Listings | Flip
 
+## Subscription Plans (Stripe)
+- **ROOKIE** (Free): 30 cards/scans/listings, basic dashboard, Flip Finder & Market grayed out
+- **ALL-STAR** ($9.99/mo): 200 cards/scans, 200 listings, full dashboard, Flip Finder partial, Market partial, no Photo Editor
+- **HALL OF FAME** ($14.99/mo) ⭐ Most Popular: 500 cards/scans/listings, full everything, Photo Editor + presets, priority support
+- **LEGEND** ($24.99/mo): Unlimited everything, multi-marketplace, scanner software, team access, VIP support
+
 ## Completed Features
 - [x] Full authentication (Google Auth + session cookies + email/password)
 - [x] Scanner desktop app with duplex scanning
@@ -30,15 +36,16 @@ Home | Inventory | Scan | Listings | Flip
 - [x] Market Intelligence: Seasonal Intelligence, Hot Cards, Upcoming Releases, Watchlist
 - [x] Sales-focused Dashboard (Command Center + Sales Overview)
 - [x] Navigation restored: Flip Finder + Market sections (Mar 2026)
-- [x] Batch Scan Mode: "Scan New Card" button after saving for rapid consecutive scanning (Mar 2026)
-- [x] Code cleanup: Removed PortfolioTracker.jsx, Scrapedo references from market.py/ebay.py/config.py (Mar 2026)
-- [x] Image compression optimized: MAX 900px, quality 0.65 to prevent mobile "low memory" errors (Mar 2026)
-- [x] Flip Finder mobile responsiveness: tabs, stats, filters, grid all optimized (Mar 2026)
-- [x] Listing Detail/Edit page mobile responsiveness: image, market panel, edit fields all optimized (Mar 2026)
+- [x] Batch Scan Mode: "Scan New Card" button for rapid scanning (Mar 2026)
+- [x] Code cleanup: Removed Scrapedo, PortfolioTracker (Mar 2026)
+- [x] Image compression optimized for mobile (Mar 2026)
+- [x] Flip Finder + Listing Detail mobile responsiveness (Mar 2026)
+- [x] Stripe Subscription System: 4 plans, checkout, payment polling, webhook (Mar 2026)
+- [x] Pricing UI in Account page with plan comparison (Mar 2026)
 
 ## Pending Tasks
-- **P0:** Whatnot Integration & Inventory Sync Engine
-- **P1:** Stripe subscription integration (Free, Pro, Dealer)
+- **P0:** Enforce plan limits (gate features based on subscription tier)
+- **P1:** Whatnot Integration & Inventory Sync Engine
 - **P2:** New User Onboarding improvements
 - **P3:** Flip Finder core logic enhancements
 - **P4:** Windows Scanner App
@@ -53,5 +60,5 @@ Home | Inventory | Scan | Listings | Flip
 - Frontend: React + Tailwind + shadcn/ui + framer-motion
 - Backend: FastAPI + MongoDB
 - Auth: Session cookies (not JWT)
-- 3rd Party: eBay API, OpenAI GPT-4o, Emergent Google Auth
-- Scrapedo: REMOVED (no longer used)
+- 3rd Party: eBay API, OpenAI GPT-4o, Emergent Google Auth, Stripe
+- DB Collections: users, inventory, subscriptions, payment_transactions

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -60,6 +60,41 @@ const Dashboard = ({ user, onLogout }) => {
   const [pendingAddCategory, setPendingAddCategory] = useState(null);
 
   const token = localStorage.getItem('flipslab_token');
+
+  // Handle Stripe redirect - poll payment status
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    const planId = params.get('plan');
+    const cancelled = params.get('payment');
+
+    if (cancelled === 'cancelled') {
+      window.history.replaceState({}, '', window.location.pathname);
+      return;
+    }
+
+    if (sessionId) {
+      const pollStatus = async (attempts = 0) => {
+        if (attempts >= 6) {
+          window.history.replaceState({}, '', window.location.pathname);
+          return;
+        }
+        try {
+          const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/subscription/checkout/status/${sessionId}`, { credentials: 'include' });
+          const data = await res.json();
+          if (data.payment_status === 'paid') {
+            window.history.replaceState({}, '', window.location.pathname);
+            setActiveModule('account');
+            return;
+          }
+          setTimeout(() => pollStatus(attempts + 1), 2000);
+        } catch {
+          setTimeout(() => pollStatus(attempts + 1), 2000);
+        }
+      };
+      pollStatus();
+    }
+  }, []);
 
   const renderModule = () => {
     switch (activeModule) {

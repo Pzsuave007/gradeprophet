@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter
+from fastapi import FastAPI, APIRouter, Request
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
@@ -42,6 +42,7 @@ from routers.ebay import router as ebay_router
 from routers.flipfinder import router as flipfinder_router, sniper_background_loop
 from routers.settings import router as settings_router
 from routers.onboarding import router as onboarding_router
+from routers.subscription import router as subscription_router
 
 # Create parent API router
 api_router = APIRouter(prefix="/api")
@@ -58,6 +59,41 @@ api_router.include_router(ebay_router)
 api_router.include_router(flipfinder_router)
 api_router.include_router(settings_router)
 api_router.include_router(onboarding_router)
+api_router.include_router(subscription_router)
+
+
+# Stripe Webhook (under /api prefix for routing)
+@api_router.post("/webhook/stripe")
+async def stripe_webhook(request: Request):
+    from emergentintegrations.payments.stripe.checkout import StripeCheckout
+    import logging
+    logger = logging.getLogger(__name__)
+    body = await request.body()
+    sig = request.headers.get("Stripe-Signature", "")
+    api_key = os.environ.get("STRIPE_API_KEY")
+    host_url = str(request.base_url).rstrip("/")
+    webhook_url = f"{host_url}/api/webhook/stripe"
+    stripe_checkout = StripeCheckout(api_key=api_key, webhook_url=webhook_url)
+    try:
+        event = await stripe_checkout.handle_webhook(body, sig)
+        logger.info(f"Stripe webhook event: {event.event_type} session={event.session_id}")
+        if event.payment_status == "paid" and event.session_id:
+            txn = await db.payment_transactions.find_one({"session_id": event.session_id, "payment_status": {"$ne": "paid"}})
+            if txn:
+                from datetime import datetime, timezone
+                await db.payment_transactions.update_one(
+                    {"session_id": event.session_id},
+                    {"$set": {"payment_status": "paid", "status": "completed", "paid_at": datetime.now(timezone.utc).isoformat()}}
+                )
+                await db.subscriptions.update_one(
+                    {"user_id": txn["user_id"]},
+                    {"$set": {"plan_id": txn["plan_id"], "status": "active", "started_at": datetime.now(timezone.utc).isoformat(), "scans_used": 0}},
+                    upsert=True
+                )
+                logger.info(f"Webhook: User {txn['user_id']} upgraded to {txn['plan_id']}")
+    except Exception as e:
+        logger.error(f"Stripe webhook error: {e}")
+    return {"received": True}
 
 
 # Root endpoint

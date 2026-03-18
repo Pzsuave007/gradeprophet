@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import PricingPlans from './PricingPlans';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+const PLAN_NAMES = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
+const PLAN_COLORS = { rookie: 'text-gray-400', all_star: 'text-blue-400', hall_of_fame: 'text-amber-400', legend: 'text-purple-400' };
 
 const AccountModule = () => {
   const [ebayStatus, setEbayStatus] = useState(null);
@@ -14,6 +18,15 @@ const AccountModule = () => {
   const [scannerToken, setScannerToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [generatingToken, setGeneratingToken] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState('rookie');
+  const [showPricing, setShowPricing] = useState(false);
+
+  const fetchPlan = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/subscription/my-plan`);
+      setCurrentPlan(res.data.plan_id || 'rookie');
+    } catch {}
+  }, []);
 
   const checkStatus = async () => {
     setLoading(true);
@@ -30,6 +43,7 @@ const AccountModule = () => {
 
   useEffect(() => {
     checkStatus();
+    fetchPlan();
     const params = new URLSearchParams(window.location.search);
     const authResult = params.get('ebay_auth');
     if (authResult === 'success') {
@@ -65,8 +79,43 @@ const AccountModule = () => {
     <div className="space-y-5 pb-8" data-testid="account-page">
       <div>
         <h1 className="text-xl font-bold text-white tracking-tight">Account</h1>
-        <p className="text-xs text-gray-500 mt-0.5">Profile, location, and integrations</p>
+        <p className="text-xs text-gray-500 mt-0.5">Profile, subscription, and integrations</p>
       </div>
+
+      {/* Subscription Plan */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+        className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-3 sm:py-4 border-b border-[#1a1a1a] flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Crown className="w-4 h-4 text-amber-400" />
+            <h2 className="text-sm font-bold text-white">Subscription</h2>
+          </div>
+          <button onClick={() => setShowPricing(!showPricing)}
+            className="text-[11px] sm:text-xs text-[#3b82f6] hover:text-[#60a5fa] font-semibold transition-colors"
+            data-testid="toggle-pricing-btn">
+            {showPricing ? 'Hide Plans' : 'View Plans'}
+          </button>
+        </div>
+        <div className="p-4 sm:p-5">
+          {!showPricing ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500">Current Plan</p>
+                <p className={`text-lg sm:text-xl font-black ${PLAN_COLORS[currentPlan] || 'text-white'}`} data-testid="current-plan-name">
+                  {PLAN_NAMES[currentPlan] || 'Rookie'}
+                </p>
+              </div>
+              <button onClick={() => setShowPricing(true)}
+                className="px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 text-black text-[11px] sm:text-xs font-bold hover:from-amber-400 hover:to-orange-400 transition-colors"
+                data-testid="upgrade-btn">
+                {currentPlan === 'legend' ? 'Manage' : 'Upgrade'}
+              </button>
+            </div>
+          ) : (
+            <PricingPlans currentPlanId={currentPlan} onPlanChange={() => { fetchPlan(); setShowPricing(false); }} />
+          )}
+        </div>
+      </motion.div>
 
       {/* Seller Profile */}
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
