@@ -17,6 +17,7 @@ async def refresh_single_card_value(item_id: str, request: Request):
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
+    # Build query from card fields, fall back to card_name
     parts = []
     if item.get("year"):
         parts.append(str(item["year"]))
@@ -29,11 +30,28 @@ async def refresh_single_card_value(item_id: str, request: Request):
         parts.append(f"#{cn}" if not cn.startswith("#") else cn)
     if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
         try:
-            grade = str(float(item["grade"])).rstrip("0").rstrip(".")  # "9.0"->"9", "9.5"->"9.5", "10.0"->"10"
+            grade = str(float(item["grade"])).rstrip("0").rstrip(".")
         except (ValueError, TypeError):
             grade = str(item["grade"])
         parts.append(f"{item['grading_company']} {grade}")
-    query = " ".join(parts) if parts else item.get("card_name", "")
+    elif item.get("condition") != "Graded":
+        # For raw cards, exclude graded results
+        parts.append("-PSA -BGS -SGC -CGC")
+
+    # Use individual fields if available, otherwise fall back to card_name
+    if len(parts) >= 3:
+        query = " ".join(parts)
+    else:
+        query = item.get("card_name", "")
+        # Append grade info to card_name if graded
+        if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
+            try:
+                grade = str(float(item["grade"])).rstrip("0").rstrip(".")
+            except (ValueError, TypeError):
+                grade = str(item["grade"])
+            query += f" {item['grading_company']} {grade}"
+
+    logger.info(f"Market query for '{item.get('card_name', '')}': '{query}'")
 
     try:
         value_data = await get_card_market_value(query)

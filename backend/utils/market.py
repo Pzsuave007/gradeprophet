@@ -48,8 +48,103 @@ def _parse_sold_date(date_str: str):
     return None
 
 
+def _filter_irrelevant_titles(items: list, original_query: str, detected_grade: str = None) -> list:
+    """Filter out irrelevant listings based on title analysis.
+    Removes lots, wrong parallels, wrong grades, reprints, etc."""
+    if not items:
+        return items
+
+    query_lower = original_query.lower()
+
+    # Extract key terms from query for matching
+    # Detect if query has a specific parallel/variant
+    known_parallels = [
+        "gold knight", "gold", "silver", "bronze", "red", "blue", "green",
+        "purple", "orange", "pink", "black", "white", "camo", "mojo",
+        "shimmer", "cracked ice", "tiger", "zebra", "snakeskin",
+        "prizm", "refractor", "holo", "holographic", "wave",
+        "scope", "disco", "fast break", "neon", "kaboom", "downtown",
+    ]
+
+    # Check if query itself mentions a parallel
+    query_has_parallel = False
+    query_parallel = None
+    for p in known_parallels:
+        if p in query_lower:
+            query_has_parallel = True
+            query_parallel = p
+            break
+
+    # Bad title indicators (always exclude)
+    lot_patterns = re.compile(
+        r'\b(\d+)\s*(card|cards)\s*lot\b|'
+        r'\blot\s*of\s*\d+\b|'
+        r'\blot\s*!\b|'
+        r'\bcard\s*lot\b|'
+        r'\bbulk\b|'
+        r'\bcollection\s*of\s*\d+\b|'
+        r'\breprint\b|'
+        r'\bfacsimile\b|'
+        r'\bcustom\s*card\b|'
+        r'\bdigital\b|'
+        r'\bnft\b',
+        re.IGNORECASE
+    )
+
+    filtered = []
+    for item in items:
+        title = (item.get("title") or "").lower()
+
+        # Skip items with no title
+        if not title:
+            filtered.append(item)
+            continue
+
+        # Filter 1: Exclude lots and reprints
+        if lot_patterns.search(title):
+            logger.debug(f"Title filter: EXCLUDED lot/reprint: '{title}'")
+            continue
+
+        # Filter 2: If query has NO parallel, exclude listings with premium parallels
+        if not query_has_parallel:
+            has_premium_parallel = False
+            for p in known_parallels:
+                if p in title and p not in query_lower:
+                    # Check it's actually a parallel mention, not part of the set name
+                    # e.g. "Prizm" is a set name, not always a parallel
+                    if p in ("prizm", "refractor", "holo", "holographic", "wave"):
+                        continue  # These could be set names
+                    has_premium_parallel = True
+                    break
+            if has_premium_parallel:
+                logger.debug(f"Title filter: EXCLUDED parallel variant: '{title}'")
+                continue
+
+        # Filter 3: Grade mismatch - if searching for PSA 9, exclude PSA 10, PSA 8, etc.
+        if detected_grade:
+            grade_match = re.search(r'\b(PSA|BGS|SGC|CGC)\s*(\d+\.?\d*)\b', title, re.IGNORECASE)
+            if grade_match:
+                listing_company = grade_match.group(1).upper()
+                listing_grade = grade_match.group(2)
+                # Parse detected grade
+                dg_match = re.search(r'(PSA|BGS|SGC|CGC)\s*(\d+\.?\d*)', detected_grade, re.IGNORECASE)
+                if dg_match:
+                    target_company = dg_match.group(1).upper()
+                    target_grade = dg_match.group(2)
+                    if listing_company == target_company and listing_grade != target_grade:
+                        logger.debug(f"Title filter: EXCLUDED grade mismatch ({listing_company} {listing_grade} vs {target_company} {target_grade}): '{title}'")
+                        continue
+
+        filtered.append(item)
+
+    removed = len(items) - len(filtered)
+    if removed > 0:
+        logger.info(f"Title filter: removed {removed}/{len(items)} irrelevant listings")
+    return filtered
+
+
 def _filter_outliers_iqr(prices: list) -> list:
-    """Remove extreme outlier prices using IQR method"""
+    """Remove extreme outlier prices using IQR method + median cap"""
     if len(prices) < 4:
         return prices
     sorted_p = sorted(prices)
@@ -60,6 +155,10 @@ def _filter_outliers_iqr(prices: list) -> list:
     lower = q1 - 1.5 * iqr
     upper = q3 + 1.5 * iqr
     filtered = [p for p in prices if lower <= p <= upper]
+    # Secondary filter: remove anything > 3x the median of filtered set
+    if len(filtered) >= 3:
+        med = sorted(filtered)[len(filtered) // 2]
+        filtered = [p for p in filtered if p <= med * 3]
     return filtered if len(filtered) >= 2 else prices
 
 
@@ -266,17 +365,29 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
             outliers_removed = len(prices) - len(filtered)
             prices = filtered if filtered else prices
             
+            # Filter items to only include those with prices in the filtered set
+            filtered_set = set(prices)
+            remaining_counts = {}
+            for p in prices:
+                remaining_counts[p] = remaining_counts.get(p, 0) + 1
+            filtered_items = []
+            for item in items:
+                p = item.get("price", 0)
+                if p in remaining_counts and remaining_counts[p] > 0:
+                    filtered_items.append(item)
+                    remaining_counts[p] -= 1
+            
             mid = len(prices) // 2
             median = prices[mid] if len(prices) % 2 != 0 else (prices[mid - 1] + prices[mid]) / 2
             avg = sum(prices) / len(prices)
             
-            # Recency-weighted average
-            weighted_avg = _recency_weighted_avg(items)
+            # Recency-weighted average uses ONLY filtered items
+            weighted_avg = _recency_weighted_avg(filtered_items)
             
-            # Last sold (most recent sale)
+            # Last sold (most recent sale from FILTERED items only)
             last_sold = 0
             most_recent_date = None
-            for item in items:
+            for item in filtered_items:
                 d = _parse_sold_date(item.get("date_sold", ""))
                 if d and (most_recent_date is None or d > most_recent_date):
                     most_recent_date = d
@@ -306,6 +417,9 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
                 scrape_ebay_sold(f'{clean_q} {grade_str}', 12),
                 scrape_ebay_sold(f'{clean_q} -PSA -BGS -SGC -CGC -graded -slab', 8),
             )
+            # Apply title-based filtering before stats
+            same_grade_items = _filter_irrelevant_titles(same_grade_items, f'{clean_q} {grade_str}', grade_str)
+            raw_items = _filter_irrelevant_titles(raw_items, clean_q)
             return {
                 "query": query, "clean_query": clean_q,
                 "is_graded": True, "detected_grade": grade_str,
@@ -319,6 +433,9 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
                 scrape_ebay_sold(f'{clean_q} -PSA -BGS -SGC -CGC -graded -slab', 12),
                 scrape_ebay_sold(f'{clean_q} PSA 10', 8),
             )
+            # Apply title-based filtering before stats
+            raw_items = _filter_irrelevant_titles(raw_items, clean_q)
+            psa10_items = _filter_irrelevant_titles(psa10_items, f'{clean_q} PSA 10', 'PSA 10')
             return {
                 "query": query, "clean_query": clean_q,
                 "is_graded": False, "detected_grade": None,
