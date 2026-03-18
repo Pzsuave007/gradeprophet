@@ -260,10 +260,10 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
 // =========== CARD DETAIL FULLSCREEN ===========
 const PRESETS = [
   { id: 'original', label: 'Original', icon: ImageIcon, brightness: 100, contrast: 100, saturate: 100, sharpness: 0 },
-  { id: 'bright', label: 'Bright', icon: Sun, brightness: 110, contrast: 106, saturate: 105, sharpness: 0 },
-  { id: 'vivid', label: 'Vivid', icon: Palette, brightness: 102, contrast: 108, saturate: 128, sharpness: 0 },
-  { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 103, contrast: 108, saturate: 103, sharpness: 35 },
-  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 106, contrast: 112, saturate: 112, sharpness: 20 },
+  { id: 'bright', label: 'Bright', icon: Sun, brightness: 108, contrast: 103, saturate: 95, sharpness: 0 },
+  { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 10 },
+  { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 104, contrast: 106, saturate: 98, sharpness: 30 },
+  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 108, contrast: 108, saturate: 92, sharpness: 15 },
 ];
 
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
