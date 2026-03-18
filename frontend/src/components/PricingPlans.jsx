@@ -19,7 +19,7 @@ const PLAN_META = {
     bg: 'bg-gray-900/40',
     badge: null,
     tagline: 'Start your journey',
-    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/db4f4b7e60768bab8bdd8bac1c67cd8848aaecabdb87ce815aa6a9bfefe1ad56.png',
+    cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/xdgv6i1p_rookie.webp',
   },
   all_star: {
     icon: Star,
@@ -29,7 +29,7 @@ const PLAN_META = {
     bg: 'bg-blue-950/20',
     badge: null,
     tagline: 'For the serious seller',
-    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/bff1af64f6dd2926c6bfbf9d266995be1bef42cf54b8a72722e7451c16d03c4f.png',
+    cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/747pul21_all-start-lebron.jfif',
   },
   hall_of_fame: {
     icon: Trophy,
@@ -39,7 +39,7 @@ const PLAN_META = {
     bg: 'bg-amber-950/20',
     badge: 'MOST POPULAR',
     tagline: 'Everything you need',
-    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/cd507eaca6f141c701cbbab826ae14f3c3423a1f61042a81f4f2556f0a6e4f99.png',
+    cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/h4bz6thd_hall-of-fame-kobe.webp',
   },
   legend: {
     icon: Crown,
@@ -49,7 +49,7 @@ const PLAN_META = {
     bg: 'bg-purple-950/20',
     badge: 'UNLIMITED',
     tagline: 'For shops & enterprises',
-    cardImage: 'https://static.prod-images.emergentagent.com/jobs/8941a75b-2157-4d9e-882f-a0cf919e04ed/images/6dd52c1de09c03d447ff75fd570cb05338e16ab0141d5602d1c60c0b57353e6c.png',
+    cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/9dwva9ex_legend.webp',
   },
 };
 
@@ -167,9 +167,20 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
               {/* Plan Header */}
               <div className="p-4 sm:p-5 space-y-3">
                 {/* Card Holder Image */}
-                <div className="relative w-full h-28 sm:h-36 rounded-xl overflow-hidden mb-1">
+                <div className={`relative w-full h-28 sm:h-36 rounded-xl overflow-hidden mb-1 flex items-center justify-center ${
+                  plan.id === 'rookie' ? 'bg-gradient-to-b from-gray-800/30 to-transparent' :
+                  plan.id === 'all_star' ? 'bg-gradient-to-b from-blue-900/20 to-transparent' :
+                  plan.id === 'hall_of_fame' ? 'bg-gradient-to-b from-amber-900/20 to-transparent' :
+                  'bg-gradient-to-b from-purple-900/20 to-transparent'
+                }`}>
                   <img src={meta.cardImage} alt={`${plan.name} card`}
-                    className="w-full h-full object-contain drop-shadow-2xl"
+                    className="h-full object-contain rounded-lg"
+                    style={{
+                      filter: plan.id === 'rookie' ? 'drop-shadow(0 4px 20px rgba(156,163,175,0.3))' :
+                             plan.id === 'all_star' ? 'drop-shadow(0 4px 25px rgba(59,130,246,0.5))' :
+                             plan.id === 'hall_of_fame' ? 'drop-shadow(0 4px 30px rgba(245,158,11,0.6))' :
+                             'drop-shadow(0 4px 30px rgba(147,51,234,0.6))',
+                    }}
                     loading="lazy" />
                 </div>
 
