@@ -162,6 +162,9 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
 
         image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
 
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+
         buffer = io.BytesIO()
         image.save(buffer, format='JPEG', quality=90)
         thumbnail_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
@@ -169,12 +172,16 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
         return thumbnail_base64
     except Exception as e:
         logger.warning(f"Failed to create thumbnail: {e}")
-        return image_base64[:1000] + "..."
+        return image_base64
 
 
 def process_card_image(image_base64: str, max_size: int = 800) -> str:
     """Full image processing pipeline: crop -> resize (no color enhancement)"""
-    processed = auto_crop_card(image_base64)
+    try:
+        processed = auto_crop_card(image_base64)
+    except Exception as e:
+        logger.warning(f"Auto-crop step failed, using original: {e}")
+        processed = image_base64
     processed = create_thumbnail(processed, max_size=max_size)
     return processed
 
