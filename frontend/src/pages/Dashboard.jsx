@@ -9,12 +9,16 @@ import {
   X,
   Zap,
   LogOut,
-  Camera
+  Camera,
+  Crosshair,
+  BarChart3
 } from 'lucide-react';
 import DashboardHome from '../components/DashboardHome';
 import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
 import ListingsModule from '../components/ListingsModule';
+import FlipFinder from '../components/FlipFinder';
+import MarketModule from '../components/MarketModule';
 import QuickScan from '../components/QuickScan';
 
 // Placeholder components for future modules
@@ -43,6 +47,8 @@ const modules = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'listings', label: 'Listings', icon: Tag },
+  { id: 'flipfinder', label: 'Flip Finder', icon: Crosshair },
+  { id: 'market', label: 'Market', icon: BarChart3 },
   { id: 'account', label: 'Account', icon: User },
 ];
 
@@ -60,6 +66,8 @@ const Dashboard = ({ user, onLogout }) => {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
       case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} />;
       case 'listings': return <ListingsModule />;
+      case 'flipfinder': return <FlipFinder />;
+      case 'market': return <MarketModule />;
       case 'account': return <AccountModule />;
       default: return <DashboardHome onNavigate={setActiveModule} />;
     }
@@ -192,8 +200,8 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
             { id: 'inventory', label: 'Inventory', icon: Package },
             { id: 'quickscan', label: 'Scan', icon: Camera, special: true },
-            { id: 'listings', label: 'Listings', icon: Tag },
-            { id: 'account', label: 'Account', icon: User },
+            { id: 'flipfinder', label: 'Flip', icon: Crosshair },
+            { id: 'market', label: 'Market', icon: BarChart3 },
           ].map(({ id, label, icon: Icon, special }) => (
             special ? (
               <button key={id} onClick={() => setQuickScanOpen(true)}
