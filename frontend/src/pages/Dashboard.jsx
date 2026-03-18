@@ -231,11 +231,14 @@ const Dashboard = ({ user, onLogout }) => {
         {quickScanOpen && (
           <QuickScan
             token={token}
-            onClose={() => setQuickScanOpen(false)}
+            onClose={() => {
+              setQuickScanOpen(false);
+              // Navigate to inventory when done scanning
+              setActiveModule('inventory');
+            }}
             onCardAdded={(newCard) => {
               if (newCard) {
                 setPendingDetailCard(newCard);
-                setActiveModule('inventory');
               }
             }}
           />

@@ -27,6 +27,7 @@
 - [x] Market Intelligence: Seasonal Intelligence, Hot Cards, Upcoming Releases, Watchlist
 - [x] Sales-focused Dashboard (Command Center + Sales Overview)
 - [x] Navigation restored: Flip Finder + Market sections (Mar 2026)
+- [x] Batch Scan Mode: "Scan New Card" button after saving for rapid consecutive scanning (Mar 2026)
 
 ## Pending Tasks
 - **P0:** Whatnot Integration & Inventory Sync Engine

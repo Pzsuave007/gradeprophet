@@ -15,13 +15,15 @@ const CATEGORIES = [
 ];
 
 const QuickScan = ({ token, onClose, onCardAdded }) => {
-  const [step, setStep] = useState('capture'); // capture | back | review | saving
+  const [step, setStep] = useState('capture'); // capture | back | review | saved
   const [frontImage, setFrontImage] = useState(null);
   const [backImage, setBackImage] = useState(null);
   const [identifying, setIdentifying] = useState(false);
   const [cardData, setCardData] = useState(null);
   const [category, setCategory] = useState('for_sale');
   const [saving, setSaving] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
+  const [lastSavedName, setLastSavedName] = useState('');
   const frontInputRef = useRef(null);
   const backInputRef = useRef(null);
 
@@ -134,14 +136,26 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      toast.success('Card saved to inventory');
+      toast.success('Card saved!');
+      setSavedCount(prev => prev + 1);
+      setLastSavedName(cardName);
       onCardAdded?.(res.data);
-      onClose();
+      setStep('saved');
     } catch (err) {
       toast.error('Error saving card');
     } finally {
       setSaving(false);
     }
+  };
+
+  const scanNextCard = () => {
+    setFrontImage(null);
+    setBackImage(null);
+    setCardData(null);
+    setIdentifying(false);
+    setStep('capture');
+    // Small delay to ensure file input is re-rendered
+    setTimeout(() => frontInputRef.current?.click(), 300);
   };
 
   const retake = () => {
@@ -176,7 +190,7 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
       {/* Step indicator */}
       <div className="flex items-center gap-2 px-6 py-3 shrink-0">
         {['Front', 'Back', 'Review'].map((label, i) => {
-          const stepIndex = step === 'capture' ? 0 : step === 'back' ? 1 : 2;
+          const stepIndex = step === 'capture' ? 0 : step === 'back' ? 1 : step === 'saved' ? 3 : 2;
           const isActive = i === stepIndex;
           const isDone = i < stepIndex;
           return (
@@ -385,6 +399,48 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
                   </button>
                 </>
               )}
+            </motion.div>
+          )}
+
+          {/* Step 4: Saved - Scan Next */}
+          {step === 'saved' && (
+            <motion.div key="saved" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center h-full gap-5 py-8"
+            >
+              {/* Success animation */}
+              <motion.div
+                initial={{ scale: 0 }} animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 200, damping: 15 }}
+                className="w-20 h-20 rounded-full bg-emerald-500/15 flex items-center justify-center"
+              >
+                <Check className="w-10 h-10 text-emerald-400" />
+              </motion.div>
+
+              <div className="text-center space-y-1">
+                <p className="text-lg font-bold text-white">Card Saved!</p>
+                <p className="text-sm text-gray-400 max-w-[280px] truncate">{lastSavedName}</p>
+                {savedCount > 1 && (
+                  <p className="text-xs text-[#3b82f6] font-semibold">{savedCount} cards scanned this session</p>
+                )}
+              </div>
+
+              {/* Primary: Scan Next Card */}
+              <button
+                onClick={scanNextCard}
+                className="flex items-center justify-center gap-2.5 w-full max-w-xs px-8 py-4 rounded-xl bg-[#3b82f6] text-white font-bold text-base hover:bg-[#2563eb] transition-colors active:scale-[0.97] shadow-lg shadow-[#3b82f6]/25"
+                data-testid="quick-scan-next-card"
+              >
+                <Camera className="w-5 h-5" /> Scan New Card
+              </button>
+
+              {/* Secondary: Done / View inventory */}
+              <button
+                onClick={onClose}
+                className="text-sm text-gray-500 hover:text-white transition-colors py-2"
+                data-testid="quick-scan-done"
+              >
+                Done — Go to Inventory
+              </button>
             </motion.div>
           )}
         </AnimatePresence>
