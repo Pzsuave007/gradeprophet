@@ -264,6 +264,7 @@ const PRESETS = [
   { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 10 },
   { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 104, contrast: 106, saturate: 98, sharpness: 30 },
   { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 108, contrast: 108, saturate: 92, sharpness: 15 },
+  { id: 'pop', label: 'Pop', icon: Palette, brightness: 105, contrast: 115, saturate: 125, sharpness: 30 },
 ];
 
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
