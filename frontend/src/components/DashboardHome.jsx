@@ -8,12 +8,6 @@ import {
   Search, ArrowRight, X, Newspaper, User as UserIcon
 } from 'lucide-react';
 import axios from 'axios';
-import {
-  AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, CartesianGrid, Cell, PieChart, Pie
-} from 'recharts';
-import PortfolioTracker from './PortfolioTracker';
-
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const fmt = (v) => {
@@ -345,7 +339,6 @@ const DashboardHome = ({ onNavigate }) => {
         {[
           { id: 'command', label: 'Command Center', icon: Activity },
           { id: 'overview', label: 'Sales Overview', icon: TrendingUp },
-          { id: 'portfolio', label: 'Portfolio Value', icon: Wallet },
         ].map(({ id, label, icon: Icon }) => (
           <button key={id} onClick={() => setDashTab(id)}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
@@ -357,7 +350,6 @@ const DashboardHome = ({ onNavigate }) => {
       </div>
 
       {dashTab === 'command' && <CommandCenterTab cc={ccData} analytics={data} filteredStats={filteredStats} onNavigate={onNavigate} onSelectSale={setSelectedSale} onSwitchTab={setDashTab} />}
-      {dashTab === 'portfolio' && <PortfolioTracker />}
       {dashTab === 'overview' && <SalesOverviewTab filteredStats={filteredStats} filteredCumulative={filteredCumulative} s={s} inv={inv} lst={lst} onNavigate={onNavigate} />}
 
       {/* Sale Detail Modal */}

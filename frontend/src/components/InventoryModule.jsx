@@ -525,33 +525,6 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
                 </div>
               </div>
-              {/* Market Value bar */}
-              {item.market_value > 0 && (
-                <div className="bg-[#0d1b2a] border border-[#3b82f6]/20 rounded-xl p-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
-                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">Market Value</span>
-                    </div>
-                    <span className="text-base font-black text-[#3b82f6]">${Number(item.market_value).toFixed(2)}</span>
-                  </div>
-                  {item.purchase_price > 0 && (() => {
-                    const diff = item.market_value - item.purchase_price;
-                    const pct = ((diff / item.purchase_price) * 100).toFixed(0);
-                    return (
-                      <div className="flex items-center justify-between mt-1.5">
-                        <div className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden mr-3">
-                          <div className={`h-full rounded-full ${diff >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
-                            style={{ width: `${Math.min(100, Math.abs((item.market_value / item.purchase_price) * 50))}%` }} />
-                        </div>
-                        <span className={`text-xs font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                          {diff >= 0 ? '+' : ''}{pct}%
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </div>
-              )}
               {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
             </div>
 
@@ -675,20 +648,6 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     }
   };
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
-  const [refreshingCardId, setRefreshingCardId] = useState(null);
-  const getCardMarketValue = async (cardId) => {
-    setRefreshingCardId(cardId);
-    try {
-      const res = await axios.post(`${API}/api/portfolio/refresh-value/${cardId}`);
-      if (res.data.market_value > 0) {
-        toast.success(`Market value: $${res.data.market_value}`);
-        fetchInventory(search);
-      } else {
-        toast.info('No market data found');
-      }
-    } catch { toast.error('Failed to get value'); }
-    setRefreshingCardId(null);
-  };
   const openEdit = (item) => { setEditItem(item); setShowForm(true); };
   const openAdd = () => { setEditItem(null); setShowForm(true); };
 
@@ -864,29 +823,6 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
-                {/* Market Value bubble overlay */}
-                {item.market_value > 0 && !selectMode && (
-                  <div className="absolute top-1.5 right-1.5 backdrop-blur-md bg-black/65 rounded-xl px-3 py-1.5 border border-white/10">
-                    <p className="text-[8px] text-gray-400 uppercase tracking-wider leading-none">Mkt Value</p>
-                    <p className="text-sm font-black text-white leading-tight mt-0.5">{formatPrice(item.market_value)}</p>
-                    {item.purchase_price > 0 && (() => {
-                      const diff = item.market_value - item.purchase_price;
-                      const pct = ((diff / item.purchase_price) * 100).toFixed(0);
-                      return <p className={`text-[9px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{pct}%</p>;
-                    })()}
-                  </div>
-                )}
-                {!item.market_value && !selectMode && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); getCardMarketValue(item.id); }}
-                    disabled={refreshingCardId === item.id}
-                    className="absolute top-1.5 right-1.5 z-10 backdrop-blur-md bg-[#3b82f6]/80 rounded-lg px-2 py-1 border border-[#3b82f6]/40 text-white text-[9px] font-bold hover:bg-[#3b82f6] transition-colors active:scale-95 disabled:opacity-50 flex items-center gap-1"
-                    data-testid={`get-inv-value-${item.id}`}
-                  >
-                    {refreshingCardId === item.id ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <DollarSign className="w-2.5 h-2.5" />}
-                    {refreshingCardId === item.id ? 'Checking...' : 'Get Mkt Value'}
-                  </button>
-                )}
                 {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
                 {item.back_image && (
                   <button
@@ -995,12 +931,6 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               </div>
               <div className="text-right flex-shrink-0 w-28">
                 <p className="text-sm font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</p>
-                {item.market_value > 0 && (
-                  <p className="text-[10px]">
-                    <span className="text-gray-500">Mkt </span>
-                    <span className="font-bold text-[#3b82f6]">{formatPrice(item.market_value)}</span>
-                  </p>
-                )}
                 {item.listed && item.purchase_price > 0 && item.listed_price && (
                   <p className={`text-[9px] font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     Cost: {formatPrice(item.purchase_price)}
