@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
-  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp
+  Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -257,25 +258,28 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
 };
 
 // =========== CARD DETAIL FULLSCREEN ===========
-const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped }) => {
+const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
   const [showEditor, setShowEditor] = useState(false);
-  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, vignette: false });
+  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, sharpness: 0, vignette: false });
   const [saving, setSaving] = useState(false);
-  const canvasRef = useRef(null);
 
   if (!item) return null;
   const hasBack = !!item.back_image;
   const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
 
-  const filterStyle = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
+  const sharpAmt = filters.sharpness / 100;
+  const sharpKernel = `0 ${-sharpAmt} 0 ${-sharpAmt} ${1 + 4 * sharpAmt} ${-sharpAmt} 0 ${-sharpAmt} 0`;
+  const filterStyle = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${filters.sharpness > 0 ? ' url(#card-sharpen)' : ''}`;
+
+  const hasChanges = filters.brightness !== 100 || filters.contrast !== 100 || filters.saturate !== 100 || filters.sharpness > 0 || filters.vignette;
 
   const autoEnhance = () => {
-    setFilters({ brightness: 108, contrast: 118, saturate: 120, vignette: true });
+    setFilters({ brightness: 108, contrast: 118, saturate: 120, sharpness: 35, vignette: true });
   };
 
   const resetFilters = () => {
-    setFilters({ brightness: 100, contrast: 100, saturate: 100, vignette: false });
+    setFilters({ brightness: 100, contrast: 100, saturate: 100, sharpness: 0, vignette: false });
   };
 
   const saveEnhanced = async (side) => {
@@ -283,32 +287,59 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     if (!src) return;
     setSaving(true);
     try {
-      const img = new window.Image();
-      img.onload = async () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        ctx.filter = filterStyle;
-        ctx.drawImage(img, 0, 0);
-        if (filters.vignette) {
-          const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width*0.3, canvas.width/2, canvas.height/2, canvas.width*0.75);
-          grad.addColorStop(0, 'rgba(0,0,0,0)');
-          grad.addColorStop(1, 'rgba(0,0,0,0.6)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(0, 0, canvas.width, canvas.height);
+      const img = await new Promise((resolve, reject) => {
+        const i = new window.Image();
+        i.onload = () => resolve(i);
+        i.onerror = reject;
+        i.src = src;
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
+      ctx.drawImage(img, 0, 0);
+      // Apply sharpness via convolution
+      if (filters.sharpness > 0) {
+        const s = filters.sharpness / 100;
+        const w = canvas.width, h = canvas.height;
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const srcPx = new Uint8ClampedArray(imageData.data);
+        const dst = imageData.data;
+        const k = [0, -s, 0, -s, 1 + 4 * s, -s, 0, -s, 0];
+        for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            for (let c = 0; c < 3; c++) {
+              let v = 0;
+              for (let ky = -1; ky <= 1; ky++)
+                for (let kx = -1; kx <= 1; kx++)
+                  v += srcPx[((y + ky) * w + (x + kx)) * 4 + c] * k[(ky + 1) * 3 + (kx + 1)];
+              dst[(y * w + x) * 4 + c] = Math.min(255, Math.max(0, Math.round(v)));
+            }
+          }
         }
-        const enhanced = canvas.toDataURL('image/jpeg', 0.85);
-        canvas.width = 0;
-        canvas.height = 0;
-        const field = side === 'back' ? 'back_image_base64' : 'image_base64';
-        await axios.put(`${API}/api/inventory/${item.id}`, { [field]: enhanced });
-        toast.success(`Enhanced ${side} image saved!`);
-        setSaving(false);
-      };
-      img.src = src;
-    } catch {
+        ctx.putImageData(imageData, 0, 0);
+      }
+      // Apply vignette
+      if (filters.vignette) {
+        ctx.filter = 'none';
+        const grad = ctx.createRadialGradient(canvas.width / 2, canvas.height / 2, canvas.width * 0.3, canvas.width / 2, canvas.height / 2, canvas.width * 0.75);
+        grad.addColorStop(0, 'rgba(0,0,0,0)');
+        grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      const enhanced = canvas.toDataURL('image/jpeg', 0.85);
+      canvas.width = 0;
+      canvas.height = 0;
+      const field = side === 'back' ? 'back_image_base64' : 'image_base64';
+      const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: enhanced });
+      toast.success(`Enhanced ${side} image saved!`);
+      onImageSaved?.(res.data);
+    } catch (err) {
+      console.error('Save enhanced error:', err);
       toast.error('Error saving enhanced image');
+    } finally {
       setSaving(false);
     }
   };
@@ -317,6 +348,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     { key: 'brightness', label: 'Brightness', icon: Sun, min: 50, max: 150, color: 'amber' },
     { key: 'contrast', label: 'Contrast', icon: Sliders, min: 50, max: 200, color: 'blue' },
     { key: 'saturate', label: 'Saturation', icon: Palette, min: 50, max: 200, color: 'purple' },
+    { key: 'sharpness', label: 'Sharpness', icon: Focus, min: 0, max: 100, color: 'cyan' },
   ];
 
   return (
@@ -344,6 +376,15 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
         </div>
       </div>
+
+      {/* SVG filter for sharpness live preview */}
+      <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
+        <defs>
+          <filter id="card-sharpen">
+            <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
+          </filter>
+        </defs>
+      </svg>
 
       {/* Card Image - Large */}
       <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: showEditor ? '40vh' : '50vh', perspective: '800px' }}>
@@ -418,7 +459,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 </button>
               </div>
               {/* Save button */}
-              {(filters.brightness !== 100 || filters.contrast !== 100 || filters.saturate !== 100 || filters.vignette) && (
+              {hasChanges && (
                 <div className="flex gap-2 pt-2 border-t border-[#1a1a1a]">
                   <button onClick={() => saveEnhanced('front')} disabled={saving}
                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-colors disabled:opacity-50 active:scale-95"
@@ -910,6 +951,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
             onEdit={(item) => { setDetailCard(null); openEdit(item); }}
             onDelete={(id) => { setDetailCard(null); handleDelete(id); }}
             onList={(item) => { setDetailCard(null); listSingleItem(item); }}
+            onImageSaved={(updatedCard) => { setDetailCard(updatedCard); fetchInventory(search); }}
             onFlip={() => {
               setFlippedCards(prev => {
                 const next = new Set(prev);
