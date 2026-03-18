@@ -392,7 +392,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       </svg>
 
       {/* Card Image */}
-      <div className={`relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden ${showEditor ? 'max-h-[30vh]' : ''}`} style={{ minHeight: showEditor ? undefined : '50vh', perspective: '800px' }}>
+      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: showEditor ? '25vh' : '50vh', perspective: '800px' }}>
         {/* Vignette overlay */}
         {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
         <div
