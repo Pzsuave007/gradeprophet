@@ -258,10 +258,66 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
 
 // =========== CARD DETAIL FULLSCREEN ===========
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped }) => {
+  const [showEditor, setShowEditor] = useState(false);
+  const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, vignette: false });
+  const [saving, setSaving] = useState(false);
+  const canvasRef = useRef(null);
+
   if (!item) return null;
   const hasBack = !!item.back_image;
   const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
+
+  const filterStyle = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
+
+  const autoEnhance = () => {
+    setFilters({ brightness: 108, contrast: 118, saturate: 120, vignette: true });
+  };
+
+  const resetFilters = () => {
+    setFilters({ brightness: 100, contrast: 100, saturate: 100, vignette: false });
+  };
+
+  const saveEnhanced = async (side) => {
+    const src = side === 'back' ? backSrc : frontSrc;
+    if (!src) return;
+    setSaving(true);
+    try {
+      const img = new window.Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.filter = filterStyle;
+        ctx.drawImage(img, 0, 0);
+        if (filters.vignette) {
+          const grad = ctx.createRadialGradient(canvas.width/2, canvas.height/2, canvas.width*0.3, canvas.width/2, canvas.height/2, canvas.width*0.75);
+          grad.addColorStop(0, 'rgba(0,0,0,0)');
+          grad.addColorStop(1, 'rgba(0,0,0,0.6)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+        const enhanced = canvas.toDataURL('image/jpeg', 0.85);
+        canvas.width = 0;
+        canvas.height = 0;
+        const field = side === 'back' ? 'back_image_base64' : 'image_base64';
+        await axios.put(`${API}/api/inventory/${item.id}`, { [field]: enhanced });
+        toast.success(`Enhanced ${side} image saved!`);
+        setSaving(false);
+      };
+      img.src = src;
+    } catch {
+      toast.error('Error saving enhanced image');
+      setSaving(false);
+    }
+  };
+
+  const sliders = [
+    { key: 'brightness', label: 'Brightness', icon: Sun, min: 50, max: 150, color: 'amber' },
+    { key: 'contrast', label: 'Contrast', icon: Sliders, min: 50, max: 200, color: 'blue' },
+    { key: 'saturate', label: 'Saturation', icon: Palette, min: 50, max: 200, color: 'purple' },
+  ];
 
   return (
     <motion.div
@@ -276,6 +332,13 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           <span className="text-sm font-medium">Back</span>
         </button>
         <div className="flex items-center gap-2">
+          {frontSrc && (
+            <button onClick={() => setShowEditor(!showEditor)}
+              className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors ${showEditor ? 'bg-amber-500/20 text-amber-400' : 'bg-[#1a1a1a] text-gray-400 hover:text-white'}`}
+              data-testid="card-detail-edit-photo">
+              <Sliders className="w-3 h-3" /> Edit Photo
+            </button>
+          )}
           {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
           {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
           {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
@@ -283,32 +346,100 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       </div>
 
       {/* Card Image - Large */}
-      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: '50vh', perspective: '800px' }}>
+      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: showEditor ? '40vh' : '50vh', perspective: '800px' }}>
+        {/* Vignette overlay */}
+        {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
         <div
           className="w-full h-full flex items-center justify-center transition-transform duration-500"
           style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
         >
           <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden' }}>
             {frontSrc
-              ? <img src={frontSrc} alt={item.card_name} className="max-w-full max-h-full object-contain rounded-lg" />
+              ? <img src={frontSrc} alt={item.card_name} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
               : <div className="flex flex-col items-center gap-2 text-gray-700"><ImageIcon className="w-16 h-16" /><span className="text-xs">No image</span></div>
             }
           </div>
           {hasBack && (
             <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-              <img src={backSrc} alt={`${item.card_name} back`} className="max-w-full max-h-full object-contain rounded-lg" />
+              <img src={backSrc} alt={`${item.card_name} back`} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
             </div>
           )}
         </div>
         {hasBack && (
           <button onClick={onFlip}
-            className="absolute bottom-3 right-3 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg active:scale-95 transition-transform"
+            className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg active:scale-95 transition-transform"
             data-testid="card-detail-flip">
             <RotateCcw className="w-4 h-4" />
             {isFlipped ? 'FRONT' : 'BACK'}
           </button>
         )}
       </div>
+
+      {/* Photo Editor Panel */}
+      <AnimatePresence>
+        {showEditor && frontSrc && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="mx-4 mt-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="photo-editor-panel">
+            <div className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                  <Sliders className="w-3.5 h-3.5 text-amber-400" /> Photo Editor
+                </h3>
+                <div className="flex gap-2">
+                  <button onClick={autoEnhance} className="text-[10px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold hover:bg-amber-500/25 transition-colors active:scale-95" data-testid="auto-enhance-btn">
+                    Auto Enhance
+                  </button>
+                  <button onClick={resetFilters} className="text-[10px] px-3 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 font-bold hover:text-white transition-colors" data-testid="reset-filters-btn">
+                    Reset
+                  </button>
+                </div>
+              </div>
+              {sliders.map(({ key, label, icon: Icon, min, max, color }) => (
+                <div key={key} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1"><Icon className="w-3 h-3" /> {label}</label>
+                    <span className={`text-[10px] font-bold text-${color}-400`}>{filters[key]}%</span>
+                  </div>
+                  <input type="range" min={min} max={max} value={filters[key]}
+                    onChange={e => setFilters(f => ({ ...f, [key]: parseInt(e.target.value) }))}
+                    className="w-full h-1.5 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#3b82f6]"
+                    data-testid={`slider-${key}`} />
+                </div>
+              ))}
+              {/* Vignette toggle */}
+              <div className="flex items-center justify-between pt-1">
+                <label className="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                  <CircleDot className="w-3 h-3" /> Vignette (Dark Edges)
+                </label>
+                <button onClick={() => setFilters(f => ({ ...f, vignette: !f.vignette }))}
+                  className={`relative w-10 h-5 rounded-full transition-colors ${filters.vignette ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
+                  data-testid="vignette-toggle">
+                  <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${filters.vignette ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                </button>
+              </div>
+              {/* Save button */}
+              {(filters.brightness !== 100 || filters.contrast !== 100 || filters.saturate !== 100 || filters.vignette) && (
+                <div className="flex gap-2 pt-2 border-t border-[#1a1a1a]">
+                  <button onClick={() => saveEnhanced('front')} disabled={saving}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-colors disabled:opacity-50 active:scale-95"
+                    data-testid="save-enhanced-front">
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Save Front
+                  </button>
+                  {hasBack && (
+                    <button onClick={() => saveEnhanced('back')} disabled={saving}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors disabled:opacity-50 active:scale-95"
+                      data-testid="save-enhanced-back">
+                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      Save Back
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Card Info */}
       <div className="px-4 pt-4 pb-2 space-y-3">
