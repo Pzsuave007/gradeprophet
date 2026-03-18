@@ -15,6 +15,9 @@
 5. Market
 6. Account
 
+## Mobile Bottom Nav
+Home | Inventory | Scan | Listings | Flip
+
 ## Completed Features
 - [x] Full authentication (Google Auth + session cookies + email/password)
 - [x] Scanner desktop app with duplex scanning
@@ -28,6 +31,10 @@
 - [x] Sales-focused Dashboard (Command Center + Sales Overview)
 - [x] Navigation restored: Flip Finder + Market sections (Mar 2026)
 - [x] Batch Scan Mode: "Scan New Card" button after saving for rapid consecutive scanning (Mar 2026)
+- [x] Code cleanup: Removed PortfolioTracker.jsx, Scrapedo references from market.py/ebay.py/config.py (Mar 2026)
+- [x] Image compression optimized: MAX 900px, quality 0.65 to prevent mobile "low memory" errors (Mar 2026)
+- [x] Flip Finder mobile responsiveness: tabs, stats, filters, grid all optimized (Mar 2026)
+- [x] Listing Detail/Edit page mobile responsiveness: image, market panel, edit fields all optimized (Mar 2026)
 
 ## Pending Tasks
 - **P0:** Whatnot Integration & Inventory Sync Engine
@@ -47,3 +54,4 @@
 - Backend: FastAPI + MongoDB
 - Auth: Session cookies (not JWT)
 - 3rd Party: eBay API, OpenAI GPT-4o, Emergent Google Auth
+- Scrapedo: REMOVED (no longer used)
