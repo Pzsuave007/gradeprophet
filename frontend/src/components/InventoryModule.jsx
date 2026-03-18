@@ -467,12 +467,12 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           </div>
 
           {/* Scrollable content */}
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-y-auto overscroll-contain" style={{ WebkitOverflowScrolling: 'touch' }}>
             {/* Card Image - Large */}
-            <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: '50vh', perspective: '800px' }}>
+            <div className="relative bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ height: '50vh', perspective: '800px' }}>
               {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
               <div
-                className="w-full h-full flex items-center justify-center transition-transform duration-500"
+                className="absolute inset-0 flex items-center justify-center transition-transform duration-500"
                 style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
               >
                 <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden' }}>
