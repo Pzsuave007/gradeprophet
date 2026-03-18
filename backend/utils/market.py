@@ -272,65 +272,11 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
         logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}' graded={is_graded} grade={detected_company} {detected_grade}")
 
         async def scrape_ebay_sold(search_q: str, limit: int = 12) -> list:
-            # Priority 1: Scrapedo for REAL SOLD listings
-            try:
-                from config import SCRAPEDO_API_KEY
-                if SCRAPEDO_API_KEY:
-                    def _scrapedo_scrape():
-                        encoded = quote_plus(search_q)
-                        ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&LH_Sold=1&LH_Complete=1&_sop=13"
-                        scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={quote_plus(ebay_url)}&render=true"
-
-                        try:
-                            resp = httpx.get(scrape_url, timeout=30.0)
-                            if resp.status_code != 200:
-                                return []
-                        except Exception:
-                            return []
-
-                        html = resp.text
-                        blocks = re.split(r'data-viewport', html)
-                        results = []
-                        seen_ids = set()
-                        for block in blocks:
-                            url_m = re.search(r'https://www\.ebay\.com/itm/(\d+)', block)
-                            price_m = re.search(r'\$([\d,]+\.\d+)', block)
-                            date_m = re.search(r'Sold\s+(\w+\s+\d+,?\s*\d*)', block)
-                            title_m = re.search(r'role="heading"[^>]*>([^<]+)', block)
-
-                            if url_m and price_m:
-                                item_id = url_m.group(1)
-                                if item_id in seen_ids:
-                                    continue
-                                seen_ids.add(item_id)
-                                price = float(price_m.group(1).replace(',', ''))
-                                if price <= 0 or price > 100000:
-                                    continue
-                                results.append({
-                                    "title": title_m.group(1).strip() if title_m else search_q,
-                                    "price": price,
-                                    "date_sold": date_m.group(1).strip() if date_m else "",
-                                    "url": f"https://www.ebay.com/itm/{item_id}",
-                                    "source": "sold",
-                                })
-                                if len(results) >= limit:
-                                    break
-                        return results
-
-                    items = await asyncio.to_thread(_scrapedo_scrape)
-                    if items:
-                        logger.info(f"Scrapedo found {len(items)} SOLD items for '{search_q}'")
-                        return items
-                    logger.info(f"Scrapedo found 0 sold items for '{search_q}'")
-            except Exception as e:
-                logger.warning(f"Scrapedo scrape failed for '{search_q}': {e}")
-
-            # Priority 2: Fallback to eBay Browse API (active listings)
             items = await _browse_api_search(search_q, limit)
             if items:
                 logger.info(f"Browse API returned {len(items)} active items for '{search_q}'")
             else:
-                logger.warning(f"All scrapers returned 0 results for '{search_q}'")
+                logger.warning(f"Browse API returned 0 results for '{search_q}'")
             return items
 
         async def _browse_api_search(q, lim=10):

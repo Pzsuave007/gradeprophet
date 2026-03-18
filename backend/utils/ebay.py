@@ -7,7 +7,7 @@ from PIL import Image
 from io import BytesIO
 from fastapi import HTTPException
 from database import db
-from config import EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME, SCRAPEDO_API_KEY
+from config import EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME
 
 logger = logging.getLogger(__name__)
 
@@ -295,15 +295,9 @@ async def scrape_ebay_listing(url: str) -> dict:
             'Accept-Language': 'en-US,en;q=0.5',
         }
 
-        if SCRAPEDO_API_KEY:
-            async with httpx.AsyncClient(timeout=60.0) as client:
-                scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={final_url}&render=true"
-                response = await client.get(scrape_url)
-                html = response.text
-        else:
-            async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
-                response = await client.get(final_url, headers=headers)
-                html = response.text
+        async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+            response = await client.get(final_url, headers=headers)
+            html = response.text
 
         title_match = re.search(r'<title>([^<]+)</title>', html)
         title = title_match.group(1).replace(" | eBay", "").replace(" - eBay", "").strip() if title_match else "eBay Listing"
