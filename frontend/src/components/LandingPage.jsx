@@ -2,7 +2,9 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import {
   ScanLine, TrendingUp, Bell, Store, Layers, Zap, BarChart3,
-  Upload, ArrowRight, Check, Crosshair, Radio
+  Upload, ArrowRight, Check, X, Crosshair, Radio,
+  Crown, Star, Trophy, Camera, Shield, Users, Monitor,
+  Brain, Image, FileText, Headphones, Rocket
 } from 'lucide-react';
 
 const FEATURES = [
@@ -24,22 +26,90 @@ const WORKFLOW = [
 
 const PLANS = [
   {
+    id: 'rookie',
     name: 'ROOKIE',
+    icon: Zap,
     price: 'Free',
     period: '',
-    desc: 'Start tracking your collection',
-    features: ['Up to 50 cards', 'AI card identification', 'Basic portfolio value', 'eBay connection', 'Market monitor', '3 active alerts'],
+    tagline: 'Start your journey',
+    color: 'from-gray-600 to-gray-700',
+    accent: 'text-gray-400',
+    limits: { cards: '30', scans: '30', listings: '30' },
+    features: [
+      { text: 'Dashboard (basic)', has: true },
+      { text: 'AI Card Scanner', has: true },
+      { text: 'eBay Connection', has: true },
+      { text: 'Flip Finder', has: false },
+      { text: 'Market Intelligence', has: false },
+      { text: 'Photo Editor', has: false },
+    ],
+    cta: 'Get Started Free',
+    highlight: false,
+  },
+  {
+    id: 'all_star',
+    name: 'ALL-STAR',
+    icon: Star,
+    price: '$9.99',
+    period: '/mo',
+    tagline: 'For the serious seller',
+    color: 'from-blue-600 to-blue-700',
+    accent: 'text-blue-400',
+    limits: { cards: '200', scans: '200', listings: '200' },
+    features: [
+      { text: 'Full Dashboard', has: true },
+      { text: 'AI Card Scanner', has: true },
+      { text: 'Flip Finder: Monitor + Analyze', has: true },
+      { text: 'Market (partial)', has: true },
+      { text: 'Auction Alerts', has: false },
+      { text: 'Photo Editor', has: false },
+    ],
     cta: 'Get Started',
     highlight: false,
   },
   {
+    id: 'hall_of_fame',
     name: 'HALL OF FAME',
-    price: '$9.99',
+    icon: Trophy,
+    price: '$14.99',
     period: '/mo',
-    desc: 'For serious traders & flippers',
-    features: ['Unlimited cards', 'AI card identification', 'Real-time portfolio P&L', 'Unlimited auction alerts', 'Buy Now & Make Offers', 'Price alerts (unlimited)', 'Batch upload (20+ cards)', 'Auto market refresh', 'Multi-platform support', 'Priority support'],
-    cta: 'Start Free Trial',
+    tagline: 'Everything you need',
+    color: 'from-amber-500 to-orange-600',
+    accent: 'text-amber-400',
+    limits: { cards: '500', scans: '500', listings: '500' },
+    features: [
+      { text: 'Full Dashboard + Export', has: true },
+      { text: 'AI Card Scanner', has: true },
+      { text: 'Flip Finder: ALL features', has: true },
+      { text: 'Market: Full access', has: true },
+      { text: 'Photo Editor + Premium Presets', has: true },
+      { text: 'Priority Support', has: true },
+    ],
+    cta: 'Start Now',
     highlight: true,
+    badge: 'MOST POPULAR',
+  },
+  {
+    id: 'legend',
+    name: 'LEGEND',
+    icon: Crown,
+    price: '$24.99',
+    period: '/mo',
+    tagline: 'For shops & enterprises',
+    color: 'from-purple-600 to-violet-700',
+    accent: 'text-purple-400',
+    limits: { cards: 'Unlimited', scans: 'Unlimited', listings: 'Unlimited' },
+    features: [
+      { text: 'Everything in Hall of Fame', has: true },
+      { text: 'Multi-Marketplace (soon)', has: true },
+      { text: 'Scanner Software', has: true },
+      { text: 'Team Access', has: true },
+      { text: 'Advanced P&L Reports', has: true },
+      { text: 'VIP Support (24h)', has: true },
+    ],
+    cta: 'Go Legend',
+    highlight: false,
+    badge: 'UNLIMITED',
   },
 ];
 
@@ -208,50 +278,103 @@ const LandingPage = ({ onGetStarted }) => {
 
       {/* PRICING */}
       <section id="pricing" className="relative z-10 px-6 lg:px-16 py-20">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
             <p className="text-[11px] uppercase tracking-[0.3em] text-[#3b82f6] font-bold mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Pick Your Plan</h2>
             <p className="text-sm text-gray-500 mt-3">Start free. Upgrade when you're ready to dominate.</p>
           </motion.div>
 
-          <div className="grid md:grid-cols-2 gap-4 max-w-3xl mx-auto">
-            {PLANS.map((plan, i) => (
-              <motion.div key={i}
-                initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-                transition={{ delay: i * 0.15 }}
-                className={`rounded-2xl p-8 transition-all ${plan.highlight
-                  ? 'bg-[#111] border-2 border-[#3b82f6]/40 shadow-lg shadow-[#3b82f6]/5 relative'
-                  : 'bg-[#111] border border-white/[0.06]'}`}
-                data-testid={`pricing-${plan.name.toLowerCase().replace(/\s/g, '-')}`}>
-                {plan.highlight && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#3b82f6] text-[9px] font-bold uppercase tracking-widest text-white">
-                    Most Popular
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+            {PLANS.map((plan, i) => {
+              const Icon = plan.icon;
+              return (
+                <motion.div key={i}
+                  initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
+                  transition={{ delay: i * 0.1 }}
+                  className={`relative rounded-2xl overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
+                    plan.highlight
+                      ? 'bg-[#111] border-2 border-amber-500/40 shadow-lg shadow-amber-500/5'
+                      : 'bg-[#111] border border-white/[0.06]'
+                  }`}
+                  data-testid={`landing-plan-${plan.id}`}>
+
+                  {/* Badge */}
+                  {plan.badge && (
+                    <div className={`absolute top-0 right-0 px-2.5 py-1 rounded-bl-lg text-[8px] font-black uppercase tracking-widest ${
+                      plan.highlight ? 'bg-amber-500 text-black' : 'bg-purple-500 text-white'
+                    }`}>
+                      {plan.badge}
+                    </div>
+                  )}
+
+                  <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
+                    {/* Icon + Name */}
+                    <div className="flex items-center gap-2.5">
+                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg`}>
+                        <Icon className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
+                        <p className="text-[10px] text-gray-600">{plan.tagline}</p>
+                      </div>
+                    </div>
+
+                    {/* Price */}
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
+                      {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
+                    </div>
+
+                    {/* Limits */}
+                    <div className="space-y-1.5 pb-3 border-b border-white/[0.06]">
+                      {Object.entries(plan.limits).map(([key, val]) => {
+                        const labels = { cards: 'Cards', scans: 'AI Scans/mo', listings: 'eBay Listings' };
+                        const isUnlimited = val === 'Unlimited';
+                        return (
+                          <div key={key} className="flex items-center justify-between">
+                            <span className="text-[11px] text-gray-500">{labels[key]}</span>
+                            <span className={`text-sm font-bold ${isUnlimited ? plan.accent : 'text-white'}`}>{val}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Features */}
+                    <div className="space-y-2 flex-1">
+                      {plan.features.map((f, j) => (
+                        <div key={j} className="flex items-center gap-2">
+                          {f.has ? (
+                            <Check className={`w-3.5 h-3.5 flex-shrink-0 ${plan.accent}`} />
+                          ) : (
+                            <X className="w-3.5 h-3.5 text-gray-700 flex-shrink-0" />
+                          )}
+                          <span className={`text-[11px] sm:text-xs ${f.has ? 'text-gray-300' : 'text-gray-600'}`}>{f.text}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* CTA */}
+                    <button onClick={onGetStarted}
+                      className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${
+                        plan.highlight
+                          ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-500/20'
+                          : plan.id === 'legend'
+                          ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-500 hover:to-violet-500'
+                          : plan.id === 'rookie'
+                          ? 'bg-white/[0.06] text-white border border-white/[0.08] hover:bg-white/[0.1]'
+                          : 'bg-[#3b82f6] text-white hover:bg-[#2563eb]'
+                      }`}
+                      data-testid={`landing-pricing-cta-${plan.id}`}>
+                      {plan.cta}
+                    </button>
                   </div>
-                )}
-                <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
-                <div className="flex items-baseline gap-1 mt-3 mb-1">
-                  <span className="text-4xl font-black text-white">{plan.price}</span>
-                  {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
-                </div>
-                <p className="text-xs text-gray-500 mb-6">{plan.desc}</p>
-                <ul className="space-y-2.5 mb-8">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-2 text-sm text-gray-300">
-                      <Check className="w-3.5 h-3.5 text-[#3b82f6] flex-shrink-0" /> {f}
-                    </li>
-                  ))}
-                </ul>
-                <button onClick={onGetStarted}
-                  className={`w-full py-3 rounded-xl text-sm font-bold transition-all ${plan.highlight
-                    ? 'bg-[#3b82f6] text-white hover:bg-[#2563eb] shadow-lg shadow-[#3b82f6]/20'
-                    : 'bg-white/[0.06] text-white border border-white/[0.08] hover:bg-white/[0.1]'}`}
-                  data-testid={`pricing-cta-${i}`}>
-                  {plan.cta}
-                </button>
-              </motion.div>
-            ))}
+                </motion.div>
+              );
+            })}
           </div>
+
+          <p className="text-center text-[11px] text-gray-600 mt-6">All paid plans include secure Stripe checkout. Cancel anytime.</p>
         </div>
       </section>
 
