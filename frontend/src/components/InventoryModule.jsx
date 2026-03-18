@@ -262,6 +262,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const [showEditor, setShowEditor] = useState(false);
   const [filters, setFilters] = useState({ brightness: 100, contrast: 100, saturate: 100, sharpness: 0, vignette: false });
   const [saving, setSaving] = useState(false);
+  const editorRef = useRef(null);
 
   if (!item) return null;
   const hasBack = !!item.back_image;
@@ -365,7 +366,11 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         </button>
         <div className="flex items-center gap-2">
           {frontSrc && (
-            <button onClick={() => setShowEditor(!showEditor)}
+            <button onClick={() => {
+              const next = !showEditor;
+              setShowEditor(next);
+              if (next) setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
+            }}
               className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors ${showEditor ? 'bg-amber-500/20 text-amber-400' : 'bg-[#1a1a1a] text-gray-400 hover:text-white'}`}
               data-testid="card-detail-edit-photo">
               <Sliders className="w-3 h-3" /> Edit Photo
@@ -386,8 +391,8 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         </defs>
       </svg>
 
-      {/* Card Image - Large */}
-      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: showEditor ? '40vh' : '50vh', perspective: '800px' }}>
+      {/* Card Image */}
+      <div className={`relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden ${showEditor ? 'max-h-[30vh]' : ''}`} style={{ minHeight: showEditor ? undefined : '50vh', perspective: '800px' }}>
         {/* Vignette overlay */}
         {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
         <div
@@ -419,7 +424,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       {/* Photo Editor Panel */}
       <AnimatePresence>
         {showEditor && frontSrc && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+          <motion.div ref={editorRef} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
             className="mx-4 mt-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="photo-editor-panel">
             <div className="p-4 space-y-3">
               <div className="flex items-center justify-between">
@@ -513,7 +518,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       </div>
 
       {/* Action Buttons - Large */}
-      <div className="px-4 pb-6 pt-2 grid grid-cols-2 gap-2">
+      <div className="px-4 pb-20 pt-2 grid grid-cols-2 gap-2">
         {!item.listed && (
           <button onClick={() => { onClose(); onList(item); }}
             className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-sm active:scale-95 transition-transform"
