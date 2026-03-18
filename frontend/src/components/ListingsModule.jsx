@@ -151,131 +151,133 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
   const isGraded = marketData?.is_graded || false;
   const detectedGrade = marketData?.detected_grade || '';
 
-  const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
-  const labelCls = "block text-[11px] uppercase tracking-wider text-gray-500 mb-1.5 font-medium";
+  const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2 sm:py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
+  const labelCls = "block text-[10px] sm:text-[11px] uppercase tracking-wider text-gray-500 mb-1 sm:mb-1.5 font-medium";
 
   return (
     <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-      className="space-y-5" data-testid="listing-detail-view">
+      className="space-y-4 sm:space-y-5" data-testid="listing-detail-view">
 
       {/* Back Button */}
       <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-white transition-colors" data-testid="back-to-listings">
         <ChevronLeft className="w-4 h-4" />Back to Listings
       </button>
 
-      <div className="grid lg:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 sm:gap-5">
         {/* LEFT: Image + Info */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* Card Image */}
+        <div className="lg:col-span-2 space-y-3 sm:space-y-4">
+          {/* Card Image - smaller on mobile */}
           <div className="rounded-xl overflow-hidden bg-[#0a0a0a] border border-[#1a1a1a]">
             {listing.image_url ? (
-              <img src={listing.image_url} alt={listing.title} className="w-full aspect-square object-contain" />
+              <img src={listing.image_url} alt={listing.title} className="w-full aspect-[4/3] sm:aspect-square object-contain" />
             ) : (
-              <div className="w-full aspect-square flex items-center justify-center"><ImageIcon className="w-16 h-16 text-gray-800" /></div>
+              <div className="w-full aspect-[4/3] sm:aspect-square flex items-center justify-center"><ImageIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-800" /></div>
             )}
           </div>
 
           {/* Listing Info */}
-          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-3 sm:p-4 space-y-2.5 sm:space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wider text-gray-600">eBay Item ID</span>
-              <span className="text-xs text-gray-400 font-mono">{listing.item_id}</span>
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-600">eBay Item ID</span>
+              <span className="text-[11px] sm:text-xs text-gray-400 font-mono">{listing.item_id}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wider text-gray-600">Format</span>
-              <span className="text-xs text-gray-300">{listing.listing_type === 'FixedPriceItem' ? 'Buy It Now' : 'Auction'}</span>
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-600">Format</span>
+              <span className="text-[11px] sm:text-xs text-gray-300">{listing.listing_type === 'FixedPriceItem' ? 'Buy It Now' : 'Auction'}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-[10px] uppercase tracking-wider text-gray-600">Time Left</span>
-              <span className="text-xs text-gray-300 flex items-center gap-1"><Clock className="w-3 h-3" />{parseTimeLeft(listing.time_left)}</span>
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-600">Time Left</span>
+              <span className="text-[11px] sm:text-xs text-gray-300 flex items-center gap-1"><Clock className="w-3 h-3" />{parseTimeLeft(listing.time_left)}</span>
             </div>
             {listing.watch_count > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wider text-gray-600">Watchers</span>
-                <span className="text-xs text-amber-400 flex items-center gap-1"><Eye className="w-3 h-3" />{listing.watch_count}</span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-600">Watchers</span>
+                <span className="text-[11px] sm:text-xs text-amber-400 flex items-center gap-1"><Eye className="w-3 h-3" />{listing.watch_count}</span>
               </div>
             )}
-            <a href={listing.url} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-sm text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
-              data-testid="detail-view-on-ebay">
-              <ExternalLink className="w-4 h-4" />View on eBay
-            </a>
-            {onEndListing && (
-              <button onClick={() => onEndListing(listing.item_id)}
-                className="flex items-center justify-center gap-2 w-full py-2.5 rounded-lg bg-[#0a0a0a] border border-red-900/30 text-sm text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-colors"
-                data-testid="detail-end-listing-btn">
-                <Trash2 className="w-4 h-4" />End Listing
-              </button>
-            )}
+            <div className="flex gap-2">
+              <a href={listing.url} target="_blank" rel="noopener noreferrer"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs sm:text-sm text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"
+                data-testid="detail-view-on-ebay">
+                <ExternalLink className="w-3.5 h-3.5" />eBay
+              </a>
+              {onEndListing && (
+                <button onClick={() => onEndListing(listing.item_id)}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-lg bg-[#0a0a0a] border border-red-900/30 text-xs sm:text-sm text-red-400 hover:bg-red-500/10 hover:border-red-500/30 transition-colors"
+                  data-testid="detail-end-listing-btn">
+                  <Trash2 className="w-3.5 h-3.5" />End
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* RIGHT: Edit Fields + Market Data */}
-        <div className="lg:col-span-3 space-y-4">
+        <div className="lg:col-span-3 space-y-3 sm:space-y-4">
 
           {/* YOUR PRICE + MARKET COMPARISON - Combined prominent panel */}
           <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="market-comparison-panel">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-              <BarChart3 className="w-4 h-4 text-[#3b82f6]" />
-              <h3 className="text-sm font-bold text-white">Price & Market Comparison</h3>
-              {!loadingMarket && marketData?.data_source === 'sold' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold ml-auto">Sold Data</span>}
-              {!loadingMarket && marketData?.data_source === 'active' && <span className="text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-bold ml-auto">Active Listings</span>}
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[#1a1a1a]">
+              <BarChart3 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3b82f6]" />
+              <h3 className="text-xs sm:text-sm font-bold text-white">Price & Market</h3>
+              {!loadingMarket && marketData?.data_source === 'sold' && <span className="text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 uppercase font-bold ml-auto">Sold</span>}
+              {!loadingMarket && marketData?.data_source === 'active' && <span className="text-[7px] sm:text-[8px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 uppercase font-bold ml-auto">Active</span>}
             </div>
 
-            {/* Price Comparison Summary - Always visible when data is loaded */}
-            <div className="p-4 space-y-4">
-              {/* Your Price vs Market - BIG prominent comparison */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Your Price</p>
-                  <p className="text-2xl font-black text-white" data-testid="your-price-display">${listing.price}</p>
+            {/* Price Comparison Summary */}
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
+              {/* Your Price vs Market */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-[8px] sm:text-[10px] uppercase tracking-wider text-gray-600 mb-0.5 sm:mb-1">Your Price</p>
+                  <p className="text-lg sm:text-2xl font-black text-white" data-testid="your-price-display">${listing.price}</p>
                   {dirty && parseFloat(form.price) !== listing.price && (
-                    <p className="text-sm font-bold text-[#3b82f6] mt-0.5">&rarr; ${parseFloat(form.price).toFixed(2)}</p>
+                    <p className="text-xs sm:text-sm font-bold text-[#3b82f6] mt-0.5">&rarr; ${parseFloat(form.price).toFixed(2)}</p>
                   )}
                 </div>
-                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Market Median</p>
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-[8px] sm:text-[10px] uppercase tracking-wider text-gray-600 mb-0.5 sm:mb-1">Median</p>
                   {loadingMarket ? (
-                    <RefreshCw className="w-5 h-5 text-[#3b82f6] animate-spin mx-auto mt-1" />
+                    <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-[#3b82f6] animate-spin mx-auto mt-1" />
                   ) : primaryStats.count > 0 ? (
                     <>
-                      <p className="text-2xl font-black text-emerald-400" data-testid="market-median-display">{formatPrice(primaryStats.median)}</p>
-                      <p className="text-[9px] text-gray-600">{primaryStats.count} sold &middot; {primary.label}</p>
+                      <p className="text-lg sm:text-2xl font-black text-emerald-400" data-testid="market-median-display">{formatPrice(primaryStats.median)}</p>
+                      <p className="text-[8px] sm:text-[9px] text-gray-600">{primaryStats.count} sold</p>
                     </>
                   ) : secondaryStats.count > 0 ? (
                     <>
-                      <p className="text-2xl font-black text-amber-400">{formatPrice(secondaryStats.median)}</p>
-                      <p className="text-[9px] text-gray-600">{secondaryStats.count} sold &middot; {secondary.label}</p>
+                      <p className="text-lg sm:text-2xl font-black text-amber-400">{formatPrice(secondaryStats.median)}</p>
+                      <p className="text-[8px] sm:text-[9px] text-gray-600">{secondaryStats.count} sold</p>
                     </>
                   ) : (
-                    <p className="text-sm text-gray-600 mt-1">No data</p>
+                    <p className="text-xs sm:text-sm text-gray-600 mt-1">No data</p>
                   )}
                 </div>
-                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3 text-center">
-                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">Status</p>
+                <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-2 sm:p-3 text-center">
+                  <p className="text-[8px] sm:text-[10px] uppercase tracking-wider text-gray-600 mb-0.5 sm:mb-1">Status</p>
                   {loadingMarket ? (
-                    <RefreshCw className="w-5 h-5 text-gray-600 animate-spin mx-auto mt-1" />
+                    <RefreshCw className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600 animate-spin mx-auto mt-1" />
                   ) : (() => {
                     const median = primaryStats.count > 0 ? primaryStats.median : secondaryStats.median;
-                    if (!median) return <p className="text-sm text-gray-600 mt-1">-</p>;
+                    if (!median) return <p className="text-xs sm:text-sm text-gray-600 mt-1">-</p>;
                     const diff = listing.price - median;
                     const pct = Math.round((diff / median) * 100);
                     if (listing.price > median * 1.2) return (
                       <div data-testid="price-status">
-                        <p className="text-xl font-black text-amber-400">+{pct}%</p>
-                        <p className="text-[9px] text-amber-400">Above market</p>
+                        <p className="text-base sm:text-xl font-black text-amber-400">+{pct}%</p>
+                        <p className="text-[8px] sm:text-[9px] text-amber-400">Above</p>
                       </div>
                     );
                     if (listing.price < median * 0.8) return (
                       <div data-testid="price-status">
-                        <p className="text-xl font-black text-emerald-400">{pct}%</p>
-                        <p className="text-[9px] text-emerald-400">Below market</p>
+                        <p className="text-base sm:text-xl font-black text-emerald-400">{pct}%</p>
+                        <p className="text-[8px] sm:text-[9px] text-emerald-400">Below</p>
                       </div>
                     );
                     return (
                       <div data-testid="price-status">
-                        <p className="text-xl font-black text-white">{pct > 0 ? '+' : ''}{pct}%</p>
-                        <p className="text-[9px] text-gray-400">Fair price</p>
+                        <p className="text-base sm:text-xl font-black text-white">{pct > 0 ? '+' : ''}{pct}%</p>
+                        <p className="text-[8px] sm:text-[9px] text-gray-400">Fair</p>
                       </div>
                     );
                   })()}
@@ -284,34 +286,34 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
 
               {/* Grade detection indicator */}
               {isGraded && (
-                <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
-                  <Tag className="w-3.5 h-3.5 text-amber-400" />
-                  <span className="text-xs text-amber-300">Graded card: <span className="font-bold">{detectedGrade}</span> — comparing with same grade sales</span>
+                <div className="flex items-center gap-1.5 sm:gap-2 bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 sm:px-3 py-1.5 sm:py-2">
+                  <Tag className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-amber-400 flex-shrink-0" />
+                  <span className="text-[10px] sm:text-xs text-amber-300">Graded: <span className="font-bold">{detectedGrade}</span></span>
                 </div>
               )}
 
               {/* Detailed stats */}
               {!loadingMarket && (primaryStats.count > 0 || secondaryStats.count > 0) && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{primary.label || 'Primary'}</p>
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-2 sm:p-3">
+                    <p className="text-[8px] sm:text-[10px] uppercase tracking-wider text-gray-600 mb-0.5 sm:mb-1">{primary.label || 'Primary'}</p>
                     {primaryStats.count > 0 ? (
                       <>
-                        <p className="text-lg font-bold text-white">{formatPrice(primaryStats.median)}</p>
-                        <p className="text-[10px] text-gray-500">{primaryStats.count} sold &middot; Avg {formatPrice(primaryStats.avg)}</p>
-                        <p className="text-[10px] text-gray-600">Range: {formatPrice(primaryStats.min)} - {formatPrice(primaryStats.max)}</p>
+                        <p className="text-base sm:text-lg font-bold text-white">{formatPrice(primaryStats.median)}</p>
+                        <p className="text-[9px] sm:text-[10px] text-gray-500">{primaryStats.count} sold</p>
+                        <p className="text-[8px] sm:text-[10px] text-gray-600">{formatPrice(primaryStats.min)} - {formatPrice(primaryStats.max)}</p>
                       </>
-                    ) : <p className="text-xs text-gray-600 italic">No recent sales</p>}
+                    ) : <p className="text-[10px] sm:text-xs text-gray-600 italic">No data</p>}
                   </div>
-                  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-1">{secondary.label || 'Secondary'}</p>
+                  <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-2 sm:p-3">
+                    <p className="text-[8px] sm:text-[10px] uppercase tracking-wider text-gray-600 mb-0.5 sm:mb-1">{secondary.label || 'Secondary'}</p>
                     {secondaryStats.count > 0 ? (
                       <>
-                        <p className="text-lg font-bold text-amber-400">{formatPrice(secondaryStats.median)}</p>
-                        <p className="text-[10px] text-gray-500">{secondaryStats.count} sold &middot; Avg {formatPrice(secondaryStats.avg)}</p>
-                        <p className="text-[10px] text-gray-600">Range: {formatPrice(secondaryStats.min)} - {formatPrice(secondaryStats.max)}</p>
+                        <p className="text-base sm:text-lg font-bold text-amber-400">{formatPrice(secondaryStats.median)}</p>
+                        <p className="text-[9px] sm:text-[10px] text-gray-500">{secondaryStats.count} sold</p>
+                        <p className="text-[8px] sm:text-[10px] text-gray-600">{formatPrice(secondaryStats.min)} - {formatPrice(secondaryStats.max)}</p>
                       </>
-                    ) : <p className="text-xs text-gray-600 italic">No recent sales</p>}
+                    ) : <p className="text-[10px] sm:text-xs text-gray-600 italic">No data</p>}
                   </div>
                 </div>
               )}
@@ -355,20 +357,20 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
 
           {/* Edit Fields */}
           <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
-              <Edit2 className="w-4 h-4 text-[#3b82f6]" />
-              <h3 className="text-sm font-bold text-white">Edit Listing</h3>
+            <div className="flex items-center gap-2 px-3 sm:px-4 py-2.5 sm:py-3 border-b border-[#1a1a1a]">
+              <Edit2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#3b82f6]" />
+              <h3 className="text-xs sm:text-sm font-bold text-white">Edit Listing</h3>
             </div>
-            <div className="p-4 space-y-4">
+            <div className="p-3 sm:p-4 space-y-3 sm:space-y-4">
               {/* Title */}
               <div>
                 <label className={labelCls}>Title</label>
                 <input className={inputCls} value={form.title} onChange={e => handleChange('title', e.target.value)} maxLength={80} data-testid="edit-listing-title" />
-                <p className="text-[10px] text-gray-600 mt-0.5 text-right">{form.title.length}/80</p>
+                <p className="text-[9px] sm:text-[10px] text-gray-600 mt-0.5 text-right">{form.title.length}/80</p>
               </div>
 
               {/* Price + Quantity */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <div>
                   <label className={labelCls}>Price ($)</label>
                   <input className={inputCls} type="number" step="0.01" min="0.99" value={form.price} onChange={e => handleChange('price', e.target.value)} data-testid="edit-listing-price" />
@@ -382,20 +384,20 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
               {/* Description update */}
               <div>
                 <label className={labelCls}>Update Description (optional)</label>
-                <textarea className={`${inputCls} h-20 resize-none`} placeholder="Leave empty to keep current description..." value={form.description} onChange={e => handleChange('description', e.target.value)} data-testid="edit-listing-desc" />
+                <textarea className={`${inputCls} h-16 sm:h-20 resize-none`} placeholder="Leave empty to keep current..." value={form.description} onChange={e => handleChange('description', e.target.value)} data-testid="edit-listing-desc" />
               </div>
 
               {/* Best Offer Toggle */}
               {listing.listing_type === 'FixedPriceItem' && (
-                <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#222] rounded-lg px-4 py-3">
+                <div className="flex items-center justify-between bg-[#0a0a0a] border border-[#222] rounded-lg px-3 sm:px-4 py-2.5 sm:py-3">
                   <div>
-                    <p className="text-sm text-white font-medium">Accept Best Offers</p>
-                    <p className="text-[10px] text-gray-500">Enable buyers to send price offers</p>
+                    <p className="text-xs sm:text-sm text-white font-medium">Accept Best Offers</p>
+                    <p className="text-[9px] sm:text-[10px] text-gray-500">Buyers can send offers</p>
                   </div>
                   <button type="button" onClick={() => handleChange('best_offer', !form.best_offer)}
-                    className={`relative w-11 h-6 rounded-full transition-colors ${form.best_offer ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
+                    className={`relative w-10 sm:w-11 h-5 sm:h-6 rounded-full transition-colors flex-shrink-0 ${form.best_offer ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
                     data-testid="edit-best-offer-toggle">
-                    <span className={`absolute top-0.5 w-5 h-5 rounded-full bg-white transition-transform ${form.best_offer ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
+                    <span className={`absolute top-0.5 w-4 sm:w-5 h-4 sm:h-5 rounded-full bg-white transition-transform ${form.best_offer ? 'translate-x-[20px] sm:translate-x-[22px]' : 'translate-x-0.5'}`} />
                   </button>
                 </div>
               )}
@@ -403,27 +405,27 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
               {/* Update Shipping */}
               <div>
                 <label className={labelCls}>Update Shipping (optional)</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-1.5 sm:gap-2">
                   {SHIPPING_OPTIONS.map(({ id, label, cost, domestic }) => (
                     <button key={id} type="button" onClick={() => { handleChange('shipping_option', id); setForm(f => ({ ...f, shipping_cost: cost })); }}
-                      className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-medium border transition-colors ${form.shipping_option === id ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
+                      className={`flex flex-col items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-2 sm:py-2.5 rounded-lg text-[10px] sm:text-xs font-medium border transition-colors ${form.shipping_option === id ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#0a0a0a] border-[#222] text-gray-500'}`}
                       data-testid={`edit-shipping-${id}`}>
-                      <Truck className="w-3.5 h-3.5" />
-                      <span>{label}</span>
-                      <span className="text-[10px]">{cost > 0 ? `$${cost.toFixed(2)}` : 'Free'}</span>
-                      {domestic && <span className="text-[9px] text-amber-400">US Only</span>}
+                      <Truck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                      <span className="text-center leading-tight">{label}</span>
+                      <span className="text-[9px] sm:text-[10px]">{cost > 0 ? `$${cost.toFixed(2)}` : 'Free'}</span>
+                      {domestic && <span className="text-[8px] sm:text-[9px] text-amber-400">US Only</span>}
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-600 mt-1">Leave unselected to keep current shipping</p>
+                <p className="text-[9px] sm:text-[10px] text-gray-600 mt-1">Leave unselected to keep current</p>
               </div>
 
               {/* Save Button */}
               <button onClick={handleSave} disabled={saving || !dirty}
-                className="w-full py-3 rounded-lg text-sm font-bold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+                className="w-full py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-bold bg-[#3b82f6] text-white hover:bg-[#2563eb] disabled:opacity-40 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
                 data-testid="save-listing-btn">
                 {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {saving ? 'Applying Changes...' : 'Apply Changes to eBay'}
+                {saving ? 'Applying...' : 'Apply Changes to eBay'}
               </button>
             </div>
           </div>
