@@ -200,8 +200,8 @@ const Dashboard = ({ user, onLogout }) => {
             { id: 'dashboard', label: 'Home', icon: LayoutDashboard },
             { id: 'inventory', label: 'Inventory', icon: Package },
             { id: 'quickscan', label: 'Scan', icon: Camera, special: true },
+            { id: 'listings', label: 'Listings', icon: Tag },
             { id: 'flipfinder', label: 'Flip', icon: Crosshair },
-            { id: 'market', label: 'Market', icon: BarChart3 },
           ].map(({ id, label, icon: Icon, special }) => (
             special ? (
               <button key={id} onClick={() => setQuickScanOpen(true)}
