@@ -337,6 +337,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: enhanced });
       toast.success(`Enhanced ${side} image saved!`);
       onImageSaved?.(res.data);
+      resetFilters();
     } catch (err) {
       console.error('Save enhanced error:', err);
       toast.error('Error saving enhanced image');
