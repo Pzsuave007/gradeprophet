@@ -28,7 +28,8 @@
 - [x] CreateListingView: Quantity, Variation, Best Offer, PWE Envelope
 - [x] Inventory Card Actions: Buttons below cards with labels (List, Price, Edit, Delete)
 - [x] Mobile UI Overhaul: Bottom nav bar, full-screen card detail modal
-- [x] **Photo Editor (Feb 2026)**: In-app photo editor in CardDetailModal with Brightness, Contrast, Saturation, Sharpness (SVG+Canvas), Vignette, Auto Enhance, and Save per side (front/back). Live preview with CSS filters + SVG convolution for sharpness. Canvas-based export for save.
+- [x] **Photo Editor (Feb 2026)**: Preset-based editor with 6 presets (Original, Bright, Clean, Sharp, eBay Ready, Pop) + intensity slider (10-100%). Fullscreen editor mode with before/after comparison. Canvas-based save with SVG sharpness preview.
+- [x] **Removed auto-enhance from upload pipeline (Feb 2026)**: Images now saved natural (crop + resize only). Users apply presets manually via editor.
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync (awaiting API access)
@@ -39,11 +40,13 @@
 ## Technical Notes
 - Photo Editor uses CSS `filter` for brightness/contrast/saturation live preview
 - Sharpness uses SVG `feConvolveMatrix` filter for live preview, canvas convolution kernel for saving
-- Vignette uses CSS radial-gradient overlay for preview, canvas gradient for saving
-- All image saves go through backend `process_card_image()` which compresses to 800px
+- Image upload pipeline: auto_crop -> resize to 800px (no color enhancement)
+- "Pop" preset matches the old auto-enhance values (Sat+25%, Con+15%, Sharp+30%, Bright+5%)
+- JPEG export quality: 0.92 for enhanced saves
 
 ## User Preferences
 - Language: Spanish
 - Mobile-first user base
 - Hands-on with UI/UX - always consult before visual changes
+- Prefers subtle, clean photo adjustments over saturated looks
 - Production domain: flipslabengine.com
