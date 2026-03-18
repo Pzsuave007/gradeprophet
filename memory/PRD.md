@@ -24,15 +24,23 @@
 - [x] Quick Scan Mobile Feature (camera -> AI -> inventory)
 - [x] Best Offer Toggle (all listing forms)
 - [x] PWE Envelope Shipping $2.50 US domestic (all listing forms)
-- [x] Image Compression (800px max, JPEG 0.7)
+- [x] Image Compression (1200px max, JPEG 0.8)
 - [x] CreateListingView: Quantity, Variation, Best Offer, PWE Envelope
-- [x] **Inventory Card Actions (Feb 2026)**: Buttons moved below cards with labels (List, Price, Edit, Delete)
+- [x] Inventory Card Actions: Buttons below cards with labels (List, Price, Edit, Delete)
+- [x] Mobile UI Overhaul: Bottom nav bar, full-screen card detail modal
+- [x] **Photo Editor (Feb 2026)**: In-app photo editor in CardDetailModal with Brightness, Contrast, Saturation, Sharpness (SVG+Canvas), Vignette, Auto Enhance, and Save per side (front/back). Live preview with CSS filters + SVG convolution for sharpness. Canvas-based export for save.
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync (awaiting API access)
 - **P2:** Auto-refresh portfolio value
 - **P3:** Flip Finder core logic
 - **P4:** Stripe subscription integration
+
+## Technical Notes
+- Photo Editor uses CSS `filter` for brightness/contrast/saturation live preview
+- Sharpness uses SVG `feConvolveMatrix` filter for live preview, canvas convolution kernel for saving
+- Vignette uses CSS radial-gradient overlay for preview, canvas gradient for saving
+- All image saves go through backend `process_card_image()` which compresses to 800px
 
 ## User Preferences
 - Language: Spanish
