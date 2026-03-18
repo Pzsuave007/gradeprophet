@@ -852,12 +852,13 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
                 {/* Market Value bubble overlay */}
                 {item.market_value > 0 && !selectMode && (
-                  <div className="absolute top-1.5 right-1.5 backdrop-blur-md bg-black/60 rounded-lg px-2 py-1 border border-white/10">
-                    <p className="text-[10px] font-black text-white leading-none">{formatPrice(item.market_value)}</p>
+                  <div className="absolute top-1.5 right-1.5 backdrop-blur-md bg-black/65 rounded-xl px-3 py-1.5 border border-white/10">
+                    <p className="text-[8px] text-gray-400 uppercase tracking-wider leading-none">Mkt Value</p>
+                    <p className="text-sm font-black text-white leading-tight mt-0.5">{formatPrice(item.market_value)}</p>
                     {item.purchase_price > 0 && (() => {
                       const diff = item.market_value - item.purchase_price;
                       const pct = ((diff / item.purchase_price) * 100).toFixed(0);
-                      return <p className={`text-[8px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{pct}%</p>;
+                      return <p className={`text-[9px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{pct}%</p>;
                     })()}
                   </div>
                 )}
