@@ -5,59 +5,33 @@
 
 ## CRITICAL DEPLOYMENT NOTES
 - **PRODUCTION BUILD MUST USE:** `REACT_APP_BACKEND_URL=https://flipslabengine.com CI=false yarn build`
-- **NEVER** use the preview URL in production builds
 - After build: Save to GitHub → git pull on server → bash fix.sh → Ctrl+Shift+R
-
-## Core Modules
-1. **Dashboard** - Trading command center with KPI cards, auction alerts, sales overview
-2. **Inventory** - Card management with AI identification, batch upload, photo editor
-3. **My Collection** - Portfolio tracker with donut chart overview, Card Ladder-inspired valuations, front/back flip, individual refresh
-4. **Market** - Seasonal Intelligence with market pulse, calendar, recommendations
-5. **Flip Finder** - Card flipping opportunity analysis (P3)
-6. **Listings** - eBay listing creation/management
-7. **Account** - User settings, eBay connection, scanner token management
-8. **Quick Scan** - Mobile camera-based card capture with AI auto-identification
 
 ## Completed Features
 - [x] Full authentication (Google Auth + JWT + email/password)
 - [x] Scanner desktop app with duplex scanning
 - [x] AI card identification from photos
 - [x] eBay integration with per-user token isolation
-- [x] Landing page ("Track. Flip. Sell.")
-- [x] Market Seasonal Intelligence
-- [x] Onboarding wizard
-- [x] Mobile/Tablet Responsiveness
-- [x] Quick Scan Mobile Feature
-- [x] Best Offer Toggle, PWE Shipping, Quantity, Variation (all listing forms)
-- [x] Image Compression (1200px max, JPEG 0.8)
-- [x] Mobile UI Overhaul: Bottom nav bar, full-screen card detail modal
-- [x] Photo Editor (Feb 2026): Preset-based + intensity slider
-- [x] Removed auto-enhance from upload pipeline (Feb 2026)
+- [x] Landing page, Market Seasonal Intelligence, Onboarding wizard
+- [x] Mobile/Tablet Responsiveness, Quick Scan, PWE Shipping
+- [x] Photo Editor: Preset-based + intensity slider
 - [x] My Collection with Card Ladder-inspired valuations
-- [x] Market Value Engine v2 (Mar 2026): Scrapedo scraper, IQR + median cap outlier filtering, recency-weighted averaging
-- [x] Market Value Bug Fix (Mar 2026): Fixed $469 → ~$45 for Kobe Bryant PSA 9
-- [x] Variation field in search queries (Mar 2026)
-- [x] Individual Refresh Value button (Mar 2026)
-- [x] Front/Back Card Flip (Mar 2026): Click-to-flip 3D animation
-- [x] **Collection Overview Panel (Mar 2026):** Replaced 4 KPI bubbles with unified visual panel: big value number, donut chart (invested vs profit), stats breakdown. Cleaner, more visual.
+- [x] Market Value Engine v2: Scrapedo scraper, IQR + median cap, recency-weighted avg
+- [x] Market Value Bug Fix: $469 → ~$45 for Kobe PSA 9
+- [x] Variation field in search queries, Individual Refresh Value button
+- [x] Front/Back Card Flip: 3D animation in My Collection
+- [x] Collection Overview Panel: Donut chart replacing KPI bubbles
+- [x] **Market Value in Inventory (Mar 2026):** All cards in Inventory now show market value with blue "MKT" indicator, P&L vs cost (green/red), and a visual market value bar with ROI% in the card detail modal.
 
 ## Pending Tasks
 - **P0:** AI-Powered Sales Data Validation (use LLM to validate scraped listing titles)
-- **P1:** Whatnot Integration & Inventory Sync (awaiting API access)
+- **P1:** Whatnot Integration & Inventory Sync
 - **P2:** Auto-refresh portfolio value
 - **P3:** Flip Finder core logic
 - **P4:** Stripe subscription integration
 - **Refactor:** Extract CardDetailModal from InventoryModule.jsx (>1000 lines)
 
-## Technical Notes
-- Photo Editor: CSS filters for live preview, SVG feConvolveMatrix for sharpness, canvas-based save at JPEG 0.92
-- Upload pipeline: auto_crop → resize to 800px (NO color enhancement)
-- Market Value Engine: Scrapedo proxy → title filter → IQR outlier filter → median cap (3x) → recency-weighted avg (45-day decay)
-- Collection Overview: Recharts PieChart donut showing invested (amber) vs profit (green/red)
-- Card flip: CSS perspective + rotateY transform, 500ms transition, backface-visibility hidden
-
 ## User Preferences
 - Language: Spanish
 - Mobile-first user base
-- Prefers subtle, clean photo adjustments over saturated looks
 - Production domain: flipslabengine.com

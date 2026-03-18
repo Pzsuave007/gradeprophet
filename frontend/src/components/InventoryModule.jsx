@@ -525,6 +525,33 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
                 </div>
               </div>
+              {/* Market Value bar */}
+              {item.market_value > 0 && (
+                <div className="bg-[#0d1b2a] border border-[#3b82f6]/20 rounded-xl p-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full bg-[#3b82f6]" />
+                      <span className="text-[10px] text-gray-400 uppercase tracking-wider">Market Value</span>
+                    </div>
+                    <span className="text-base font-black text-[#3b82f6]">${Number(item.market_value).toFixed(2)}</span>
+                  </div>
+                  {item.purchase_price > 0 && (() => {
+                    const diff = item.market_value - item.purchase_price;
+                    const pct = ((diff / item.purchase_price) * 100).toFixed(0);
+                    return (
+                      <div className="flex items-center justify-between mt-1.5">
+                        <div className="flex-1 h-1.5 rounded-full bg-[#1a1a1a] overflow-hidden mr-3">
+                          <div className={`h-full rounded-full ${diff >= 0 ? 'bg-emerald-500' : 'bg-red-500'}`}
+                            style={{ width: `${Math.min(100, Math.abs((item.market_value / item.purchase_price) * 50))}%` }} />
+                        </div>
+                        <span className={`text-xs font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {diff >= 0 ? '+' : ''}{pct}%
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
               {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
             </div>
 
@@ -853,7 +880,25 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   <span className="text-[11px] font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</span>
                 </div>
                 {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
-                {item.listed && item.listed_price && item.purchase_price > 0 && (
+                {/* Market Value indicator */}
+                {item.market_value > 0 && (
+                  <div className="flex items-center justify-between mt-1.5 pt-1.5 border-t border-[#2a2a2a]">
+                    <div className="flex items-center gap-1">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#3b82f6]" />
+                      <span className="text-[9px] text-gray-500 uppercase">Mkt</span>
+                      <span className="text-[11px] font-bold text-[#3b82f6]">{formatPrice(item.market_value)}</span>
+                    </div>
+                    {item.purchase_price > 0 && (() => {
+                      const diff = item.market_value - item.purchase_price;
+                      return (
+                        <span className={`text-[9px] font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                          {diff >= 0 ? '+' : ''}{formatPrice(Math.abs(diff))}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )}
+                {item.listed && item.listed_price && item.purchase_price > 0 && !item.market_value && (
                   <p className={`text-[9px] mt-0.5 font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {item.listed_price - item.purchase_price > 0 ? '+' : ''}{formatPrice(item.listed_price - item.purchase_price)} profit
                   </p>
@@ -929,9 +974,19 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               <div className="text-center flex-shrink-0">
                 {item.condition === 'Graded' && item.grade ? <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"><span className="text-[9px] uppercase tracking-wider text-amber-400 block">{item.grading_company || 'Graded'}</span><span className="text-sm font-bold text-amber-300">{item.grade}</span></div> : <span className="text-[10px] px-2 py-1 rounded bg-[#1a1a1a] text-gray-500 uppercase">Raw</span>}
               </div>
-              <div className="text-right flex-shrink-0 w-20">
+              <div className="text-right flex-shrink-0 w-28">
                 <p className="text-sm font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</p>
-                {item.listed && item.purchase_price > 0 && item.listed_price && (
+                {item.market_value > 0 && (
+                  <div className="flex items-center justify-end gap-1 mt-0.5">
+                    <span className="text-[9px] text-gray-500">Mkt:</span>
+                    <span className="text-[10px] font-bold text-[#3b82f6]">{formatPrice(item.market_value)}</span>
+                    {item.purchase_price > 0 && (() => {
+                      const diff = item.market_value - item.purchase_price;
+                      return <span className={`text-[9px] font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{formatPrice(Math.abs(diff))}</span>;
+                    })()}
+                  </div>
+                )}
+                {item.listed && item.purchase_price > 0 && item.listed_price && !item.market_value && (
                   <p className={`text-[9px] font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     Cost: {formatPrice(item.purchase_price)}
                   </p>
