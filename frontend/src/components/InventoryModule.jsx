@@ -675,6 +675,20 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     }
   };
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
+  const [refreshingCardId, setRefreshingCardId] = useState(null);
+  const getCardMarketValue = async (cardId) => {
+    setRefreshingCardId(cardId);
+    try {
+      const res = await axios.post(`${API}/api/portfolio/refresh-value/${cardId}`);
+      if (res.data.market_value > 0) {
+        toast.success(`Market value: $${res.data.market_value}`);
+        fetchInventory(search);
+      } else {
+        toast.info('No market data found');
+      }
+    } catch { toast.error('Failed to get value'); }
+    setRefreshingCardId(null);
+  };
   const openEdit = (item) => { setEditItem(item); setShowForm(true); };
   const openAdd = () => { setEditItem(null); setShowForm(true); };
 
@@ -861,6 +875,17 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                       return <p className={`text-[9px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{pct}%</p>;
                     })()}
                   </div>
+                )}
+                {!item.market_value && !selectMode && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); getCardMarketValue(item.id); }}
+                    disabled={refreshingCardId === item.id}
+                    className="absolute top-1.5 right-1.5 z-10 backdrop-blur-md bg-[#3b82f6]/80 rounded-lg px-2 py-1 border border-[#3b82f6]/40 text-white text-[9px] font-bold hover:bg-[#3b82f6] transition-colors active:scale-95 disabled:opacity-50 flex items-center gap-1"
+                    data-testid={`get-inv-value-${item.id}`}
+                  >
+                    {refreshingCardId === item.id ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <DollarSign className="w-2.5 h-2.5" />}
+                    {refreshingCardId === item.id ? 'Checking...' : 'Get Mkt Value'}
+                  </button>
                 )}
                 {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
                 {item.back_image && (
