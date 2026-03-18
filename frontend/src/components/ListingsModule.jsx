@@ -820,6 +820,41 @@ const ListingsModule = () => {
     return map;
   }, [inventoryItems]);
 
+  // Cached listing market values
+  const [listingMktValues, setListingMktValues] = useState({});
+  const [valuingId, setValuingId] = useState(null);
+
+  useEffect(() => {
+    if (eb.active.length > 0) {
+      axios.get(`${API}/api/portfolio/listing-values`).then(res => {
+        setListingMktValues(res.data || {});
+      }).catch(() => {});
+    }
+  }, [eb.active.length]);
+
+  const getListingValue = useCallback(async (itemId, title) => {
+    setValuingId(itemId);
+    try {
+      const res = await axios.post(`${API}/api/portfolio/listing-value/${itemId}`, { title });
+      if (res.data.market_value > 0) {
+        setListingMktValues(prev => ({ ...prev, [itemId]: res.data.market_value }));
+        toast.success(`Market value: $${res.data.market_value}`);
+      } else {
+        toast.info('No market data found');
+      }
+    } catch (err) {
+      toast.error('Failed to get market value');
+    }
+    setValuingId(null);
+  }, []);
+
+  // Combined lookup: inventory match OR cached listing value
+  const getMktValue = useCallback((itemId) => {
+    if (mktLookup[itemId]) return mktLookup[itemId].market_value;
+    if (listingMktValues[itemId]) return listingMktValues[itemId];
+    return null;
+  }, [mktLookup, listingMktValues]);
+
   const tabs = [
     { id: 'active', label: `Active (${eb.active_total || 0})`, icon: Tag },
     { id: 'sold', label: `Sold (${eb.sold_total || 0})`, icon: DollarSign },
@@ -986,21 +1021,33 @@ const ListingsModule = () => {
                     {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
                   </span>
                   {/* Market Value bubble */}
-                  {mktLookup[item.item_id] && (
-                    <div className="absolute top-1.5 left-1.5 backdrop-blur-md bg-black/65 rounded-xl px-2.5 py-1.5 border border-white/10">
-                      <p className="text-[8px] text-gray-400 uppercase tracking-wider leading-none">Mkt Value</p>
-                      <p className="text-sm font-black text-white leading-tight mt-0.5">{formatPrice(mktLookup[item.item_id].market_value)}</p>
-                      {(() => {
-                        const mv = mktLookup[item.item_id].market_value;
-                        const listed = item.price || 0;
-                        if (listed > 0 && mv > 0) {
-                          const diff = listed - mv;
-                          return <p className={`text-[8px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{formatPrice(Math.abs(diff))} margin</p>;
-                        }
-                        return null;
-                      })()}
-                    </div>
-                  )}
+                  {(() => {
+                    const mv = getMktValue(item.item_id);
+                    if (mv) {
+                      return (
+                        <div className="absolute top-1.5 left-1.5 z-10 backdrop-blur-md bg-black/65 rounded-xl px-2.5 py-1.5 border border-white/10">
+                          <p className="text-[8px] text-gray-400 uppercase tracking-wider leading-none">Mkt Value</p>
+                          <p className="text-sm font-black text-white leading-tight mt-0.5">{formatPrice(mv)}</p>
+                          {item.price > 0 && (() => {
+                            const diff = item.price - mv;
+                            return <p className={`text-[8px] font-bold leading-none mt-0.5 ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff >= 0 ? '+' : ''}{formatPrice(Math.abs(diff))} margin</p>;
+                          })()}
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); getListingValue(item.item_id, item.title); }}
+                          disabled={valuingId === item.item_id}
+                          className="absolute top-1.5 left-1.5 z-10 backdrop-blur-md bg-[#3b82f6]/80 rounded-lg px-2 py-1 border border-[#3b82f6]/40 text-white text-[9px] font-bold hover:bg-[#3b82f6] transition-colors active:scale-95 disabled:opacity-50 flex items-center gap-1"
+                          data-testid={`get-listing-value-${item.item_id}`}
+                        >
+                          {valuingId === item.item_id ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <DollarSign className="w-2.5 h-2.5" />}
+                          {valuingId === item.item_id ? 'Checking...' : 'Get Mkt Value'}
+                        </button>
+                      );
+                    }
+                  })()}
                   {/* Action overlay on hover */}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
                     <span className="px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
@@ -1048,9 +1095,20 @@ const ListingsModule = () => {
                 </div>
                 <div className="text-right flex-shrink-0">
                   <p className="text-lg font-black text-white">${item.price}</p>
-                  {mktLookup[item.item_id] && (
-                    <p className="text-[10px]"><span className="text-gray-500">Mkt </span><span className="font-bold text-[#3b82f6]">{formatPrice(mktLookup[item.item_id].market_value)}</span></p>
-                  )}
+                  {(() => {
+                    const mv = getMktValue(item.item_id);
+                    if (mv) {
+                      return <p className="text-[10px]"><span className="text-gray-500">Mkt </span><span className="font-bold text-[#3b82f6]">{formatPrice(mv)}</span></p>;
+                    } else {
+                      return (
+                        <button onClick={(e) => { e.stopPropagation(); getListingValue(item.item_id, item.title); }}
+                          disabled={valuingId === item.item_id}
+                          className="text-[9px] text-[#3b82f6] font-bold hover:underline disabled:opacity-50">
+                          {valuingId === item.item_id ? 'Checking...' : 'Get Mkt'}
+                        </button>
+                      );
+                    }
+                  })()}
                 </div>
                 <button onClick={e => { e.stopPropagation(); setSelectedListing(item); }}
                   className="p-2 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>

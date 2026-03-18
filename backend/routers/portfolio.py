@@ -194,3 +194,60 @@ async def save_portfolio_snapshot(request: Request):
         upsert=True,
     )
     return snapshot
+
+
+
+@router.post("/listing-value/{ebay_item_id}")
+async def get_listing_market_value(ebay_item_id: str, request: Request):
+    """Calculate and cache market value for an eBay listing by its title."""
+    from pydantic import BaseModel
+    user = await get_current_user(request)
+
+    class Body(BaseModel):
+        title: str
+
+    body = await request.json()
+    title = body.get("title", "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Title is required")
+
+    # Check cache first
+    cached = await db.listing_market_values.find_one(
+        {"ebay_item_id": ebay_item_id, "user_id": user["user_id"]},
+        {"_id": 0}
+    )
+    if cached and cached.get("market_value", 0) > 0:
+        return {"ebay_item_id": ebay_item_id, "market_value": cached["market_value"], "cached": True}
+
+    # Calculate
+    result = await get_card_market_value(title)
+    primary = result.get("primary", {})
+    stats = primary.get("stats", {})
+    mv = round(stats.get("market_value", 0), 2)
+
+    # Cache result
+    await db.listing_market_values.update_one(
+        {"ebay_item_id": ebay_item_id, "user_id": user["user_id"]},
+        {"$set": {
+            "ebay_item_id": ebay_item_id,
+            "user_id": user["user_id"],
+            "title": title,
+            "market_value": mv,
+            "stats": stats,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+
+    return {"ebay_item_id": ebay_item_id, "market_value": mv, "cached": False}
+
+
+@router.get("/listing-values")
+async def get_cached_listing_values(request: Request):
+    """Get all cached market values for a user's listings."""
+    user = await get_current_user(request)
+    docs = await db.listing_market_values.find(
+        {"user_id": user["user_id"], "market_value": {"$gt": 0}},
+        {"_id": 0, "ebay_item_id": 1, "market_value": 1}
+    ).to_list(500)
+    return {d["ebay_item_id"]: d["market_value"] for d in docs}
