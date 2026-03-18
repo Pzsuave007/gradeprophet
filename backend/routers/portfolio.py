@@ -28,6 +28,9 @@ async def refresh_single_card_value(item_id: str, request: Request):
     if item.get("card_number"):
         cn = item["card_number"]
         parts.append(f"#{cn}" if not cn.startswith("#") else cn)
+    # Include variation for specific parallel/variant searches
+    if item.get("variation"):
+        parts.append(item["variation"])
     if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
         try:
             grade = str(float(item["grade"])).rstrip("0").rstrip(".")
@@ -43,6 +46,9 @@ async def refresh_single_card_value(item_id: str, request: Request):
         query = " ".join(parts)
     else:
         query = item.get("card_name", "")
+        # Append variation if not already in card_name
+        if item.get("variation") and item["variation"].lower() not in query.lower():
+            query += f" {item['variation']}"
         # Append grade info to card_name if graded
         if item.get("condition") == "Graded" and item.get("grading_company") and item.get("grade"):
             try:

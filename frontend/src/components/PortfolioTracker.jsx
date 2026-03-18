@@ -261,15 +261,23 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                     <p className="text-[11px] font-semibold text-white truncate" title={card.card_name}>{card.card_name}</p>
                     <p className="text-[9px] text-gray-500 truncate mb-1.5">{card.player} {card.year || ''}</p>
                     {card.market_value > 0 ? (
-                      <div className="flex items-end justify-between pt-1.5 border-t border-[#1a1a1a]">
-                        <div>
-                          <p className="text-[8px] text-gray-600 uppercase">Market</p>
-                          <p className="text-xs font-bold text-white">{fmt(card.market_value)}</p>
+                      <div className="pt-1.5 border-t border-[#1a1a1a]">
+                        <div className="flex items-end justify-between">
+                          <div>
+                            <p className="text-[8px] text-gray-600 uppercase">Market</p>
+                            <p className="text-xs font-bold text-white">{fmt(card.market_value)}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[8px] text-gray-600 uppercase">Last Sold</p>
+                            <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <p className="text-[8px] text-gray-600 uppercase">Last Sold</p>
-                          <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
-                        </div>
+                        <button onClick={() => refreshSingleCard(card.id)} disabled={refreshingCardId === card.id}
+                          className="w-full mt-2 py-1 rounded-lg bg-white/[0.03] border border-[#2a2a2a] text-gray-400 text-[9px] font-medium hover:bg-white/[0.06] hover:text-white active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-1"
+                          data-testid={`refresh-value-grid-${i}`}>
+                          {refreshingCardId === card.id ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <RefreshCw className="w-2.5 h-2.5" />}
+                          {refreshingCardId === card.id ? 'Updating...' : 'Refresh Value'}
+                        </button>
                       </div>
                     ) : (
                       <button onClick={() => refreshSingleCard(card.id)} disabled={refreshingCardId === card.id}
@@ -312,6 +320,12 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                       <p className="text-[10px] font-bold">{pnl >= 0 ? '+' : ''}{fmt(pnl)}</p>
                     </div>
                   )}
+                  <button onClick={() => refreshSingleCard(card.id)} disabled={refreshingCardId === card.id}
+                    className="flex-shrink-0 p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/[0.05] transition-all disabled:opacity-50"
+                    title="Refresh Value"
+                    data-testid={`refresh-value-list-${i}`}>
+                    <RefreshCw className={`w-3.5 h-3.5 ${refreshingCardId === card.id ? 'animate-spin text-[#3b82f6]' : ''}`} />
+                  </button>
                 </div>
               );
             })}
