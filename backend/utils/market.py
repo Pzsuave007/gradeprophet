@@ -173,82 +173,65 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
         logger.info(f"Market card-value: original='{query}' cleaned='{clean_q}' graded={is_graded} grade={detected_company} {detected_grade}")
 
         async def scrape_ebay_sold(search_q: str, limit: int = 12) -> list:
-            # Priority 1: Try Jina for REAL SOLD listings
+            # Priority 1: Scrapedo for REAL SOLD listings
             try:
-                def _sync_scrape():
-                    encoded = quote_plus(search_q)
-                    ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&LH_Sold=1&LH_Complete=1&_sop=13"
-                    jina_url = f"https://r.jina.ai/{ebay_url}"
+                from config import SCRAPEDO_API_KEY
+                if SCRAPEDO_API_KEY:
+                    def _scrapedo_scrape():
+                        encoded = quote_plus(search_q)
+                        ebay_url = f"https://www.ebay.com/sch/i.html?_nkw={encoded}&LH_Sold=1&LH_Complete=1&_sop=13"
+                        scrape_url = f"https://api.scrape.do/?token={SCRAPEDO_API_KEY}&url={quote_plus(ebay_url)}&render=true"
 
-                    try:
-                        resp = httpx.get(jina_url, headers={
-                            "Accept": "text/plain",
-                            "X-Return-Format": "text",
-                            "X-With-Links": "true",
-                        }, timeout=30.0, follow_redirects=True)
-                        if resp.status_code != 200:
+                        try:
+                            resp = httpx.get(scrape_url, timeout=30.0)
+                            if resp.status_code != 200:
+                                return []
+                        except Exception:
                             return []
-                    except Exception:
-                        return []
 
-                    text = resp.text
-                    lines = text.split('\n')
-                    all_item_urls = re.findall(r'https://www\.ebay\.com/itm/\d+', text)
+                        html = resp.text
+                        blocks = re.split(r'data-viewport', html)
+                        results = []
+                        seen_ids = set()
+                        for block in blocks:
+                            url_m = re.search(r'https://www\.ebay\.com/itm/(\d+)', block)
+                            price_m = re.search(r'\$([\d,]+\.\d+)', block)
+                            date_m = re.search(r'Sold\s+(\w+\s+\d+,?\s*\d*)', block)
+                            title_m = re.search(r'role="heading"[^>]*>([^<]+)', block)
 
-                    results = []
-                    url_idx = 0
-                    i = 0
-                    while i < len(lines):
-                        line = lines[i].strip()
-                        sold_m = re.match(r'Sold\s+(\w+\s+\d+,?\s*\d*)', line)
-                        if sold_m:
-                            date_sold = sold_m.group(1).strip()
-                            title = lines[i + 1].strip() if i + 1 < len(lines) else ''
-                            price = 0
-                            image_url = ''
-                            item_url = ''
-                            for j in range(i + 1, min(i + 18, len(lines))):
-                                l = lines[j].strip()
-                                if not price:
-                                    pm = re.match(r'\$?([\d,]+\.\d+)', l)
-                                    if pm:
-                                        price = float(pm.group(1).replace(',', ''))
-                                if not image_url and 'ebayimg.com' in l:
-                                    img_m = re.search(r'(https://i\.ebayimg\.com/[^\s\)]+)', l)
-                                    image_url = img_m.group(1).split('?')[0] if img_m else ''
-                                if not item_url and 'ebay.com/itm/' in l:
-                                    url_m = re.search(r'(https://www\.ebay\.com/itm/\d+)', l)
-                                    item_url = url_m.group(1) if url_m else ''
-                            if not item_url and url_idx < len(all_item_urls):
-                                item_url = all_item_urls[url_idx]
-                                url_idx += 1
-                            if not item_url:
-                                item_url = ebay_url
-                            if title and len(title) > 10 and 0 < price < 100000:
+                            if url_m and price_m:
+                                item_id = url_m.group(1)
+                                if item_id in seen_ids:
+                                    continue
+                                seen_ids.add(item_id)
+                                price = float(price_m.group(1).replace(',', ''))
+                                if price <= 0 or price > 100000:
+                                    continue
                                 results.append({
-                                    "title": title, "price": price,
-                                    "image_url": image_url, "date_sold": date_sold,
-                                    "url": item_url, "source": "sold"
+                                    "title": title_m.group(1).strip() if title_m else search_q,
+                                    "price": price,
+                                    "date_sold": date_m.group(1).strip() if date_m else "",
+                                    "url": f"https://www.ebay.com/itm/{item_id}",
+                                    "source": "sold",
                                 })
-                            if len(results) >= limit:
-                                break
-                        i += 1
-                    return results
+                                if len(results) >= limit:
+                                    break
+                        return results
 
-                items = await asyncio.to_thread(_sync_scrape)
-                if items:
-                    logger.info(f"Jina scraped {len(items)} SOLD items for '{search_q}'")
-                    return items
-                logger.info(f"Jina found 0 sold items for '{search_q}', trying Browse API")
+                    items = await asyncio.to_thread(_scrapedo_scrape)
+                    if items:
+                        logger.info(f"Scrapedo found {len(items)} SOLD items for '{search_q}'")
+                        return items
+                    logger.info(f"Scrapedo found 0 sold items for '{search_q}'")
             except Exception as e:
-                logger.warning(f"Jina scrape failed for '{search_q}': {e}")
+                logger.warning(f"Scrapedo scrape failed for '{search_q}': {e}")
 
             # Priority 2: Fallback to eBay Browse API (active listings)
             items = await _browse_api_search(search_q, limit)
             if items:
                 logger.info(f"Browse API returned {len(items)} active items for '{search_q}'")
             else:
-                logger.warning(f"Both scrapers returned 0 results for '{search_q}'")
+                logger.warning(f"All scrapers returned 0 results for '{search_q}'")
             return items
 
         async def _browse_api_search(q, lim=10):
