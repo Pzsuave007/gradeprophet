@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import {
   DollarSign, TrendingUp, ArrowUpRight, ArrowDownRight,
-  RefreshCw, BarChart3, Package, Zap, ChevronRight, LayoutGrid, List
+  RefreshCw, BarChart3, Package, Zap, ChevronRight, LayoutGrid, List, ShieldCheck
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -16,6 +16,18 @@ const fmt = (v) => {
   const n = parseFloat(v);
   if (isNaN(n)) return '$0';
   return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(2)}`;
+};
+
+const ConfidenceDots = ({ level = 0 }) => {
+  const labels = ['', 'Low', 'Fair', 'Good', 'High', 'Very High'];
+  const colors = ['', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500', 'bg-[#3b82f6]'];
+  return (
+    <div className="flex items-center gap-1" title={`Confidence: ${labels[level] || 'N/A'}`}>
+      {[1, 2, 3, 4, 5].map(i => (
+        <div key={i} className={`w-1.5 h-1.5 rounded-full ${i <= level ? colors[level] : 'bg-[#2a2a2a]'}`} />
+      ))}
+    </div>
+  );
 };
 
 const ChartTooltip = ({ active, payload, label }) => {
@@ -193,11 +205,14 @@ const PortfolioTracker = () => {
                   data-testid={`portfolio-card-grid-${i}`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-[9px] text-gray-600 font-mono">#{i + 1}</span>
-                    {pnl !== null && (
-                      <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${pnl >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
-                        {pnl >= 0 ? '+' : ''}{fmt(pnl)}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {card.confidence > 0 && <ConfidenceDots level={card.confidence} />}
+                      {pnl !== null && (
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${pnl >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
+                          {pnl >= 0 ? '+' : ''}{fmt(pnl)}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-[11px] font-semibold text-white truncate mb-0.5" title={card.card_name}>{card.card_name}</p>
                   <p className="text-[9px] text-gray-500 truncate">{card.player} {card.year || ''}</p>
@@ -208,10 +223,15 @@ const PortfolioTracker = () => {
                       <p className="text-sm font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Cost</p>
-                      <p className="text-[10px] text-gray-400">{fmt(card.purchase_price)}</p>
+                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Last Sold</p>
+                      <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
                     </div>
                   </div>
+                  {card.purchase_price > 0 && (
+                    <div className="mt-1.5 text-center">
+                      <span className="text-[8px] text-gray-600">Cost: {fmt(card.purchase_price)}</span>
+                    </div>
+                  )}
                 </motion.div>
               );
             })}
@@ -228,11 +248,16 @@ const PortfolioTracker = () => {
                   <span className="text-[10px] text-gray-600 w-5 text-right">{i + 1}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-medium text-white truncate">{card.card_name}</p>
-                    <p className="text-[10px] text-gray-500">{card.player} {card.year || ''} {card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] text-gray-500">{card.player} {card.year || ''} {card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
+                      {card.confidence > 0 && <ConfidenceDots level={card.confidence} />}
+                    </div>
                   </div>
-                  <div className="text-right flex-shrink-0 w-20">
+                  <div className="text-right flex-shrink-0 w-24">
                     <p className="text-xs font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
-                    <p className="text-[9px] text-gray-600">Cost: {fmt(card.purchase_price)}</p>
+                    <p className="text-[9px] text-gray-600">
+                      {card.last_sold_price > 0 ? `Last: ${fmt(card.last_sold_price)}` : `Cost: ${fmt(card.purchase_price)}`}
+                    </p>
                   </div>
                   {pnl !== null && (
                     <div className={`text-right flex-shrink-0 w-16 ${pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>

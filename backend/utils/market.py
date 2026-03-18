@@ -1,7 +1,9 @@
 import logging
 import re
 import asyncio
+import math
 import httpx
+from datetime import datetime, timezone
 from urllib.parse import quote_plus
 from utils.ebay import get_ebay_app_token
 
@@ -32,6 +34,102 @@ def detect_sport(card_name: str) -> str:
         if kw in name_lower:
             return "Hockey"
     return "Other"
+
+
+def _parse_sold_date(date_str: str):
+    """Parse eBay sold date string like 'Jan 15, 2025' to datetime"""
+    if not date_str:
+        return None
+    for fmt in ("%b %d, %Y", "%b %d %Y", "%B %d, %Y", "%B %d %Y"):
+        try:
+            return datetime.strptime(date_str.strip(), fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _filter_outliers_iqr(prices: list) -> list:
+    """Remove extreme outlier prices using IQR method"""
+    if len(prices) < 4:
+        return prices
+    sorted_p = sorted(prices)
+    n = len(sorted_p)
+    q1 = sorted_p[n // 4]
+    q3 = sorted_p[3 * n // 4]
+    iqr = q3 - q1
+    lower = q1 - 1.5 * iqr
+    upper = q3 + 1.5 * iqr
+    filtered = [p for p in prices if lower <= p <= upper]
+    return filtered if len(filtered) >= 2 else prices
+
+
+def _recency_weighted_avg(items: list) -> float:
+    """Calculate average weighted by recency — recent sales count more"""
+    now = datetime.now(timezone.utc)
+    weighted_sum = 0.0
+    weight_total = 0.0
+    for item in items:
+        price = item.get("price", 0)
+        if price <= 0:
+            continue
+        parsed = _parse_sold_date(item.get("date_sold", ""))
+        if parsed:
+            days_ago = max(0, (now - parsed).days)
+            weight = math.exp(-days_ago / 45)  # 45-day decay
+        else:
+            weight = 0.3  # low weight for items without date
+        weighted_sum += price * weight
+        weight_total += weight
+    return round(weighted_sum / weight_total, 2) if weight_total > 0 else 0
+
+
+def _calc_confidence(items: list, stats: dict) -> int:
+    """Calculate confidence score 1-5 inspired by Card Ladder"""
+    if not items or stats.get("count", 0) == 0:
+        return 0
+    score = 0.0
+    count = stats["count"]
+
+    # Factor 1: Number of comps (0-2 points)
+    if count >= 8:
+        score += 2.0
+    elif count >= 5:
+        score += 1.5
+    elif count >= 3:
+        score += 1.0
+    elif count >= 1:
+        score += 0.5
+
+    # Factor 2: Price consistency (0-2 points) — lower spread = higher confidence
+    avg = stats.get("avg", 0)
+    if avg > 0 and count >= 2:
+        spread = (stats["max"] - stats["min"]) / avg
+        if spread < 0.3:
+            score += 2.0
+        elif spread < 0.6:
+            score += 1.5
+        elif spread < 1.0:
+            score += 1.0
+        else:
+            score += 0.5
+
+    # Factor 3: Recency (0-1 point)
+    now = datetime.now(timezone.utc)
+    most_recent = None
+    for item in items:
+        d = _parse_sold_date(item.get("date_sold", ""))
+        if d and (most_recent is None or d > most_recent):
+            most_recent = d
+    if most_recent:
+        days_since = (now - most_recent).days
+        if days_since <= 14:
+            score += 1.0
+        elif days_since <= 30:
+            score += 0.7
+        elif days_since <= 60:
+            score += 0.3
+
+    return min(5, max(1, round(score)))
 
 
 async def get_card_market_value(query: str, ebay_item_id: str = None):
@@ -173,16 +271,46 @@ async def get_card_market_value(query: str, ebay_item_id: str = None):
         def calc_stats(items):
             prices = sorted([i["price"] for i in items if i.get("price", 0) > 0])
             if not prices:
-                return {"count": 0, "avg": 0, "median": 0, "min": 0, "max": 0}
+                return {"count": 0, "avg": 0, "median": 0, "min": 0, "max": 0, "weighted_avg": 0, "confidence": 0, "last_sold": 0, "outliers_removed": 0}
+            
+            # Filter outliers
+            filtered = _filter_outliers_iqr(prices)
+            outliers_removed = len(prices) - len(filtered)
+            prices = filtered if filtered else prices
+            
             mid = len(prices) // 2
             median = prices[mid] if len(prices) % 2 != 0 else (prices[mid - 1] + prices[mid]) / 2
-            return {
+            avg = sum(prices) / len(prices)
+            
+            # Recency-weighted average
+            weighted_avg = _recency_weighted_avg(items)
+            
+            # Last sold (most recent sale)
+            last_sold = 0
+            most_recent_date = None
+            for item in items:
+                d = _parse_sold_date(item.get("date_sold", ""))
+                if d and (most_recent_date is None or d > most_recent_date):
+                    most_recent_date = d
+                    last_sold = item.get("price", 0)
+            
+            stats = {
                 "count": len(prices),
-                "avg": round(sum(prices) / len(prices), 2),
+                "avg": round(avg, 2),
                 "median": round(median, 2),
                 "min": prices[0],
                 "max": prices[-1],
+                "weighted_avg": round(weighted_avg, 2),
+                "last_sold": round(last_sold, 2),
+                "outliers_removed": outliers_removed,
             }
+            stats["confidence"] = _calc_confidence(items, stats)
+            
+            # Market value = weighted average (Card Ladder-inspired)
+            # Falls back to median if weighted avg is 0
+            stats["market_value"] = stats["weighted_avg"] if stats["weighted_avg"] > 0 else stats["median"]
+            
+            return stats
 
         if is_graded:
             grade_str = f"{detected_company} {detected_grade}"

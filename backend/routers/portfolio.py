@@ -33,21 +33,50 @@ async def refresh_single_card_value(item_id: str, request: Request):
 
     try:
         value_data = await get_card_market_value(query)
-        median = value_data.get("primary", {}).get("stats", {}).get("median", 0)
+        stats = value_data.get("primary", {}).get("stats", {})
+        # Use weighted average (Card Ladder-inspired) instead of simple median
+        market_value = stats.get("market_value", 0) or stats.get("median", 0)
+        confidence = stats.get("confidence", 0)
+        last_sold = stats.get("last_sold", 0)
         now = datetime.now(timezone.utc).isoformat()
 
         await db.inventory.update_one(
             {"id": item_id},
-            {"$set": {"market_value": median, "market_value_date": now, "market_query_used": query}}
+            {"$set": {
+                "market_value": market_value,
+                "market_value_date": now,
+                "market_query_used": query,
+                "market_confidence": confidence,
+                "last_sold_price": last_sold,
+                "market_stats": {
+                    "avg": stats.get("avg", 0),
+                    "median": stats.get("median", 0),
+                    "weighted_avg": stats.get("weighted_avg", 0),
+                    "min": stats.get("min", 0),
+                    "max": stats.get("max", 0),
+                    "count": stats.get("count", 0),
+                    "outliers_removed": stats.get("outliers_removed", 0),
+                }
+            }}
         )
 
         return {
             "id": item_id,
-            "market_value": median,
+            "market_value": market_value,
             "market_value_date": now,
             "query_used": query,
+            "confidence": confidence,
+            "last_sold_price": last_sold,
             "data_source": value_data.get("data_source", "unknown"),
-            "items_found": value_data.get("primary", {}).get("stats", {}).get("count", 0),
+            "items_found": stats.get("count", 0),
+            "outliers_removed": stats.get("outliers_removed", 0),
+            "stats": {
+                "avg": stats.get("avg", 0),
+                "median": stats.get("median", 0),
+                "weighted_avg": stats.get("weighted_avg", 0),
+                "min": stats.get("min", 0),
+                "max": stats.get("max", 0),
+            }
         }
     except Exception as e:
         logger.error(f"Refresh card value failed for {item_id}: {e}")
@@ -88,6 +117,9 @@ async def get_portfolio_summary(request: Request):
             "grade": item.get("grade"),
             "grading_company": item.get("grading_company"),
             "image": bool(item.get("image")),
+            "confidence": item.get("market_confidence", 0),
+            "last_sold_price": float(item.get("last_sold_price") or 0),
+            "market_stats": item.get("market_stats"),
         })
 
     pnl = total_market_value - total_invested if valued_count > 0 else 0
