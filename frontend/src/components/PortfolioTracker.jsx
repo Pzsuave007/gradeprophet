@@ -75,12 +75,24 @@ const PortfolioTracker = ({ onAddToCollection }) => {
       setProgress({ current: i + 1, total: cards.length });
     }
 
-    // Save snapshot after refresh
     try { await axios.post(`${API}/api/portfolio/snapshot`); } catch {}
 
     setRefreshing(false);
-    toast.success('Portfolio values updated!');
+    toast.success('Collection values updated!');
     fetchSummary();
+  };
+
+  const refreshSingleCard = async (cardId) => {
+    setRefreshing(true);
+    try {
+      await axios.post(`${API}/api/portfolio/refresh-value/${cardId}`);
+      toast.success('Value updated!');
+      fetchSummary();
+    } catch {
+      toast.error('Could not fetch value');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   if (loading) return (
@@ -241,16 +253,25 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                     </div>
                     <p className="text-[11px] font-semibold text-white truncate" title={card.card_name}>{card.card_name}</p>
                     <p className="text-[9px] text-gray-500 truncate mb-1.5">{card.player} {card.year || ''}</p>
-                    <div className="flex items-end justify-between pt-1.5 border-t border-[#1a1a1a]">
-                      <div>
-                        <p className="text-[8px] text-gray-600 uppercase">Market</p>
-                        <p className="text-xs font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
+                    {card.market_value > 0 ? (
+                      <div className="flex items-end justify-between pt-1.5 border-t border-[#1a1a1a]">
+                        <div>
+                          <p className="text-[8px] text-gray-600 uppercase">Market</p>
+                          <p className="text-xs font-bold text-white">{fmt(card.market_value)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[8px] text-gray-600 uppercase">Last Sold</p>
+                          <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[8px] text-gray-600 uppercase">Last Sold</p>
-                        <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
-                      </div>
-                    </div>
+                    ) : (
+                      <button onClick={() => refreshSingleCard(card.id)} disabled={refreshing}
+                        className="w-full mt-1.5 py-1.5 rounded-lg bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] text-[10px] font-bold active:scale-95 transition-transform disabled:opacity-50 flex items-center justify-center gap-1"
+                        data-testid={`get-value-${i}`}>
+                        {refreshing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                        Get Value
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );
