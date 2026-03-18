@@ -7,7 +7,8 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  PieChart, Pie, Cell
 } from 'recharts';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -161,68 +162,110 @@ const PortfolioTracker = ({ onAddToCollection }) => {
 
   return (
     <div className="space-y-4" data-testid="portfolio-tracker">
-      {/* Header with Add Button */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-white">My Collection</h1>
-          <p className="text-xs text-gray-500 mt-0.5">{data.total_cards} cards in your personal collection</p>
+      {/* Collection Overview Panel */}
+      <div className="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden" data-testid="collection-overview">
+        {/* Top bar */}
+        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+          <h1 className="text-lg font-bold text-white tracking-tight">My Collection</h1>
+          <div className="flex items-center gap-2">
+            {onAddToCollection && (
+              <button onClick={onAddToCollection}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-[11px] font-semibold hover:bg-[#2563eb] transition-colors active:scale-95"
+                data-testid="add-to-collection-btn">
+                <Package className="w-3 h-3" /> Add Card
+              </button>
+            )}
+            <button onClick={refreshing ? () => { abortRef.current = true; } : refreshAllValues}
+              disabled={!data.cards.length}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${refreshing ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-white/[0.05] text-gray-300 hover:bg-white/[0.08] border border-[#2a2a2a]'}`}
+              data-testid="refresh-portfolio-btn">
+              {refreshing ? <><RefreshCw className="w-3 h-3 animate-spin" /> Stop ({progress.current}/{progress.total})</>
+                : <><Zap className="w-3 h-3" /> Refresh All</>}
+            </button>
+          </div>
         </div>
-        {onAddToCollection && (
-          <button onClick={onAddToCollection}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-xs font-semibold hover:bg-[#2563eb] transition-colors active:scale-95"
-            data-testid="add-to-collection-btn">
-            <Package className="w-3.5 h-3.5" /> Add Card
-          </button>
+
+        {refreshing && (
+          <div className="w-full bg-[#0a0a0a] h-1 overflow-hidden mx-5" style={{ width: 'calc(100% - 40px)' }}>
+            <motion.div className="h-full bg-[#3b82f6] rounded-full" animate={{ width: `${(progress.current / progress.total) * 100}%` }} />
+          </div>
         )}
-      </div>
 
-      {/* KPI Strip */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {[
-          { label: 'Collection Value', value: fmt(data.total_market_value), icon: DollarSign, color: 'bg-[#3b82f6]', sub: `${data.valued_cards}/${data.total_cards} valued` },
-          { label: 'Total Invested', value: fmt(data.total_invested), icon: Package, color: 'bg-amber-600', sub: `${data.total_cards} cards` },
-          { label: 'P&L', value: `${data.pnl >= 0 ? '+' : ''}${fmt(data.pnl)}`, icon: TrendingUp, color: data.pnl >= 0 ? 'bg-emerald-600' : 'bg-red-600', sub: `${data.roi >= 0 ? '+' : ''}${data.roi}% ROI` },
-          { label: 'Avg Card Value', value: data.valued_cards > 0 ? fmt(data.total_market_value / data.valued_cards) : '-', icon: BarChart3, color: 'bg-purple-600', sub: data.unvalued_cards > 0 ? `${data.unvalued_cards} need refresh` : 'All valued' },
-        ].map(({ label, value, icon: Icon, color, sub }, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
-            className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>
-                <Icon className="w-4 h-4 text-white" />
+        {/* Main visual panel */}
+        <div className="px-5 pb-5 pt-2">
+          <div className="flex flex-col lg:flex-row items-center gap-6">
+            {/* Left: Big value + P&L */}
+            <div className="flex-1 min-w-0 text-center lg:text-left">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-500 mb-1">Collection Value</p>
+              <p className="text-4xl sm:text-5xl font-black text-white leading-none tracking-tight" data-testid="portfolio-collection-value">
+                {data.total_market_value >= 1000
+                  ? `$${(data.total_market_value / 1000).toFixed(1)}k`
+                  : `$${data.total_market_value.toFixed(2)}`}
+              </p>
+              <div className="flex items-center justify-center lg:justify-start gap-2 mt-2">
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full ${data.pnl >= 0 ? 'bg-emerald-500/15' : 'bg-red-500/15'}`}>
+                  {data.pnl >= 0 ? <ArrowUpRight className="w-3 h-3 text-emerald-400" /> : <ArrowDownRight className="w-3 h-3 text-red-400" />}
+                  <span className={`text-xs font-bold ${data.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {data.pnl >= 0 ? '+' : ''}{fmt(data.pnl)}
+                  </span>
+                </div>
+                <span className={`text-[11px] font-semibold ${data.roi >= 0 ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
+                  {data.roi >= 0 ? '+' : ''}{data.roi}% ROI
+                </span>
               </div>
-              <span className="text-[10px] uppercase tracking-widest text-gray-600">{label}</span>
+              <p className="text-[10px] text-gray-600 mt-1.5">{data.valued_cards}/{data.total_cards} cards valued</p>
             </div>
-            <p className="text-xl font-bold text-white" data-testid={`portfolio-${label.toLowerCase().replace(/\s/g, '-')}`}>{value}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">{sub}</p>
-          </motion.div>
-        ))}
-      </div>
 
-      {/* Refresh button + progress */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          {data.valued_cards > 0 && (
-            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${pnlBg}`}>
-              <PnlIcon className={`w-3.5 h-3.5 ${pnlColor}`} />
-              <span className={`text-xs font-bold ${pnlColor}`}>{data.pnl >= 0 ? '+' : ''}{fmt(data.pnl)}</span>
-              <span className="text-[10px] text-gray-500">({data.roi >= 0 ? '+' : ''}{data.roi}%)</span>
+            {/* Center: Donut chart */}
+            <div className="relative flex-shrink-0">
+              <PieChart width={160} height={160}>
+                <Pie
+                  data={[
+                    { name: 'Invested', value: Math.max(data.total_invested, 0.01) },
+                    { name: data.pnl >= 0 ? 'Profit' : 'Loss', value: Math.abs(data.pnl) || 0.01 },
+                  ]}
+                  cx={80} cy={80}
+                  innerRadius={52} outerRadius={72}
+                  startAngle={90} endAngle={-270}
+                  paddingAngle={3}
+                  dataKey="value"
+                  stroke="none"
+                >
+                  <Cell fill="#f59e0b" />
+                  <Cell fill={data.pnl >= 0 ? '#10b981' : '#ef4444'} />
+                </Pie>
+              </PieChart>
+              {/* Center label */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                <span className="text-[9px] uppercase tracking-wider text-gray-500">P&L</span>
+                <span className={`text-lg font-black ${data.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {data.pnl >= 0 ? '+' : ''}{data.roi.toFixed(0)}%
+                </span>
+              </div>
             </div>
-          )}
-        </div>
-        <button onClick={refreshing ? () => { abortRef.current = true; } : refreshAllValues}
-          disabled={!data.cards.length}
-          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold transition-colors ${refreshing ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30' : 'bg-[#3b82f6] text-white hover:bg-[#2563eb]'}`}
-          data-testid="refresh-portfolio-btn">
-          {refreshing ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Stop ({progress.current}/{progress.total})</>
-            : <><Zap className="w-3.5 h-3.5" /> Refresh All Values</>}
-        </button>
-      </div>
 
-      {refreshing && (
-        <div className="w-full bg-[#0a0a0a] rounded-full h-1.5 overflow-hidden">
-          <motion.div className="h-full bg-[#3b82f6] rounded-full" animate={{ width: `${(progress.current / progress.total) * 100}%` }} />
+            {/* Right: Stats breakdown */}
+            <div className="flex-1 min-w-0 grid grid-cols-2 gap-x-6 gap-y-3">
+              {[
+                { label: 'Invested', value: fmt(data.total_invested), color: 'bg-amber-500', dot: true },
+                { label: data.pnl >= 0 ? 'Profit' : 'Loss', value: `${data.pnl >= 0 ? '+' : ''}${fmt(data.pnl)}`, color: data.pnl >= 0 ? 'bg-emerald-500' : 'bg-red-500', dot: true },
+                { label: 'Avg Card', value: data.valued_cards > 0 ? fmt(data.total_market_value / data.valued_cards) : '-' },
+                { label: 'Cards', value: `${data.total_cards}`, sub: data.unvalued_cards > 0 ? `${data.unvalued_cards} unvalued` : '' },
+              ].map(({ label, value, color, dot, sub }, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  {dot && <div className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${color}`} />}
+                  {!dot && <div className="w-2 flex-shrink-0" />}
+                  <div>
+                    <p className="text-[10px] text-gray-500 uppercase tracking-wider">{label}</p>
+                    <p className="text-sm font-bold text-white">{value}</p>
+                    {sub && <p className="text-[9px] text-gray-600">{sub}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
       {/* Value Trend Chart */}
       {data.snapshots?.length > 1 && (
