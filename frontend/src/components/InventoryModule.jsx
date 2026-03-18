@@ -355,33 +355,9 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[90] bg-[#0a0a0a] flex flex-col overflow-y-auto"
+      className="fixed inset-0 z-[90] bg-[#0a0a0a] flex flex-col"
       data-testid="card-detail-modal"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a] shrink-0">
-        <button onClick={onClose} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors" data-testid="card-detail-close">
-          <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm font-medium">Back</span>
-        </button>
-        <div className="flex items-center gap-2">
-          {frontSrc && (
-            <button onClick={() => {
-              const next = !showEditor;
-              setShowEditor(next);
-              if (next) setTimeout(() => editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 300);
-            }}
-              className={`text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors ${showEditor ? 'bg-amber-500/20 text-amber-400' : 'bg-[#1a1a1a] text-gray-400 hover:text-white'}`}
-              data-testid="card-detail-edit-photo">
-              <Sliders className="w-3 h-3" /> Edit Photo
-            </button>
-          )}
-          {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
-          {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
-          {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
-        </div>
-      </div>
-
       {/* SVG filter for sharpness live preview */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
         <defs>
@@ -391,165 +367,201 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         </defs>
       </svg>
 
-      {/* Card Image */}
-      <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: showEditor ? '25vh' : '50vh', perspective: '800px' }}>
-        {/* Vignette overlay */}
-        {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
-        <div
-          className="w-full h-full flex items-center justify-center transition-transform duration-500"
-          style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
-        >
-          <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden' }}>
-            {frontSrc
-              ? <img src={frontSrc} alt={item.card_name} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
-              : <div className="flex flex-col items-center gap-2 text-gray-700"><ImageIcon className="w-16 h-16" /><span className="text-xs">No image</span></div>
-            }
-          </div>
-          {hasBack && (
-            <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-              <img src={backSrc} alt={`${item.card_name} back`} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
+      {showEditor && frontSrc ? (
+        /* ========== PHOTO EDITOR MODE ========== */
+        <>
+          {/* Editor Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a] shrink-0">
+            <button onClick={() => setShowEditor(false)} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors" data-testid="editor-close-btn">
+              <ChevronLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Done</span>
+            </button>
+            <h3 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+              <Sliders className="w-3.5 h-3.5" /> Photo Editor
+            </h3>
+            <div className="flex gap-2">
+              <button onClick={resetFilters} className="text-[10px] px-2 py-1 rounded-lg bg-[#1a1a1a] text-gray-400 font-bold" data-testid="reset-filters-btn">Reset</button>
             </div>
-          )}
-        </div>
-        {hasBack && (
-          <button onClick={onFlip}
-            className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg active:scale-95 transition-transform"
-            data-testid="card-detail-flip">
-            <RotateCcw className="w-4 h-4" />
-            {isFlipped ? 'FRONT' : 'BACK'}
-          </button>
-        )}
-      </div>
+          </div>
 
-      {/* Photo Editor Panel */}
-      <AnimatePresence>
-        {showEditor && frontSrc && (
-          <motion.div ref={editorRef} initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-            className="mx-4 mt-3 bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="photo-editor-panel">
-            <div className="p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-amber-400" /> Photo Editor
-                </h3>
-                <div className="flex gap-2">
-                  <button onClick={autoEnhance} className="text-[10px] px-3 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold hover:bg-amber-500/25 transition-colors active:scale-95" data-testid="auto-enhance-btn">
-                    Auto Enhance
-                  </button>
-                  <button onClick={resetFilters} className="text-[10px] px-3 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-400 font-bold hover:text-white transition-colors" data-testid="reset-filters-btn">
-                    Reset
-                  </button>
-                </div>
-              </div>
+          {/* Image Preview - fills available space */}
+          <div className="flex-1 relative flex items-center justify-center bg-[#111] mx-3 mt-2 rounded-xl overflow-hidden min-h-0">
+            {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
+            <img src={isFlipped && backSrc ? backSrc : frontSrc} alt={item.card_name}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              style={{ filter: filterStyle }} />
+            {hasBack && (
+              <button onClick={onFlip}
+                className="absolute bottom-2 right-2 z-20 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500 text-white text-[10px] font-bold shadow-lg active:scale-95"
+                data-testid="editor-flip-btn">
+                <RotateCcw className="w-3 h-3" /> {isFlipped ? 'FRONT' : 'BACK'}
+              </button>
+            )}
+          </div>
+
+          {/* Editor Controls - fixed at bottom */}
+          <div className="shrink-0 bg-[#0a0a0a] border-t border-[#1a1a1a] px-4 pt-3 pb-6" data-testid="photo-editor-panel">
+            {/* Auto Enhance */}
+            <div className="flex gap-2 mb-3">
+              <button onClick={autoEnhance}
+                className="flex-1 text-[11px] py-2 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold active:scale-95 transition-transform"
+                data-testid="auto-enhance-btn">
+                Auto Enhance
+              </button>
+              {hasChanges && (
+                <button onClick={() => saveEnhanced(isFlipped ? 'back' : 'front')} disabled={saving}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-emerald-500 text-white text-[11px] font-bold active:scale-95 transition-transform disabled:opacity-50"
+                  data-testid="save-enhanced-front">
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                  Save {isFlipped ? 'Back' : 'Front'}
+                </button>
+              )}
+            </div>
+            {/* Sliders */}
+            <div className="space-y-2">
               {sliders.map(({ key, label, icon: Icon, min, max, color }) => (
-                <div key={key} className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <label className="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1"><Icon className="w-3 h-3" /> {label}</label>
-                    <span className={`text-[10px] font-bold text-${color}-400`}>{filters[key]}%</span>
-                  </div>
+                <div key={key} className="flex items-center gap-3">
+                  <label className="text-[9px] text-gray-500 uppercase tracking-wider flex items-center gap-1 w-20 shrink-0"><Icon className="w-3 h-3" /> {label}</label>
                   <input type="range" min={min} max={max} value={filters[key]}
                     onChange={e => setFilters(f => ({ ...f, [key]: parseInt(e.target.value) }))}
-                    className="w-full h-1.5 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#3b82f6]"
+                    className="flex-1 h-1.5 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-[#3b82f6]"
                     data-testid={`slider-${key}`} />
+                  <span className={`text-[10px] font-bold text-${color}-400 w-8 text-right`}>{filters[key]}</span>
                 </div>
               ))}
-              {/* Vignette toggle */}
-              <div className="flex items-center justify-between pt-1">
-                <label className="text-[10px] text-gray-500 uppercase tracking-wider flex items-center gap-1">
-                  <CircleDot className="w-3 h-3" /> Vignette (Dark Edges)
-                </label>
+              {/* Vignette */}
+              <div className="flex items-center gap-3">
+                <label className="text-[9px] text-gray-500 uppercase tracking-wider flex items-center gap-1 w-20 shrink-0"><CircleDot className="w-3 h-3" /> Vignette</label>
+                <div className="flex-1" />
                 <button onClick={() => setFilters(f => ({ ...f, vignette: !f.vignette }))}
                   className={`relative w-10 h-5 rounded-full transition-colors ${filters.vignette ? 'bg-[#3b82f6]' : 'bg-[#333]'}`}
                   data-testid="vignette-toggle">
                   <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${filters.vignette ? 'translate-x-[22px]' : 'translate-x-0.5'}`} />
                 </button>
               </div>
-              {/* Save button */}
-              {hasChanges && (
-                <div className="flex gap-2 pt-2 border-t border-[#1a1a1a]">
-                  <button onClick={() => saveEnhanced('front')} disabled={saving}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/25 transition-colors disabled:opacity-50 active:scale-95"
-                    data-testid="save-enhanced-front">
-                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                    Save Front
-                  </button>
-                  {hasBack && (
-                    <button onClick={() => saveEnhanced('back')} disabled={saving}
-                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-400 text-xs font-bold hover:bg-amber-500/25 transition-colors disabled:opacity-50 active:scale-95"
-                      data-testid="save-enhanced-back">
-                      {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
-                      Save Back
-                    </button>
-                  )}
+            </div>
+          </div>
+        </>
+      ) : (
+        /* ========== NORMAL DETAIL VIEW ========== */
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a] shrink-0">
+            <button onClick={onClose} className="flex items-center gap-1.5 text-gray-400 hover:text-white transition-colors" data-testid="card-detail-close">
+              <ChevronLeft className="w-5 h-5" />
+              <span className="text-sm font-medium">Back</span>
+            </button>
+            <div className="flex items-center gap-2">
+              {frontSrc && (
+                <button onClick={() => setShowEditor(true)}
+                  className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors bg-[#1a1a1a] text-gray-400 hover:text-white"
+                  data-testid="card-detail-edit-photo">
+                  <Sliders className="w-3 h-3" /> Edit Photo
+                </button>
+              )}
+              {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
+              {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
+              {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
+            </div>
+          </div>
+
+          {/* Scrollable content */}
+          <div className="flex-1 overflow-y-auto">
+            {/* Card Image - Large */}
+            <div className="relative flex items-center justify-center bg-[#111] mx-4 mt-4 rounded-2xl overflow-hidden" style={{ minHeight: '50vh', perspective: '800px' }}>
+              {filters.vignette && <div className="absolute inset-0 z-10 pointer-events-none rounded-2xl" style={{ background: 'radial-gradient(circle, transparent 30%, rgba(0,0,0,0.55) 100%)' }} />}
+              <div
+                className="w-full h-full flex items-center justify-center transition-transform duration-500"
+                style={{ transformStyle: 'preserve-3d', transform: isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)' }}
+              >
+                <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden' }}>
+                  {frontSrc
+                    ? <img src={frontSrc} alt={item.card_name} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
+                    : <div className="flex flex-col items-center gap-2 text-gray-700"><ImageIcon className="w-16 h-16" /><span className="text-xs">No image</span></div>
+                  }
                 </div>
+                {hasBack && (
+                  <div className="absolute inset-0 flex items-center justify-center p-4" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                    <img src={backSrc} alt={`${item.card_name} back`} className="max-w-full max-h-full object-contain rounded-lg transition-all" style={{ filter: filterStyle }} />
+                  </div>
+                )}
+              </div>
+              {hasBack && (
+                <button onClick={onFlip}
+                  className="absolute bottom-3 right-3 z-20 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-500 text-white text-sm font-bold shadow-lg active:scale-95 transition-transform"
+                  data-testid="card-detail-flip">
+                  <RotateCcw className="w-4 h-4" />
+                  {isFlipped ? 'FRONT' : 'BACK'}
+                </button>
               )}
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
-      {/* Card Info */}
-      <div className="px-4 pt-4 pb-2 space-y-3">
-        <h2 className="text-lg font-bold text-white leading-tight" data-testid="card-detail-name">{item.card_name}</h2>
-        <div className="flex flex-wrap gap-2">
-          {item.player && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.player}</span>}
-          {item.year && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.year}</span>}
-          {item.sport && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.sport}</span>}
-          {item.set_name && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.set_name}</span>}
-          {item.card_number && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">#{item.card_number}</span>}
-          {item.variation && <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300">{item.variation}</span>}
-        </div>
-        <div className="grid grid-cols-3 gap-2">
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Condition</p>
-            <p className={`text-sm font-bold mt-0.5 ${item.condition === 'Graded' ? 'text-amber-400' : 'text-gray-300'}`}>
-              {item.condition === 'Graded' && item.grade ? `${item.grading_company} ${item.grade}` : 'Raw'}
-            </p>
-          </div>
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider">Cost</p>
-            <p className="text-sm font-bold text-white mt-0.5">{item.purchase_price ? `$${Number(item.purchase_price).toFixed(2)}` : '-'}</p>
-          </div>
-          <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.listed ? 'Listed' : 'Qty'}</p>
-            <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
-          </div>
-        </div>
-        {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
-      </div>
+            {/* Card Info */}
+            <div className="px-4 pt-4 pb-2 space-y-3">
+              <h2 className="text-lg font-bold text-white leading-tight" data-testid="card-detail-name">{item.card_name}</h2>
+              <div className="flex flex-wrap gap-2">
+                {item.player && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.player}</span>}
+                {item.year && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.year}</span>}
+                {item.sport && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.sport}</span>}
+                {item.set_name && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">{item.set_name}</span>}
+                {item.card_number && <span className="text-xs px-2.5 py-1 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-gray-300">#{item.card_number}</span>}
+                {item.variation && <span className="text-xs px-2.5 py-1 rounded-lg bg-purple-500/15 border border-purple-500/30 text-purple-300">{item.variation}</span>}
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Condition</p>
+                  <p className={`text-sm font-bold mt-0.5 ${item.condition === 'Graded' ? 'text-amber-400' : 'text-gray-300'}`}>
+                    {item.condition === 'Graded' && item.grade ? `${item.grading_company} ${item.grade}` : 'Raw'}
+                  </p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Cost</p>
+                  <p className="text-sm font-bold text-white mt-0.5">{item.purchase_price ? `$${Number(item.purchase_price).toFixed(2)}` : '-'}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.listed ? 'Listed' : 'Qty'}</p>
+                  <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
+                </div>
+              </div>
+              {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
+            </div>
 
-      {/* Action Buttons - Large */}
-      <div className="px-4 pb-20 pt-2 grid grid-cols-2 gap-2">
-        {!item.listed && (
-          <button onClick={() => { onClose(); onList(item); }}
-            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-sm active:scale-95 transition-transform"
-            data-testid="card-detail-list">
-            <ShoppingBag className="w-5 h-5" /> List on eBay
-          </button>
-        )}
-        {item.listed && item.ebay_item_id && (
-          <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-sm active:scale-95 transition-transform">
-            <ExternalLink className="w-5 h-5" /> View on eBay
-          </a>
-        )}
-        <button onClick={() => { onClose(); onEdit(item); }}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-sm active:scale-95 transition-transform"
-          data-testid="card-detail-edit">
-          <Edit2 className="w-5 h-5" /> Edit Card
-        </button>
-        <button onClick={onClose}
-          className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 font-bold text-sm active:scale-95 transition-transform"
-          data-testid="card-detail-price">
-          <TrendingUp className="w-5 h-5" /> Price History
-        </button>
-        {!item.listed && (
-          <button onClick={() => { onClose(); onDelete(item.id); }}
-            className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-sm active:scale-95 transition-transform col-span-2"
-            data-testid="card-detail-delete">
-            <Trash2 className="w-5 h-5" /> Delete Card
-          </button>
-        )}
-      </div>
+            {/* Action Buttons */}
+            <div className="px-4 pb-20 pt-2 grid grid-cols-2 gap-2">
+              {!item.listed && (
+                <button onClick={() => { onClose(); onList(item); }}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 font-bold text-sm active:scale-95 transition-transform"
+                  data-testid="card-detail-list">
+                  <ShoppingBag className="w-5 h-5" /> List on eBay
+                </button>
+              )}
+              {item.listed && item.ebay_item_id && (
+                <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-sm active:scale-95 transition-transform">
+                  <ExternalLink className="w-5 h-5" /> View on eBay
+                </a>
+              )}
+              <button onClick={() => { onClose(); onEdit(item); }}
+                className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-sm active:scale-95 transition-transform"
+                data-testid="card-detail-edit">
+                <Edit2 className="w-5 h-5" /> Edit Card
+              </button>
+              <button onClick={onClose}
+                className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-400 font-bold text-sm active:scale-95 transition-transform"
+                data-testid="card-detail-price">
+                <TrendingUp className="w-5 h-5" /> Price History
+              </button>
+              {!item.listed && (
+                <button onClick={() => { onClose(); onDelete(item.id); }}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-sm active:scale-95 transition-transform col-span-2"
+                  data-testid="card-detail-delete">
+                  <Trash2 className="w-5 h-5" /> Delete Card
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 };
