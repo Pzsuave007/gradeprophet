@@ -116,7 +116,7 @@ async def get_portfolio_summary(request: Request):
             "condition": item.get("condition", "Raw"),
             "grade": item.get("grade"),
             "grading_company": item.get("grading_company"),
-            "image": bool(item.get("image")),
+            "image": item.get("image", ""),
             "confidence": item.get("market_confidence", 0),
             "last_sold_price": float(item.get("last_sold_price") or 0),
             "market_stats": item.get("market_stats"),

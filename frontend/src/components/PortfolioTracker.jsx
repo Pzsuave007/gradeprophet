@@ -214,13 +214,24 @@ const PortfolioTracker = ({ onAddToCollection }) => {
           <div className="p-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {data.cards.slice(0, 20).map((card, i) => {
               const pnl = card.market_value && card.purchase_price ? card.market_value - card.purchase_price : null;
+              const imgSrc = card.image ? `data:image/jpeg;base64,${card.image}` : null;
               return (
                 <motion.div key={card.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                  className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-3 hover:border-[#2a2a2a] transition-colors group"
+                  className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl overflow-hidden hover:border-[#2a2a2a] transition-colors group"
                   data-testid={`portfolio-card-grid-${i}`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-[9px] text-gray-600 font-mono">#{i + 1}</span>
-                    <div className="flex items-center gap-1.5">
+                  {/* Card Image */}
+                  {imgSrc ? (
+                    <div className="aspect-[3/4] bg-[#111] flex items-center justify-center overflow-hidden">
+                      <img src={imgSrc} alt={card.card_name} className="w-full h-full object-contain" />
+                    </div>
+                  ) : (
+                    <div className="aspect-[3/4] bg-[#111] flex items-center justify-center">
+                      <Package className="w-8 h-8 text-gray-700" />
+                    </div>
+                  )}
+                  {/* Card Info */}
+                  <div className="p-2.5">
+                    <div className="flex items-center justify-between mb-1">
                       {card.confidence > 0 && <ConfidenceDots level={card.confidence} />}
                       {pnl !== null && (
                         <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${pnl >= 0 ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'}`}>
@@ -228,25 +239,19 @@ const PortfolioTracker = ({ onAddToCollection }) => {
                         </span>
                       )}
                     </div>
+                    <p className="text-[11px] font-semibold text-white truncate" title={card.card_name}>{card.card_name}</p>
+                    <p className="text-[9px] text-gray-500 truncate mb-1.5">{card.player} {card.year || ''}</p>
+                    <div className="flex items-end justify-between pt-1.5 border-t border-[#1a1a1a]">
+                      <div>
+                        <p className="text-[8px] text-gray-600 uppercase">Market</p>
+                        <p className="text-xs font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[8px] text-gray-600 uppercase">Last Sold</p>
+                        <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-[11px] font-semibold text-white truncate mb-0.5" title={card.card_name}>{card.card_name}</p>
-                  <p className="text-[9px] text-gray-500 truncate">{card.player} {card.year || ''}</p>
-                  <p className="text-[9px] text-gray-600 mb-2">{card.condition === 'Graded' ? `${card.grading_company} ${card.grade}` : 'Raw'}</p>
-                  <div className="flex items-end justify-between pt-2 border-t border-[#1a1a1a]">
-                    <div>
-                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Market</p>
-                      <p className="text-sm font-bold text-white">{card.market_value > 0 ? fmt(card.market_value) : '-'}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[8px] text-gray-600 uppercase tracking-wider">Last Sold</p>
-                      <p className="text-[10px] text-gray-400">{card.last_sold_price > 0 ? fmt(card.last_sold_price) : '-'}</p>
-                    </div>
-                  </div>
-                  {card.purchase_price > 0 && (
-                    <div className="mt-1.5 text-center">
-                      <span className="text-[8px] text-gray-600">Cost: {fmt(card.purchase_price)}</span>
-                    </div>
-                  )}
                 </motion.div>
               );
             })}
