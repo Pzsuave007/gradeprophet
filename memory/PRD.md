@@ -55,6 +55,14 @@ Home | Inventory | Scan | Listings | Flip
   - Color-coded: yellow at 80%, red at 100% limit
   - "Unlimited" display for Legend plan
   - Upgrade button for non-Legend users
+- [x] Admin Panel at /admin (Mar 2026)
+  - Platform stats: total users, revenue, signups, cards, scans
+  - User management: list, search, pagination
+  - Change user plans (Rookie/All-Star/Hall of Fame/Legend)
+  - View any user's inventory
+  - Ban/unban and delete users (cascade delete all data)
+  - Payment transactions list
+  - Protected: only pzsuave007@gmail.com has access
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync Engine
