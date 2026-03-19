@@ -11,8 +11,9 @@ SALES_CACHE_TTL = 3600  # 1 hour
 
 
 async def _fetch_ebay_sales_alltime(user_id: str) -> int:
-    """Fetch all-time eBay sales count, cached in user_settings."""
+    """Fetch all-time eBay sales count using Trading API, cached in user_settings."""
     from utils.ebay import get_ebay_user_token
+    import xml.etree.ElementTree as ET
 
     # Check cache first
     settings = await db.user_settings.find_one(
@@ -27,25 +28,40 @@ async def _fetch_ebay_sales_alltime(user_id: str) -> int:
         except Exception:
             pass
 
-    # Fetch from eBay - all time by using a very old start date
     try:
         token = await get_ebay_user_token(user_id)
         if not token:
             return settings.get("sales_alltime_count", 0) if settings else 0
 
-        total_orders = 0
-        offset = 0
+        # Use Trading API GetMyeBaySelling to get SoldList total
+        xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <SoldList><Sort>EndTime</Sort><Pagination><EntriesPerPage>1</EntriesPerPage></Pagination></SoldList>
+</GetMyeBaySellingRequest>'''
 
+        total_orders = 0
         async with httpx.AsyncClient(timeout=15.0) as client:
-            # First request to get the total count
-            resp = await client.get(
-                "https://api.ebay.com/sell/fulfillment/v1/order",
-                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-                params={"limit": 1, "offset": 0, "filter": "creationdate:[2020-01-01T00:00:00.000Z..]"}
+            resp = await client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml"
+                },
+                content=xml_body
             )
-            if resp.status_code == 200:
-                data = resp.json()
-                total_orders = data.get("total", 0)
+
+        if resp.status_code == 200:
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            root = ET.fromstring(resp.text)
+            sold_node = root.find(".//e:SoldList", ns)
+            if sold_node is not None:
+                count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+                if count_el is not None:
+                    total_orders = int(count_el.text)
 
         # Update cache
         await db.user_settings.update_one(
