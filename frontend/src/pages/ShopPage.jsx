@@ -211,7 +211,7 @@ const ShopPage = () => {
 
       {/* Card Modal */}
       <AnimatePresence>
-        {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} />}
+        {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} shopSlug={slug} />}
       </AnimatePresence>
 
       {/* Footer */}
@@ -309,11 +309,27 @@ const CardTile = ({ item, index, plan, onClick }) => {
 };
 
 // =========== CARD MODAL WITH 3D FLIP ===========
-const CardModal = ({ item, onClose }) => {
-  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
-  const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
+const CardModal = ({ item, onClose, shopSlug }) => {
+  const API = process.env.REACT_APP_BACKEND_URL;
+  const baseFront = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
+  const baseBack = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
+  const [frontSrc, setFrontSrc] = useState(baseFront);
+  const [backSrc, setBackSrc] = useState(baseBack);
   const [flipped, setFlipped] = useState(false);
   const price = item.listed_price || item.purchase_price;
+
+  // Fetch all eBay images for flip effect (only for eBay-sourced items without back image)
+  useEffect(() => {
+    if (baseBack || !item.ebay_item_id || item.image) return;
+    fetch(`${API}/api/shop/${shopSlug}/item/${item.ebay_item_id}`)
+      .then(r => r.json())
+      .then(data => {
+        const imgs = data.images || [];
+        if (imgs.length > 0 && !baseFront) setFrontSrc(imgs[0]);
+        if (imgs.length > 1) setBackSrc(imgs[1]);
+      })
+      .catch(() => {});
+  }, [item.ebay_item_id, shopSlug, API, baseFront, baseBack, item.image]);
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}

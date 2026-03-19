@@ -96,10 +96,11 @@ async def _fetch_ebay_shop_data(user_id: str):
                     price = _xml_text(item_el, ".//e:BuyItNowPrice", ns)
                     if not price or price == "0.0":
                         price = _xml_text(item_el, ".//e:CurrentPrice", ns)
-                    # Picture
+                    # Picture - upgrade to high res
                     pic_url = _xml_text(item_el, ".//e:PictureDetails/e:GalleryURL", ns) or ""
                     if not pic_url:
                         pic_url = _xml_text(item_el, ".//e:GalleryURL", ns) or ""
+                    pic_url = _to_hires_ebay_img(pic_url)
 
                     all_ebay_items.append({
                         "ebay_item_id": item_id,
@@ -139,6 +140,71 @@ def _xml_text(parent, path, ns):
     """Helper to safely extract text from XML element."""
     el = parent.find(path, ns)
     return el.text if el is not None else None
+
+
+def _to_hires_ebay_img(url: str) -> str:
+    """Transform eBay thumbnail URL to high-resolution version."""
+    if not url:
+        return ""
+    import re
+    # Replace thumbnail path with full image path and upgrade resolution
+    url = url.replace("/thumbs/images/", "/images/")
+    url = re.sub(r's-l\d+', 's-l1600', url)
+    return url
+
+
+@router.get("/{slug}/item/{ebay_item_id}")
+async def get_item_images(slug: str, ebay_item_id: str):
+    """Fetch all images for a specific eBay listing (for flip effect)."""
+    from utils.ebay import get_ebay_user_token
+    import xml.etree.ElementTree as ET
+
+    settings = await db.user_settings.find_one({"shop_slug": slug.lower()}, {"_id": 0, "user_id": 1})
+    if not settings:
+        raise HTTPException(status_code=404, detail="Shop not found")
+
+    user_id = settings.get("user_id")
+
+    try:
+        token = await get_ebay_user_token(user_id)
+        if not token:
+            return {"images": []}
+
+        xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID>
+  <OutputSelector>PictureDetails</OutputSelector>
+</GetItemRequest>'''
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "GetItem",
+                    "X-EBAY-API-IAF-TOKEN": token,
+                    "Content-Type": "text/xml"
+                },
+                content=xml_body
+            )
+
+        if resp.status_code != 200:
+            return {"images": []}
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        images = []
+        for pic_el in root.findall(".//e:PictureDetails/e:PictureURL", ns):
+            if pic_el.text:
+                images.append(_to_hires_ebay_img(pic_el.text))
+
+        return {"images": images}
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch item images: {e}")
+        return {"images": []}
 
 
 @router.get("/{slug}")
