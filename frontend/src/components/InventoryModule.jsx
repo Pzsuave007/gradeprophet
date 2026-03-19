@@ -493,9 +493,15 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   };
 
   const applyCrop = async (cropPixels) => {
-    // cropPixels = { x, y, w, h } in container pixel coordinates
+    // CRITICAL: Capture container/image rects BEFORE changing state
+    // because setCropMode(false) will re-render, resize the container,
+    // and change the image position (editor controls panel reappears)
     const src = isFlipped && backSrc ? backSrc : frontSrc;
     if (!src || !imgContainerRef.current || !editorImgRef.current) return;
+
+    const containerRect = imgContainerRef.current.getBoundingClientRect();
+    const imgRect = editorImgRef.current.getBoundingClientRect();
+
     setSaving(true);
     setCropMode(false);
     try {
@@ -506,11 +512,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         i.src = src;
       });
 
-      // Get the actual rendered position of the <img> element within the container
-      const containerRect = imgContainerRef.current.getBoundingClientRect();
-      const imgRect = editorImgRef.current.getBoundingClientRect();
-
-      // Offset of the img element within the container
+      // Offset of the rendered image within the container (captured BEFORE state change)
       const offsetX = imgRect.left - containerRect.left;
       const offsetY = imgRect.top - containerRect.top;
 
@@ -538,8 +540,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
 
       // Save original for undo before cropping
       const side = isFlipped ? 'back' : 'front';
-      const originalBase64 = src;
-      setUndoData({ side, originalBase64 });
+      setUndoData({ side, originalBase64: src });
 
       const canvas = document.createElement('canvas');
       canvas.width = sw;
