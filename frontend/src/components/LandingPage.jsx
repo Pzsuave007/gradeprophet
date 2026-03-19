@@ -35,6 +35,7 @@ const PLANS = [
     color: 'from-gray-600 to-gray-700',
     accent: 'text-gray-400',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/xdgv6i1p_rookie.webp',
+    cardImage2: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/5nxkq8l3_rookie2.webp',
     limits: { cards: '30', scans: '30', listings: '30' },
     features: [
       { text: 'Dashboard (basic)', has: true },
@@ -57,6 +58,7 @@ const PLANS = [
     color: 'from-blue-600 to-blue-700',
     accent: 'text-blue-400',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/747pul21_all-start-lebron.jfif',
+    cardImage2: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/wg5bfak4_all-star-2.webp',
     limits: { cards: '200', scans: '200', listings: '200' },
     features: [
       { text: 'Full Dashboard', has: true },
@@ -79,6 +81,7 @@ const PLANS = [
     color: 'from-amber-500 to-orange-600',
     accent: 'text-amber-400',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/h4bz6thd_hall-of-fame-kobe.webp',
+    cardImage2: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/cb9dk85q_hall-of-fame2.jfif',
     limits: { cards: '500', scans: '500', listings: '500' },
     features: [
       { text: 'Full Dashboard + Export', has: true },
@@ -102,6 +105,7 @@ const PLANS = [
     color: 'from-purple-600 to-violet-700',
     accent: 'text-purple-400',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/9dwva9ex_legend.webp',
+    cardImage2: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/9di0ihgs_legeds2.jfif',
     limits: { cards: 'Unlimited', scans: 'Unlimited', listings: 'Unlimited' },
     features: [
       { text: 'Everything in Hall of Fame', has: true },
@@ -313,15 +317,28 @@ const LandingPage = ({ onGetStarted }) => {
                   )}
 
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
-                    {/* Top area: Card image centered */}
+                    {/* Two cards fanned out */}
                     <div className="relative flex items-center justify-center h-[140px] sm:h-[160px]">
-                      <img src={plan.cardImage} alt={`${plan.name} card`}
-                        className="h-full w-auto object-contain rounded-sm"
+                      {/* Card 1 - tilted left */}
+                      <img src={plan.cardImage} alt={`${plan.name} card 1`}
+                        className="absolute h-[120px] sm:h-[140px] w-auto object-contain rounded-sm z-[1]"
                         style={{
-                          filter: plan.id === 'rookie' ? 'drop-shadow(0 8px 24px rgba(156,163,175,0.25))' :
-                                 plan.id === 'all_star' ? 'drop-shadow(0 8px 28px rgba(59,130,246,0.45))' :
-                                 plan.id === 'hall_of_fame' ? 'drop-shadow(0 8px 32px rgba(245,158,11,0.55))' :
-                                 'drop-shadow(0 8px 32px rgba(147,51,234,0.55))',
+                          transform: 'rotate(-8deg) translateX(-20px)',
+                          filter: plan.id === 'rookie' ? 'drop-shadow(0 6px 16px rgba(156,163,175,0.25))' :
+                                 plan.id === 'all_star' ? 'drop-shadow(0 6px 18px rgba(59,130,246,0.4))' :
+                                 plan.id === 'hall_of_fame' ? 'drop-shadow(0 6px 20px rgba(245,158,11,0.5))' :
+                                 'drop-shadow(0 6px 20px rgba(147,51,234,0.5))',
+                        }}
+                        loading="lazy" />
+                      {/* Card 2 - tilted right, on top */}
+                      <img src={plan.cardImage2} alt={`${plan.name} card 2`}
+                        className="absolute h-[120px] sm:h-[140px] w-auto object-contain rounded-sm z-[2]"
+                        style={{
+                          transform: 'rotate(6deg) translateX(20px)',
+                          filter: plan.id === 'rookie' ? 'drop-shadow(0 6px 16px rgba(156,163,175,0.3))' :
+                                 plan.id === 'all_star' ? 'drop-shadow(0 6px 18px rgba(59,130,246,0.45))' :
+                                 plan.id === 'hall_of_fame' ? 'drop-shadow(0 6px 20px rgba(245,158,11,0.55))' :
+                                 'drop-shadow(0 6px 20px rgba(147,51,234,0.55))',
                         }}
                         loading="lazy" />
                     </div>
