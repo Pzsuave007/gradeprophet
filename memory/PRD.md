@@ -70,8 +70,10 @@ Home | Inventory | Scan | Listings | Flip
   - Shows all listed cards with images, sport, condition, price
   - Card detail modal with front/back flip, "Buy on eBay" button
   - Search, sport filter, sort by price
-  - Header: Logo + shop name + location (left), Cards | Sales | Sports (right)
-  - Real eBay sales count via Trading API (GetMyeBaySelling SoldList, cached 1hr)
+  - Header: Logo + shop name + location (left), Tier badge + Cards | Sales | Sports (right)
+  - Tier-based glow system: Rookie(gray), All-Star(blue), Hall of Fame(gold), Legend(purple)
+  - Logo box, tier badge icon (Shield/Star/Award/Crown), and card tiles all glow with tier color
+  - Real eBay sales count via Trading API GetMyeBaySelling SoldList (cached 1hr)
   - "Powered by FlipSlab Engine" footer
   - Copy link + View Shop buttons in Account settings
   - Available to all plans
