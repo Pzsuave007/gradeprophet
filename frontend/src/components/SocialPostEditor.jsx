@@ -3,7 +3,8 @@ import { motion } from 'framer-motion';
 import axios from 'axios';
 import {
   Download, ChevronLeft, Sparkles, RotateCcw,
-  Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon, Square
+  Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon, Square,
+  Save, Trash2, FolderOpen, X
 } from 'lucide-react';
 
 const GLOW_PRESETS = [
@@ -207,6 +208,71 @@ const SocialPostEditor = ({ item, shopName: propShopName, shopLogo: propShopLogo
   const updateEl = (id, patch) => setEls(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
   const toggleVis = (id) => updateEl(id, { visible: !els[id].visible });
   const resetAll = () => { setEls(defaultLayout()); setGlow(70); setRadius(16); setSel(null); };
+
+  /* ─── Custom Presets ─── */
+  const [savedPresets, setSavedPresets] = useState([]);
+  const [showPresetMenu, setShowPresetMenu] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [savingPreset, setSavingPreset] = useState(false);
+
+  useEffect(() => {
+    const API = process.env.REACT_APP_BACKEND_URL;
+    if (!API) return;
+    axios.get(`${API}/api/settings/editor-presets`, { withCredentials: true })
+      .then(r => setSavedPresets(r.data.presets || []))
+      .catch(() => {});
+  }, []);
+
+  const savePreset = async () => {
+    if (!presetName.trim()) return;
+    setSavingPreset(true);
+    try {
+      const API = process.env.REACT_APP_BACKEND_URL;
+      const elData = {};
+      EL_KEYS.forEach(k => {
+        const { Icon, ...rest } = els[k];
+        elData[k] = rest;
+      });
+      const payload = {
+        name: presetName.trim(),
+        data: { els: elData, presetId: preset.id, glow, radius },
+      };
+      const res = await axios.post(`${API}/api/settings/editor-presets`, payload, { withCredentials: true });
+      setSavedPresets(prev => [...prev, res.data.preset]);
+      setPresetName('');
+      setShowPresetMenu(false);
+    } catch (e) {
+      console.error('Save preset failed:', e);
+    }
+    setSavingPreset(false);
+  };
+
+  const deletePreset = async (id) => {
+    try {
+      const API = process.env.REACT_APP_BACKEND_URL;
+      await axios.delete(`${API}/api/settings/editor-presets/${id}`, { withCredentials: true });
+      setSavedPresets(prev => prev.filter(p => p.id !== id));
+    } catch (e) { console.error('Delete failed:', e); }
+  };
+
+  const applyPreset = (p) => {
+    const d = p.data;
+    if (d.els) {
+      const restored = {};
+      EL_KEYS.forEach(k => {
+        const def = defaultLayout()[k];
+        restored[k] = { ...def, ...(d.els[k] || {}) };
+      });
+      setEls(restored);
+    }
+    if (d.presetId) {
+      const found = GLOW_PRESETS.find(g => g.id === d.presetId);
+      if (found) setPreset(found);
+    }
+    if (d.glow !== undefined) setGlow(d.glow);
+    if (d.radius !== undefined) setRadius(d.radius);
+    setShowPresetMenu(false);
+  };
 
   /* ─── Canvas Export ─── */
   const handleSave = useCallback(async () => {
@@ -501,6 +567,15 @@ const SocialPostEditor = ({ item, shopName: propShopName, shopLogo: propShopLogo
           <Sparkles className="w-4 h-4 text-amber-400" /> Social Post
         </div>
         <div className="flex items-center gap-2">
+          <button onClick={() => setShowPresetMenu(!showPresetMenu)} data-testid="editor-presets-btn"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.06] text-gray-400 hover:text-white text-xs font-bold relative">
+            <FolderOpen className="w-3 h-3" /> Presets
+            {savedPresets.length > 0 && (
+              <span className="ml-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-bold" style={{ background: preset.main, color: '#000' }}>
+                {savedPresets.length}
+              </span>
+            )}
+          </button>
           <button onClick={resetAll} data-testid="editor-reset-btn"
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.06] text-gray-400 hover:text-white text-xs font-bold">
             <RotateCcw className="w-3 h-3" /> Reset
@@ -512,6 +587,67 @@ const SocialPostEditor = ({ item, shopName: propShopName, shopLogo: propShopLogo
           </button>
         </div>
       </div>
+
+      {/* Preset Menu Dropdown */}
+      {showPresetMenu && (
+        <div className="absolute top-12 right-4 z-[70] w-72 rounded-xl border border-white/[0.08] bg-[#111] shadow-2xl"
+          onClick={e => e.stopPropagation()}>
+          <div className="p-3 border-b border-white/[0.06]">
+            <div className="text-xs font-bold text-gray-400 uppercase mb-2">Save Current Layout</div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={presetName}
+                onChange={e => setPresetName(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && savePreset()}
+                placeholder="Preset name..."
+                maxLength={30}
+                data-testid="preset-name-input"
+                className="flex-1 px-3 py-1.5 rounded-lg bg-white/[0.06] border border-white/[0.08] text-white text-xs outline-none focus:border-purple-500/50 placeholder:text-gray-600"
+              />
+              <button onClick={savePreset} disabled={savingPreset || !presetName.trim() || savedPresets.length >= 5}
+                data-testid="preset-save-btn"
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-30"
+                style={{ background: preset.main, color: '#000' }}>
+                {savingPreset ? <div className="w-3 h-3 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                  : <Save className="w-3 h-3" />} Save
+              </button>
+            </div>
+            {savedPresets.length >= 5 && (
+              <div className="text-[10px] text-amber-400/70 mt-1">Max 5 presets reached. Delete one to save a new one.</div>
+            )}
+          </div>
+          <div className="p-2 max-h-52 overflow-y-auto">
+            {savedPresets.length === 0 ? (
+              <div className="text-center text-gray-600 text-xs py-4">No saved presets yet</div>
+            ) : (
+              savedPresets.map(p => (
+                <div key={p.id}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg hover:bg-white/[0.04] group transition-colors"
+                  data-testid={`saved-preset-${p.id}`}>
+                  <button onClick={() => applyPreset(p)}
+                    data-testid={`apply-preset-${p.id}`}
+                    className="flex-1 text-left text-sm text-gray-300 font-medium hover:text-white flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: GLOW_PRESETS.find(g => g.id === p.data?.presetId)?.main || '#888' }} />
+                    {p.name}
+                  </button>
+                  <button onClick={() => deletePreset(p.id)}
+                    data-testid={`delete-preset-${p.id}`}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded text-gray-600 hover:text-red-400 transition-all">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="p-2 border-t border-white/[0.06]">
+            <button onClick={() => setShowPresetMenu(false)}
+              className="w-full py-1.5 rounded-lg text-xs font-bold text-gray-500 hover:text-white hover:bg-white/[0.04] transition-all flex items-center justify-center gap-1">
+              <X className="w-3 h-3" /> Close
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Canvas Area */}
       <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden min-h-0"

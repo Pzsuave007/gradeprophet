@@ -90,3 +90,71 @@ async def set_shop_profile(request: Request):
     update["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.user_settings.update_one({"user_id": user_id}, {"$set": update}, upsert=True)
     return {"success": True}
+
+
+MAX_EDITOR_PRESETS = 5
+
+@router.get("/editor-presets")
+async def get_editor_presets(request: Request):
+    """Get user's saved social post editor presets"""
+    user = await get_current_user(request)
+    settings = await db.user_settings.find_one({"user_id": user["user_id"]}, {"_id": 0, "editor_presets": 1})
+    return {"presets": (settings or {}).get("editor_presets", [])}
+
+
+@router.post("/editor-presets")
+async def save_editor_preset(request: Request):
+    """Save a social post editor preset (max 5)"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+
+    name = body.get("name", "").strip()
+    if not name or len(name) > 30:
+        raise HTTPException(status_code=400, detail="Name is required (max 30 chars)")
+
+    preset_data = body.get("data")
+    if not preset_data:
+        raise HTTPException(status_code=400, detail="Preset data is required")
+
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "editor_presets": 1})
+    presets = (settings or {}).get("editor_presets", [])
+
+    if len(presets) >= MAX_EDITOR_PRESETS:
+        raise HTTPException(status_code=400, detail=f"Maximum {MAX_EDITOR_PRESETS} presets allowed")
+
+    import uuid
+    new_preset = {
+        "id": uuid.uuid4().hex[:12],
+        "name": name,
+        "data": preset_data,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    presets.append(new_preset)
+
+    await db.user_settings.update_one(
+        {"user_id": user_id},
+        {"$set": {"editor_presets": presets}},
+        upsert=True,
+    )
+    return {"success": True, "preset": new_preset}
+
+
+@router.delete("/editor-presets/{preset_id}")
+async def delete_editor_preset(preset_id: str, request: Request):
+    """Delete a saved editor preset"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "editor_presets": 1})
+    presets = (settings or {}).get("editor_presets", [])
+    filtered = [p for p in presets if p["id"] != preset_id]
+
+    if len(filtered) == len(presets):
+        raise HTTPException(status_code=404, detail="Preset not found")
+
+    await db.user_settings.update_one(
+        {"user_id": user_id},
+        {"$set": {"editor_presets": filtered}},
+    )
+    return {"success": True}
