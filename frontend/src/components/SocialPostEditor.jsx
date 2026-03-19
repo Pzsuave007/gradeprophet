@@ -1,12 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Rnd } from 'react-rnd';
 import {
-  X, Download, ChevronLeft, Sparkles, RotateCcw,
+  Download, ChevronLeft, Sparkles, RotateCcw,
   Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon
 } from 'lucide-react';
 
-// Glow presets
 const GLOW_PRESETS = [
   { id: 'purple', label: 'Legend', r: 168, g: 85, b: 247, main: '#a855f7' },
   { id: 'gold', label: 'Gold', r: 245, g: 158, b: 11, main: '#f59e0b' },
@@ -19,526 +17,500 @@ const GLOW_PRESETS = [
 ];
 
 const TIER_CONFIG = {
-  rookie: { label: 'Rookie', Icon: Shield },
-  all_star: { label: 'All-Star', Icon: Star },
-  hall_of_fame: { label: 'Hall of Fame', Icon: Award },
-  legend: { label: 'Legend', Icon: Crown },
+  rookie: { label: 'ROOKIE', Icon: Shield },
+  all_star: { label: 'ALL-STAR', Icon: Star },
+  hall_of_fame: { label: 'HALL OF FAME', Icon: Award },
+  legend: { label: 'LEGEND', Icon: Crown },
 };
 
 const CANVAS_W = 1080;
 const CANVAS_H = 1350;
 const ASPECT = CANVAS_W / CANVAS_H;
 
-// Default element positions (in % of canvas)
-const DEFAULT_ELEMENTS = {
-  card:      { x: 6, y: 2, w: 88, h: 66, visible: true, label: 'Card', icon: ImageIcon },
-  title:     { x: 5, y: 71, w: 60, h: 10, visible: true, label: 'Title', icon: Type },
-  price:     { x: 68, y: 71, w: 28, h: 6, visible: true, label: 'Price', icon: Tag },
-  shopName:  { x: 25, y: 88, w: 50, h: 4, visible: true, label: 'Shop', icon: Store },
-  tierBadge: { x: 30, y: 83, w: 40, h: 4, visible: true, label: 'Tier', icon: Crown },
-  available: { x: 30, y: 93, w: 40, h: 3, visible: true, label: 'Tag', icon: Sparkles },
-  logo:      { x: 4, y: 85, w: 10, h: 8, visible: true, label: 'Logo', icon: Store },
-};
+const defaultLayout = () => ({
+  card:      { x: 6, y: 2, w: 88, h: 66, visible: true, label: 'Card', Icon: ImageIcon },
+  title:     { x: 5, y: 71, w: 62, h: 10, visible: true, label: 'Title', Icon: Type },
+  price:     { x: 70, y: 72, w: 26, h: 5, visible: true, label: 'Price', Icon: Tag },
+  logo:      { x: 3, y: 86, w: 8, h: 6, visible: true, label: 'Logo', Icon: Store },
+  shopName:  { x: 13, y: 87, w: 35, h: 4, visible: true, label: 'Shop', Icon: Store },
+  tierBadge: { x: 55, y: 87, w: 28, h: 4, visible: true, label: 'Tier', Icon: Crown },
+  available: { x: 30, y: 94, w: 40, h: 3, visible: true, label: 'Tag', Icon: Sparkles },
+});
 
-function wrapText(ctx, text, maxWidth) {
+const EL_KEYS = ['card', 'title', 'price', 'logo', 'shopName', 'tierBadge', 'available'];
+
+function wrapText(ctx, text, maxW) {
   const words = text.split(' ');
   const lines = [];
-  let current = '';
-  for (const word of words) {
-    const test = current ? current + ' ' + word : word;
-    if (ctx.measureText(test).width > maxWidth && current) {
-      lines.push(current);
-      current = word;
-    } else {
-      current = test;
-    }
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? `${cur} ${w}` : w;
+    if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+    else cur = test;
   }
-  if (current) lines.push(current);
+  if (cur) lines.push(cur);
   return lines.slice(0, 3);
 }
 
+/* ─── Draggable Element ─── */
+const DraggableEl = ({ id, el, containerW, containerH, selected, onSelect, onUpdate, children }) => {
+  const ref = useRef(null);
+  const dragRef = useRef(null);
+
+  const handlePointerDown = (e) => {
+    e.stopPropagation();
+    onSelect(id);
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origX = el.x;
+    const origY = el.y;
+
+    const handleMove = (ev) => {
+      const dx = ((ev.clientX - startX) / containerW) * 100;
+      const dy = ((ev.clientY - startY) / containerH) * 100;
+      onUpdate(id, { x: Math.max(0, Math.min(100 - el.w, origX + dx)), y: Math.max(0, Math.min(100 - el.h, origY + dy)) });
+    };
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+  };
+
+  const handleResize = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const origW = el.w;
+    const origH = el.h;
+
+    const handleMove = (ev) => {
+      const dw = ((ev.clientX - startX) / containerW) * 100;
+      const dh = ((ev.clientY - startY) / containerH) * 100;
+      onUpdate(id, { w: Math.max(5, Math.min(100 - el.x, origW + dw)), h: Math.max(3, Math.min(100 - el.y, origH + dh)) });
+    };
+    const handleUp = () => {
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp);
+  };
+
+  if (!el.visible) return null;
+
+  const left = (el.x / 100) * containerW;
+  const top = (el.y / 100) * containerH;
+  const width = (el.w / 100) * containerW;
+  const height = (el.h / 100) * containerH;
+
+  return (
+    <div
+      ref={ref}
+      data-testid={`editor-el-${id}`}
+      onPointerDown={handlePointerDown}
+      style={{
+        position: 'absolute', left, top, width, height,
+        cursor: 'move', zIndex: id === 'card' ? 1 : 10,
+        outline: selected ? '2px solid rgba(168,85,247,0.7)' : 'none',
+        outlineOffset: 2,
+        touchAction: 'none',
+      }}
+    >
+      {children}
+      {selected && (
+        <div
+          onPointerDown={handleResize}
+          data-testid={`editor-resize-${id}`}
+          style={{
+            position: 'absolute', right: -5, bottom: -5, width: 12, height: 12,
+            background: '#a855f7', borderRadius: 2, cursor: 'nwse-resize', zIndex: 20,
+            touchAction: 'none',
+          }}
+        />
+      )}
+    </div>
+  );
+};
+
+/* ─── Main Editor ─── */
 const SocialPostEditor = ({ item, shopName, shopLogo, shopPlan, onClose }) => {
   const containerRef = useRef(null);
-  const [containerSize, setContainerSize] = useState({ w: 400, h: 500 });
-  const [elements, setElements] = useState(JSON.parse(JSON.stringify(DEFAULT_ELEMENTS)));
+  const [containerSize, setContainerSize] = useState(null);
+  const [els, setEls] = useState(defaultLayout);
   const [preset, setPreset] = useState(() => {
-    const planPresets = { legend: 'purple', hall_of_fame: 'gold', all_star: 'blue', rookie: 'white' };
-    return GLOW_PRESETS.find(p => p.id === (planPresets[shopPlan] || 'purple')) || GLOW_PRESETS[0];
+    const map = { legend: 'purple', hall_of_fame: 'gold', all_star: 'blue' };
+    return GLOW_PRESETS.find(p => p.id === (map[shopPlan] || 'purple')) || GLOW_PRESETS[0];
   });
-  const [glowIntensity, setGlowIntensity] = useState(70);
-  const [cornerRadius, setCornerRadius] = useState(16);
-  const [selected, setSelected] = useState(null);
-  const [generating, setGenerating] = useState(false);
-  const [cardImgLoaded, setCardImgLoaded] = useState(false);
-  const [logoImgLoaded, setLogoImgLoaded] = useState(false);
-  const cardImgRef = useRef(null);
-  const logoImgRef = useRef(null);
+  const [glow, setGlow] = useState(70);
+  const [radius, setRadius] = useState(16);
+  const [sel, setSel] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   const price = item.listed_price || item.purchase_price;
-  const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
-  const tierCfg = TIER_CONFIG[shopPlan] || TIER_CONFIG.rookie;
-  const TierIcon = tierCfg.Icon;
+  const imgSrc = item.image
+    ? `data:image/webp;base64,${item.image}`
+    : item.ebay_picture || null;
+  const tier = TIER_CONFIG[shopPlan] || TIER_CONFIG.rookie;
+  const TierIcon = tier.Icon;
 
-  // Load images
+  // Measure available space for the canvas preview
   useEffect(() => {
-    if (imgSrc) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => { cardImgRef.current = img; setCardImgLoaded(true); };
-      img.src = imgSrc;
-    }
-  }, [imgSrc]);
-
-  useEffect(() => {
-    if (shopLogo) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => { logoImgRef.current = img; setLogoImgLoaded(true); };
-      img.src = shopLogo;
-    }
-  }, [shopLogo]);
-
-  // Resize observer
-  useEffect(() => {
-    const updateSize = () => {
+    const measure = () => {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      const maxW = rect.width;
-      const maxH = rect.height;
-      let w = maxW;
+      const pad = 16;
+      let w = rect.width - pad * 2;
       let h = w / ASPECT;
-      if (h > maxH) { h = maxH; w = h * ASPECT; }
-      setContainerSize({ w, h });
+      if (h > rect.height - pad * 2) {
+        h = rect.height - pad * 2;
+        w = h * ASPECT;
+      }
+      if (w > 0 && h > 0) setContainerSize({ w: Math.round(w), h: Math.round(h) });
     };
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
+    // Use requestAnimationFrame to ensure layout is complete
+    const raf = requestAnimationFrame(() => { measure(); });
+    window.addEventListener('resize', measure);
+    return () => { cancelAnimationFrame(raf); window.removeEventListener('resize', measure); };
   }, []);
 
-  // Percent to pixels
-  const pxX = (pct) => (pct / 100) * containerSize.w;
-  const pxY = (pct) => (pct / 100) * containerSize.h;
-  const pctX = (px) => (px / containerSize.w) * 100;
-  const pctY = (px) => (px / containerSize.h) * 100;
+  const updateEl = (id, patch) => setEls(prev => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+  const toggleVis = (id) => updateEl(id, { visible: !els[id].visible });
+  const resetAll = () => { setEls(defaultLayout()); setGlow(70); setRadius(16); setSel(null); };
 
-  const updateEl = (key, updates) => {
-    setElements(prev => ({ ...prev, [key]: { ...prev[key], ...updates } }));
-  };
-
-  const toggleVisibility = (key) => {
-    updateEl(key, { visible: !elements[key].visible });
-  };
-
-  const resetLayout = () => {
-    setElements(JSON.parse(JSON.stringify(DEFAULT_ELEMENTS)));
-    setGlowIntensity(70);
-    setCornerRadius(16);
-    setSelected(null);
-  };
-
-  // Export to canvas
-  const handleDownload = useCallback(async () => {
-    setGenerating(true);
+  /* ─── Canvas Export ─── */
+  const handleSave = useCallback(async () => {
+    setSaving(true);
     try {
-      const canvas = document.createElement('canvas');
-      canvas.width = CANVAS_W;
-      canvas.height = CANVAS_H;
-      const ctx = canvas.getContext('2d');
+      const W = CANVAS_W, H = CANVAS_H;
+      const cvs = document.createElement('canvas');
+      cvs.width = W; cvs.height = H;
+      const ctx = cvs.getContext('2d');
       const c = preset;
-      const intensity = glowIntensity / 100;
+      const inten = glow / 100;
 
-      // Background
+      // BG
       ctx.fillStyle = '#080808';
-      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+      ctx.fillRect(0, 0, W, H);
 
       // Glow behind card
-      const el = elements;
-      if (el.card.visible) {
-        const ccx = (el.card.x / 100) * CANVAS_W + (el.card.w / 100) * CANVAS_W / 2;
-        const ccy = (el.card.y / 100) * CANVAS_H + (el.card.h / 100) * CANVAS_H / 2;
-        const cSize = Math.max((el.card.w / 100) * CANVAS_W, (el.card.h / 100) * CANVAS_H);
-
-        // Wide glow
-        const g1 = ctx.createRadialGradient(ccx, ccy, cSize * 0.1, ccx, ccy, cSize * 0.9);
-        g1.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${0.35 * intensity})`);
-        g1.addColorStop(0.3, `rgba(${c.r},${c.g},${c.b},${0.15 * intensity})`);
-        g1.addColorStop(0.7, `rgba(${c.r},${c.g},${c.b},${0.04 * intensity})`);
-        g1.addColorStop(1, 'transparent');
-        ctx.fillStyle = g1;
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        // Core glow
-        const g2 = ctx.createRadialGradient(ccx, ccy, 0, ccx, ccy, cSize * 0.55);
-        g2.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${0.2 * intensity})`);
-        g2.addColorStop(0.5, `rgba(${c.r},${c.g},${c.b},${0.08 * intensity})`);
-        g2.addColorStop(1, 'transparent');
-        ctx.fillStyle = g2;
-        ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-        // Edge glows
-        const cardLeft = (el.card.x / 100) * CANVAS_W;
-        const cardRight = cardLeft + (el.card.w / 100) * CANVAS_W;
-        const cardTop = (el.card.y / 100) * CANVAS_H;
-        const cardBot = cardTop + (el.card.h / 100) * CANVAS_H;
-        const spread = cSize * 0.4;
-        [
-          [cardLeft, ccy], [cardRight, ccy],
-          [ccx, cardTop], [ccx, cardBot]
-        ].forEach(([ex, ey]) => {
-          const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, spread);
-          eg.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${0.3 * intensity})`);
-          eg.addColorStop(0.4, `rgba(${c.r},${c.g},${c.b},${0.08 * intensity})`);
+      if (els.card.visible) {
+        const cx = (els.card.x + els.card.w / 2) / 100 * W;
+        const cy = (els.card.y + els.card.h / 2) / 100 * H;
+        const sz = Math.max(els.card.w / 100 * W, els.card.h / 100 * H);
+        [[0, 0.35], [0.3, 0.12], [0.7, 0.03]].forEach(([stop, alpha]) => {
+          const g = ctx.createRadialGradient(cx, cy, sz * 0.05, cx, cy, sz * (0.5 + stop));
+          g.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${alpha * inten})`);
+          g.addColorStop(1, 'transparent');
+          ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+        });
+        const cl = els.card.x / 100 * W, cr = cl + els.card.w / 100 * W;
+        const ct = els.card.y / 100 * H, cb = ct + els.card.h / 100 * H;
+        [[cl, cy], [cr, cy], [cx, ct], [cx, cb]].forEach(([ex, ey]) => {
+          const eg = ctx.createRadialGradient(ex, ey, 0, ex, ey, sz * 0.35);
+          eg.addColorStop(0, `rgba(${c.r},${c.g},${c.b},${0.25 * inten})`);
           eg.addColorStop(1, 'transparent');
-          ctx.fillStyle = eg;
-          ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+          ctx.fillStyle = eg; ctx.fillRect(0, 0, W, H);
         });
       }
 
-      // Helper: draw rounded rect path
-      const roundRect = (x, y, w, h, r) => {
+      const rr = (x, y, w, h, r) => {
         ctx.beginPath();
-        ctx.moveTo(x + r, y);
-        ctx.lineTo(x + w - r, y);
+        ctx.moveTo(x + r, y); ctx.lineTo(x + w - r, y);
         ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0);
-        ctx.lineTo(x + w, y + h - r);
-        ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
-        ctx.lineTo(x + r, y + h);
-        ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
-        ctx.lineTo(x, y + r);
-        ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2);
+        ctx.lineTo(x + w, y + h - r); ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2);
+        ctx.lineTo(x + r, y + h); ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI);
+        ctx.lineTo(x, y + r); ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2);
         ctx.closePath();
       };
 
-      // Draw card image
-      if (el.card.visible && cardImgRef.current) {
-        const dx = (el.card.x / 100) * CANVAS_W;
-        const dy = (el.card.y / 100) * CANVAS_H;
-        const dw = (el.card.w / 100) * CANVAS_W;
-        const dh = (el.card.h / 100) * CANVAS_H;
-        const r = cornerRadius * (CANVAS_W / containerSize.w);
-
-        // Shadow
+      // Card image
+      if (els.card.visible && imgSrc) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = imgSrc; });
+        const dx = els.card.x / 100 * W, dy = els.card.y / 100 * H;
+        const dw = els.card.w / 100 * W, dh = els.card.h / 100 * H;
+        const rd = radius * (W / (containerSize?.w || 400));
         ctx.save();
-        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${0.5 * intensity})`;
-        ctx.shadowBlur = 60 * intensity;
-        ctx.fillStyle = '#080808';
-        roundRect(dx + 5, dy + 5, dw - 10, dh - 10, r);
-        ctx.fill();
+        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${0.5 * inten})`;
+        ctx.shadowBlur = 60 * inten;
+        rr(dx, dy, dw, dh, rd); ctx.fillStyle = '#080808'; ctx.fill();
         ctx.restore();
-
-        // Clipped image
-        ctx.save();
-        roundRect(dx, dy, dw, dh, r);
-        ctx.clip();
-        ctx.drawImage(cardImgRef.current, dx, dy, dw, dh);
-        ctx.restore();
-
-        // Border
-        ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${0.25 * intensity})`;
-        ctx.lineWidth = 2;
-        roundRect(dx, dy, dw, dh, r);
-        ctx.stroke();
+        ctx.save(); rr(dx, dy, dw, dh, rd); ctx.clip();
+        ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
+        ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${0.25 * inten})`;
+        ctx.lineWidth = 2; rr(dx, dy, dw, dh, rd); ctx.stroke();
       }
 
-      // Draw logo
-      if (el.logo.visible && logoImgRef.current) {
-        const dx = (el.logo.x / 100) * CANVAS_W;
-        const dy = (el.logo.y / 100) * CANVAS_H;
-        const dw = (el.logo.w / 100) * CANVAS_W;
-        const dh = (el.logo.h / 100) * CANVAS_H;
-        ctx.save();
-        roundRect(dx, dy, dw, dh, 12);
-        ctx.clip();
-        ctx.drawImage(logoImgRef.current, dx, dy, dw, dh);
-        ctx.restore();
+      // Logo
+      if (els.logo.visible && shopLogo) {
+        const img = new Image(); img.crossOrigin = 'anonymous';
+        await new Promise(r => { img.onload = r; img.onerror = r; img.src = shopLogo; });
+        if (img.complete && img.naturalWidth) {
+          const dx = els.logo.x / 100 * W, dy = els.logo.y / 100 * H;
+          const dw = els.logo.w / 100 * W, dh = els.logo.h / 100 * H;
+          ctx.save(); rr(dx, dy, dw, dh, 12); ctx.clip();
+          ctx.drawImage(img, dx, dy, dw, dh); ctx.restore();
+        }
       }
 
-      // Draw title
-      if (el.title.visible) {
-        const dx = (el.title.x / 100) * CANVAS_W;
-        const dy = (el.title.y / 100) * CANVAS_H;
-        const dw = (el.title.w / 100) * CANVAS_W;
-        const dh = (el.title.h / 100) * CANVAS_H;
-        const fontSize = Math.max(24, Math.min(42, dh * 0.4));
-        ctx.fillStyle = '#ffffff';
-        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      // Title
+      if (els.title.visible) {
+        const dx = els.title.x / 100 * W, dw = els.title.w / 100 * W;
+        const dy = els.title.y / 100 * H, dh = els.title.h / 100 * H;
+        const fs = Math.max(24, Math.min(42, dh * 0.35));
+        ctx.fillStyle = '#fff'; ctx.font = `bold ${fs}px -apple-system,sans-serif`;
         ctx.textAlign = 'left';
-        const lines = wrapText(ctx, item.card_name || '', dw);
-        lines.forEach((line, i) => {
-          ctx.fillText(line, dx, dy + fontSize + i * (fontSize * 1.3));
+        wrapText(ctx, item.card_name || '', dw).forEach((l, i) => {
+          ctx.fillText(l, dx, dy + fs + i * fs * 1.3);
         });
       }
 
-      // Draw price bubble
-      if (el.price.visible && price) {
-        const dx = (el.price.x / 100) * CANVAS_W;
-        const dy = (el.price.y / 100) * CANVAS_H;
-        const dw = (el.price.w / 100) * CANVAS_W;
-        const dh = (el.price.h / 100) * CANVAS_H;
-        const fontSize = Math.max(24, Math.min(42, dh * 0.6));
-        const priceStr = `$${parseFloat(price).toFixed(2)}`;
-        const br = dh / 2;
-
-        ctx.save();
-        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.5)`;
-        ctx.shadowBlur = 20;
-        ctx.fillStyle = c.main;
-        roundRect(dx, dy, dw, dh, br);
-        ctx.fill();
-        ctx.restore();
-
-        ctx.fillStyle = '#000';
-        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      // Price
+      if (els.price.visible && price) {
+        const dx = els.price.x / 100 * W, dy = els.price.y / 100 * H;
+        const dw = els.price.w / 100 * W, dh = els.price.h / 100 * H;
+        const fs = Math.max(24, Math.min(42, dh * 0.55));
+        ctx.save(); ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.5)`; ctx.shadowBlur = 20;
+        ctx.fillStyle = c.main; rr(dx, dy, dw, dh, dh / 2); ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#000'; ctx.font = `bold ${fs}px -apple-system,sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(priceStr, dx + dw / 2, dy + dh * 0.65);
+        ctx.fillText(`$${parseFloat(price).toFixed(2)}`, dx + dw / 2, dy + dh * 0.65);
       }
 
-      // Draw tier badge
-      if (el.tierBadge.visible) {
-        const dx = (el.tierBadge.x / 100) * CANVAS_W;
-        const dy = (el.tierBadge.y / 100) * CANVAS_H;
-        const dw = (el.tierBadge.w / 100) * CANVAS_W;
-        const dh = (el.tierBadge.h / 100) * CANVAS_H;
-        const fontSize = Math.max(14, Math.min(22, dh * 0.5));
-
+      // Tier badge
+      if (els.tierBadge.visible) {
+        const dx = els.tierBadge.x / 100 * W, dy = els.tierBadge.y / 100 * H;
+        const dw = els.tierBadge.w / 100 * W, dh = els.tierBadge.h / 100 * H;
+        const fs = Math.max(14, Math.min(22, dh * 0.5));
         ctx.fillStyle = `rgba(${c.r},${c.g},${c.b},0.15)`;
-        roundRect(dx, dy, dw, dh, dh / 2);
-        ctx.fill();
-        ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},0.3)`;
-        ctx.lineWidth = 1;
-        roundRect(dx, dy, dw, dh, dh / 2);
-        ctx.stroke();
-
-        ctx.fillStyle = c.main;
-        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+        rr(dx, dy, dw, dh, dh / 2); ctx.fill();
+        ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},0.3)`; ctx.lineWidth = 1;
+        rr(dx, dy, dw, dh, dh / 2); ctx.stroke();
+        ctx.fillStyle = c.main; ctx.font = `bold ${fs}px -apple-system,sans-serif`;
         ctx.textAlign = 'center';
-        ctx.fillText(`${tierCfg.label.toUpperCase()}`, dx + dw / 2, dy + dh * 0.65);
+        ctx.fillText(tier.label, dx + dw / 2, dy + dh * 0.65);
       }
 
-      // Draw shop name
-      if (el.shopName.visible) {
-        const dx = (el.shopName.x / 100) * CANVAS_W;
-        const dy = (el.shopName.y / 100) * CANVAS_H;
-        const dh = (el.shopName.h / 100) * CANVAS_H;
-        const dw = (el.shopName.w / 100) * CANVAS_W;
-        const fontSize = Math.max(16, Math.min(28, dh * 0.6));
-        ctx.fillStyle = '#777';
-        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      // Shop name
+      if (els.shopName.visible) {
+        const dx = els.shopName.x / 100 * W, dy = els.shopName.y / 100 * H;
+        const dw = els.shopName.w / 100 * W, dh = els.shopName.h / 100 * H;
+        const fs = Math.max(16, Math.min(28, dh * 0.6));
+        ctx.fillStyle = '#777'; ctx.font = `bold ${fs}px -apple-system,sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText(shopName || 'Card Shop', dx + dw / 2, dy + dh * 0.7);
       }
 
-      // Draw "Available Now"
-      if (el.available.visible) {
-        const dx = (el.available.x / 100) * CANVAS_W;
-        const dy = (el.available.y / 100) * CANVAS_H;
-        const dh = (el.available.h / 100) * CANVAS_H;
-        const dw = (el.available.w / 100) * CANVAS_W;
-        const fontSize = Math.max(12, Math.min(18, dh * 0.6));
-        ctx.fillStyle = c.main;
-        ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, sans-serif`;
+      // Available
+      if (els.available.visible) {
+        const dx = els.available.x / 100 * W, dy = els.available.y / 100 * H;
+        const dw = els.available.w / 100 * W, dh = els.available.h / 100 * H;
+        const fs = Math.max(12, Math.min(18, dh * 0.6));
+        ctx.fillStyle = c.main; ctx.font = `bold ${fs}px -apple-system,sans-serif`;
         ctx.textAlign = 'center';
         ctx.fillText('AVAILABLE NOW', dx + dw / 2, dy + dh * 0.7);
       }
 
-      const link = document.createElement('a');
-      link.download = `${(item.card_name || 'card').replace(/[^a-z0-9]/gi, '-').substring(0, 40)}-social.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch (err) {
-      console.error('Export failed:', err);
-    }
-    setGenerating(false);
-  }, [elements, preset, glowIntensity, cornerRadius, item, price, shopName, shopPlan, tierCfg, containerSize]);
+      const a = document.createElement('a');
+      a.download = `${(item.card_name || 'card').replace(/[^a-z0-9]/gi, '-').substring(0, 40)}-social.png`;
+      a.href = cvs.toDataURL('image/png');
+      a.click();
+    } catch (e) { console.error('Export failed:', e); }
+    setSaving(false);
+  }, [els, preset, glow, radius, imgSrc, item, price, shopName, shopLogo, tier, containerSize]);
 
-  if (!imgSrc) return null;
+  /* ─── Preview element renderers ─── */
+  const renderInner = (key, cW, cH) => {
+    const e = els[key];
+    const elW = (e.w / 100) * cW;
+    const elH = (e.h / 100) * cH;
+    const glowI = glow / 100;
 
-  const renderElement = (key) => {
-    const el = elements[key];
-    if (!el.visible) return null;
-    const isSelected = selected === key;
-
-    let content;
     switch (key) {
       case 'card':
-        content = (
-          <img src={imgSrc} alt="" className="w-full h-full object-cover"
-            style={{ borderRadius: cornerRadius, pointerEvents: 'none' }}
-            draggable={false} />
-        );
-        break;
-      case 'logo':
-        content = shopLogo ? (
-          <img src={shopLogo} alt="" className="w-full h-full object-cover rounded-xl" draggable={false} style={{ pointerEvents: 'none' }} />
+        return imgSrc ? (
+          <div style={{ width: '100%', height: '100%', borderRadius: radius, overflow: 'hidden',
+            boxShadow: `0 0 ${30 * glowI}px rgba(${preset.r},${preset.g},${preset.b},${0.4 * glowI})`,
+            border: `1px solid rgba(${preset.r},${preset.g},${preset.b},${0.2 * glowI})`,
+          }}>
+            <img
+              src={imgSrc}
+              alt="card"
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgLoaded(false)}
+              draggable={false}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', borderRadius: radius }}
+            />
+          </div>
         ) : (
-          <div className="w-full h-full rounded-xl flex items-center justify-center" style={{ background: `rgba(${preset.r},${preset.g},${preset.b},0.15)` }}>
-            <Store className="w-1/2 h-1/2" style={{ color: preset.main }} />
+          <div style={{ width: '100%', height: '100%', borderRadius: radius, background: '#1a1a1a',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
+            <ImageIcon style={{ width: 40, height: 40 }} />
           </div>
         );
-        break;
+
       case 'title':
-        content = (
-          <div className="text-white font-bold leading-tight overflow-hidden" style={{ fontSize: Math.max(10, pxY(el.h) * 0.3) }}>
-            {item.card_name}
+        return (
+          <div style={{ color: '#fff', fontWeight: 800, fontSize: Math.max(10, elH * 0.3),
+            lineHeight: 1.2, overflow: 'hidden', wordBreak: 'break-word', userSelect: 'none' }}>
+            {item.card_name || 'Card Title'}
           </div>
         );
-        break;
+
       case 'price':
-        content = price ? (
-          <div className="w-full h-full rounded-full flex items-center justify-center font-bold text-black"
-            style={{ background: preset.main, fontSize: Math.max(10, pxY(el.h) * 0.5), boxShadow: `0 0 15px rgba(${preset.r},${preset.g},${preset.b},0.5)` }}>
+        return price ? (
+          <div style={{ width: '100%', height: '100%', borderRadius: 999, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', background: preset.main,
+            fontWeight: 800, color: '#000', fontSize: Math.max(10, elH * 0.5),
+            boxShadow: `0 0 15px rgba(${preset.r},${preset.g},${preset.b},0.5)`,
+            userSelect: 'none',
+          }}>
             ${parseFloat(price).toFixed(2)}
           </div>
-        ) : null;
-        break;
-      case 'tierBadge':
-        content = (
-          <div className="w-full h-full rounded-full flex items-center justify-center gap-1 font-bold uppercase tracking-wider"
-            style={{
-              background: `rgba(${preset.r},${preset.g},${preset.b},0.15)`,
-              border: `1px solid rgba(${preset.r},${preset.g},${preset.b},0.3)`,
-              color: preset.main,
-              fontSize: Math.max(8, pxY(el.h) * 0.4),
-            }}>
-            <TierIcon style={{ width: pxY(el.h) * 0.4, height: pxY(el.h) * 0.4 }} />
-            {tierCfg.label}
+        ) : (
+          <div style={{ width: '100%', height: '100%', borderRadius: 999, background: '#333',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666',
+            fontSize: Math.max(10, elH * 0.5), fontWeight: 800, userSelect: 'none' }}>
+            $0.00
           </div>
         );
-        break;
+
+      case 'logo':
+        return shopLogo ? (
+          <img src={shopLogo} alt="logo" draggable={false}
+            style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 12 }} />
+        ) : (
+          <div style={{ width: '100%', height: '100%', borderRadius: 12, display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+            background: `rgba(${preset.r},${preset.g},${preset.b},0.15)` }}>
+            <Store style={{ width: '50%', height: '50%', color: preset.main }} />
+          </div>
+        );
+
       case 'shopName':
-        content = (
-          <div className="w-full h-full flex items-center justify-center font-bold text-gray-400"
-            style={{ fontSize: Math.max(9, pxY(el.h) * 0.55) }}>
+        return (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontWeight: 700, color: '#777',
+            fontSize: Math.max(8, elH * 0.55), userSelect: 'none' }}>
             {shopName || 'Card Shop'}
           </div>
         );
-        break;
+
+      case 'tierBadge':
+        return (
+          <div style={{ width: '100%', height: '100%', borderRadius: 999, display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: 4,
+            background: `rgba(${preset.r},${preset.g},${preset.b},0.15)`,
+            border: `1px solid rgba(${preset.r},${preset.g},${preset.b},0.3)`,
+            color: preset.main, fontWeight: 800,
+            fontSize: Math.max(7, elH * 0.4), letterSpacing: '0.05em', userSelect: 'none' }}>
+            <TierIcon style={{ width: elH * 0.4, height: elH * 0.4 }} />
+            {tier.label}
+          </div>
+        );
+
       case 'available':
-        content = (
-          <div className="w-full h-full flex items-center justify-center font-bold uppercase tracking-widest"
-            style={{ color: preset.main, fontSize: Math.max(7, pxY(el.h) * 0.5) }}>
+        return (
+          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', fontWeight: 800, letterSpacing: '0.1em',
+            color: preset.main, fontSize: Math.max(7, elH * 0.5), userSelect: 'none' }}>
             AVAILABLE NOW
           </div>
         );
-        break;
-      default:
-        content = null;
-    }
 
-    return (
-      <Rnd
-        key={key}
-        size={{ width: pxX(el.w), height: pxY(el.h) }}
-        position={{ x: pxX(el.x), y: pxY(el.y) }}
-        onDragStop={(e, d) => {
-          updateEl(key, { x: pctX(d.x), y: pctY(d.y) });
-        }}
-        onResizeStop={(e, dir, ref, delta, pos) => {
-          updateEl(key, {
-            w: pctX(parseFloat(ref.style.width)),
-            h: pctY(parseFloat(ref.style.height)),
-            x: pctX(pos.x),
-            y: pctY(pos.y),
-          });
-        }}
-        bounds="parent"
-        onMouseDown={() => setSelected(key)}
-        className={`${isSelected ? 'ring-2 ring-white/40 ring-offset-1 ring-offset-transparent' : ''}`}
-        style={{ zIndex: key === 'card' ? 1 : 10, cursor: 'move' }}
-        minWidth={20}
-        minHeight={15}
-      >
-        <div className="w-full h-full relative">
-          {content}
-          {/* Resize handle indicator */}
-          {isSelected && (
-            <div className="absolute bottom-0 right-0 w-3 h-3 rounded-tl-sm"
-              style={{ background: preset.main, cursor: 'se-resize' }} />
-          )}
-        </div>
-      </Rnd>
-    );
+      default: return null;
+    }
   };
 
-  // Element list for toggle buttons
-  const elementKeys = ['card', 'title', 'price', 'logo', 'shopName', 'tierBadge', 'available'];
+  /* ─── RENDER ─── */
+  const cW = containerSize?.w || 0;
+  const cH = containerSize?.h || 0;
 
   return (
     <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[60] bg-black/95 flex flex-col"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[60] bg-black flex flex-col"
+      onClick={() => setSel(null)}
       data-testid="social-post-editor"
-      onClick={() => setSelected(null)}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] shrink-0" onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="flex items-center gap-1 text-gray-400 hover:text-white transition-colors text-sm">
+      <div className="flex items-center justify-between px-4 py-2 border-b border-white/[0.06] shrink-0"
+        onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} data-testid="editor-back-btn"
+          className="flex items-center gap-1 text-gray-400 hover:text-white text-sm">
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
         <div className="flex items-center gap-1.5 text-white font-bold text-sm">
           <Sparkles className="w-4 h-4 text-amber-400" /> Social Post
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={resetLayout}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.06] text-gray-400 hover:text-white text-xs font-bold transition-colors"
-            data-testid="social-reset-btn">
+          <button onClick={resetAll} data-testid="editor-reset-btn"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/[0.06] text-gray-400 hover:text-white text-xs font-bold">
             <RotateCcw className="w-3 h-3" /> Reset
           </button>
-          <button onClick={handleDownload} disabled={generating}
-            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 text-black font-bold text-sm active:scale-95 transition-transform"
-            data-testid="social-download-btn">
-            {generating ? (
-              <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-            ) : (
-              <Download className="w-4 h-4" />
-            )}
-            Save
+          <button onClick={handleSave} disabled={saving} data-testid="editor-save-btn"
+            className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-emerald-500 text-black font-bold text-sm active:scale-95">
+            {saving ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+              : <Download className="w-4 h-4" />} Save
           </button>
         </div>
       </div>
 
-      {/* Canvas area */}
-      <div ref={containerRef} className="flex-1 flex items-center justify-center p-3 overflow-hidden" onClick={() => setSelected(null)}>
-        <div
-          className="relative overflow-hidden"
-          style={{
-            width: containerSize.w,
-            height: containerSize.h,
-            background: '#080808',
-            boxShadow: `0 0 ${80 * (glowIntensity / 100)}px rgba(${preset.r},${preset.g},${preset.b},${0.15 * (glowIntensity / 100)})`,
-          }}
-          onClick={e => e.stopPropagation()}
-        >
-          {/* Glow background */}
-          {elements.card.visible && (
-            <div className="absolute inset-0 pointer-events-none" style={{
-              background: `radial-gradient(circle at ${elements.card.x + elements.card.w / 2}% ${elements.card.y + elements.card.h / 2}%, rgba(${preset.r},${preset.g},${preset.b},${0.2 * (glowIntensity / 100)}) 0%, rgba(${preset.r},${preset.g},${preset.b},${0.05 * (glowIntensity / 100)}) 40%, transparent 70%)`,
-            }} />
-          )}
-          {/* Card glow effect */}
-          {elements.card.visible && (
-            <div className="absolute pointer-events-none" style={{
-              left: `${elements.card.x}%`, top: `${elements.card.y}%`,
-              width: `${elements.card.w}%`, height: `${elements.card.h}%`,
-              boxShadow: `0 0 ${60 * (glowIntensity / 100)}px ${20 * (glowIntensity / 100)}px rgba(${preset.r},${preset.g},${preset.b},${0.3 * (glowIntensity / 100)})`,
-              borderRadius: cornerRadius,
-            }} />
-          )}
-          {/* Render all elements */}
-          {elementKeys.map(key => renderElement(key))}
-        </div>
+      {/* Canvas Area */}
+      <div ref={containerRef} className="flex-1 flex items-center justify-center overflow-hidden min-h-0"
+        onClick={() => setSel(null)}>
+        {containerSize ? (
+          <div
+            data-testid="editor-canvas"
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: cW, height: cH, position: 'relative', overflow: 'hidden',
+              background: '#080808',
+              boxShadow: `0 0 ${60 * (glow / 100)}px rgba(${preset.r},${preset.g},${preset.b},${0.12 * (glow / 100)})`,
+            }}
+          >
+            {/* Radial glow background */}
+            {els.card.visible && (
+              <div style={{
+                position: 'absolute', inset: 0, pointerEvents: 'none',
+                background: `radial-gradient(ellipse at ${els.card.x + els.card.w / 2}% ${els.card.y + els.card.h / 2}%, rgba(${preset.r},${preset.g},${preset.b},${0.2 * (glow / 100)}) 0%, transparent 65%)`,
+              }} />
+            )}
+
+            {/* All interactive elements */}
+            {EL_KEYS.map(k => (
+              <DraggableEl
+                key={k}
+                id={k}
+                el={els[k]}
+                containerW={cW}
+                containerH={cH}
+                selected={sel === k}
+                onSelect={setSel}
+                onUpdate={updateEl}
+              >
+                {renderInner(k, cW, cH)}
+              </DraggableEl>
+            ))}
+          </div>
+        ) : (
+          <div className="text-gray-500 text-sm">Loading editor...</div>
+        )}
       </div>
 
-      {/* Controls */}
-      <div className="shrink-0 border-t border-white/[0.06] px-4 py-2 space-y-2" onClick={e => e.stopPropagation()}>
+      {/* Controls Panel */}
+      <div className="shrink-0 border-t border-white/[0.06] px-4 py-2 space-y-2"
+        onClick={e => e.stopPropagation()}>
         {/* Glow Presets */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
+        <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid="editor-presets">
           {GLOW_PRESETS.map(p => (
-            <button
-              key={p.id}
-              onClick={() => setPreset(p)}
+            <button key={p.id} onClick={() => setPreset(p)}
+              data-testid={`preset-${p.id}`}
               className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold whitespace-nowrap transition-all ${
                 preset.id === p.id ? 'text-white scale-105' : 'text-gray-500 bg-white/[0.04] border border-white/[0.06]'
               }`}
@@ -546,50 +518,45 @@ const SocialPostEditor = ({ item, shopName, shopLogo, shopPlan, onClose }) => {
                 background: `rgba(${p.r},${p.g},${p.b},0.2)`,
                 border: `1px solid ${p.main}`,
                 boxShadow: `0 0 12px rgba(${p.r},${p.g},${p.b},0.3)`,
-              } : {}}
-            >
+              } : {}}>
               <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.main }} />
               {p.label}
             </button>
           ))}
         </div>
 
-        {/* Sliders row */}
+        {/* Sliders */}
         <div className="flex gap-4">
           <div className="flex items-center gap-2 flex-1">
-            <label className="text-[9px] text-gray-500 uppercase tracking-wider font-bold w-10">Glow</label>
-            <input type="range" min={0} max={100} value={glowIntensity}
-              onChange={e => setGlowIntensity(parseInt(e.target.value))}
+            <label className="text-[9px] text-gray-500 uppercase font-bold w-10">Glow</label>
+            <input type="range" min={0} max={100} value={glow}
+              onChange={e => setGlow(+e.target.value)}
               className="flex-1 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer"
               style={{ accentColor: preset.main }} />
-            <span className="text-[9px] font-bold w-7 text-right" style={{ color: preset.main }}>{glowIntensity}%</span>
+            <span className="text-[9px] font-bold w-7 text-right" style={{ color: preset.main }}>{glow}%</span>
           </div>
           <div className="flex items-center gap-2 flex-1">
-            <label className="text-[9px] text-gray-500 uppercase tracking-wider font-bold w-12">Round</label>
-            <input type="range" min={0} max={40} value={cornerRadius}
-              onChange={e => setCornerRadius(parseInt(e.target.value))}
+            <label className="text-[9px] text-gray-500 uppercase font-bold w-12">Round</label>
+            <input type="range" min={0} max={40} value={radius}
+              onChange={e => setRadius(+e.target.value)}
               className="flex-1 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer"
               style={{ accentColor: preset.main }} />
-            <span className="text-[9px] font-bold w-7 text-right" style={{ color: preset.main }}>{cornerRadius}px</span>
+            <span className="text-[9px] font-bold w-7 text-right" style={{ color: preset.main }}>{radius}px</span>
           </div>
         </div>
 
-        {/* Element toggles */}
-        <div className="flex gap-1.5 overflow-x-auto pb-1">
-          {elementKeys.map(key => {
-            const el = elements[key];
-            const ElIcon = el.icon;
+        {/* Toggle Visibility */}
+        <div className="flex gap-1.5 overflow-x-auto pb-1" data-testid="editor-toggles">
+          {EL_KEYS.map(k => {
+            const e = els[k];
             return (
-              <button
-                key={key}
-                onClick={() => toggleVisibility(key)}
+              <button key={k} onClick={() => toggleVis(k)}
+                data-testid={`toggle-${k}`}
                 className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition-all ${
-                  el.visible ? 'bg-white/[0.08] text-white' : 'bg-white/[0.02] text-gray-600 line-through'
-                }`}
-                data-testid={`toggle-${key}`}
-              >
-                {el.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-                {el.label}
+                  e.visible ? 'bg-white/[0.08] text-white' : 'bg-white/[0.02] text-gray-600 line-through'
+                }`}>
+                {e.visible ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
+                {e.label}
               </button>
             );
           })}
