@@ -4,7 +4,7 @@ import {
   ScanLine, TrendingUp, Bell, Store, Layers, Zap, BarChart3,
   Upload, ArrowRight, Check, X, Crosshair, Radio,
   Crown, Star, Trophy, Camera, Shield, Users, Monitor,
-  Brain, Image, FileText, Headphones, Rocket
+  Brain, Image, FileText, Headphones, Rocket, Share2
 } from 'lucide-react';
 
 const FEATURES = [
@@ -14,6 +14,7 @@ const FEATURES = [
   { icon: TrendingUp, title: 'Portfolio P&L', desc: 'Real-time portfolio valuation with profit/loss tracking. Know exactly what your collection is worth at any moment.', color: '#10b981', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/f50dd5584cfb99121cef67089a584bb852a867365cd070af33bbda58717297c6.png' },
   { icon: Store, title: 'eBay Command Center', desc: 'List, manage, and end listings directly. AI-generated titles and descriptions. Track sold items with hi-res images.', color: '#ef4444', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/058bad830b54b29becf7a3ed070019fd1c53c0bf4914ff3e2f87f31b59c47207.png' },
   { icon: Upload, title: 'Batch Upload', desc: 'Scan 20+ cards at once. AI identifies each one automatically. Built for dealers who move volume.', color: '#06b6d4', img: 'https://static.prod-images.emergentagent.com/jobs/f2af8643-2cdf-4bf3-93f1-8e75056bb973/images/8fb1feca0199f1312526368524b2f072e96315b1619225329c1abe52c84e4f81.png' },
+  { icon: Share2, title: 'Your Card Shop', desc: 'Your own public storefront. All your active eBay listings in one premium page with your branding, tier glow, 3D flip, and one-click social media sharing to drive buyers.', color: '#a855f7', img: 'https://static.prod-images.emergentagent.com/jobs/78656ba4-5553-49d2-a684-0654d6633b81/images/106bdb34158b13b63943afb18c8f506e6b1d4d8970bd51f8e888cc4724097f16.png' },
 ];
 
 const WORKFLOW = [
@@ -21,6 +22,7 @@ const WORKFLOW = [
   { icon: Zap, label: 'AI Identifies', desc: 'Player, year, set — instant', color: '#f59e0b' },
   { icon: Layers, label: 'Inventory', desc: 'Organize your collection', color: '#3b82f6' },
   { icon: Store, label: 'List on eBay', desc: 'One-click AI listings', color: '#ef4444' },
+  { icon: Share2, label: 'Your Shop', desc: 'Share & sell your cards', color: '#a855f7' },
   { icon: BarChart3, label: 'Track P&L', desc: 'Real-time portfolio value', color: '#10b981' },
 ];
 
@@ -41,9 +43,9 @@ const PLANS = [
       { text: 'Dashboard (basic)', has: true },
       { text: 'AI Card Scanner', has: true },
       { text: 'eBay Connection', has: true },
+      { text: 'Card Shop (public page)', has: true },
       { text: 'Flip Finder', has: false },
-      { text: 'Market Intelligence', has: false },
-      { text: 'Photo Editor', has: false },
+      { text: 'Social Media Sharing', has: false },
     ],
     cta: 'Get Started Free',
     highlight: false,
@@ -64,7 +66,7 @@ const PLANS = [
       { text: 'Full Dashboard', has: true },
       { text: 'AI Card Scanner', has: true },
       { text: 'Flip Finder: Monitor + Analyze', has: true },
-      { text: 'Market (partial)', has: true },
+      { text: 'Card Shop + Social Sharing', has: true },
       { text: 'Auction Alerts', has: false },
       { text: 'Photo Editor', has: false },
     ],
@@ -87,7 +89,7 @@ const PLANS = [
       { text: 'Full Dashboard + Export', has: true },
       { text: 'AI Card Scanner', has: true },
       { text: 'Flip Finder: ALL features', has: true },
-      { text: 'Market: Full access', has: true },
+      { text: 'Card Shop + Social Sharing', has: true },
       { text: 'Photo Editor + Premium Presets', has: true },
       { text: 'Priority Support', has: true },
     ],
@@ -176,10 +178,10 @@ const LandingPage = ({ onGetStarted }) => {
                   See Features
                 </a>
               </div>
-              <div className="flex items-center gap-6 mt-8 text-[11px] text-gray-500">
+              <div className="flex items-center gap-6 mt-8 text-[11px] text-gray-500 flex-wrap">
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> AI identification</span>
                 <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> eBay connected</span>
-                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Portfolio tracking</span>
+                <span className="flex items-center gap-1"><Check className="w-3.5 h-3.5 text-emerald-400" /> Your own Card Shop</span>
               </div>
             </motion.div>
           </div>

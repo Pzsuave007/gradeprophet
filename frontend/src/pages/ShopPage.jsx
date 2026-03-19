@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import {
   Store, MapPin, ExternalLink, Search, Filter, X,
   Package, ShoppingCart, Tag, ChevronDown, RotateCcw,
-  Crown, Star, Shield, Award
+  Crown, Star, Shield, Award, Download, Share2
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -211,7 +211,7 @@ const ShopPage = () => {
 
       {/* Card Modal */}
       <AnimatePresence>
-        {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} shopSlug={slug} />}
+        {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} shopSlug={slug} shopName={shop.name} shopPlan={shop.plan} />}
       </AnimatePresence>
 
       {/* Footer */}
@@ -309,13 +309,14 @@ const CardTile = ({ item, index, plan, onClick }) => {
 };
 
 // =========== CARD MODAL WITH 3D FLIP ===========
-const CardModal = ({ item, onClose, shopSlug }) => {
+const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
   const API = process.env.REACT_APP_BACKEND_URL;
   const baseFront = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
   const baseBack = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
   const [frontSrc, setFrontSrc] = useState(baseFront);
   const [backSrc, setBackSrc] = useState(baseBack);
   const [flipped, setFlipped] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const price = item.listed_price || item.purchase_price;
 
   // Fetch all eBay images for flip effect (only for eBay-sourced items without back image)
@@ -330,6 +331,104 @@ const CardModal = ({ item, onClose, shopSlug }) => {
       })
       .catch(() => {});
   }, [item.ebay_item_id, shopSlug, API, baseFront, baseBack, item.image]);
+
+  // Generate social media image
+  const generateShareImage = async () => {
+    if (!frontSrc) return;
+    setGenerating(true);
+    try {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1080;
+      canvas.height = 1080;
+      const ctx = canvas.getContext('2d');
+
+      // Plan colors
+      const planColors = {
+        rookie: { main: '#9ca3af', glow: 'rgba(156,163,175,0.3)' },
+        all_star: { main: '#3b82f6', glow: 'rgba(59,130,246,0.3)' },
+        hall_of_fame: { main: '#f59e0b', glow: 'rgba(245,158,11,0.3)' },
+        legend: { main: '#a855f7', glow: 'rgba(168,85,247,0.3)' },
+      };
+      const colors = planColors[shopPlan] || planColors.rookie;
+
+      // Background
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Glow circle behind card
+      const gradient = ctx.createRadialGradient(540, 480, 100, 540, 480, 450);
+      gradient.addColorStop(0, colors.glow);
+      gradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 1080, 1080);
+
+      // Load card image
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = frontSrc;
+      });
+
+      // Draw card centered (with aspect ratio)
+      const maxW = 600, maxH = 700;
+      const ratio = Math.min(maxW / img.width, maxH / img.height);
+      const w = img.width * ratio;
+      const h = img.height * ratio;
+      const x = (1080 - w) / 2;
+      const y = 100;
+
+      // Card shadow
+      ctx.shadowColor = colors.glow;
+      ctx.shadowBlur = 60;
+      ctx.drawImage(img, x, y, w, h);
+      ctx.shadowBlur = 0;
+
+      // Card border glow
+      ctx.strokeStyle = colors.main;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x - 2, y - 2, w + 4, h + 4);
+
+      // Bottom section - dark overlay
+      ctx.fillStyle = 'rgba(10,10,10,0.85)';
+      ctx.fillRect(0, y + h + 20, 1080, 1080 - (y + h + 20));
+
+      // Card name
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 32px -apple-system, BlinkMacSystemFont, sans-serif';
+      const name = item.card_name || '';
+      const truncName = name.length > 50 ? name.substring(0, 50) + '...' : name;
+      ctx.textAlign = 'center';
+      ctx.fillText(truncName, 540, y + h + 65);
+
+      // Price
+      if (price) {
+        ctx.fillStyle = colors.main;
+        ctx.font = 'bold 48px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.fillText(`$${parseFloat(price).toFixed(2)}`, 540, y + h + 125);
+      }
+
+      // Shop branding
+      ctx.fillStyle = '#666666';
+      ctx.font = 'bold 20px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(shopName || 'Card Shop', 540, 1030);
+
+      // "Available Now" tag
+      ctx.fillStyle = colors.main;
+      ctx.font = 'bold 16px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('AVAILABLE NOW', 540, 1055);
+
+      // Download
+      const link = document.createElement('a');
+      link.download = `${(item.card_name || 'card').replace(/[^a-z0-9]/gi, '-').substring(0, 40)}-share.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Failed to generate share image:', err);
+    }
+    setGenerating(false);
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -423,8 +522,8 @@ const CardModal = ({ item, onClose, shopSlug }) => {
             </div>
           </div>
 
-          {/* Price + Buy */}
-          <div className="flex items-center justify-between gap-4 pt-3 border-t border-white/[0.04]">
+          {/* Price + Actions */}
+          <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/[0.04]">
             {price ? (
               <div>
                 <p className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">Asking Price</p>
@@ -433,14 +532,29 @@ const CardModal = ({ item, onClose, shopSlug }) => {
             ) : (
               <div><p className="text-sm text-gray-500">Price on eBay</p></div>
             )}
-            {item.ebay_item_id && (
-              <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
-                data-testid="shop-buy-ebay-btn">
-                <ShoppingCart className="w-4 h-4" /> Buy on eBay
-                <ExternalLink className="w-3 h-3 opacity-60" />
-              </a>
-            )}
+            <div className="flex items-center gap-2">
+              {/* Share button */}
+              {frontSrc && (
+                <button onClick={generateShareImage} disabled={generating}
+                  className="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.1] transition-all active:scale-95 text-sm"
+                  data-testid="shop-share-btn">
+                  {generating ? (
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                </button>
+              )}
+              {/* Buy button */}
+              {item.ebay_item_id && (
+                <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
+                  data-testid="shop-buy-ebay-btn">
+                  <ShoppingCart className="w-4 h-4" /> Buy on eBay
+                  <ExternalLink className="w-3 h-3 opacity-60" />
+                </a>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>

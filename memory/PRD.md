@@ -67,13 +67,14 @@ Home | Inventory | Scan | Listings | Flip
 - [x] Public Card Shop at /shop/:slug (Mar 2026)
   - Public storefront for each user (no login required to view)
   - Custom shop URL chosen by user (e.g. flipslabengine.com/shop/kobecollector)
-  - Shows all listed cards with images, sport, condition, price
-  - Card detail modal with front/back flip, "Buy on eBay" button
-  - Search, sport filter, sort by price
+  - Shows ALL active eBay listings (not just FlipSlab-created), with hi-res images
+  - Card detail modal with front/back flip (fetches all eBay photos), "Buy on eBay" button
+  - Social media image generator: Download branded 1080x1080 card image with tier glow and shop name
+  - Search, sport filter, sort by newest first (default), price high/low
   - Header: Logo + shop name + location (left), Tier badge + Cards | Sales | Sports (right)
   - Tier-based glow system: Rookie(gray), All-Star(blue), Hall of Fame(gold), Legend(purple)
-  - Logo box, tier badge icon (Shield/Star/Award/Crown), and card tiles all glow with tier color
-  - Real eBay sales count via Trading API GetMyeBaySelling SoldList (cached 1hr)
+  - Real eBay sales count via Trading API GetMyeBaySelling SoldList (cached 5min)
+  - Landing page updated with Card Shop feature + plan features
   - "Powered by FlipSlab Engine" footer
   - Copy link + View Shop buttons in Account settings
   - Available to all plans
