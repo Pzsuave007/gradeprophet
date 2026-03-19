@@ -1,7 +1,8 @@
 import "@/App.css";
 import React, { useState, useEffect, useRef } from "react";
-import { BrowserRouter } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
+import AdminPage from "./pages/AdminPage";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import OnboardingWizard from "./components/OnboardingWizard";
@@ -146,10 +147,18 @@ function App() {
   // Authenticated
   return (
     <BrowserRouter>
-      <Dashboard user={user} onLogout={handleLogout} />
+      <Routes>
+        <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
+        <Route path="*" element={<Dashboard user={user} onLogout={handleLogout} />} />
+      </Routes>
       <Toaster position="bottom-right" />
     </BrowserRouter>
   );
+}
+
+function AdminRoute({ user, onLogout }) {
+  const navigate = useNavigate();
+  return <AdminPage onBack={() => navigate('/')} />;
 }
 
 export default App;

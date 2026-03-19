@@ -43,6 +43,7 @@ from routers.flipfinder import router as flipfinder_router, sniper_background_lo
 from routers.settings import router as settings_router
 from routers.onboarding import router as onboarding_router
 from routers.subscription import router as subscription_router
+from routers.admin import router as admin_router
 
 # Create parent API router
 api_router = APIRouter(prefix="/api")
@@ -60,6 +61,7 @@ api_router.include_router(flipfinder_router)
 api_router.include_router(settings_router)
 api_router.include_router(onboarding_router)
 api_router.include_router(subscription_router)
+api_router.include_router(admin_router)
 
 
 # Stripe Webhook (under /api prefix for routing)

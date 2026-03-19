@@ -1,0 +1,501 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users, Shield, DollarSign, Package, Zap, Tag, Search,
+  ChevronLeft, ChevronRight, Crown, Ban, Trash2, Eye,
+  RefreshCw, BarChart3, ArrowUpRight, X, AlertTriangle
+} from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'sonner';
+
+const API = process.env.REACT_APP_BACKEND_URL;
+
+const PLAN_LABELS = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
+const PLAN_COLORS = { rookie: '#6b7280', all_star: '#3b82f6', hall_of_fame: '#f59e0b', legend: '#a855f7' };
+const PLAN_OPTIONS = ['rookie', 'all_star', 'hall_of_fame', 'legend'];
+
+const fmt = (v) => {
+  const n = parseFloat(v);
+  if (isNaN(n)) return '$0';
+  return n >= 1000 ? `$${(n / 1000).toFixed(1)}k` : `$${n.toFixed(2)}`;
+};
+
+// ==================== STATS CARDS ====================
+const StatsGrid = ({ stats }) => {
+  const cards = [
+    { label: 'Total Users', value: stats.total_users, icon: Users, color: '#3b82f6', bg: 'from-blue-600/20 to-blue-900/5', border: 'border-blue-500/20' },
+    { label: 'This Week', value: stats.recent_signups, icon: ArrowUpRight, color: '#10b981', bg: 'from-emerald-600/20 to-emerald-900/5', border: 'border-emerald-500/20' },
+    { label: 'Revenue', value: fmt(stats.total_revenue), icon: DollarSign, color: '#f59e0b', bg: 'from-amber-600/20 to-amber-900/5', border: 'border-amber-500/20' },
+    { label: 'Paid Txns', value: stats.paid_transactions, icon: Tag, color: '#a855f7', bg: 'from-purple-600/20 to-purple-900/5', border: 'border-purple-500/20' },
+    { label: 'Total Cards', value: stats.total_inventory, icon: Package, color: '#06b6d4', bg: 'from-cyan-600/20 to-cyan-900/5', border: 'border-cyan-500/20' },
+    { label: 'Total Scans', value: stats.total_scans, icon: Zap, color: '#ec4899', bg: 'from-pink-600/20 to-pink-900/5', border: 'border-pink-500/20' },
+  ];
+
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      {cards.map((c, i) => (
+        <motion.div key={c.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
+          className={`bg-gradient-to-br ${c.bg} border ${c.border} rounded-xl p-3.5`} data-testid={`admin-stat-${c.label.toLowerCase().replace(/\s/g, '-')}`}>
+          <c.icon className="w-4 h-4 mb-2" style={{ color: c.color }} />
+          <p className="text-xl font-black text-white">{c.value}</p>
+          <p className="text-[10px] text-gray-500 uppercase tracking-wider font-bold mt-0.5">{c.label}</p>
+        </motion.div>
+      ))}
+    </div>
+  );
+};
+
+// ==================== PLAN DISTRIBUTION ====================
+const PlanDistribution = ({ byPlan, total }) => (
+  <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4" data-testid="plan-distribution">
+    <h3 className="text-xs font-bold text-white uppercase tracking-wider mb-3">Users by Plan</h3>
+    <div className="space-y-2.5">
+      {PLAN_OPTIONS.map(p => {
+        const count = byPlan[p] || 0;
+        const pct = total > 0 ? (count / total) * 100 : 0;
+        return (
+          <div key={p} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full" style={{ background: PLAN_COLORS[p] }} />
+                <span className="text-xs font-semibold text-gray-300">{PLAN_LABELS[p]}</span>
+              </div>
+              <span className="text-xs font-bold text-white">{count}</span>
+            </div>
+            <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+              <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: PLAN_COLORS[p] }} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+);
+
+// ==================== USER ROW ====================
+const UserRow = ({ user, onViewInventory, onChangePlan, onBan, onDelete }) => {
+  const [changingPlan, setChangingPlan] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState(user.plan_id);
+  const planColor = PLAN_COLORS[user.plan_id] || '#6b7280';
+
+  const handlePlanChange = async () => {
+    if (selectedPlan === user.plan_id) { setChangingPlan(false); return; }
+    await onChangePlan(user.user_id, selectedPlan);
+    setChangingPlan(false);
+  };
+
+  return (
+    <div className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-b border-[#0f0f0f] hover:bg-white/[0.02] transition-colors ${user.banned ? 'opacity-50' : ''}`}
+      data-testid={`admin-user-${user.email}`}>
+      {/* User info */}
+      <div className="flex items-center gap-3 flex-1 min-w-0">
+        <div className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center flex-shrink-0 overflow-hidden">
+          {user.picture ? (
+            <img src={user.picture} alt="" className="w-full h-full object-cover" />
+          ) : (
+            <Users className="w-4 h-4 text-gray-600" />
+          )}
+        </div>
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-white truncate">{user.name || 'No name'}</p>
+          <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
+        </div>
+      </div>
+
+      {/* Plan badge */}
+      <div className="flex items-center gap-2 flex-shrink-0">
+        {changingPlan ? (
+          <div className="flex items-center gap-1.5">
+            <select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)}
+              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[10px] text-white px-2 py-1 outline-none"
+              data-testid="plan-select">
+              {PLAN_OPTIONS.map(p => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
+            </select>
+            <button onClick={handlePlanChange} className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold hover:bg-emerald-500/30" data-testid="plan-save-btn">Save</button>
+            <button onClick={() => { setChangingPlan(false); setSelectedPlan(user.plan_id); }} className="text-[10px] px-2 py-1 rounded bg-white/5 text-gray-400 font-bold">Cancel</button>
+          </div>
+        ) : (
+          <button onClick={() => setChangingPlan(true)}
+            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full cursor-pointer hover:brightness-125 transition-all"
+            style={{ background: `${planColor}20`, color: planColor }}
+            data-testid="plan-badge-btn">
+            {PLAN_LABELS[user.plan_id] || 'Rookie'}
+          </button>
+        )}
+      </div>
+
+      {/* Usage */}
+      <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-shrink-0">
+        <span className="flex items-center gap-1"><Package className="w-3 h-3" />{user.usage?.inventory || 0}</span>
+        <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{user.usage?.scans || 0}</span>
+        <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{user.usage?.listings || 0}</span>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
+        <button onClick={() => onViewInventory(user)} title="View Inventory"
+          className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-colors" data-testid="view-inventory-btn">
+          <Eye className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => onBan(user)} title={user.banned ? 'Unban' : 'Ban'}
+          className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${user.banned ? 'text-amber-400' : 'text-gray-500 hover:text-amber-400'}`} data-testid="ban-btn">
+          <Ban className="w-3.5 h-3.5" />
+        </button>
+        <button onClick={() => onDelete(user)} title="Delete"
+          className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors" data-testid="delete-btn">
+          <Trash2 className="w-3.5 h-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// ==================== INVENTORY MODAL ====================
+const InventoryModal = ({ user, onClose }) => {
+  const [items, setItems] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!user) return;
+    axios.get(`${API}/api/admin/users/${user.user_id}/inventory?limit=100`)
+      .then(res => { setItems(res.data.items || []); setTotal(res.data.total || 0); })
+      .catch(() => toast.error('Failed to load inventory'))
+      .finally(() => setLoading(false));
+  }, [user]);
+
+  if (!user) return null;
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onClose}
+      data-testid="inventory-modal">
+      <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }}
+        className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden shadow-2xl"
+        onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[#1a1a1a]">
+          <div>
+            <h3 className="text-sm font-bold text-white">{user.name || user.email}'s Inventory</h3>
+            <p className="text-[10px] text-gray-500 mt-0.5">{total} cards total</p>
+          </div>
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/5" data-testid="close-inventory-modal">
+            <X className="w-4 h-4 text-gray-500" />
+          </button>
+        </div>
+        <div className="overflow-y-auto max-h-[60vh] divide-y divide-[#0f0f0f]">
+          {loading ? (
+            <div className="flex items-center justify-center py-12"><RefreshCw className="w-5 h-5 text-gray-600 animate-spin" /></div>
+          ) : items.length === 0 ? (
+            <div className="text-center py-12 text-gray-600 text-xs">No cards in inventory</div>
+          ) : items.map((item, i) => (
+            <div key={item.id || i} className="flex items-center gap-3 px-5 py-3 hover:bg-white/[0.02]" data-testid={`inv-item-${i}`}>
+              <div className="w-10 h-10 rounded-lg bg-[#0a0a0a] flex-shrink-0 overflow-hidden flex items-center justify-center">
+                {item.image ? (
+                  <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Package className="w-4 h-4 text-gray-700" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{item.card_name}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {item.player && <span className="text-[9px] text-gray-500">{item.player}</span>}
+                  {item.sport && <span className="text-[9px] text-gray-600">{item.sport}</span>}
+                  {item.condition && <span className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 text-gray-400">{item.condition}{item.grade ? ` ${item.grade}` : ''}</span>}
+                </div>
+              </div>
+              <div className="text-right flex-shrink-0">
+                {item.purchase_price ? <p className="text-xs font-bold text-emerald-400">${item.purchase_price}</p> : <p className="text-[10px] text-gray-700">-</p>}
+                <p className="text-[9px] text-gray-600">{item.category}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+};
+
+// ==================== CONFIRM MODAL ====================
+const ConfirmModal = ({ title, message, confirmLabel, danger, onConfirm, onCancel }) => (
+  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" onClick={onCancel}
+    data-testid="confirm-modal">
+    <motion.div initial={{ scale: 0.95 }} animate={{ scale: 1 }}
+      className="bg-[#111] border border-[#2a2a2a] rounded-2xl w-full max-w-sm p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${danger ? 'bg-red-500/20' : 'bg-amber-500/20'}`}>
+          <AlertTriangle className={`w-5 h-5 ${danger ? 'text-red-400' : 'text-amber-400'}`} />
+        </div>
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+      </div>
+      <p className="text-xs text-gray-400 mb-6">{message}</p>
+      <div className="flex gap-2 justify-end">
+        <button onClick={onCancel} className="px-4 py-2 rounded-lg bg-white/5 text-gray-400 text-xs font-bold hover:bg-white/10" data-testid="confirm-cancel">Cancel</button>
+        <button onClick={onConfirm}
+          className={`px-4 py-2 rounded-lg text-xs font-bold ${danger ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+          data-testid="confirm-action">{confirmLabel}</button>
+      </div>
+    </motion.div>
+  </motion.div>
+);
+
+// ==================== TRANSACTIONS TAB ====================
+const TransactionsTab = ({ transactions }) => (
+  <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="transactions-table">
+    <div className="flex items-center gap-2 px-4 py-3 border-b border-[#1a1a1a]">
+      <DollarSign className="w-4 h-4 text-emerald-400" />
+      <h2 className="text-sm font-bold text-white">Payment Transactions</h2>
+      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-bold">{transactions.length}</span>
+    </div>
+    <div className="divide-y divide-[#0f0f0f] max-h-[400px] overflow-y-auto">
+      {transactions.length === 0 ? (
+        <div className="text-center py-8 text-gray-600 text-xs">No transactions yet</div>
+      ) : transactions.map((txn, i) => (
+        <div key={txn.session_id || i} className="flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02]" data-testid={`txn-${i}`}>
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${txn.payment_status === 'paid' ? 'bg-emerald-500/20' : 'bg-amber-500/20'}`}>
+            <DollarSign className={`w-4 h-4 ${txn.payment_status === 'paid' ? 'text-emerald-400' : 'text-amber-400'}`} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white">{txn.user_name} <span className="text-gray-500 font-normal">({txn.user_email})</span></p>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `${PLAN_COLORS[txn.plan_id]}20`, color: PLAN_COLORS[txn.plan_id] }}>
+                {PLAN_LABELS[txn.plan_id] || txn.plan_id}
+              </span>
+              <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${txn.payment_status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                {txn.payment_status}
+              </span>
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-sm font-black text-white">${txn.amount}</p>
+            <p className="text-[9px] text-gray-600">{txn.created_at ? new Date(txn.created_at).toLocaleDateString() : '-'}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+// ==================== MAIN ADMIN PAGE ====================
+const AdminPage = ({ onBack }) => {
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [totalUsers, setTotalUsers] = useState(0);
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState('users');
+  const [inventoryUser, setInventoryUser] = useState(null);
+  const [confirmAction, setConfirmAction] = useState(null);
+  const [page, setPage] = useState(0);
+  const pageSize = 20;
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [s, u, t] = await Promise.all([
+        axios.get(`${API}/api/admin/stats`),
+        axios.get(`${API}/api/admin/users?limit=${pageSize}&skip=${page * pageSize}&search=${searchQuery}`),
+        axios.get(`${API}/api/admin/transactions?limit=50`),
+      ]);
+      setStats(s.data);
+      setUsers(u.data.users || []);
+      setTotalUsers(u.data.total || 0);
+      setTransactions(t.data.transactions || []);
+    } catch (err) {
+      if (err.response?.status === 403) {
+        toast.error('Admin access required');
+        onBack?.();
+      } else {
+        toast.error('Failed to load admin data');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [page, searchQuery, onBack]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleChangePlan = async (userId, newPlan) => {
+    try {
+      await axios.put(`${API}/api/admin/users/${userId}/plan`, { plan_id: newPlan });
+      toast.success(`Plan updated to ${PLAN_LABELS[newPlan]}`);
+      fetchData();
+    } catch { toast.error('Failed to change plan'); }
+  };
+
+  const handleBan = async (user) => {
+    setConfirmAction({
+      title: user.banned ? 'Unban User' : 'Ban User',
+      message: `Are you sure you want to ${user.banned ? 'unban' : 'ban'} ${user.email}?`,
+      confirmLabel: user.banned ? 'Unban' : 'Ban',
+      danger: !user.banned,
+      onConfirm: async () => {
+        try {
+          await axios.put(`${API}/api/admin/users/${user.user_id}/ban`);
+          toast.success(user.banned ? 'User unbanned' : 'User banned');
+          fetchData();
+        } catch { toast.error('Failed'); }
+        setConfirmAction(null);
+      },
+    });
+  };
+
+  const handleDelete = async (user) => {
+    setConfirmAction({
+      title: 'Delete User',
+      message: `This will permanently delete ${user.email} and ALL their data (inventory, scans, listings). This cannot be undone.`,
+      confirmLabel: 'Delete Forever',
+      danger: true,
+      onConfirm: async () => {
+        try {
+          await axios.delete(`${API}/api/admin/users/${user.user_id}`);
+          toast.success('User deleted');
+          fetchData();
+        } catch (err) { toast.error(err.response?.data?.detail || 'Failed to delete'); }
+        setConfirmAction(null);
+      },
+    });
+  };
+
+  const handleSearch = (e) => {
+    e?.preventDefault();
+    setPage(0);
+    fetchData();
+  };
+
+  if (loading && !stats) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="w-8 h-8 text-[#3b82f6] animate-spin" />
+          <p className="text-xs text-gray-600">Loading admin panel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const totalPages = Math.ceil(totalUsers / pageSize);
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0a]">
+      {/* Header */}
+      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a] sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={onBack} className="p-2 rounded-lg hover:bg-white/5 transition-colors" data-testid="admin-back-btn">
+              <ChevronLeft className="w-5 h-5 text-gray-400" />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-red-500 rounded-lg flex items-center justify-center">
+                <Shield className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h1 className="text-base font-black text-white">Admin Panel</h1>
+                <p className="text-[10px] text-gray-500">FlipSlab Engine Management</p>
+              </div>
+            </div>
+          </div>
+          <button onClick={fetchData} className="p-2 rounded-lg bg-[#111] border border-[#1a1a1a] hover:border-[#3b82f6]/50 transition-colors" data-testid="admin-refresh">
+            <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* Stats */}
+        {stats && <StatsGrid stats={stats} />}
+
+        {/* Plan Distribution + Tabs */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          {stats && <PlanDistribution byPlan={stats.by_plan || {}} total={stats.total_users || 0} />}
+
+          <div className="lg:col-span-3 space-y-4">
+            {/* Tab Buttons */}
+            <div className="flex gap-2">
+              {[
+                { id: 'users', label: 'Users', icon: Users },
+                { id: 'transactions', label: 'Transactions', icon: DollarSign },
+              ].map(({ id, label, icon: Icon }) => (
+                <button key={id} onClick={() => setActiveTab(id)}
+                  className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors ${
+                    activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
+                  }`} data-testid={`admin-tab-${id}`}>
+                  <Icon className="w-3.5 h-3.5" />{label}
+                </button>
+              ))}
+            </div>
+
+            {/* Users Tab */}
+            {activeTab === 'users' && (
+              <div className="space-y-3">
+                {/* Search */}
+                <form onSubmit={handleSearch} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+                    <input type="text" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+                      placeholder="Search by name or email..."
+                      className="w-full bg-[#111] border border-[#1a1a1a] rounded-lg pl-10 pr-4 py-2.5 text-xs text-white placeholder-gray-600 outline-none focus:border-[#3b82f6]/50"
+                      data-testid="admin-search-input" />
+                  </div>
+                  <button type="submit" className="px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-xs font-bold hover:bg-[#2563eb]" data-testid="admin-search-btn">
+                    Search
+                  </button>
+                </form>
+
+                {/* Users List */}
+                <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="users-table">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-[#3b82f6]" />
+                      <h2 className="text-sm font-bold text-white">All Users</h2>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-bold">{totalUsers}</span>
+                    </div>
+                  </div>
+                  <div className="divide-y divide-[#0f0f0f]">
+                    {users.map(u => (
+                      <UserRow key={u.user_id} user={u}
+                        onViewInventory={setInventoryUser}
+                        onChangePlan={handleChangePlan}
+                        onBan={handleBan}
+                        onDelete={handleDelete} />
+                    ))}
+                    {users.length === 0 && (
+                      <div className="text-center py-8 text-gray-600 text-xs">No users found</div>
+                    )}
+                  </div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 border-t border-[#1a1a1a]">
+                      <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" data-testid="prev-page">
+                        <ChevronLeft className="w-3 h-3" /> Prev
+                      </button>
+                      <span className="text-[10px] text-gray-500">Page {page + 1} of {totalPages}</span>
+                      <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" data-testid="next-page">
+                        Next <ChevronRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Transactions Tab */}
+            {activeTab === 'transactions' && <TransactionsTab transactions={transactions} />}
+          </div>
+        </div>
+      </div>
+
+      {/* Modals */}
+      <AnimatePresence>
+        {inventoryUser && <InventoryModal user={inventoryUser} onClose={() => setInventoryUser(null)} />}
+        {confirmAction && <ConfirmModal {...confirmAction} onCancel={() => setConfirmAction(null)} />}
+      </AnimatePresence>
+    </div>
+  );
+};
+
+export default AdminPage;
