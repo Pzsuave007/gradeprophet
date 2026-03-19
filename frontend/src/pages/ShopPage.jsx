@@ -612,17 +612,6 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
             )}
             <div className="flex items-center gap-2">
               {/* Share button */}
-              {frontSrc && (
-                <button onClick={generateShareImage} disabled={generating}
-                  className="flex items-center gap-1.5 px-3 py-3 rounded-xl bg-white/[0.06] border border-white/[0.08] text-white/70 hover:text-white hover:bg-white/[0.1] transition-all active:scale-95 text-sm"
-                  data-testid="shop-share-btn">
-                  {generating ? (
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  ) : (
-                    <Download className="w-4 h-4" />
-                  )}
-                </button>
-              )}
               {/* Buy button */}
               {item.ebay_item_id && (
                 <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
