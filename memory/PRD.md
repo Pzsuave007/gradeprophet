@@ -21,7 +21,7 @@ Home | Inventory | Scan | Listings | Flip
 ## Subscription Plans (Stripe)
 - **ROOKIE** (Free): 30 cards/scans/listings, basic dashboard, Flip Finder & Market grayed out
 - **ALL-STAR** ($9.99/mo): 200 cards/scans, 200 listings, full dashboard, Flip Finder partial, Market partial, no Photo Editor
-- **HALL OF FAME** ($14.99/mo) ⭐ Most Popular: 500 cards/scans/listings, full everything, Photo Editor + presets, priority support
+- **HALL OF FAME** ($14.99/mo) Most Popular: 500 cards/scans/listings, full everything, Photo Editor + presets, priority support
 - **LEGEND** ($24.99/mo): Unlimited everything, multi-marketplace, scanner software, team access, VIP support
 
 ## Completed Features
@@ -42,9 +42,16 @@ Home | Inventory | Scan | Listings | Flip
 - [x] Flip Finder + Listing Detail mobile responsiveness (Mar 2026)
 - [x] Stripe Subscription System: 4 plans, checkout, payment polling, webhook (Mar 2026)
 - [x] Pricing UI in Account page with plan comparison (Mar 2026)
+- [x] Feature Gating & Plan Limit Enforcement (Mar 2026)
+  - FlipFinder: Full lock for Rookie, tab-level locks (Alerts, AI) for All-Star
+  - Market: Full lock for Rookie, Seasonal Intelligence locked for All-Star
+  - Dashboard: Sales Overview tab locked for Rookie
+  - Photo Editor: Locked button for plans without photo_editor
+  - Backend: Inventory, scan, and listing limit checks with 403 responses
+  - Frontend: 403 error handling with user-friendly upgrade prompts
+  - eBay listing creation: Limit check before creating listings
 
 ## Pending Tasks
-- **P0:** Enforce plan limits (gate features based on subscription tier)
 - **P1:** Whatnot Integration & Inventory Sync Engine
 - **P2:** New User Onboarding improvements
 - **P3:** Flip Finder core logic enhancements
@@ -61,4 +68,4 @@ Home | Inventory | Scan | Listings | Flip
 - Backend: FastAPI + MongoDB
 - Auth: Session cookies (not JWT)
 - 3rd Party: eBay API, OpenAI GPT-4o, Emergent Google Auth, Stripe
-- DB Collections: users, inventory, subscriptions, payment_transactions
+- DB Collections: users, inventory, subscriptions, payment_transactions, usage_stats
