@@ -64,6 +64,20 @@ Home | Inventory | Scan | Listings | Flip
   - Ban/unban and delete users (cascade delete all data)
   - Payment transactions list
   - Protected: only pzsuave007@gmail.com has access
+- [x] Public Card Shop at /shop/:slug (Mar 2026)
+  - Public storefront for each user (no login required to view)
+  - Custom shop URL chosen by user (e.g. flipslabengine.com/shop/kobecollector)
+  - Shows all listed cards with images, sport, condition, price
+  - Card detail modal with front/back flip, "Buy on eBay" button
+  - Search, sport filter, sort by price
+  - Stats header (total items, value, sports)
+  - "Powered by FlipSlab Engine" footer
+  - Copy link + View Shop buttons in Account settings
+  - Available to all plans
+- [x] Update eBay Photos feature (Mar 2026)
+  - Sync cropped/edited photos to existing eBay listings
+  - Button in Photo Editor toolbar + Card Detail view
+  - Uploads front + back images to eBay hosting, updates listing via ReviseFixedPriceItem
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync Engine

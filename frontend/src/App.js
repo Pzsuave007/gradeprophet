@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import AdminPage from "./pages/AdminPage";
+import ShopPage from "./pages/ShopPage";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import OnboardingWizard from "./components/OnboardingWizard";
@@ -110,9 +111,17 @@ function App() {
   // Loading spinner
   if (checking || view === 'oauth') {
     return (
-      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />
-      </div>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/shop/:slug" element={<ShopPage />} />
+          <Route path="*" element={
+            <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+              <div className="w-8 h-8 border-2 border-[#3b82f6] border-t-transparent rounded-full animate-spin" />
+            </div>
+          } />
+        </Routes>
+        <Toaster position="bottom-right" />
+      </BrowserRouter>
     );
   }
 
@@ -120,27 +129,36 @@ function App() {
   if (!user) {
     if (view === 'auth') {
       return (
-        <>
-          <AuthPage onSuccess={handleAuthSuccess} onBack={() => setView('landing')} />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/shop/:slug" element={<ShopPage />} />
+            <Route path="*" element={<AuthPage onSuccess={handleAuthSuccess} onBack={() => setView('landing')} />} />
+          </Routes>
           <Toaster position="bottom-right" />
-        </>
+        </BrowserRouter>
       );
     }
     return (
-      <>
-        <LandingPage onGetStarted={() => setView('auth')} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/shop/:slug" element={<ShopPage />} />
+          <Route path="*" element={<LandingPage onGetStarted={() => setView('auth')} />} />
+        </Routes>
         <Toaster position="bottom-right" />
-      </>
+      </BrowserRouter>
     );
   }
 
   // Onboarding
   if (view === 'onboarding') {
     return (
-      <>
-        <OnboardingWizard user={user} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/shop/:slug" element={<ShopPage />} />
+          <Route path="*" element={<OnboardingWizard user={user} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />} />
+        </Routes>
         <Toaster position="bottom-right" />
-      </>
+      </BrowserRouter>
     );
   }
 
@@ -148,6 +166,7 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        <Route path="/shop/:slug" element={<ShopPage />} />
         <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
         <Route path="*" element={<Dashboard user={user} onLogout={handleLogout} />} />
       </Routes>

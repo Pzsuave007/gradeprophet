@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import PricingPlans from './PricingPlans';
@@ -20,6 +20,8 @@ const AccountModule = () => {
   const [generatingToken, setGeneratingToken] = useState(false);
   const [currentPlan, setCurrentPlan] = useState('rookie');
   const [showPricing, setShowPricing] = useState(false);
+  const [shopSlug, setShopSlug] = useState('');
+  const [savingSlug, setSavingSlug] = useState(false);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -36,7 +38,10 @@ const AccountModule = () => {
         axios.get(`${API}/api/settings`),
       ]);
       if (ebayRes.status === 'fulfilled') setEbayStatus(ebayRes.value.data);
-      if (settingsRes.status === 'fulfilled') setSettings(s => ({ ...s, ...settingsRes.value.data }));
+      if (settingsRes.status === 'fulfilled') {
+        setSettings(s => ({ ...s, ...settingsRes.value.data }));
+        if (settingsRes.value.data.shop_slug) setShopSlug(settingsRes.value.data.shop_slug);
+      }
     } catch { setEbayStatus({ connected: false }); }
     finally { setLoading(false); }
   };
@@ -71,6 +76,19 @@ const AccountModule = () => {
     } catch { toast.error('Failed to save settings'); }
     finally { setSaving(false); }
   };
+
+  const saveShopSlug = async () => {
+    if (!shopSlug.trim()) { toast.error('Enter a shop URL'); return; }
+    setSavingSlug(true);
+    try {
+      await axios.put(`${API}/api/settings/shop-slug`, { slug: shopSlug.trim().toLowerCase() });
+      toast.success('Shop URL saved!');
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to save shop URL');
+    } finally { setSavingSlug(false); }
+  };
+
+  const shopUrl = shopSlug ? `${window.location.origin}/shop/${shopSlug}` : '';
 
   const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors";
   const labelCls = "block text-[11px] uppercase tracking-wider text-gray-500 mb-1 font-medium";
@@ -165,6 +183,49 @@ const AccountModule = () => {
             data-testid="save-settings-btn">
             {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}Save Settings
           </button>
+        </div>
+      </motion.div>
+
+      {/* My Shop */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[#1a1a1a] flex items-center gap-2">
+          <Store className="w-4 h-4 text-amber-400" />
+          <h2 className="text-sm font-bold text-white">My Card Shop</h2>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-500">Create a public storefront to share your listed cards. Anyone with the link can browse your cards and buy on eBay.</p>
+          <div>
+            <label className={labelCls}>Shop URL</label>
+            <div className="flex gap-2">
+              <div className="flex-1 flex items-center bg-[#0a0a0a] border border-[#222] rounded-lg overflow-hidden focus-within:border-amber-500/50 transition-colors">
+                <span className="text-[10px] text-gray-600 pl-3 whitespace-nowrap">{window.location.host}/shop/</span>
+                <input className="flex-1 bg-transparent border-none px-1 py-2.5 text-sm text-amber-400 font-bold placeholder-gray-700 focus:outline-none"
+                  value={shopSlug} onChange={e => setShopSlug(e.target.value.replace(/[^a-z0-9_-]/gi, '').toLowerCase())}
+                  placeholder="your-shop-name" maxLength={30}
+                  data-testid="input-shop-slug" />
+              </div>
+              <button onClick={saveShopSlug} disabled={savingSlug || !shopSlug.trim()}
+                className="px-4 py-2.5 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 disabled:opacity-50 transition-colors flex items-center gap-1.5"
+                data-testid="save-shop-slug-btn">
+                {savingSlug ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+              </button>
+            </div>
+          </div>
+          {shopSlug && (
+            <div className="flex flex-col sm:flex-row gap-2">
+              <button onClick={() => { navigator.clipboard.writeText(shopUrl); toast.success('Shop URL copied!'); }}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-colors"
+                data-testid="copy-shop-url-btn">
+                <Copy className="w-3.5 h-3.5" /> Copy Link
+              </button>
+              <a href={`/shop/${shopSlug}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors"
+                data-testid="view-shop-btn">
+                <ExternalLink className="w-3.5 h-3.5" /> View My Shop
+              </a>
+            </div>
+          )}
         </div>
       </motion.div>
 

@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, timezone
+import re
 import logging
 from database import db
 from utils.auth import get_current_user
@@ -25,7 +26,7 @@ async def get_user_settings(request: Request):
     user_id = user["user_id"]
     settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
     if not settings:
-        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball"}
+        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball", "shop_slug": ""}
     return settings
 
 
@@ -40,3 +41,34 @@ async def update_user_settings(data: UserSettings, request: Request):
     await db.user_settings.update_one({"user_id": user_id}, {"$set": update}, upsert=True)
     settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
     return settings
+
+
+@router.put("/shop-slug")
+async def set_shop_slug(request: Request):
+    """Set user's shop URL slug"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    slug = body.get("slug", "").strip().lower()
+
+    if not slug:
+        raise HTTPException(status_code=400, detail="Shop URL is required")
+    if len(slug) < 3 or len(slug) > 30:
+        raise HTTPException(status_code=400, detail="Shop URL must be 3-30 characters")
+    if not re.match(r'^[a-z0-9][a-z0-9_-]*[a-z0-9]$', slug):
+        raise HTTPException(status_code=400, detail="Shop URL can only contain letters, numbers, hyphens, and underscores")
+
+    reserved = ["admin", "shop", "api", "settings", "account", "login", "register", "auth"]
+    if slug in reserved:
+        raise HTTPException(status_code=400, detail="This URL is reserved")
+
+    existing = await db.user_settings.find_one({"shop_slug": slug, "user_id": {"$ne": user_id}}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=409, detail="This shop URL is already taken")
+
+    await db.user_settings.update_one(
+        {"user_id": user_id},
+        {"$set": {"shop_slug": slug, "updated_at": datetime.now(timezone.utc).isoformat()}},
+        upsert=True,
+    )
+    return {"success": True, "slug": slug}
