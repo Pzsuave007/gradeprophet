@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -13,6 +13,7 @@ import AnalysisResult from './AnalysisResult';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
+import SocialPostEditor from './SocialPostEditor';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
 import { usePlan } from '../hooks/usePlan';
@@ -405,6 +406,7 @@ const PRESETS = [
 
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
   const [showEditor, setShowEditor] = useState(false);
+  const [showSocialPost, setShowSocialPost] = useState(false);
   const [activePreset, setActivePreset] = useState('original');
   const [intensity, setIntensity] = useState(75);
   const [showBefore, setShowBefore] = useState(false);
@@ -416,6 +418,17 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
   const canEditPhoto = hasFeature('photo_editor');
+  const [shopName, setShopName] = useState('');
+
+  useEffect(() => {
+    const API = process.env.REACT_APP_BACKEND_URL;
+    const token = localStorage.getItem('token');
+    if (token) {
+      axios.get(`${API}/api/settings`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => setShopName(r.data.shop_name || r.data.display_name || ''))
+        .catch(() => {});
+    }
+  }, []);
 
   if (!item) return null;
   const hasBack = !!item.back_image;
@@ -857,6 +870,13 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 data-testid="card-detail-price">
                 <TrendingUp className="w-5 h-5" /> Price History
               </button>
+              {(item.image || item.ebay_picture) && (
+                <button onClick={() => setShowSocialPost(true)}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-sm active:scale-95 transition-transform"
+                  data-testid="card-detail-social">
+                  <Sparkles className="w-5 h-5" /> Social Post
+                </button>
+              )}
               {!item.listed && (
                 <button onClick={() => { onClose(); onDelete(item.id); }}
                   className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-red-500/15 border border-red-500/30 text-red-400 font-bold text-sm active:scale-95 transition-transform col-span-2"
@@ -868,6 +888,15 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           </div>
         </>
       )}
+      <AnimatePresence>
+        {showSocialPost && (
+          <SocialPostEditor
+            item={item}
+            shopName={shopName}
+            onClose={() => setShowSocialPost(false)}
+          />
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };
