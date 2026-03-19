@@ -419,13 +419,21 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const { hasFeature } = usePlan();
   const canEditPhoto = hasFeature('photo_editor');
   const [shopName, setShopName] = useState('');
+  const [shopLogo, setShopLogo] = useState('');
+  const [shopPlan, setShopPlan] = useState('rookie');
 
   useEffect(() => {
     const API = process.env.REACT_APP_BACKEND_URL;
     const token = localStorage.getItem('token');
     if (token) {
       axios.get(`${API}/api/settings`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => setShopName(r.data.shop_name || r.data.display_name || ''))
+        .then(r => {
+          setShopName(r.data.shop_name || r.data.display_name || '');
+          setShopLogo(r.data.shop_logo || '');
+        })
+        .catch(() => {});
+      axios.get(`${API}/api/subscription`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => setShopPlan(r.data.plan_id || 'rookie'))
         .catch(() => {});
     }
   }, []);
@@ -893,6 +901,8 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           <SocialPostEditor
             item={item}
             shopName={shopName}
+            shopLogo={shopLogo}
+            shopPlan={shopPlan}
             onClose={() => setShowSocialPost(false)}
           />
         )}
