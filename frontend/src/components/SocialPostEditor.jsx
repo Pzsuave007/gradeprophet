@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
+import axios from 'axios';
 import {
   Download, ChevronLeft, Sparkles, RotateCcw,
   Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon, Square
@@ -137,19 +138,44 @@ const DraggableEl = ({ id, el, containerW, containerH, selected, onSelect, onUpd
 };
 
 /* ─── Main Editor ─── */
-const SocialPostEditor = ({ item, shopName, shopLogo, shopPlan, onClose }) => {
+const SocialPostEditor = ({ item, shopName: propShopName, shopLogo: propShopLogo, shopPlan: propShopPlan, onClose }) => {
   const containerRef = useRef(null);
   const [containerSize, setContainerSize] = useState(null);
   const [els, setEls] = useState(defaultLayout);
-  const [preset, setPreset] = useState(() => {
-    const map = { legend: 'purple', hall_of_fame: 'gold', all_star: 'blue' };
-    return GLOW_PRESETS.find(p => p.id === (map[shopPlan] || 'purple')) || GLOW_PRESETS[0];
-  });
   const [glow, setGlow] = useState(70);
   const [radius, setRadius] = useState(16);
   const [sel, setSel] = useState(null);
   const [saving, setSaving] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Self-fetch shop data (fallback if props are empty)
+  const [fetchedShopName, setFetchedShopName] = useState('');
+  const [fetchedShopLogo, setFetchedShopLogo] = useState('');
+  const [fetchedShopPlan, setFetchedShopPlan] = useState('');
+
+  useEffect(() => {
+    const API = process.env.REACT_APP_BACKEND_URL;
+    if (!API) return;
+    axios.get(`${API}/api/settings`, { withCredentials: true })
+      .then(r => {
+        setFetchedShopName(r.data.shop_name || r.data.display_name || '');
+        setFetchedShopLogo(r.data.shop_logo || '');
+      }).catch(() => {});
+    axios.get(`${API}/api/subscription/my-plan`, { withCredentials: true })
+      .then(r => setFetchedShopPlan(r.data.plan_id || ''))
+      .catch(() => {});
+  }, []);
+
+  const shopName = propShopName || fetchedShopName;
+  const shopLogo = propShopLogo || fetchedShopLogo;
+  const shopPlan = propShopPlan || fetchedShopPlan || 'rookie';
+
+  const [preset, setPreset] = useState(GLOW_PRESETS[0]);
+  useEffect(() => {
+    const map = { legend: 'purple', hall_of_fame: 'gold', all_star: 'blue' };
+    const found = GLOW_PRESETS.find(p => p.id === (map[shopPlan] || 'purple'));
+    if (found) setPreset(found);
+  }, [shopPlan]);
 
   const price = item.listed_price || item.purchase_price;
   const imgSrc = item.image
