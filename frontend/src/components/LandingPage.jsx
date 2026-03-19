@@ -315,10 +315,10 @@ const LandingPage = ({ onGetStarted }) => {
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
                     {/* Top area: Icon+Name on left, Card floating right */}
                     <div className="relative min-h-[140px] sm:min-h-[160px]">
-                      {/* Card Image - floating right, extending outside */}
-                      <div className="absolute -top-8 -right-4 sm:-right-6 w-[120px] sm:w-[140px] z-10 pointer-events-none">
+                      {/* Card Image - floating right, smaller and positioned above */}
+                      <div className="absolute -top-10 -right-3 sm:-right-4 w-[90px] sm:w-[100px] z-10 pointer-events-none">
                         <img src={plan.cardImage} alt={`${plan.name} card`}
-                          className="w-full h-auto rounded-md transition-transform"
+                          className="w-full h-auto rounded-sm"
                           style={{
                             filter: plan.id === 'rookie' ? 'drop-shadow(0 8px 24px rgba(156,163,175,0.25))' :
                                    plan.id === 'all_star' ? 'drop-shadow(0 8px 28px rgba(59,130,246,0.45))' :
@@ -329,7 +329,7 @@ const LandingPage = ({ onGetStarted }) => {
                       </div>
 
                       {/* Icon + Name + Price - left side */}
-                      <div className="relative z-10 pr-[90px] sm:pr-[100px]">
+                      <div className="relative z-10 pr-[70px] sm:pr-[80px]">
                         <div className="flex items-center gap-2 mb-2">
                           <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
                             <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
