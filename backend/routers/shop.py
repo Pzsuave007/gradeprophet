@@ -7,7 +7,7 @@ import logging
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/shop", tags=["shop"])
 
-CACHE_TTL = 1800  # 30 min
+CACHE_TTL = 300  # 5 min — short so new listings appear fast
 
 
 async def _fetch_ebay_shop_data(user_id: str):
@@ -133,12 +133,31 @@ async def get_public_shop(slug: str):
     # Fetch active eBay listing IDs + sales count (one API call)
     active_ids, sales_count = await _fetch_ebay_shop_data(user_id)
 
+    # Get cache timestamp to find newly listed items
+    shop_cache = (await db.user_settings.find_one(
+        {"user_id": user_id}, {"_id": 0, "shop_cache.updated_at": 1}
+    ) or {}).get("shop_cache", {})
+    cache_time = shop_cache.get("updated_at", "")
+
     # Get inventory items that are currently active on eBay
     if active_ids:
+        # Items matching active eBay IDs
         items = await db.inventory.find(
             {"user_id": user_id, "ebay_item_id": {"$in": active_ids}},
             {"_id": 0, "user_id": 0}
         ).sort("listed_at", -1).to_list(500)
+
+        # Also include any items listed AFTER the cache was built (new listings)
+        if cache_time:
+            new_items = await db.inventory.find(
+                {"user_id": user_id, "ebay_item_id": {"$exists": True, "$ne": None},
+                 "listed_at": {"$gt": cache_time}},
+                {"_id": 0, "user_id": 0}
+            ).to_list(100)
+            existing_ids = {i.get("ebay_item_id") for i in items}
+            for ni in new_items:
+                if ni.get("ebay_item_id") not in existing_ids:
+                    items.append(ni)
     else:
         # Fallback: if no eBay token/data, show all listed items
         items = await db.inventory.find(
