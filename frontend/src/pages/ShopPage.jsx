@@ -274,7 +274,7 @@ const CardModal = ({ item, onClose }) => {
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        className="bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto shadow-2xl"
+        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}>
 
         {/* Close button */}
@@ -285,12 +285,12 @@ const CardModal = ({ item, onClose }) => {
         </button>
 
         {/* 3D Flip Card */}
-        <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1000 }}>
+        <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1200 }}>
           <motion.div
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative aspect-[3/4] max-h-[50vh] cursor-pointer"
+            className="relative aspect-[3/4] max-h-[65vh] cursor-pointer"
             onClick={() => backSrc && setFlipped(!flipped)}
           >
             {/* Front */}
