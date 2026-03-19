@@ -246,7 +246,7 @@ const PLAN_BADGE = {
 // =========== CARD TILE ===========
 const CardTile = ({ item, index, plan, onClick }) => {
   const price = item.listed_price || item.purchase_price;
-  const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
+  const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
   const glow = PLAN_GLOW[plan] || PLAN_GLOW.rookie;
   const [hovered, setHovered] = useState(false);
 
@@ -310,7 +310,7 @@ const CardTile = ({ item, index, plan, onClick }) => {
 
 // =========== CARD MODAL WITH 3D FLIP ===========
 const CardModal = ({ item, onClose }) => {
-  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
+  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
   const [flipped, setFlipped] = useState(false);
   const price = item.listed_price || item.purchase_price;
