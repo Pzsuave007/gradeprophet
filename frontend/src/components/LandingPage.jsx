@@ -323,7 +323,7 @@ const LandingPage = ({ onGetStarted }) => {
                       <img src={plan.cardImage} alt={`${plan.name} card 1`}
                         className="absolute h-[120px] sm:h-[140px] w-auto object-contain rounded-sm z-[1]"
                         style={{
-                          transform: 'rotate(-8deg) translateX(-20px)',
+                          transform: 'rotate(-10deg) translateX(-32px)',
                           filter: plan.id === 'rookie' ? 'drop-shadow(0 6px 16px rgba(156,163,175,0.25))' :
                                  plan.id === 'all_star' ? 'drop-shadow(0 6px 18px rgba(59,130,246,0.4))' :
                                  plan.id === 'hall_of_fame' ? 'drop-shadow(0 6px 20px rgba(245,158,11,0.5))' :
@@ -334,7 +334,7 @@ const LandingPage = ({ onGetStarted }) => {
                       <img src={plan.cardImage2} alt={`${plan.name} card 2`}
                         className="absolute h-[120px] sm:h-[140px] w-auto object-contain rounded-sm z-[2]"
                         style={{
-                          transform: 'rotate(6deg) translateX(20px)',
+                          transform: 'rotate(8deg) translateX(32px)',
                           filter: plan.id === 'rookie' ? 'drop-shadow(0 6px 16px rgba(156,163,175,0.3))' :
                                  plan.id === 'all_star' ? 'drop-shadow(0 6px 18px rgba(59,130,246,0.45))' :
                                  plan.id === 'hall_of_fame' ? 'drop-shadow(0 6px 20px rgba(245,158,11,0.55))' :
