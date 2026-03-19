@@ -80,11 +80,16 @@ Home | Inventory | Scan | Listings | Flip
   - Uploads front + back images to eBay hosting, updates listing via ReviseFixedPriceItem
 
 ## Pending Tasks
-- **P1:** Whatnot Integration & Inventory Sync Engine
+- **P0:** Stripe Production Integration (switch from test keys to live keys)
+- **P1:** Whatnot & Shopify Integration (Legend tier feature)
 - **P2:** New User Onboarding improvements
 - **P3:** Flip Finder core logic enhancements
 - **P4:** Windows Scanner App
-- **Refactor:** Extract CardDetailModal from InventoryModule.jsx (900+ lines)
+- **P5:** Team Access (multiple users per Legend account)
+- **Refactor:** Extract CardDetailModal from InventoryModule.jsx (1300+ lines)
+
+## Verification Log
+- [Feb 2026] Card Shop verified: Backend 10/10, Frontend 26/26 tests passed (iteration_38)
 
 ## User Preferences
 - Language: Spanish
