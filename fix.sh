@@ -11,6 +11,7 @@ echo ""
 echo "[1/4] Backend dependencies..."
 cd "$PROD"
 source "$PROD/venv/bin/activate"
+pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/ --quiet 2>/dev/null
 pip install -r "$REPO/backend/requirements.txt" --quiet 2>/dev/null
 echo "  OK"
 
