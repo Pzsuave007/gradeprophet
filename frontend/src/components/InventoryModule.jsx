@@ -495,7 +495,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const applyCrop = async (cropPixels) => {
     // cropPixels = { x, y, w, h } in container pixel coordinates
     const src = isFlipped && backSrc ? backSrc : frontSrc;
-    if (!src || !imgContainerRef.current) return;
+    if (!src || !imgContainerRef.current || !editorImgRef.current) return;
     setSaving(true);
     setCropMode(false);
     try {
@@ -506,27 +506,29 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         i.src = src;
       });
 
-      // Calculate the actual rendered image area within the container (object-contain)
-      const container = imgContainerRef.current;
-      const cW = container.clientWidth;
-      const cH = container.clientHeight;
-      const scale = Math.min(cW / img.width, cH / img.height);
-      const renderedW = img.width * scale;
-      const renderedH = img.height * scale;
-      const offsetX = (cW - renderedW) / 2;
-      const offsetY = (cH - renderedH) / 2;
+      // Get the actual rendered position of the <img> element within the container
+      const containerRect = imgContainerRef.current.getBoundingClientRect();
+      const imgRect = editorImgRef.current.getBoundingClientRect();
 
-      // Convert container coordinates to source image coordinates
-      const imgX = (cropPixels.x - offsetX) / scale;
-      const imgY = (cropPixels.y - offsetY) / scale;
-      const imgW = cropPixels.w / scale;
-      const imgH = cropPixels.h / scale;
+      // Offset of the img element within the container
+      const offsetX = imgRect.left - containerRect.left;
+      const offsetY = imgRect.top - containerRect.top;
+
+      // Scale from displayed pixels to source image pixels
+      const scaleX = img.naturalWidth / imgRect.width;
+      const scaleY = img.naturalHeight / imgRect.height;
+
+      // Convert crop coordinates from container space to source image space
+      const imgX = (cropPixels.x - offsetX) * scaleX;
+      const imgY = (cropPixels.y - offsetY) * scaleY;
+      const imgW = cropPixels.w * scaleX;
+      const imgH = cropPixels.h * scaleY;
 
       // Clamp to image bounds
       const sx = Math.max(0, Math.round(imgX));
       const sy = Math.max(0, Math.round(imgY));
-      const sw = Math.min(Math.round(imgW), img.width - sx);
-      const sh = Math.min(Math.round(imgH), img.height - sy);
+      const sw = Math.min(Math.round(imgW), img.naturalWidth - sx);
+      const sh = Math.min(Math.round(imgH), img.naturalHeight - sy);
 
       if (sw < 10 || sh < 10) {
         toast.error('Crop area too small');
