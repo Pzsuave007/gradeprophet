@@ -923,6 +923,125 @@ async def revise_ebay_listing(data: ReviseListingRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/sell/update-photos")
+async def update_listing_photos(request: Request):
+    """Update photos on an existing eBay listing from inventory images"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    inventory_item_id = body.get("inventory_item_id")
+    if not inventory_item_id:
+        raise HTTPException(status_code=400, detail="inventory_item_id required")
+
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    item = await db.inventory.find_one({"id": inventory_item_id, "user_id": user_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+
+    ebay_item_id = item.get("ebay_item_id")
+    if not ebay_item_id:
+        raise HTTPException(status_code=400, detail="This item has no active eBay listing")
+
+    async def upload_img(img_base64, label="card"):
+        image_bytes = base64.b64decode(img_base64)
+        try:
+            img_pil = Image.open(BytesIO(image_bytes))
+            w, h = img_pil.size
+            if max(w, h) < 500:
+                scale_f = 500 / max(w, h)
+                img_pil = img_pil.resize((int(w * scale_f), int(h * scale_f)), Image.LANCZOS)
+                buf = BytesIO()
+                img_pil.save(buf, format='JPEG', quality=90)
+                image_bytes = buf.getvalue()
+        except Exception as e:
+            logger.warning(f"Image resize failed for {label}: {e}")
+
+        upload_xml = f'''<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials><PictureName>update {label}</PictureName></UploadSiteHostedPicturesRequest>'''
+        boundary = "MIME_boundary_EBAY"
+        body_parts = [f"--{boundary}\r\n", "Content-Disposition: form-data; name=\"XML Payload\"\r\n", "Content-Type: text/xml\r\n\r\n", upload_xml, f"\r\n--{boundary}\r\n", f"Content-Disposition: form-data; name=\"image\"; filename=\"{label}.jpg\"\r\n", "Content-Type: image/jpeg\r\nContent-Transfer-Encoding: binary\r\n\r\n"]
+        text_part = "".join(body_parts).encode('utf-8')
+        end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+        full_body = text_part + image_bytes + end_part
+
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            }, content=full_body)
+
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        url_el = root.find(".//e:FullURL", ns)
+        if url_el is not None and url_el.text:
+            return url_el.text
+        return None
+
+    picture_urls = []
+    for img_key, label in [("image", "front"), ("back_image", "back")]:
+        if item.get(img_key):
+            try:
+                url = await upload_img(item[img_key], label)
+                if url:
+                    picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Failed to upload {label}: {e}")
+
+    if not picture_urls:
+        raise HTTPException(status_code=400, detail="No images to upload")
+
+    urls_xml = "\n".join(f"<PictureURL>{u}</PictureURL>" for u in picture_urls)
+    revise_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{ebay_item_id}</ItemID><PictureDetails>{urls_xml}</PictureDetails></Item>
+</ReviseFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+            }, content=revise_xml)
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        ack = root.find("e:Ack", ns)
+
+        if ack is not None and ack.text in ("Success", "Warning"):
+            return {"success": True, "message": f"Photos updated on eBay listing {ebay_item_id}", "photos_uploaded": len(picture_urls)}
+
+        # Try ReviseItem for auction format
+        revise_xml2 = revise_xml.replace("ReviseFixedPriceItemRequest", "ReviseItemRequest")
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp2 = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "ReviseItem",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+            }, content=revise_xml2)
+        root2 = ET.fromstring(resp2.text)
+        ack2 = root2.find("e:Ack", ns)
+        if ack2 is not None and ack2.text in ("Success", "Warning"):
+            return {"success": True, "message": f"Photos updated on eBay listing {ebay_item_id}", "photos_uploaded": len(picture_urls)}
+
+        errors = []
+        for err in root.findall(".//e:Errors", ns):
+            msg_el = err.find("e:LongMessage", ns)
+            if msg_el is not None:
+                errors.append(msg_el.text)
+        return {"success": False, "message": errors[0] if errors else "Failed to update photos on eBay"}
+    except Exception as e:
+        logger.error(f"Update eBay photos failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.post("/sell/ai-listing")
 async def generate_ai_listing(data: ListingAIRequest):
     """Generate AI-optimized eBay listing"""

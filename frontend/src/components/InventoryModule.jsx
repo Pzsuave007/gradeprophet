@@ -411,6 +411,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const [saving, setSaving] = useState(false);
   const [cropMode, setCropMode] = useState(false);
   const [undoData, setUndoData] = useState(null); // { side, originalBase64 }
+  const [syncingPhotos, setSyncingPhotos] = useState(false);
   const imgContainerRef = React.useRef(null);
   const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
@@ -580,6 +581,26 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     }
   };
 
+  const syncPhotosToEbay = async () => {
+    if (!item.ebay_item_id) {
+      toast.error('This card has no active eBay listing');
+      return;
+    }
+    setSyncingPhotos(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/update-photos`, { inventory_item_id: item.id });
+      if (res.data.success) {
+        toast.success(`Photos updated on eBay! (${res.data.photos_uploaded} photos)`);
+      } else {
+        toast.error(res.data.message || 'Failed to update photos');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Error syncing photos to eBay');
+    } finally {
+      setSyncingPhotos(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -662,6 +683,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   data-testid="undo-crop-btn">
                   <Undo2 className="w-4 h-4" />
                   Undo
+                </button>
+              )}
+              {item.ebay_item_id && (
+                <button onClick={syncPhotosToEbay} disabled={syncingPhotos}
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 disabled:opacity-50"
+                  data-testid="sync-ebay-photos-editor-btn">
+                  {syncingPhotos ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                  eBay Sync
                 </button>
               )}
               <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />
@@ -809,6 +838,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-400 font-bold text-sm active:scale-95 transition-transform">
                   <ExternalLink className="w-5 h-5" /> View on eBay
                 </a>
+              )}
+              {item.listed && item.ebay_item_id && (
+                <button onClick={syncPhotosToEbay} disabled={syncingPhotos}
+                  className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-cyan-500/15 border border-cyan-500/30 text-cyan-400 font-bold text-sm active:scale-95 transition-transform disabled:opacity-50"
+                  data-testid="sync-ebay-photos-detail-btn">
+                  {syncingPhotos ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                  {syncingPhotos ? 'Syncing...' : 'Update eBay Photos'}
+                </button>
               )}
               <button onClick={() => { onClose(); onEdit(item); }}
                 className="flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#3b82f6]/15 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-sm active:scale-95 transition-transform"
