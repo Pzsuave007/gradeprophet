@@ -48,7 +48,7 @@ async def _fetch_ebay_shop_data(user_id: str):
 <GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <ActiveList>
-    <Sort>TimeLeft</Sort>
+    <Sort>StartTime</Sort>
     <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
   </ActiveList>
   {"<SoldList><DurationInDays>60</DurationInDays><Sort>EndTime</Sort><Pagination><EntriesPerPage>1</EntriesPerPage></Pagination></SoldList>" if page == 1 else ""}
@@ -102,11 +102,15 @@ async def _fetch_ebay_shop_data(user_id: str):
                         pic_url = _xml_text(item_el, ".//e:GalleryURL", ns) or ""
                     pic_url = _to_hires_ebay_img(pic_url)
 
+                    # Start time for sorting (newest first)
+                    start_time = _xml_text(item_el, ".//e:ListingDetails/e:StartTime", ns) or ""
+
                     all_ebay_items.append({
                         "ebay_item_id": item_id,
                         "card_name": title,
                         "listed_price": float(price) if price else 0,
                         "ebay_picture": pic_url,
+                        "listed_at": start_time,
                     })
 
                 # Check pagination
@@ -117,6 +121,9 @@ async def _fetch_ebay_shop_data(user_id: str):
                 page += 1
 
         logger.info(f"Shop data for {user_id}: {len(all_ebay_items)} active listings, {sales_count} sales")
+
+        # Sort by newest first
+        all_ebay_items.sort(key=lambda x: x.get("listed_at", ""), reverse=True)
 
         # Update cache
         await db.user_settings.update_one(
@@ -235,20 +242,24 @@ async def get_public_shop(slug: str):
     inv_by_ebay_id = {i["ebay_item_id"]: i for i in inventory_items}
 
     # Merge: FlipSlab data takes priority, eBay-only items fill the rest
+    # Loop preserves order from ebay_items (already sorted newest first)
     items = []
     for eb in ebay_items:
         ebay_id = eb["ebay_item_id"]
         inv_item = inv_by_ebay_id.get(ebay_id)
         if inv_item:
-            # Use FlipSlab data (has sport, condition, better images, etc.)
+            # Use FlipSlab data but ensure listed_at from eBay for sorting
+            if not inv_item.get("listed_at"):
+                inv_item["listed_at"] = eb.get("listed_at", "")
             items.append(inv_item)
         else:
-            # eBay-only listing — use eBay data
+            # eBay-only listing
             items.append({
                 "ebay_item_id": ebay_id,
                 "card_name": eb["card_name"],
                 "listed_price": eb["listed_price"],
                 "ebay_picture": eb["ebay_picture"],
+                "listed_at": eb.get("listed_at", ""),
                 "source": "ebay",
             })
 
