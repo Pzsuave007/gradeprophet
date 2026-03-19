@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Download, ChevronLeft, Sparkles, RotateCcw,
-  Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon
+  Eye, EyeOff, Crown, Star, Shield, Award, Type, Tag, Store, Image as ImageIcon, Square
 } from 'lucide-react';
 
 const GLOW_PRESETS = [
@@ -29,6 +29,7 @@ const ASPECT = CANVAS_W / CANVAS_H;
 
 const defaultLayout = () => ({
   card:      { x: 6, y: 2, w: 88, h: 66, visible: true, label: 'Card', Icon: ImageIcon },
+  frame:     { x: 3, y: 0, w: 94, h: 70, visible: false, label: 'Frame', Icon: Square },
   title:     { x: 5, y: 71, w: 62, h: 10, visible: true, label: 'Title', Icon: Type },
   price:     { x: 70, y: 72, w: 26, h: 5, visible: true, label: 'Price', Icon: Tag },
   logo:      { x: 3, y: 86, w: 8, h: 6, visible: true, label: 'Logo', Icon: Store },
@@ -37,7 +38,7 @@ const defaultLayout = () => ({
   available: { x: 30, y: 94, w: 40, h: 3, visible: true, label: 'Tag', Icon: Sparkles },
 });
 
-const EL_KEYS = ['card', 'title', 'price', 'logo', 'shopName', 'tierBadge', 'available'];
+const EL_KEYS = ['card', 'frame', 'title', 'price', 'logo', 'shopName', 'tierBadge', 'available'];
 
 function wrapText(ctx, text, maxW) {
   const words = text.split(' ');
@@ -113,7 +114,7 @@ const DraggableEl = ({ id, el, containerW, containerH, selected, onSelect, onUpd
       onPointerDown={handlePointerDown}
       style={{
         position: 'absolute', left, top, width, height,
-        cursor: 'move', zIndex: id === 'card' ? 1 : 10,
+        cursor: 'move', zIndex: id === 'card' ? 1 : id === 'frame' ? 2 : 10,
         outline: selected ? '2px solid rgba(168,85,247,0.7)' : 'none',
         outlineOffset: 2,
         touchAction: 'none',
@@ -246,6 +247,20 @@ const SocialPostEditor = ({ item, shopName, shopLogo, shopPlan, onClose }) => {
         ctx.lineWidth = 2; rr(dx, dy, dw, dh, rd); ctx.stroke();
       }
 
+      // Frame
+      if (els.frame.visible) {
+        const dx = els.frame.x / 100 * W, dy = els.frame.y / 100 * H;
+        const dw = els.frame.w / 100 * W, dh = els.frame.h / 100 * H;
+        const rd = radius * (W / (containerSize?.w || 400));
+        ctx.save();
+        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${0.15 * inten})`;
+        ctx.shadowBlur = 15 * inten;
+        ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},${0.5 * inten})`;
+        ctx.lineWidth = 3;
+        rr(dx, dy, dw, dh, rd); ctx.stroke();
+        ctx.restore();
+      }
+
       // Logo
       if (els.logo.visible && shopLogo) {
         const img = new Image(); img.crossOrigin = 'anonymous';
@@ -352,6 +367,17 @@ const SocialPostEditor = ({ item, shopName, shopLogo, shopPlan, onClose }) => {
             display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#555' }}>
             <ImageIcon style={{ width: 40, height: 40 }} />
           </div>
+        );
+
+      case 'frame':
+        return (
+          <div style={{
+            width: '100%', height: '100%',
+            borderRadius: radius,
+            border: `2px solid rgba(${preset.r},${preset.g},${preset.b},${0.5 * glowI})`,
+            boxShadow: `0 0 ${15 * glowI}px rgba(${preset.r},${preset.g},${preset.b},${0.15 * glowI}), inset 0 0 ${10 * glowI}px rgba(${preset.r},${preset.g},${preset.b},${0.05 * glowI})`,
+            pointerEvents: 'none',
+          }} />
         );
 
       case 'title':

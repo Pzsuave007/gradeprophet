@@ -193,5 +193,15 @@ async def generate_scanner_token(request: Request):
     }
 
 
-# Dev login endpoint removed after testing
+@router.get("/dev-login")
+async def dev_login(token: str, response: Response):
+    """Set session cookie from a scanner token for testing."""
+    session = await db.user_sessions.find_one({"session_token": token}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    response.set_cookie("session_token", token, path="/", httponly=True, secure=True, samesite="none", max_age=7*24*3600)
+    return {"status": "ok", "user": user.get("email"), "name": user.get("name")}
 
