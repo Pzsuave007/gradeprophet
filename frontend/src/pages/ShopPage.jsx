@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import {
   Store, MapPin, ExternalLink, Search, Filter, X,
-  Package, DollarSign, ShoppingCart, Eye, Tag, Layers,
-  ChevronDown, Star
+  Package, ShoppingCart, Tag, ChevronDown, RotateCcw
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -51,7 +50,7 @@ const ShopPage = () => {
     .sort((a, b) => {
       if (sortBy === 'price_high') return (b.listed_price || 0) - (a.listed_price || 0);
       if (sortBy === 'price_low') return (a.listed_price || 0) - (b.listed_price || 0);
-      return 0; // newest = default order
+      return 0;
     });
 
   if (loading) return (
@@ -76,68 +75,58 @@ const ShopPage = () => {
     </div>
   );
 
+  const logoSrc = shop.logo || shop.avatar;
+
   return (
     <div className="min-h-screen bg-[#050505] text-white" data-testid="public-shop-page">
-      {/* Ambient Background */}
+      {/* Ambient glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-amber-500/[0.03] rounded-full blur-[120px]" />
-        <div className="absolute bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-blue-500/[0.02] rounded-full blur-[120px]" />
+        <div className="absolute top-[-30%] left-[-15%] w-[70%] h-[70%] bg-amber-500/[0.03] rounded-full blur-[150px]" />
+        <div className="absolute bottom-[-30%] right-[-15%] w-[60%] h-[60%] bg-blue-500/[0.02] rounded-full blur-[150px]" />
       </div>
 
-      {/* Hero Header */}
+      {/* Hero */}
       <header className="relative border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row items-center sm:items-end gap-5 sm:gap-6">
-            {/* Avatar */}
-            <div className="relative">
-              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-700/20 border border-amber-500/20 flex items-center justify-center overflow-hidden shadow-lg shadow-amber-500/10">
-                {shop.avatar ? (
-                  <img src={shop.avatar} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <Store className="w-10 h-10 text-amber-500/60" />
-                )}
-              </div>
-              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center border-2 border-[#050505]">
-                <div className="w-2 h-2 bg-white rounded-full" />
-              </div>
+            className="flex flex-col items-center text-center gap-4">
+            {/* Logo */}
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-2 border-amber-500/20 flex items-center justify-center overflow-hidden shadow-2xl shadow-amber-500/10">
+              {logoSrc ? (
+                <img src={logoSrc} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <Store className="w-12 h-12 text-amber-500/50" />
+              )}
             </div>
-
-            {/* Info */}
-            <div className="text-center sm:text-left flex-1">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight">
+            <div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none">
                 {shop.name}
               </h1>
               {shop.location && (
-                <div className="flex items-center justify-center sm:justify-start gap-1.5 mt-1.5 text-gray-500">
-                  <MapPin className="w-3 h-3" />
-                  <span className="text-xs">{shop.location}</span>
+                <div className="flex items-center justify-center gap-1.5 mt-2 text-gray-500">
+                  <MapPin className="w-3.5 h-3.5" />
+                  <span className="text-sm">{shop.location}</span>
                 </div>
               )}
             </div>
-
-            {/* Stats */}
-            <div className="flex gap-6 sm:gap-8">
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-black text-amber-400">{shop.total_items}</p>
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">Listed</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-black text-emerald-400">
-                  ${shop.total_value >= 1000 ? `${(shop.total_value / 1000).toFixed(1)}k` : shop.total_value.toFixed(0)}
-                </p>
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">Value</p>
-              </div>
-              <div className="text-center">
-                <p className="text-xl sm:text-2xl font-black text-blue-400">{shop.sports?.length || 0}</p>
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">Sports</p>
-              </div>
+            {/* Stats row */}
+            <div className="flex gap-8 mt-2">
+              {[
+                { val: shop.total_items, label: 'Cards', color: 'text-amber-400' },
+                { val: `$${shop.total_value >= 1000 ? `${(shop.total_value / 1000).toFixed(1)}k` : shop.total_value.toFixed(0)}`, label: 'Value', color: 'text-emerald-400' },
+                { val: shop.sports?.length || 0, label: 'Sports', color: 'text-blue-400' },
+              ].map(s => (
+                <div key={s.label} className="text-center">
+                  <p className={`text-2xl sm:text-3xl font-black ${s.color}`}>{s.val}</p>
+                  <p className="text-[10px] text-gray-600 uppercase tracking-[0.15em] font-bold mt-0.5">{s.label}</p>
+                </div>
+              ))}
             </div>
           </motion.div>
         </div>
       </header>
 
-      {/* Filters Bar */}
+      {/* Search/Filter Bar */}
       <div className="sticky top-0 z-20 border-b border-white/[0.04] bg-[#050505]/80 backdrop-blur-xl">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
@@ -150,7 +139,7 @@ const ShopPage = () => {
           <button onClick={() => setShowFilters(!showFilters)}
             className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold border transition-colors ${showFilters ? 'bg-amber-500/10 border-amber-500/30 text-amber-400' : 'bg-white/[0.04] border-white/[0.06] text-gray-400'}`}
             data-testid="shop-filter-toggle">
-            <Filter className="w-3.5 h-3.5" /> Filters
+            <Filter className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Filters</span>
           </button>
           <span className="text-xs text-gray-600 hidden sm:block">{filtered.length} cards</span>
         </div>
@@ -160,14 +149,12 @@ const ShopPage = () => {
               className="overflow-hidden border-t border-white/[0.04]">
               <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap gap-2">
                 <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
-                  className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none"
-                  data-testid="shop-sport-filter">
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="shop-sport-filter">
                   <option value="all">All Sports</option>
                   {(shop.sports || []).map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                  className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none"
-                  data-testid="shop-sort">
+                  className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="shop-sort">
                   <option value="newest">Newest First</option>
                   <option value="price_high">Price: High to Low</option>
                   <option value="price_low">Price: Low to High</option>
@@ -181,13 +168,13 @@ const ShopPage = () => {
       {/* Cards Grid */}
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {filtered.length === 0 ? (
-          <div className="text-center py-20">
+          <div className="text-center py-24">
             <Package className="w-16 h-16 text-gray-800 mx-auto mb-4" />
             <h2 className="text-lg font-bold text-gray-600">No cards listed yet</h2>
             <p className="text-xs text-gray-700 mt-1">Check back soon!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
             {filtered.map((item, idx) => (
               <CardTile key={item.id || idx} item={item} index={idx} onClick={() => setSelectedCard(item)} />
             ))}
@@ -195,7 +182,7 @@ const ShopPage = () => {
         )}
       </main>
 
-      {/* Card Detail Modal */}
+      {/* Card Modal */}
       <AnimatePresence>
         {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} />}
       </AnimatePresence>
@@ -223,51 +210,45 @@ const CardTile = ({ item, index, onClick }) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: Math.min(index * 0.03, 0.5) }}
+      transition={{ delay: Math.min(index * 0.04, 0.6) }}
       onClick={onClick}
-      className="group relative bg-white/[0.02] border border-white/[0.05] rounded-2xl overflow-hidden cursor-pointer hover:border-amber-500/20 hover:bg-white/[0.04] transition-all duration-300"
+      className="group relative bg-white/[0.02] border border-white/[0.05] rounded-2xl overflow-hidden cursor-pointer hover:border-amber-500/20 hover:bg-white/[0.04] transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/5"
       data-testid={`shop-card-${index}`}
     >
-      {/* Image */}
       <div className="aspect-[3/4] relative overflow-hidden bg-[#0a0a0a]">
         {imgSrc ? (
-          <img src={imgSrc} alt={item.card_name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+          <img src={imgSrc} alt={item.card_name} loading="lazy"
+            className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Package className="w-10 h-10 text-gray-800" />
           </div>
         )}
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
-        {/* Quick buy overlay */}
         {item.ebay_item_id && (
-          <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-            <div className="flex items-center justify-center gap-2 py-2 bg-amber-500 rounded-lg text-black text-xs font-bold">
-              <ShoppingCart className="w-3.5 h-3.5" /> View on eBay
+          <div className="absolute bottom-0 left-0 right-0 p-2.5 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out">
+            <div className="flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 rounded-xl text-black text-xs font-bold shadow-lg">
+              <ShoppingCart className="w-3.5 h-3.5" /> Buy on eBay
             </div>
           </div>
         )}
 
-        {/* Sport tag */}
         {item.sport && (
-          <div className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/50 text-white/70 backdrop-blur-sm">
+          <div className="absolute top-2 left-2 text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/50 text-white/70 backdrop-blur-sm border border-white/10">
             {item.sport}
           </div>
         )}
-
-        {/* Condition badge */}
         {item.condition && (
-          <div className="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm"
+          <div className="absolute top-2 right-2 text-[8px] font-bold px-2 py-0.5 rounded-full bg-black/50 backdrop-blur-sm border border-white/10"
             style={{ color: item.condition === 'Graded' ? '#f59e0b' : '#9ca3af' }}>
-            {item.condition === 'Graded' ? `${item.grading_company || 'GRD'} ${item.grade || ''}`.trim() : 'Raw'}
+            {item.condition === 'Graded' ? `${item.grading_company || ''} ${item.grade || ''}`.trim() : 'Raw'}
           </div>
         )}
       </div>
 
-      {/* Info */}
       <div className="p-3">
-        <p className="text-xs font-bold text-white truncate leading-tight">{item.card_name}</p>
+        <p className="text-[11px] sm:text-xs font-bold text-white truncate leading-tight">{item.card_name}</p>
         {item.player && <p className="text-[10px] text-gray-500 truncate mt-0.5">{item.player}</p>}
         {price && (
           <p className="text-sm font-black text-amber-400 mt-1.5">${parseFloat(price).toFixed(2)}</p>
@@ -277,72 +258,94 @@ const CardTile = ({ item, index, onClick }) => {
   );
 };
 
-// =========== CARD MODAL ===========
+// =========== CARD MODAL WITH 3D FLIP ===========
 const CardModal = ({ item, onClose }) => {
-  const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
+  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
-  const [showBack, setShowBack] = useState(false);
+  const [flipped, setFlipped] = useState(false);
   const price = item.listed_price || item.purchase_price;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-md"
       onClick={onClose} data-testid="shop-card-modal">
       <motion.div
-        initial={{ scale: 0.9, opacity: 0, y: 30 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.95, opacity: 0 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-[#0a0a0a] border border-white/[0.06] rounded-3xl w-full max-w-lg overflow-hidden shadow-2xl"
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        exit={{ y: 60, opacity: 0 }}
+        transition={{ type: 'spring', damping: 28, stiffness: 350 }}
+        className="bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-md max-h-[92vh] overflow-y-auto shadow-2xl"
         onClick={e => e.stopPropagation()}>
-        {/* Close */}
+
+        {/* Close button */}
         <button onClick={onClose}
-          className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors"
+          className="absolute top-3 right-3 z-20 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors border border-white/10"
           data-testid="shop-modal-close">
-          <X className="w-4 h-4" />
+          <X className="w-5 h-5" />
         </button>
 
-        {/* Image */}
-        <div className="relative aspect-[3/4] max-h-[50vh] overflow-hidden bg-[#080808]">
-          {imgSrc ? (
-            <img src={showBack && backSrc ? backSrc : imgSrc} alt={item.card_name}
-              className="w-full h-full object-contain" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Package className="w-16 h-16 text-gray-800" />
+        {/* 3D Flip Card */}
+        <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1000 }}>
+          <motion.div
+            animate={{ rotateY: flipped ? 180 : 0 }}
+            transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+            style={{ transformStyle: 'preserve-3d' }}
+            className="relative aspect-[3/4] max-h-[50vh] cursor-pointer"
+            onClick={() => backSrc && setFlipped(!flipped)}
+          >
+            {/* Front */}
+            <div className="absolute inset-0 rounded-2xl overflow-hidden bg-[#080808]"
+              style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
+              {frontSrc ? (
+                <img src={frontSrc} alt={item.card_name} className="w-full h-full object-contain" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <Package className="w-16 h-16 text-gray-800" />
+                </div>
+              )}
             </div>
-          )}
+            {/* Back */}
+            {backSrc && (
+              <div className="absolute inset-0 rounded-2xl overflow-hidden bg-[#080808]"
+                style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+                <img src={backSrc} alt="Back" className="w-full h-full object-contain" />
+              </div>
+            )}
+          </motion.div>
+
+          {/* Flip hint */}
           {backSrc && (
-            <button onClick={() => setShowBack(!showBack)}
-              className="absolute bottom-3 left-3 text-[10px] px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm text-white font-bold"
+            <button
+              onClick={() => setFlipped(!flipped)}
+              className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white/70 hover:text-white transition-colors"
               data-testid="shop-modal-flip">
-              {showBack ? 'Front' : 'Back'}
+              <RotateCcw className="w-3 h-3" /> {flipped ? 'View Front' : 'View Back'}
             </button>
           )}
         </div>
 
-        {/* Details */}
-        <div className="p-5 space-y-4">
+        {/* Card Info */}
+        <div className="px-5 pb-6 space-y-4">
           <div>
             <h2 className="text-base sm:text-lg font-black text-white leading-tight">{item.card_name}</h2>
-            <div className="flex flex-wrap items-center gap-2 mt-2">
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
               {item.player && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   {item.player}
                 </span>
               )}
               {item.sport && (
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
+                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
                   {item.sport}
                 </span>
               )}
               {item.year && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
                   {item.year}
                 </span>
               )}
               {item.condition && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full border"
+                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
                   style={{
                     color: item.condition === 'Graded' ? '#f59e0b' : '#9ca3af',
                     borderColor: item.condition === 'Graded' ? 'rgba(245,158,11,0.2)' : 'rgba(156,163,175,0.2)',
@@ -355,20 +358,18 @@ const CardModal = ({ item, onClose }) => {
           </div>
 
           {/* Price + Buy */}
-          <div className="flex items-center justify-between gap-4 pt-2 border-t border-white/[0.04]">
+          <div className="flex items-center justify-between gap-4 pt-3 border-t border-white/[0.04]">
             {price ? (
               <div>
-                <p className="text-[10px] text-gray-600 uppercase tracking-widest font-bold">Asking Price</p>
+                <p className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">Asking Price</p>
                 <p className="text-2xl font-black text-amber-400">${parseFloat(price).toFixed(2)}</p>
               </div>
             ) : (
-              <div>
-                <p className="text-sm text-gray-500">Price on eBay</p>
-              </div>
+              <div><p className="text-sm text-gray-500">Price on eBay</p></div>
             )}
             {item.ebay_item_id && (
               <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-colors active:scale-95 transform shadow-lg shadow-amber-500/20"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
                 data-testid="shop-buy-ebay-btn">
                 <ShoppingCart className="w-4 h-4" /> Buy on eBay
                 <ExternalLink className="w-3 h-3 opacity-60" />

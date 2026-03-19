@@ -75,7 +75,7 @@
   "retest_needed": false,
   "should_main_agent_self_test": false,
 
-  "context_for_next_testing_agent": "Dashboard redesign complete and tested. Uses Recharts library (recharts@3.8.0). Real eBay data - 16 orders since Dec 2025, 73 active listings, 3 inventory items (all Basketball). Date range filter works client-side by filtering sales timeline. Recharts throws console warnings about dimensions during initial render but charts display correctly. Best test URL: https://flipslab-tiers.preview.emergentagent.com - opens directly to Dashboard.",
+  "context_for_next_testing_agent": "Dashboard redesign complete and tested. Uses Recharts library (recharts@3.8.0). Real eBay data - 16 orders since Dec 2025, 73 active listings, 3 inventory items (all Basketball). Date range filter works client-side by filtering sales timeline. Recharts throws console warnings about dimensions during initial render but charts display correctly. Best test URL: https://card-vendor-staging.preview.emergentagent.com - opens directly to Dashboard.",
 
   "viewport_tested": "1920x1080 (Desktop)",
   "mocked_apis": false

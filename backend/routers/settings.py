@@ -72,3 +72,21 @@ async def set_shop_slug(request: Request):
         upsert=True,
     )
     return {"success": True, "slug": slug}
+
+
+@router.put("/shop-profile")
+async def set_shop_profile(request: Request):
+    """Set shop name and logo"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    update = {}
+    if "shop_name" in body:
+        update["shop_name"] = body["shop_name"][:60]
+    if "shop_logo" in body:
+        update["shop_logo"] = body["shop_logo"]
+    if not update:
+        raise HTTPException(status_code=400, detail="Nothing to update")
+    update["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.user_settings.update_one({"user_id": user_id}, {"$set": update}, upsert=True)
+    return {"success": True}

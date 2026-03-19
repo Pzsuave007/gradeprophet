@@ -29,7 +29,8 @@ async def get_public_shop(slug: str):
     return {
         "shop": {
             "slug": slug,
-            "name": settings.get("display_name") or (user.get("name") if user else slug),
+            "name": settings.get("shop_name") or settings.get("display_name") or (user.get("name") if user else slug),
+            "logo": settings.get("shop_logo") or "",
             "location": settings.get("location", ""),
             "avatar": user.get("picture", "") if user else "",
             "total_items": len(items),

@@ -21,6 +21,8 @@ const AccountModule = () => {
   const [currentPlan, setCurrentPlan] = useState('rookie');
   const [showPricing, setShowPricing] = useState(false);
   const [shopSlug, setShopSlug] = useState('');
+  const [shopName, setShopName] = useState('');
+  const [shopLogo, setShopLogo] = useState('');
   const [savingSlug, setSavingSlug] = useState(false);
 
   const fetchPlan = useCallback(async () => {
@@ -41,6 +43,8 @@ const AccountModule = () => {
       if (settingsRes.status === 'fulfilled') {
         setSettings(s => ({ ...s, ...settingsRes.value.data }));
         if (settingsRes.value.data.shop_slug) setShopSlug(settingsRes.value.data.shop_slug);
+        if (settingsRes.value.data.shop_name) setShopName(settingsRes.value.data.shop_name);
+        if (settingsRes.value.data.shop_logo) setShopLogo(settingsRes.value.data.shop_logo);
       }
     } catch { setEbayStatus({ connected: false }); }
     finally { setLoading(false); }
@@ -82,10 +86,36 @@ const AccountModule = () => {
     setSavingSlug(true);
     try {
       await axios.put(`${API}/api/settings/shop-slug`, { slug: shopSlug.trim().toLowerCase() });
-      toast.success('Shop URL saved!');
+      if (shopName.trim()) {
+        await axios.put(`${API}/api/settings/shop-profile`, { shop_name: shopName.trim(), ...(shopLogo ? { shop_logo: shopLogo } : {}) });
+      }
+      toast.success('Shop saved!');
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Failed to save shop URL');
+      toast.error(err.response?.data?.detail || 'Failed to save');
     } finally { setSavingSlug(false); }
+  };
+
+  const handleLogoUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast.error('Logo must be under 2MB'); return; }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) { if (w > h) { h = Math.round((h / w) * MAX); w = MAX; } else { w = Math.round((w / h) * MAX); h = MAX; } }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        const logo64 = canvas.toDataURL('image/webp', 0.85);
+        setShopLogo(logo64);
+        axios.put(`${API}/api/settings/shop-profile`, { shop_logo: logo64 }).then(() => toast.success('Logo uploaded!')).catch(() => toast.error('Failed to upload logo'));
+      };
+      img.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
   };
 
   const shopUrl = shopSlug ? `${window.location.origin}/shop/${shopSlug}` : '';
@@ -195,6 +225,35 @@ const AccountModule = () => {
         </div>
         <div className="p-5 space-y-4">
           <p className="text-xs text-gray-500">Create a public storefront to share your listed cards. Anyone with the link can browse your cards and buy on eBay.</p>
+
+          {/* Logo Upload */}
+          <div className="flex items-center gap-4">
+            <div className="relative w-16 h-16 rounded-xl bg-[#0a0a0a] border border-[#222] flex items-center justify-center overflow-hidden flex-shrink-0">
+              {shopLogo ? (
+                <img src={shopLogo} alt="Logo" className="w-full h-full object-cover" />
+              ) : (
+                <Store className="w-6 h-6 text-gray-700" />
+              )}
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500 uppercase tracking-wider font-bold block mb-1">Shop Logo</label>
+              <label className="text-xs px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 font-bold cursor-pointer hover:bg-white/10 transition-colors inline-block"
+                data-testid="upload-shop-logo-btn">
+                Upload Logo
+                <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+              </label>
+            </div>
+          </div>
+
+          {/* Shop Name */}
+          <div>
+            <label className={labelCls}>Shop Name</label>
+            <input className={inputCls} value={shopName} onChange={e => setShopName(e.target.value)}
+              placeholder="My Card Collection" maxLength={60}
+              data-testid="input-shop-name" />
+          </div>
+
+          {/* Shop URL */}
           <div>
             <label className={labelCls}>Shop URL</label>
             <div className="flex gap-2">
