@@ -296,7 +296,7 @@ const LandingPage = ({ onGetStarted }) => {
                 <motion.div key={i}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className={`relative rounded-2xl overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  className={`relative rounded-2xl overflow-visible flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
                     plan.highlight
                       ? 'bg-[#111] border-2 border-amber-500/40 shadow-lg shadow-amber-500/5'
                       : 'bg-[#111] border border-white/[0.06]'
@@ -305,7 +305,7 @@ const LandingPage = ({ onGetStarted }) => {
 
                   {/* Badge */}
                   {plan.badge && (
-                    <div className={`absolute top-0 right-0 px-2.5 py-1 rounded-bl-lg text-[8px] font-black uppercase tracking-widest ${
+                    <div className={`absolute -top-3 right-4 px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest z-20 ${
                       plan.highlight ? 'bg-amber-500 text-black' : 'bg-purple-500 text-white'
                     }`}>
                       {plan.badge}
@@ -313,39 +313,39 @@ const LandingPage = ({ onGetStarted }) => {
                   )}
 
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
-                    {/* Card Holder Image */}
-                    <div className={`relative w-full h-40 sm:h-48 rounded-xl overflow-hidden mb-1 flex items-center justify-center ${
-                      plan.id === 'rookie' ? 'bg-gradient-to-b from-gray-800/30 to-transparent' :
-                      plan.id === 'all_star' ? 'bg-gradient-to-b from-blue-900/20 to-transparent' :
-                      plan.id === 'hall_of_fame' ? 'bg-gradient-to-b from-amber-900/20 to-transparent' :
-                      'bg-gradient-to-b from-purple-900/20 to-transparent'
-                    }`}>
-                      <img src={plan.cardImage} alt={`${plan.name} card`}
-                        className="h-full object-contain rounded-lg transition-transform hover:scale-105"
-                        style={{
-                          filter: plan.id === 'rookie' ? 'drop-shadow(0 4px 20px rgba(156,163,175,0.3))' :
-                                 plan.id === 'all_star' ? 'drop-shadow(0 4px 25px rgba(59,130,246,0.5))' :
-                                 plan.id === 'hall_of_fame' ? 'drop-shadow(0 4px 30px rgba(245,158,11,0.6))' :
-                                 'drop-shadow(0 4px 30px rgba(147,51,234,0.6))',
-                        }}
-                        loading="lazy" />
-                    </div>
-
-                    {/* Icon + Name */}
-                    <div className="flex items-center gap-2.5">
-                      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg`}>
-                        <Icon className="w-5 h-5 text-white" />
+                    {/* Top area: Icon+Name on left, Card floating right */}
+                    <div className="relative min-h-[140px] sm:min-h-[160px]">
+                      {/* Card Image - floating right, extending outside */}
+                      <div className="absolute -top-8 -right-4 sm:-right-6 w-[120px] sm:w-[140px] z-10 pointer-events-none">
+                        <img src={plan.cardImage} alt={`${plan.name} card`}
+                          className="w-full h-auto rounded-md transition-transform"
+                          style={{
+                            filter: plan.id === 'rookie' ? 'drop-shadow(0 8px 24px rgba(156,163,175,0.25))' :
+                                   plan.id === 'all_star' ? 'drop-shadow(0 8px 28px rgba(59,130,246,0.45))' :
+                                   plan.id === 'hall_of_fame' ? 'drop-shadow(0 8px 32px rgba(245,158,11,0.55))' :
+                                   'drop-shadow(0 8px 32px rgba(147,51,234,0.55))',
+                          }}
+                          loading="lazy" />
                       </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
-                        <p className="text-[10px] text-gray-600">{plan.tagline}</p>
-                      </div>
-                    </div>
 
-                    {/* Price */}
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
-                      {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
+                      {/* Icon + Name + Price - left side */}
+                      <div className="relative z-10 pr-[90px] sm:pr-[100px]">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
+                            <p className="text-[10px] text-gray-600">{plan.tagline}</p>
+                          </div>
+                        </div>
+
+                        {/* Price */}
+                        <div className="flex items-baseline gap-1 mt-3">
+                          <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
+                          {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
+                        </div>
+                      </div>
                     </div>
 
                     {/* Limits */}
