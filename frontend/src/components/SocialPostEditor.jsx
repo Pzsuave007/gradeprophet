@@ -116,7 +116,7 @@ const DraggableEl = ({ id, el, containerW, containerH, selected, onSelect, onUpd
       onPointerDown={handlePointerDown}
       style={{
         position: 'absolute', left, top, width, height,
-        cursor: 'move', zIndex: id === 'card' ? 1 : id === 'frame' ? 2 : 10,
+        cursor: 'move', zIndex: id === 'frame' ? 0 : id === 'card' ? 1 : 10,
         outline: selected ? '2px solid rgba(168,85,247,0.7)' : 'none',
         outlineOffset: 2,
         touchAction: 'none',
