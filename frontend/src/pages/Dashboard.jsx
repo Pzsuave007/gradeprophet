@@ -13,6 +13,7 @@ import {
   Crosshair,
   BarChart3
 } from 'lucide-react';
+import { PlanProvider } from '../hooks/usePlan';
 import DashboardHome from '../components/DashboardHome';
 import InventoryModule from '../components/InventoryModule';
 import AccountModule from '../components/AccountModule';
@@ -109,6 +110,7 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   return (
+    <PlanProvider>
     <div className="min-h-screen bg-[#0a0a0a] flex">
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex flex-col w-56 bg-[#0a0a0a] border-r border-[#1a1a1a] fixed h-full z-40">
@@ -280,6 +282,7 @@ const Dashboard = ({ user, onLogout }) => {
         )}
       </AnimatePresence>
     </div>
+    </PlanProvider>
   );
 };
 

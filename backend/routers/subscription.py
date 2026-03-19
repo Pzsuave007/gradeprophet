@@ -146,20 +146,29 @@ async def get_my_plan(request: Request):
         {"user_id": user["user_id"]}, {"_id": 0}
     )
     if not user_sub:
-        return {
-            "plan_id": "rookie",
-            "plan": PLANS["rookie"],
-            "status": "active",
-            "scans_used": 0,
-        }
-    plan = get_plan(user_sub.get("plan_id", "rookie"))
+        plan_id = "rookie"
+        scans_used = 0
+    else:
+        plan_id = user_sub.get("plan_id", "rookie")
+        scans_used = user_sub.get("scans_used", 0)
+
+    plan = get_plan(plan_id)
+
+    # Get current usage counts
+    inv_count = await db.inventory.count_documents({"user_id": user["user_id"]})
+    listing_count = await db.inventory.count_documents({"user_id": user["user_id"], "ebay_listing_id": {"$exists": True, "$ne": None}})
+
     return {
-        "plan_id": user_sub.get("plan_id", "rookie"),
+        "plan_id": plan_id,
         "plan": plan,
-        "status": user_sub.get("status", "active"),
-        "scans_used": user_sub.get("scans_used", 0),
-        "started_at": user_sub.get("started_at"),
-        "current_period_end": user_sub.get("current_period_end"),
+        "status": user_sub.get("status", "active") if user_sub else "active",
+        "scans_used": scans_used,
+        "usage": {
+            "inventory": inv_count,
+            "scans": scans_used,
+            "listings": listing_count,
+        },
+        "started_at": user_sub.get("started_at") if user_sub else None,
     }
 
 

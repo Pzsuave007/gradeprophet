@@ -1,15 +1,17 @@
 import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, History, Brain, ShoppingBag, ChevronLeft, Crosshair } from 'lucide-react';
+import { Scan, History, Brain, ShoppingBag, ChevronLeft, Crosshair, Lock } from 'lucide-react';
 import CardScanner from './CardScanner';
 import AnalysisResult from './AnalysisResult';
 import HistoryPanel from './HistoryPanel';
 import LearningPanel from './LearningPanel';
 import EbayMonitor from './EbayMonitor';
 import AuctionSniper from './AuctionSniper';
+import UpgradeGate from './UpgradeGate';
 import { Button } from './ui/button';
+import { usePlan } from '../hooks/usePlan';
 
-const FlipFinder = () => {
+const FlipFinder = ({ onNavigateToAccount }) => {
   const [currentView, setCurrentView] = useState('monitor');
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [frontImage, setFrontImage] = useState(null);
@@ -19,6 +21,13 @@ const FlipFinder = () => {
   const [subTab, setSubTab] = useState('monitor');
   const [ebayUrlToImport, setEbayUrlToImport] = useState(null);
   const [snipeUrl, setSnipeUrl] = useState(null);
+  const { hasFeature, planId } = usePlan();
+
+  const flipFinderAccess = hasFeature('flip_finder');
+  const hasMonitor = hasFeature('flip_finder_monitor');
+  const hasAlerts = hasFeature('flip_finder_alerts');
+  const hasAnalyze = hasFeature('flip_finder_analyze');
+  const hasAI = hasFeature('flip_finder_ai');
 
   const handleAnalysisComplete = useCallback((analysis, front, back) => {
     setCurrentAnalysis(analysis);
@@ -65,21 +74,69 @@ const FlipFinder = () => {
     { id: 'learning', label: 'AI', icon: Brain },
   ];
 
+  const goUpgrade = () => onNavigateToAccount?.();
+
+  // Rookie: entire Flip Finder is locked
+  if (!flipFinderAccess) {
+    return (
+      <UpgradeGate locked={true} planRequired="all_star" featureName="Flip Finder" onUpgrade={goUpgrade}>
+        <div className="w-full overflow-x-hidden">
+          <div className="flex gap-1 mb-4 pb-1 -mx-1 px-1">
+            {subTabs.map(({ id, label, icon: Icon }) => (
+              <div key={id} className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wider bg-[#111] text-gray-500 border border-[#1a1a1a] whitespace-nowrap flex-shrink-0">
+                <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{label}
+              </div>
+            ))}
+          </div>
+          <div className="h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+        </div>
+      </UpgradeGate>
+    );
+  }
+
+  // Tab-level feature check
+  const tabLocked = (id) => {
+    if (id === 'monitor') return !hasMonitor;
+    if (id === 'sniper') return !hasAlerts;
+    if (id === 'scanner') return !hasAnalyze;
+    if (id === 'learning') return !hasAI;
+    return false;
+  };
+
+  const minPlanForTab = (id) => {
+    if (id === 'sniper') return 'hall_of_fame';
+    if (id === 'learning') return 'hall_of_fame';
+    return 'all_star';
+  };
+
   return (
     <div className="w-full overflow-x-hidden">
       {/* Sub-navigation */}
       <div className="flex gap-1 mb-4 overflow-x-auto scrollbar-hide pb-1 -mx-1 px-1">
-        {subTabs.map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => { setSubTab(id); if (id === 'scanner') setCurrentView('scanner'); }}
-            className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex-shrink-0 ${
-              subTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
-            }`} data-testid={`flip-tab-${id}`}>
-            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{label}
-          </button>
-        ))}
+        {subTabs.map(({ id, label, icon: Icon }) => {
+          const locked = tabLocked(id);
+          return (
+            <button key={id}
+              onClick={() => { if (!locked) { setSubTab(id); if (id === 'scanner') setCurrentView('scanner'); } }}
+              className={`flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded text-[10px] sm:text-xs font-semibold uppercase tracking-wider transition-colors whitespace-nowrap flex-shrink-0 ${
+                locked ? 'bg-[#111] text-gray-700 border border-[#1a1a1a] cursor-not-allowed' :
+                subTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
+              }`} data-testid={`flip-tab-${id}`}>
+              {locked && <Lock className="w-2.5 h-2.5" />}
+              <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />{label}
+            </button>
+          );
+        })}
       </div>
 
       <AnimatePresence mode="wait">
+        {/* Check if current tab is locked */}
+        {tabLocked(subTab) ? (
+          <UpgradeGate locked={true} planRequired={minPlanForTab(subTab)} featureName={subTabs.find(t => t.id === subTab)?.label} onUpgrade={goUpgrade}>
+            <div className="h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+          </UpgradeGate>
+        ) : (
+        <>
         {subTab === 'scanner' && currentView === 'scanner' && (
           <motion.div key="scanner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <CardScanner onAnalysisComplete={handleAnalysisComplete} isAnalyzing={isAnalyzing} setIsAnalyzing={setIsAnalyzing}
@@ -121,6 +178,8 @@ const FlipFinder = () => {
             <h2 className="font-heading text-lg font-bold uppercase tracking-tighter text-white mb-3">Learning <span className="text-[#eab308]">System</span></h2>
             <LearningPanel refreshTrigger={historyRefresh} />
           </motion.div>
+        )}
+        </>
         )}
       </AnimatePresence>
     </div>

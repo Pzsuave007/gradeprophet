@@ -13,6 +13,7 @@ from utils.image import (
     process_card_image, create_thumbnail, crop_corners_from_image,
     auto_crop_card
 )
+from utils.plan_limits import check_scan_limit, increment_scan_count
 from utils.ai import (
     analyze_card_with_ai, read_psa_label,
     CARD_IDENTIFY_PROMPT
@@ -219,7 +220,16 @@ async def analyze_card(data: CardAnalysisCreate, request: Request):
 async def identify_card(request: Request):
     """Identify a card from photo using AI"""
     try:
-        await get_current_user(request)  # Auth check
+        user = await get_current_user(request)
+
+        # Check scan limit
+        scan_check = await check_scan_limit(user["user_id"])
+        if not scan_check["allowed"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"AI scan limit reached ({scan_check['limit']}/month). Upgrade your plan for more scans."
+            )
+
         body = await request.json()
 
         front_image = body.get("front_image_base64", "") or body.get("image_base64", "")
@@ -260,6 +270,10 @@ async def identify_card(request: Request):
             cleaned = cleaned[:-3]
 
         result = json.loads(cleaned.strip())
+
+        # Increment scan count after successful identification
+        await increment_scan_count(user["user_id"])
+
         return result
 
     except HTTPException:

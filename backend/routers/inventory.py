@@ -8,6 +8,7 @@ import logging
 from database import db
 from utils.auth import get_current_user
 from utils.image import process_card_image
+from utils.plan_limits import check_inventory_limit, check_scan_limit, increment_scan_count
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/inventory", tags=["inventory"])
@@ -113,6 +114,14 @@ async def create_inventory_item(data: InventoryItemCreate, request: Request):
     try:
         user = await get_current_user(request)
         user_id = user["user_id"]
+
+        # Check inventory limit
+        inv_check = await check_inventory_limit(user_id)
+        if not inv_check["allowed"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Inventory limit reached ({inv_check['limit']} cards). Upgrade your plan to add more."
+            )
 
         image_thumb = None
         if data.image_base64:
