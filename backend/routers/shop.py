@@ -101,6 +101,13 @@ async def get_public_shop(slug: str):
     user_id = settings.get("user_id")
     user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "password_hash": 0})
 
+    # Get user's subscription plan
+    sub = await db.subscriptions.find_one(
+        {"user_id": user_id, "status": "active"},
+        {"_id": 0, "plan_id": 1}
+    )
+    plan = (sub.get("plan_id") if sub else None) or "rookie"
+
     # Get listed inventory items with images
     items = await db.inventory.find(
         {"user_id": user_id, "ebay_item_id": {"$exists": True, "$ne": None}},
@@ -121,6 +128,7 @@ async def get_public_shop(slug: str):
             "total_items": len(items),
             "sales_count": sales_count,
             "sports": sports,
+            "plan": plan,
         },
         "items": items,
     }

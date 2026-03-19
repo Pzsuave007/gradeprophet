@@ -178,7 +178,7 @@ const ShopPage = () => {
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
             {filtered.map((item, idx) => (
-              <CardTile key={item.id || idx} item={item} index={idx} onClick={() => setSelectedCard(item)} />
+              <CardTile key={item.id || idx} item={item} index={idx} plan={shop.plan} onClick={() => setSelectedCard(item)} />
             ))}
           </div>
         )}
@@ -203,10 +203,20 @@ const ShopPage = () => {
   );
 };
 
+// =========== PLAN GLOW CONFIG ===========
+const PLAN_GLOW = {
+  rookie:      { border: 'rgba(156,163,175,0.15)', shadow: '0 0 15px rgba(156,163,175,0.08), 0 0 30px rgba(156,163,175,0.04)', hoverShadow: '0 0 20px rgba(156,163,175,0.15), 0 0 40px rgba(156,163,175,0.08)', hoverBorder: 'rgba(156,163,175,0.25)' },
+  all_star:    { border: 'rgba(59,130,246,0.2)',    shadow: '0 0 15px rgba(59,130,246,0.1), 0 0 30px rgba(59,130,246,0.05)',   hoverShadow: '0 0 20px rgba(59,130,246,0.2), 0 0 40px rgba(59,130,246,0.1)',   hoverBorder: 'rgba(59,130,246,0.35)' },
+  hall_of_fame:{ border: 'rgba(245,158,11,0.2)',    shadow: '0 0 15px rgba(245,158,11,0.1), 0 0 30px rgba(245,158,11,0.05)',   hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
+  legend:      { border: 'rgba(168,85,247,0.2)',    shadow: '0 0 15px rgba(168,85,247,0.12), 0 0 30px rgba(168,85,247,0.06)', hoverShadow: '0 0 25px rgba(168,85,247,0.3), 0 0 50px rgba(168,85,247,0.12)', hoverBorder: 'rgba(168,85,247,0.45)' },
+};
+
 // =========== CARD TILE ===========
-const CardTile = ({ item, index, onClick }) => {
+const CardTile = ({ item, index, plan, onClick }) => {
   const price = item.listed_price || item.purchase_price;
   const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
+  const glow = PLAN_GLOW[plan] || PLAN_GLOW.rookie;
+  const [hovered, setHovered] = useState(false);
 
   return (
     <motion.div
@@ -214,7 +224,13 @@ const CardTile = ({ item, index, onClick }) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.6) }}
       onClick={onClick}
-      className="group relative bg-white/[0.02] border border-white/[0.05] rounded-2xl overflow-hidden cursor-pointer hover:border-amber-500/20 hover:bg-white/[0.04] transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/5"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      className="group relative bg-white/[0.02] rounded-2xl overflow-hidden cursor-pointer transition-all duration-300"
+      style={{
+        border: `1px solid ${hovered ? glow.hoverBorder : glow.border}`,
+        boxShadow: hovered ? glow.hoverShadow : glow.shadow,
+      }}
       data-testid={`shop-card-${index}`}
     >
       <div className="aspect-[3/4] relative overflow-hidden bg-[#0a0a0a]">
