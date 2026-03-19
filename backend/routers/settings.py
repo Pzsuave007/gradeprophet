@@ -93,22 +93,24 @@ async def set_shop_profile(request: Request):
 
 
 MAX_EDITOR_PRESETS = 5
+ADMIN_EMAIL = "pzsuave007@gmail.com"
 
 @router.get("/editor-presets")
 async def get_editor_presets(request: Request):
-    """Get user's saved social post editor presets"""
-    user = await get_current_user(request)
-    settings = await db.user_settings.find_one({"user_id": user["user_id"]}, {"_id": 0, "editor_presets": 1})
-    return {"presets": (settings or {}).get("editor_presets", [])}
+    """Get global editor presets (available to all users)"""
+    await get_current_user(request)
+    doc = await db.global_settings.find_one({"key": "editor_presets"}, {"_id": 0})
+    return {"presets": (doc or {}).get("presets", [])}
 
 
 @router.post("/editor-presets")
 async def save_editor_preset(request: Request):
-    """Save a social post editor preset (max 5)"""
+    """Save a global editor preset (admin only, max 5)"""
     user = await get_current_user(request)
-    user_id = user["user_id"]
-    body = await request.json()
+    if user.get("email") != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only")
 
+    body = await request.json()
     name = body.get("name", "").strip()
     if not name or len(name) > 30:
         raise HTTPException(status_code=400, detail="Name is required (max 30 chars)")
@@ -117,8 +119,8 @@ async def save_editor_preset(request: Request):
     if not preset_data:
         raise HTTPException(status_code=400, detail="Preset data is required")
 
-    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "editor_presets": 1})
-    presets = (settings or {}).get("editor_presets", [])
+    doc = await db.global_settings.find_one({"key": "editor_presets"}, {"_id": 0})
+    presets = (doc or {}).get("presets", [])
 
     if len(presets) >= MAX_EDITOR_PRESETS:
         raise HTTPException(status_code=400, detail=f"Maximum {MAX_EDITOR_PRESETS} presets allowed")
@@ -132,9 +134,9 @@ async def save_editor_preset(request: Request):
     }
     presets.append(new_preset)
 
-    await db.user_settings.update_one(
-        {"user_id": user_id},
-        {"$set": {"editor_presets": presets}},
+    await db.global_settings.update_one(
+        {"key": "editor_presets"},
+        {"$set": {"presets": presets}},
         upsert=True,
     )
     return {"success": True, "preset": new_preset}
@@ -142,19 +144,20 @@ async def save_editor_preset(request: Request):
 
 @router.delete("/editor-presets/{preset_id}")
 async def delete_editor_preset(preset_id: str, request: Request):
-    """Delete a saved editor preset"""
+    """Delete a global editor preset (admin only)"""
     user = await get_current_user(request)
-    user_id = user["user_id"]
+    if user.get("email") != ADMIN_EMAIL:
+        raise HTTPException(status_code=403, detail="Admin only")
 
-    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "editor_presets": 1})
-    presets = (settings or {}).get("editor_presets", [])
+    doc = await db.global_settings.find_one({"key": "editor_presets"}, {"_id": 0})
+    presets = (doc or {}).get("presets", [])
     filtered = [p for p in presets if p["id"] != preset_id]
 
     if len(filtered) == len(presets):
         raise HTTPException(status_code=404, detail="Preset not found")
 
-    await db.user_settings.update_one(
-        {"user_id": user_id},
-        {"$set": {"editor_presets": filtered}},
+    await db.global_settings.update_one(
+        {"key": "editor_presets"},
+        {"$set": {"presets": filtered}},
     )
     return {"success": True}
