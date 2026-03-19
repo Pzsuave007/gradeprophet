@@ -100,7 +100,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        const result = canvas.toDataURL('image/jpeg', 0.8);
+        const result = canvas.toDataURL('image/webp', 0.82);
         canvas.width = 0;
         canvas.height = 0;
         img.src = '';
@@ -336,7 +336,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         }
         ctx.putImageData(imageData, 0, 0);
       }
-      const enhanced = canvas.toDataURL('image/jpeg', 0.92);
+      const enhanced = canvas.toDataURL('image/webp', 0.92);
       canvas.width = 0;
       canvas.height = 0;
       const field = side === 'back' ? 'back_image_base64' : 'image_base64';

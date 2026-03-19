@@ -34,7 +34,7 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
       img.onload = () => {
         URL.revokeObjectURL(url);
         const canvas = document.createElement('canvas');
-        const MAX = 900;
+        const MAX = 1200;
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX) {
           if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
@@ -44,7 +44,7 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        const result = canvas.toDataURL('image/jpeg', 0.65);
+        const result = canvas.toDataURL('image/webp', 0.82);
         canvas.width = 0;
         canvas.height = 0;
         img.src = '';
