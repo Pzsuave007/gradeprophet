@@ -23,8 +23,10 @@ async def get_public_shop(slug: str):
     ).sort("listed_at", -1).to_list(500)
 
     # Calculate stats
-    total_value = sum(float(i.get("listed_price") or i.get("purchase_price") or 0) for i in items)
     sports = list(set(i.get("sport") for i in items if i.get("sport")))
+    sales_count = await db.created_listings.count_documents(
+        {"user_id": user_id, "status": "ended"}
+    )
 
     return {
         "shop": {
@@ -34,7 +36,7 @@ async def get_public_shop(slug: str):
             "location": settings.get("location", ""),
             "avatar": user.get("picture", "") if user else "",
             "total_items": len(items),
-            "total_value": round(total_value, 2),
+            "sales_count": sales_count,
             "sports": sports,
         },
         "items": items,

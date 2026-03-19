@@ -87,33 +87,35 @@ const ShopPage = () => {
 
       {/* Hero */}
       <header className="relative border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-14">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center text-center gap-4">
-            {/* Logo */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-2 border-amber-500/20 flex items-center justify-center overflow-hidden shadow-2xl shadow-amber-500/10">
-              {logoSrc ? (
-                <img src={logoSrc} alt="" className="w-full h-full object-cover" />
-              ) : (
-                <Store className="w-12 h-12 text-amber-500/50" />
-              )}
+            className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-5">
+            {/* Left: Logo + Name + Location */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-2 border-amber-500/20 flex items-center justify-center overflow-hidden shadow-2xl shadow-amber-500/10 flex-shrink-0">
+                {logoSrc ? (
+                  <img src={logoSrc} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <Store className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500/50" />
+                )}
+              </div>
+              <div>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none">
+                  {shop.name}
+                </h1>
+                {shop.location && (
+                  <div className="flex items-center gap-1.5 mt-1 text-gray-500">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span className="text-sm">{shop.location}</span>
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-none">
-                {shop.name}
-              </h1>
-              {shop.location && (
-                <div className="flex items-center justify-center gap-1.5 mt-2 text-gray-500">
-                  <MapPin className="w-3.5 h-3.5" />
-                  <span className="text-sm">{shop.location}</span>
-                </div>
-              )}
-            </div>
-            {/* Stats row */}
-            <div className="flex gap-8 mt-2">
+            {/* Right: Stats */}
+            <div className="flex gap-6 sm:gap-8">
               {[
                 { val: shop.total_items, label: 'Cards', color: 'text-amber-400' },
-                { val: `$${shop.total_value >= 1000 ? `${(shop.total_value / 1000).toFixed(1)}k` : shop.total_value.toFixed(0)}`, label: 'Value', color: 'text-emerald-400' },
+                { val: shop.sales_count || 0, label: 'Sales', color: 'text-emerald-400' },
                 { val: shop.sports?.length || 0, label: 'Sports', color: 'text-blue-400' },
               ].map(s => (
                 <div key={s.label} className="text-center">
