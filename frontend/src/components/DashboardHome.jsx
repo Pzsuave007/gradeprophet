@@ -5,7 +5,7 @@ import {
   BarChart3, RefreshCw, Package, Tag, ShoppingBag,
   Award, Zap, ChevronRight, ExternalLink, Wallet,
   Crosshair, Eye, Target, Activity,
-  Search, ArrowRight, X, Newspaper, User as UserIcon, Lock
+  Search, ArrowRight, X, Newspaper, User as UserIcon, Lock, Gauge
 } from 'lucide-react';
 import axios from 'axios';
 import { usePlan } from '../hooks/usePlan';
@@ -259,6 +259,79 @@ const HobbyNewsFeed = () => {
   );
 };
 
+const PLAN_LABELS = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
+const PLAN_COLORS = { rookie: '#6b7280', all_star: '#3b82f6', hall_of_fame: '#f59e0b', legend: '#a855f7' };
+
+const PlanUsageBanner = ({ getUsage, planId, onUpgrade }) => {
+  const inv = getUsage('inventory');
+  const scans = getUsage('scans_per_month');
+  const listings = getUsage('listings');
+
+  const meters = [
+    { label: 'Inventory', current: inv.current, limit: inv.limit, unlimited: inv.unlimited, icon: Package, color: '#f59e0b' },
+    { label: 'AI Scans', current: scans.current, limit: scans.limit, unlimited: scans.unlimited, icon: Zap, color: '#3b82f6' },
+    { label: 'Listings', current: listings.current, limit: listings.limit, unlimited: listings.unlimited, icon: Tag, color: '#10b981' },
+  ];
+
+  const planColor = PLAN_COLORS[planId] || '#6b7280';
+  const isLegend = planId === 'legend';
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4"
+      data-testid="plan-usage-banner"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Gauge className="w-4 h-4" style={{ color: planColor }} />
+          <span className="text-xs font-bold text-white">Plan Usage</span>
+          <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: `${planColor}20`, color: planColor }}>
+            {PLAN_LABELS[planId] || 'Rookie'}
+          </span>
+        </div>
+        {!isLegend && (
+          <button onClick={onUpgrade}
+            className="text-[10px] font-bold text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1"
+            data-testid="usage-upgrade-btn">
+            Upgrade <ArrowRight className="w-3 h-3" />
+          </button>
+        )}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {meters.map(({ label, current, limit, unlimited, icon: Icon, color }) => {
+          const pct = unlimited ? 100 : limit > 0 ? Math.min((current / limit) * 100, 100) : 0;
+          const isNear = !unlimited && limit > 0 && pct >= 80;
+          const isFull = !unlimited && limit > 0 && current >= limit;
+          const barColor = isFull ? '#ef4444' : isNear ? '#f59e0b' : color;
+          return (
+            <div key={label} className="space-y-1.5" data-testid={`usage-meter-${label.toLowerCase().replace(/\s/g, '-')}`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Icon className="w-3 h-3" style={{ color: barColor }} />
+                  <span className="text-[10px] font-semibold text-gray-400">{label}</span>
+                </div>
+                <span className="text-[10px] font-bold" style={{ color: isFull ? '#ef4444' : 'white' }}>
+                  {unlimited ? 'Unlimited' : `${current}/${limit}`}
+                </span>
+              </div>
+              <div className="h-1.5 bg-[#1a1a1a] rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: unlimited ? '100%' : `${pct}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{ background: unlimited ? `linear-gradient(90deg, ${color}60, ${color})` : barColor }}
+                />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+};
+
 const DashboardHome = ({ onNavigate }) => {
   const [data, setData] = useState(null);
   const [ccData, setCcData] = useState(null);
@@ -266,7 +339,7 @@ const DashboardHome = ({ onNavigate }) => {
   const [dateRange, setDateRange] = useState('all');
   const [dashTab, setDashTab] = useState('command');
   const [selectedSale, setSelectedSale] = useState(null);
-  const { hasFeature } = usePlan();
+  const { hasFeature, getUsage, planId } = usePlan();
   const hasDashboardFull = hasFeature('dashboard_full');
 
   const fetchAll = useCallback(async () => {
@@ -341,6 +414,9 @@ const DashboardHome = ({ onNavigate }) => {
           </button>
         </div>
       </div>
+
+      {/* Plan Usage Banner */}
+      <PlanUsageBanner getUsage={getUsage} planId={planId} onUpgrade={() => onNavigate?.('account')} />
 
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto scrollbar-hide" data-testid="dashboard-tabs">

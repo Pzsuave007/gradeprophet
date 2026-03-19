@@ -50,6 +50,11 @@ Home | Inventory | Scan | Listings | Flip
   - Backend: Inventory, scan, and listing limit checks with 403 responses
   - Frontend: 403 error handling with user-friendly upgrade prompts
   - eBay listing creation: Limit check before creating listings
+- [x] Plan Usage Banner on Dashboard (Mar 2026)
+  - Shows Inventory, AI Scans, Listings usage with animated progress bars
+  - Color-coded: yellow at 80%, red at 100% limit
+  - "Unlimited" display for Legend plan
+  - Upgrade button for non-Legend users
 
 ## Pending Tasks
 - **P1:** Whatnot Integration & Inventory Sync Engine
