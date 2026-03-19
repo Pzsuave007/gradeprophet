@@ -18,16 +18,44 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
     else if (e.type === 'dragleave') setDragActive(false);
   }, [disabled]);
 
+  const compressToWebP = useCallback((dataUrl) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else { w = Math.round((w / h) * MAX); h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        const result = canvas.toDataURL('image/webp', 0.82);
+        canvas.width = 0;
+        canvas.height = 0;
+        resolve(result);
+      };
+      img.onerror = () => resolve(dataUrl);
+      img.src = dataUrl;
+    });
+  }, []);
+
   const processFile = useCallback((file) => {
     if (!file || disabled) return null;
     const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
     if (!validTypes.includes(file.type)) return 'Please upload a JPEG, PNG, or WEBP image';
     if (file.size > 10 * 1024 * 1024) return 'Image is too large. Max 10MB';
     const reader = new FileReader();
-    reader.onload = (e) => onImageSelect(e.target.result);
+    reader.onload = async (e) => {
+      const compressed = await compressToWebP(e.target.result);
+      onImageSelect(compressed);
+    };
     reader.readAsDataURL(file);
     return null;
-  }, [onImageSelect, disabled]);
+  }, [onImageSelect, disabled, compressToWebP]);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
