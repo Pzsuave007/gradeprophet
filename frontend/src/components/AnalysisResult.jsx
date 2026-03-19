@@ -125,13 +125,18 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
       const resp = await fetch(`${API}/inventory/from-scan/${analysis.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ category })
       });
       if (resp.ok) {
         setAddedToInventory(true);
       } else {
-        const err = await resp.json();
-        alert(err.detail || 'Failed to add');
+        const err = await resp.json().catch(() => ({}));
+        if (resp.status === 403) {
+          alert(err.detail || 'Inventory limit reached. Upgrade your plan to add more cards.');
+        } else {
+          alert(err.detail || 'Failed to add');
+        }
       }
     } catch (err) {
       console.error('Failed to add to inventory:', err);

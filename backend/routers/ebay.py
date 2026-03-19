@@ -17,6 +17,7 @@ from config import EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME, openai_clien
 from utils.auth import get_current_user
 from utils.ebay import EBAY_OAUTH_SCOPES, get_ebay_user_token, get_ebay_app_token
 from utils.market import get_card_market_value
+from utils.plan_limits import check_listing_limit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ebay", tags=["ebay"])
@@ -585,6 +586,15 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     """Create and publish an eBay listing"""
     user = await get_current_user(request)
     user_id = user["user_id"]
+
+    # Check listing limit
+    listing_check = await check_listing_limit(user_id)
+    if not listing_check["allowed"]:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Listing limit reached ({listing_check['limit']} listings). Upgrade your plan to create more."
+        )
+
     token = await get_ebay_user_token(user_id)
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected")

@@ -4,7 +4,7 @@ import {
   Search, TrendingUp, DollarSign, BarChart3, ExternalLink,
   RefreshCw, Layers, Tag, Package, Eye, Clock, ArrowRight,
   Heart, ArrowUpRight, ArrowDownRight, Plus, X, Flame,
-  Star, Target, Zap, ChevronRight, Bookmark, Bell, Calendar
+  Star, Target, Zap, ChevronRight, Bookmark, Bell, Calendar, Lock
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -14,6 +14,8 @@ import {
 } from 'recharts';
 import PriceAlerts from './PriceAlerts';
 import SeasonalIntelligence from './SeasonalIntelligence';
+import UpgradeGate from './UpgradeGate';
+import { usePlan } from '../hooks/usePlan';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -193,7 +195,7 @@ const WatchlistItem = ({ item, onLookup, onRemove }) => (
 );
 
 // =========== MAIN MARKET MODULE ===========
-const MarketModule = () => {
+const MarketModule = ({ onNavigateToAccount }) => {
   const [hotCards, setHotCards] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
   const [portfolio, setPortfolio] = useState(null);
@@ -210,6 +212,12 @@ const MarketModule = () => {
   const [showAddWatchlist, setShowAddWatchlist] = useState(false);
   const [newWatchName, setNewWatchName] = useState('');
   const [newWatchType, setNewWatchType] = useState('player');
+
+  const { hasFeature, planId } = usePlan();
+  const hasMarketFull = hasFeature('market_full');
+  const hasSeasonal = hasFeature('market_seasonal');
+
+  const goUpgrade = () => onNavigateToAccount?.();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -278,6 +286,25 @@ const MarketModule = () => {
     </div>
   );
 
+  // Rookie: entire Market module locked
+  if (!hasMarketFull && planId === 'rookie') {
+    return (
+      <UpgradeGate locked={true} planRequired="all_star" featureName="Market Intelligence" onUpgrade={goUpgrade}>
+        <div className="space-y-5 pb-8" data-testid="market-page">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Market Intelligence</h1>
+            <p className="text-xs text-gray-500 mt-0.5">Real-time market data, trends & investment insights</p>
+          </div>
+          <div className="h-48 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+            <div className="lg:col-span-2 h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+            <div className="lg:col-span-3 h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+          </div>
+        </div>
+      </UpgradeGate>
+    );
+  }
+
   return (
     <div className="space-y-5 pb-8" data-testid="market-page">
       {/* Header */}
@@ -291,9 +318,16 @@ const MarketModule = () => {
         </button>
       </div>
 
-      {/* === SEARCH BAR - BIG AND PROMINENT === */}
-      {/* === SEASONAL INTELLIGENCE === */}
-      <SeasonalIntelligence />
+      {/* === SEASONAL INTELLIGENCE - gated for non-Hall of Fame === */}
+      {hasSeasonal ? (
+        <SeasonalIntelligence />
+      ) : (
+        <UpgradeGate locked={true} planRequired="hall_of_fame" featureName="Seasonal Intelligence" onUpgrade={goUpgrade}>
+          <div className="h-48 bg-[#111] border border-[#1a1a1a] rounded-xl flex items-center justify-center">
+            <p className="text-xs text-gray-600">Seasonal market intelligence data</p>
+          </div>
+        </UpgradeGate>
+      )}
 
       {/* === UPCOMING RELEASES + HOT CARDS === */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 items-stretch">

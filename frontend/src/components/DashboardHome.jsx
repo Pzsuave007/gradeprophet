@@ -5,9 +5,15 @@ import {
   BarChart3, RefreshCw, Package, Tag, ShoppingBag,
   Award, Zap, ChevronRight, ExternalLink, Wallet,
   Crosshair, Eye, Target, Activity,
-  Search, ArrowRight, X, Newspaper, User as UserIcon
+  Search, ArrowRight, X, Newspaper, User as UserIcon, Lock
 } from 'lucide-react';
 import axios from 'axios';
+import { usePlan } from '../hooks/usePlan';
+import UpgradeGate from './UpgradeGate';
+import {
+  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  CartesianGrid, BarChart, Bar, Cell, PieChart, Pie
+} from 'recharts';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const fmt = (v) => {
@@ -260,6 +266,8 @@ const DashboardHome = ({ onNavigate }) => {
   const [dateRange, setDateRange] = useState('all');
   const [dashTab, setDashTab] = useState('command');
   const [selectedSale, setSelectedSale] = useState(null);
+  const { hasFeature } = usePlan();
+  const hasDashboardFull = hasFeature('dashboard_full');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -337,20 +345,30 @@ const DashboardHome = ({ onNavigate }) => {
       {/* Tabs */}
       <div className="flex gap-1 overflow-x-auto scrollbar-hide" data-testid="dashboard-tabs">
         {[
-          { id: 'command', label: 'Command Center', icon: Activity },
-          { id: 'overview', label: 'Sales Overview', icon: TrendingUp },
-        ].map(({ id, label, icon: Icon }) => (
-          <button key={id} onClick={() => setDashTab(id)}
+          { id: 'command', label: 'Command Center', icon: Activity, locked: false },
+          { id: 'overview', label: 'Sales Overview', icon: TrendingUp, locked: !hasDashboardFull },
+        ].map(({ id, label, icon: Icon, locked }) => (
+          <button key={id} onClick={() => { if (!locked) setDashTab(id); }}
             className={`px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors flex items-center gap-2 whitespace-nowrap ${
+              locked ? 'bg-[#111] text-gray-700 border border-[#1a1a1a] cursor-not-allowed' :
               dashTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
             }`} data-testid={`dash-tab-${id}`}>
+            {locked && <Lock className="w-3 h-3" />}
             <Icon className="w-3.5 h-3.5" /><span className="hidden sm:inline">{label}</span><span className="sm:hidden">{label.split(' ')[0]}</span>
           </button>
         ))}
       </div>
 
       {dashTab === 'command' && <CommandCenterTab cc={ccData} analytics={data} filteredStats={filteredStats} onNavigate={onNavigate} onSelectSale={setSelectedSale} onSwitchTab={setDashTab} />}
-      {dashTab === 'overview' && <SalesOverviewTab filteredStats={filteredStats} filteredCumulative={filteredCumulative} s={s} inv={inv} lst={lst} onNavigate={onNavigate} />}
+      {dashTab === 'overview' && (
+        hasDashboardFull ? (
+          <SalesOverviewTab filteredStats={filteredStats} filteredCumulative={filteredCumulative} s={s} inv={inv} lst={lst} onNavigate={onNavigate} />
+        ) : (
+          <UpgradeGate locked={true} planRequired="all_star" featureName="Sales Overview" onUpgrade={() => onNavigate?.('account')}>
+            <div className="h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
+          </UpgradeGate>
+        )
+      )}
 
       {/* Sale Detail Modal */}
       {selectedSale && <SaleDetailModal sale={selectedSale} onClose={() => setSelectedSale(null)} />}

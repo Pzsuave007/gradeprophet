@@ -508,7 +508,9 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           updateForm(i, { ...form, status: 'error', error: res.data.message || 'Failed to create listing' });
         }
       } catch (err) {
-        const msg = err.response?.data?.detail || err.message || 'Network error';
+        const msg = err.response?.status === 403
+          ? (err.response.data?.detail || 'Listing limit reached. Upgrade your plan.')
+          : (err.response?.data?.detail || err.message || 'Network error');
         updateForm(i, { ...form, status: 'error', error: msg });
       }
       setPublishProgress(i + 1);

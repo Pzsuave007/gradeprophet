@@ -102,8 +102,8 @@ const Dashboard = ({ user, onLogout }) => {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
       case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} />;
       case 'listings': return <ListingsModule />;
-      case 'flipfinder': return <FlipFinder />;
-      case 'market': return <MarketModule />;
+      case 'flipfinder': return <FlipFinder onNavigateToAccount={() => setActiveModule('account')} />;
+      case 'market': return <MarketModule onNavigateToAccount={() => setActiveModule('account')} />;
       case 'account': return <AccountModule />;
       default: return <DashboardHome onNavigate={setActiveModule} />;
     }

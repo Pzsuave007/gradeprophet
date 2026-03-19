@@ -91,7 +91,11 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
       });
       setCardData(res.data);
     } catch (err) {
-      toast.error('Error identifying card');
+      if (err.response?.status === 403) {
+        toast.error(err.response.data?.detail || 'Scan limit reached. Upgrade your plan.', { duration: 5000 });
+      } else {
+        toast.error('Error identifying card');
+      }
       setCardData({
         card_name: 'Carta no identificada',
         player: '',
@@ -142,7 +146,11 @@ const QuickScan = ({ token, onClose, onCardAdded }) => {
       onCardAdded?.(res.data);
       setStep('saved');
     } catch (err) {
-      toast.error('Error saving card');
+      if (err.response?.status === 403) {
+        toast.error(err.response.data?.detail || 'Inventory limit reached. Upgrade your plan.', { duration: 5000 });
+      } else {
+        toast.error('Error saving card');
+      }
     } finally {
       setSaving(false);
     }

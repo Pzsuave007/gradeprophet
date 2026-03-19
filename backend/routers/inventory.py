@@ -165,6 +165,23 @@ async def batch_save_inventory(data: BatchSaveRequest, request: Request):
     try:
         user = await get_current_user(request)
         user_id = user["user_id"]
+
+        # Check inventory limit before batch save
+        inv_check = await check_inventory_limit(user_id)
+        if not inv_check["allowed"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Inventory limit reached ({inv_check['limit']} cards). Upgrade your plan to add more."
+            )
+        # Check if batch would exceed limit
+        if inv_check["limit"] != -1:
+            remaining = inv_check["limit"] - inv_check["current"]
+            if len(data.cards) > remaining:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"Batch would exceed inventory limit. You have {remaining} slots remaining out of {inv_check['limit']}. Upgrade your plan."
+                )
+
         saved = 0
         errors = []
         for idx, card in enumerate(data.cards):
@@ -385,6 +402,15 @@ async def import_from_scan(analysis_id: str, data: ImportFromScanRequest, reques
     try:
         user = await get_current_user(request)
         user_id = user["user_id"]
+
+        # Check inventory limit
+        inv_check = await check_inventory_limit(user_id)
+        if not inv_check["allowed"]:
+            raise HTTPException(
+                status_code=403,
+                detail=f"Inventory limit reached ({inv_check['limit']} cards). Upgrade your plan to add more."
+            )
+
         existing = await db.inventory.find_one({"source_analysis_id": analysis_id, "user_id": user_id})
         if existing:
             raise HTTPException(status_code=400, detail="This card is already in your inventory")

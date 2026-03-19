@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
+import { usePlan } from '../hooks/usePlan';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -273,6 +274,8 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const [intensity, setIntensity] = useState(75);
   const [showBefore, setShowBefore] = useState(false);
   const [saving, setSaving] = useState(false);
+  const { hasFeature } = usePlan();
+  const canEditPhoto = hasFeature('photo_editor');
 
   if (!item) return null;
   const hasBack = !!item.back_image;
@@ -456,11 +459,20 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
             </button>
             <div className="flex items-center gap-2">
               {frontSrc && (
-                <button onClick={() => setShowEditor(true)}
-                  className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors bg-[#1a1a1a] text-gray-400 hover:text-white"
-                  data-testid="card-detail-edit-photo">
-                  <Sliders className="w-3 h-3" /> Edit Photo
-                </button>
+                canEditPhoto ? (
+                  <button onClick={() => setShowEditor(true)}
+                    className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors bg-[#1a1a1a] text-gray-400 hover:text-white"
+                    data-testid="card-detail-edit-photo">
+                    <Sliders className="w-3 h-3" /> Edit Photo
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => toast.info('Photo Editor requires Hall of Fame plan or higher. Upgrade in Account settings.')}
+                    className="text-[10px] px-2.5 py-1 rounded-full font-bold uppercase flex items-center gap-1 transition-colors bg-[#1a1a1a] text-gray-600 cursor-not-allowed"
+                    data-testid="card-detail-edit-photo-locked">
+                    <Lock className="w-3 h-3" /> Edit Photo
+                  </button>
+                )
               )}
               {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
               {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
@@ -634,16 +646,24 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 
   const handleSearch = (val) => { setSearch(val); clearTimeout(searchTimeout.current); searchTimeout.current = setTimeout(() => fetchInventory(val), 300); };
   const handleSave = async (payload, itemId) => {
-    if (itemId) { await axios.put(`${API}/api/inventory/${itemId}`, payload); toast.success('Card updated'); setEditItem(null); fetchInventory(search); }
-    else {
-      const res = await axios.post(`${API}/api/inventory`, payload);
-      toast.success('Card added');
-      setEditItem(null);
-      setShowForm(false);
-      await fetchInventory(search);
-      // Open the newly created card in detail view
-      if (res.data && res.data.id) {
-        setDetailCard(res.data);
+    try {
+      if (itemId) { await axios.put(`${API}/api/inventory/${itemId}`, payload); toast.success('Card updated'); setEditItem(null); fetchInventory(search); }
+      else {
+        const res = await axios.post(`${API}/api/inventory`, payload);
+        toast.success('Card added');
+        setEditItem(null);
+        setShowForm(false);
+        await fetchInventory(search);
+        // Open the newly created card in detail view
+        if (res.data && res.data.id) {
+          setDetailCard(res.data);
+        }
+      }
+    } catch (err) {
+      if (err.response?.status === 403) {
+        toast.error(err.response.data?.detail || 'Plan limit reached. Upgrade your plan.', { duration: 5000 });
+      } else {
+        toast.error('Failed to save card');
       }
     }
   };

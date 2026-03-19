@@ -209,9 +209,15 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
       if (cornerTopRight) requestBody.corner_top_right = cornerTopRight;
       if (cornerBottomLeft) requestBody.corner_bottom_left = cornerBottomLeft;
       if (cornerBottomRight) requestBody.corner_bottom_right = cornerBottomRight;
-      const response = await fetch(`${API}/cards/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
+      const response = await fetch(`${API}/cards/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'include', body: JSON.stringify(requestBody) });
       clearInterval(progressInterval); setScanProgress(100);
-      if (!response.ok) { const errorData = await response.json(); throw new Error(errorData.detail || 'Analysis failed'); }
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        if (response.status === 403) {
+          throw new Error(errorData.detail || 'Scan limit reached. Upgrade your plan for more AI scans.');
+        }
+        throw new Error(errorData.detail || 'Analysis failed');
+      }
       const result = await response.json();
       setTimeout(() => { onAnalysisComplete(result, frontImage, backImage); setFrontImage(null); setBackImage(null); setScanProgress(0); setIsAnalyzing(false); }, 500);
     } catch (err) { clearInterval(progressInterval); setError(err.message || 'Analysis failed'); setScanProgress(0); setIsAnalyzing(false); }
