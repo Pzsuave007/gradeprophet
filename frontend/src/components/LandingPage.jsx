@@ -296,7 +296,7 @@ const LandingPage = ({ onGetStarted }) => {
                 <motion.div key={i}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className={`relative rounded-2xl overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  className={`relative rounded-2xl flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
                     plan.highlight
                       ? 'bg-[#111] border-2 border-amber-500/40 shadow-lg shadow-amber-500/5'
                       : 'bg-[#111] border border-white/[0.06]'
