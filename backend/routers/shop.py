@@ -15,16 +15,17 @@ async def _fetch_ebay_sales_alltime(user_id: str) -> int:
     from utils.ebay import get_ebay_user_token
     import xml.etree.ElementTree as ET
 
-    # Check cache first
+    # Check cache first (skip cache if value is 0 — always retry)
     settings = await db.user_settings.find_one(
         {"user_id": user_id},
         {"_id": 0, "sales_alltime_count": 1, "sales_alltime_updated": 1}
     )
-    if settings and settings.get("sales_alltime_updated"):
+    cached_count = settings.get("sales_alltime_count", 0) if settings else 0
+    if cached_count > 0 and settings.get("sales_alltime_updated"):
         try:
             cached_at = datetime.fromisoformat(settings["sales_alltime_updated"])
             if (datetime.now(timezone.utc) - cached_at).total_seconds() < SALES_CACHE_TTL:
-                return settings.get("sales_alltime_count", 0)
+                return cached_count
         except Exception:
             pass
 
@@ -34,10 +35,15 @@ async def _fetch_ebay_sales_alltime(user_id: str) -> int:
             return settings.get("sales_alltime_count", 0) if settings else 0
 
         # Use Trading API GetMyeBaySelling to get SoldList total
+        # DurationInDays=60 is the max for SoldList
         xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <SoldList><Sort>EndTime</Sort><Pagination><EntriesPerPage>1</EntriesPerPage></Pagination></SoldList>
+  <SoldList>
+    <DurationInDays>60</DurationInDays>
+    <Sort>EndTime</Sort>
+    <Pagination><EntriesPerPage>1</EntriesPerPage></Pagination>
+  </SoldList>
 </GetMyeBaySellingRequest>'''
 
         total_orders = 0
@@ -57,11 +63,21 @@ async def _fetch_ebay_sales_alltime(user_id: str) -> int:
         if resp.status_code == 200:
             ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
             root = ET.fromstring(resp.text)
+            
+            # Log ack status for debugging
+            ack = root.find(".//e:Ack", ns)
+            logger.info(f"GetMyeBaySelling Ack: {ack.text if ack is not None else 'N/A'}")
+            
             sold_node = root.find(".//e:SoldList", ns)
             if sold_node is not None:
                 count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
                 if count_el is not None:
                     total_orders = int(count_el.text)
+                    logger.info(f"Shop sales count for {user_id}: {total_orders}")
+            else:
+                logger.warning(f"No SoldList node in response for {user_id}")
+        else:
+            logger.warning(f"GetMyeBaySelling failed with status {resp.status_code} for {user_id}")
 
         # Update cache
         await db.user_settings.update_one(
