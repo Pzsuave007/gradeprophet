@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -259,7 +259,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
 };
 
 // =========== CROP OVERLAY ===========
-const CropOverlay = ({ containerRef, onCropApply, onCropCancel }) => {
+const CropOverlay = ({ onCropApply, onCropCancel }) => {
   const [rect, setRect] = useState(null);
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState(null);
@@ -329,22 +329,15 @@ const CropOverlay = ({ containerRef, onCropApply, onCropCancel }) => {
   };
 
   const applyCrop = () => {
-    if (!rect || rect.w < 20 || rect.h < 20 || !overlayRef.current) return;
-    const el = overlayRef.current;
-    const bounds = el.getBoundingClientRect();
-    const ratios = {
-      x: rect.x / bounds.width,
-      y: rect.y / bounds.height,
-      w: rect.w / bounds.width,
-      h: rect.h / bounds.height,
-    };
-    onCropApply(ratios);
+    if (!rect || rect.w < 20 || rect.h < 20) return;
+    // Pass raw pixel coordinates relative to the overlay container
+    onCropApply({ x: rect.x, y: rect.y, w: rect.w, h: rect.h });
   };
 
   const handles = ['tl', 'tr', 'bl', 'br', 't', 'b', 'l', 'r'];
   const handlePos = (h) => {
     if (!rect) return {};
-    const s = { position: 'absolute', width: 14, height: 14, background: '#3b82f6', border: '2px solid white', borderRadius: 2, zIndex: 10 };
+    const s = { position: 'absolute', width: 14, height: 14, background: '#3b82f6', border: '2px solid white', borderRadius: 2, zIndex: 10, touchAction: 'none' };
     if (h === 'tl') return { ...s, left: rect.x - 7, top: rect.y - 7, cursor: 'nwse-resize' };
     if (h === 'tr') return { ...s, left: rect.x + rect.w - 7, top: rect.y - 7, cursor: 'nesw-resize' };
     if (h === 'bl') return { ...s, left: rect.x - 7, top: rect.y + rect.h - 7, cursor: 'nesw-resize' };
@@ -358,32 +351,27 @@ const CropOverlay = ({ containerRef, onCropApply, onCropCancel }) => {
 
   return (
     <div className="absolute inset-0 z-30" data-testid="crop-overlay">
-      <div ref={overlayRef} className="absolute inset-0 cursor-crosshair"
+      <div ref={overlayRef} className="absolute inset-0 cursor-crosshair" style={{ touchAction: 'none' }}
         onMouseDown={onPointerDown} onMouseMove={onPointerMove} onMouseUp={onPointerUp} onMouseLeave={onPointerUp}
         onTouchStart={onPointerDown} onTouchMove={onPointerMove} onTouchEnd={onPointerUp}>
-        {/* Dark mask outside crop */}
         {rect && rect.w > 5 && rect.h > 5 && (
           <>
             <div className="absolute inset-0 bg-black/60 pointer-events-none" style={{
               clipPath: `polygon(0 0, 100% 0, 100% 100%, 0 100%, 0 0, ${rect.x}px ${rect.y}px, ${rect.x}px ${rect.y + rect.h}px, ${rect.x + rect.w}px ${rect.y + rect.h}px, ${rect.x + rect.w}px ${rect.y}px, ${rect.x}px ${rect.y}px)`
             }} />
-            {/* Crop border */}
             <div className="absolute pointer-events-none border-2 border-white/80" style={{
               left: rect.x, top: rect.y, width: rect.w, height: rect.h
             }}>
-              {/* Rule of thirds grid */}
               <div className="absolute inset-0">
                 <div className="absolute left-1/3 top-0 bottom-0 w-px bg-white/20" />
                 <div className="absolute left-2/3 top-0 bottom-0 w-px bg-white/20" />
                 <div className="absolute top-1/3 left-0 right-0 h-px bg-white/20" />
                 <div className="absolute top-2/3 left-0 right-0 h-px bg-white/20" />
               </div>
-              {/* Size indicator */}
               <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[9px] text-white/70 bg-black/60 px-1.5 py-0.5 rounded font-mono whitespace-nowrap">
                 {Math.round(rect.w)} x {Math.round(rect.h)}
               </div>
             </div>
-            {/* Resize handles */}
             {handles.map(h => (
               <div key={h} style={handlePos(h)}
                 onMouseDown={(e) => onHandleDown(e, h)} onTouchStart={(e) => onHandleDown(e, h)} />
@@ -391,7 +379,6 @@ const CropOverlay = ({ containerRef, onCropApply, onCropCancel }) => {
           </>
         )}
       </div>
-      {/* Crop action buttons */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2 z-40">
         <button onClick={onCropCancel}
           className="px-4 py-2 rounded-lg bg-[#1a1a1a] text-gray-300 text-xs font-bold border border-[#2a2a2a] hover:bg-[#222]"
@@ -423,7 +410,9 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const [showBefore, setShowBefore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cropMode, setCropMode] = useState(false);
+  const [undoData, setUndoData] = useState(null); // { side, originalBase64 }
   const imgContainerRef = React.useRef(null);
+  const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
   const canEditPhoto = hasFeature('photo_editor');
 
@@ -503,9 +492,10 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     }
   };
 
-  const applyCrop = async (ratios) => {
+  const applyCrop = async (cropPixels) => {
+    // cropPixels = { x, y, w, h } in container pixel coordinates
     const src = isFlipped && backSrc ? backSrc : frontSrc;
-    if (!src) return;
+    if (!src || !imgContainerRef.current) return;
     setSaving(true);
     setCropMode(false);
     try {
@@ -515,10 +505,40 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
         i.onerror = reject;
         i.src = src;
       });
-      const sx = Math.round(ratios.x * img.width);
-      const sy = Math.round(ratios.y * img.height);
-      const sw = Math.round(ratios.w * img.width);
-      const sh = Math.round(ratios.h * img.height);
+
+      // Calculate the actual rendered image area within the container (object-contain)
+      const container = imgContainerRef.current;
+      const cW = container.clientWidth;
+      const cH = container.clientHeight;
+      const scale = Math.min(cW / img.width, cH / img.height);
+      const renderedW = img.width * scale;
+      const renderedH = img.height * scale;
+      const offsetX = (cW - renderedW) / 2;
+      const offsetY = (cH - renderedH) / 2;
+
+      // Convert container coordinates to source image coordinates
+      const imgX = (cropPixels.x - offsetX) / scale;
+      const imgY = (cropPixels.y - offsetY) / scale;
+      const imgW = cropPixels.w / scale;
+      const imgH = cropPixels.h / scale;
+
+      // Clamp to image bounds
+      const sx = Math.max(0, Math.round(imgX));
+      const sy = Math.max(0, Math.round(imgY));
+      const sw = Math.min(Math.round(imgW), img.width - sx);
+      const sh = Math.min(Math.round(imgH), img.height - sy);
+
+      if (sw < 10 || sh < 10) {
+        toast.error('Crop area too small');
+        setSaving(false);
+        return;
+      }
+
+      // Save original for undo before cropping
+      const side = isFlipped ? 'back' : 'front';
+      const originalBase64 = src;
+      setUndoData({ side, originalBase64 });
+
       const canvas = document.createElement('canvas');
       canvas.width = sw;
       canvas.height = sh;
@@ -527,14 +547,31 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       const cropped = canvas.toDataURL('image/webp', 0.92);
       canvas.width = 0;
       canvas.height = 0;
-      const side = isFlipped ? 'back' : 'front';
+
       const field = side === 'back' ? 'back_image_base64' : 'image_base64';
       const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: cropped });
-      toast.success(`${side === 'front' ? 'Front' : 'Back'} image cropped!`);
+      toast.success('Image cropped! Use Undo to revert.');
       onImageSaved?.(res.data);
     } catch (err) {
       console.error('Crop error:', err);
       toast.error('Error cropping image');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const undoCrop = async () => {
+    if (!undoData) return;
+    setSaving(true);
+    try {
+      const field = undoData.side === 'back' ? 'back_image_base64' : 'image_base64';
+      const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: undoData.originalBase64 });
+      toast.success('Crop undone! Original image restored.');
+      onImageSaved?.(res.data);
+      setUndoData(null);
+    } catch (err) {
+      console.error('Undo error:', err);
+      toast.error('Error undoing crop');
     } finally {
       setSaving(false);
     }
@@ -582,12 +619,11 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
             {showBefore && (
               <div className="absolute top-3 left-3 z-20 text-[10px] px-2 py-1 rounded bg-white/20 text-white font-bold uppercase backdrop-blur-sm">Original</div>
             )}
-            <img src={isFlipped && backSrc ? backSrc : frontSrc} alt={item.card_name}
+            <img ref={editorImgRef} src={isFlipped && backSrc ? backSrc : frontSrc} alt={item.card_name}
               className="max-w-full max-h-full object-contain rounded-lg"
               style={{ filter: cropMode ? 'none' : filterStyle }} />
             {cropMode && (
               <CropOverlay
-                containerRef={imgContainerRef}
                 onCropApply={applyCrop}
                 onCropCancel={() => setCropMode(false)}
               />
@@ -609,7 +645,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
           {/* Editor Controls - fixed at bottom */}
           {!cropMode && (
           <div className="shrink-0 bg-[#0a0a0a] border-t border-[#1a1a1a] px-3 pt-3 pb-6" data-testid="photo-editor-panel">
-            {/* Crop + Preset Buttons */}
+            {/* Crop + Undo + Preset Buttons */}
             <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-2 mb-2">
               <button onClick={() => setCropMode(true)}
                 className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 bg-[#1a1a1a] text-gray-400 border border-[#2a2a2a] hover:border-amber-500/50 hover:text-amber-400"
@@ -617,6 +653,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 <Crop className="w-4 h-4" />
                 Crop
               </button>
+              {undoData && (
+                <button onClick={undoCrop} disabled={saving}
+                  className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 bg-red-500/10 text-red-400 border border-red-500/30 hover:bg-red-500/20"
+                  data-testid="undo-crop-btn">
+                  <Undo2 className="w-4 h-4" />
+                  Undo
+                </button>
+              )}
               <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />
               {PRESETS.map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setActivePreset(id)}
