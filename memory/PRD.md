@@ -47,6 +47,7 @@ Home | Inventory | Scan | Listings | Flip
   - Market: Full lock for Rookie, Seasonal Intelligence locked for All-Star
   - Dashboard: Sales Overview tab locked for Rookie
   - Photo Editor: Locked button for plans without photo_editor
+  - Photo Editor: Crop tool with free rectangle selection, drag handles, rule-of-thirds grid
   - Backend: Inventory, scan, and listing limit checks with 403 responses
   - Frontend: 403 error handling with user-friendly upgrade prompts
   - eBay listing creation: Limit check before creating listings
