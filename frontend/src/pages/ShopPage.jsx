@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import {
   Store, MapPin, ExternalLink, Search, Filter, X,
-  Package, ShoppingCart, Tag, ChevronDown, RotateCcw
+  Package, ShoppingCart, Tag, ChevronDown, RotateCcw,
+  Crown, Star, Shield, Award
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -88,43 +89,67 @@ const ShopPage = () => {
       {/* Hero */}
       <header className="relative border-b border-white/[0.04]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-5">
-            {/* Left: Logo + Name + Location */}
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border-2 border-amber-500/20 flex items-center justify-center overflow-hidden shadow-2xl shadow-amber-500/10 flex-shrink-0">
-                {logoSrc ? (
-                  <img src={logoSrc} alt="" className="w-full h-full object-cover" />
-                ) : (
-                  <Store className="w-8 h-8 sm:w-10 sm:h-10 text-amber-500/50" />
-                )}
-              </div>
-              <div>
-                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none">
-                  {shop.name}
-                </h1>
-                {shop.location && (
-                  <div className="flex items-center gap-1.5 mt-1 text-gray-500">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span className="text-sm">{shop.location}</span>
+          {(() => {
+            const plan = shop.plan || 'rookie';
+            const glow = PLAN_GLOW[plan] || PLAN_GLOW.rookie;
+            const badge = PLAN_BADGE[plan] || PLAN_BADGE.rookie;
+            const BadgeIcon = badge.Icon;
+            return (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+                className="flex flex-col sm:flex-row items-center sm:items-center justify-between gap-5">
+                {/* Left: Logo + Name + Location */}
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl flex items-center justify-center overflow-hidden flex-shrink-0"
+                    style={{
+                      border: `2px solid ${glow.hoverBorder}`,
+                      boxShadow: glow.hoverShadow,
+                      background: `linear-gradient(135deg, ${badge.bg}, rgba(0,0,0,0.3))`,
+                    }}>
+                    {logoSrc ? (
+                      <img src={logoSrc} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <Store className="w-8 h-8 sm:w-10 sm:h-10" style={{ color: badge.color }} />
+                    )}
                   </div>
-                )}
-              </div>
-            </div>
-            {/* Right: Stats */}
-            <div className="flex gap-6 sm:gap-8">
-              {[
-                { val: shop.total_items, label: 'Cards', color: 'text-amber-400' },
-                { val: shop.sales_count || 0, label: 'Sales', color: 'text-emerald-400' },
-                { val: shop.sports?.length || 0, label: 'Sports', color: 'text-blue-400' },
-              ].map(s => (
-                <div key={s.label} className="text-center">
-                  <p className={`text-2xl sm:text-3xl font-black ${s.color}`}>{s.val}</p>
-                  <p className="text-[10px] text-gray-600 uppercase tracking-[0.15em] font-bold mt-0.5">{s.label}</p>
+                  <div>
+                    <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none">
+                      {shop.name}
+                    </h1>
+                    {shop.location && (
+                      <div className="flex items-center gap-1.5 mt-1 text-gray-500">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span className="text-sm">{shop.location}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
-          </motion.div>
+                {/* Right: Tier Badge + Stats */}
+                <div className="flex flex-col items-center sm:items-end gap-3">
+                  {/* Tier Badge */}
+                  <div className="flex items-center gap-1.5 px-3 py-1 rounded-full"
+                    style={{ background: badge.bg, border: `1px solid ${badge.borderColor}` }}>
+                    <BadgeIcon className="w-3.5 h-3.5" style={{ color: badge.color }} />
+                    <span className="text-[11px] font-black uppercase tracking-wider" style={{ color: badge.color }}>
+                      {badge.label}
+                    </span>
+                  </div>
+                  {/* Stats */}
+                  <div className="flex gap-6 sm:gap-8">
+                    {[
+                      { val: shop.total_items, label: 'Cards', color: 'text-amber-400' },
+                      { val: shop.sales_count || 0, label: 'Sales', color: 'text-emerald-400' },
+                      { val: shop.sports?.length || 0, label: 'Sports', color: 'text-blue-400' },
+                    ].map(s => (
+                      <div key={s.label} className="text-center">
+                        <p className={`text-2xl sm:text-3xl font-black ${s.color}`}>{s.val}</p>
+                        <p className="text-[10px] text-gray-600 uppercase tracking-[0.15em] font-bold mt-0.5">{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
         </div>
       </header>
 
@@ -209,6 +234,13 @@ const PLAN_GLOW = {
   all_star:    { border: 'rgba(59,130,246,0.2)',    shadow: '0 0 15px rgba(59,130,246,0.1), 0 0 30px rgba(59,130,246,0.05)',   hoverShadow: '0 0 20px rgba(59,130,246,0.2), 0 0 40px rgba(59,130,246,0.1)',   hoverBorder: 'rgba(59,130,246,0.35)' },
   hall_of_fame:{ border: 'rgba(245,158,11,0.2)',    shadow: '0 0 15px rgba(245,158,11,0.1), 0 0 30px rgba(245,158,11,0.05)',   hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
   legend:      { border: 'rgba(168,85,247,0.2)',    shadow: '0 0 15px rgba(168,85,247,0.12), 0 0 30px rgba(168,85,247,0.06)', hoverShadow: '0 0 25px rgba(168,85,247,0.3), 0 0 50px rgba(168,85,247,0.12)', hoverBorder: 'rgba(168,85,247,0.45)' },
+};
+
+const PLAN_BADGE = {
+  rookie:       { label: 'Rookie',       Icon: Shield, color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', borderColor: 'rgba(156,163,175,0.2)' },
+  all_star:     { label: 'All-Star',     Icon: Star,   color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  borderColor: 'rgba(59,130,246,0.25)' },
+  hall_of_fame: { label: 'Hall of Fame', Icon: Award,  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  borderColor: 'rgba(245,158,11,0.25)' },
+  legend:       { label: 'Legend',       Icon: Crown,  color: '#a855f7', bg: 'rgba(168,85,247,0.1)',  borderColor: 'rgba(168,85,247,0.25)' },
 };
 
 // =========== CARD TILE ===========
