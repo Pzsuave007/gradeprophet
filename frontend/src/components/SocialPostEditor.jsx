@@ -29,7 +29,7 @@ const ASPECT = CANVAS_W / CANVAS_H;
 
 const defaultLayout = () => ({
   card:      { x: 6, y: 2, w: 88, h: 66, visible: true, label: 'Card', Icon: ImageIcon },
-  frame:     { x: 3, y: 0, w: 94, h: 70, visible: false, label: 'Frame', Icon: Square },
+  frame:     { x: 3, y: 0, w: 94, h: 70, visible: true, label: 'Frame', Icon: Square },
   title:     { x: 5, y: 71, w: 62, h: 10, visible: true, label: 'Title', Icon: Type },
   price:     { x: 70, y: 72, w: 26, h: 5, visible: true, label: 'Price', Icon: Tag },
   logo:      { x: 3, y: 86, w: 8, h: 6, visible: true, label: 'Logo', Icon: Store },
