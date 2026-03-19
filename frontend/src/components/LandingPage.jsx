@@ -313,9 +313,9 @@ const LandingPage = ({ onGetStarted }) => {
                   )}
 
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
-                    {/* Top area: Icon+Name on left, Card floating right */}
-                    <div className="relative min-h-[140px] sm:min-h-[160px]">
-                      {/* Card Image - floating right, smaller and positioned above */}
+                    {/* Top area: Icon on left, Card floating right */}
+                    <div className="relative min-h-[120px] sm:min-h-[130px]">
+                      {/* Card Image - floating right */}
                       <div className="absolute -top-10 -right-3 sm:-right-4 w-[90px] sm:w-[100px] z-10 pointer-events-none">
                         <img src={plan.cardImage} alt={`${plan.name} card`}
                           className="w-full h-auto rounded-sm"
@@ -328,24 +328,24 @@ const LandingPage = ({ onGetStarted }) => {
                           loading="lazy" />
                       </div>
 
-                      {/* Icon + Name + Price - left side */}
-                      <div className="relative z-10 pr-[70px] sm:pr-[80px]">
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
-                            <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
-                            <p className="text-[10px] text-gray-600">{plan.tagline}</p>
-                          </div>
-                        </div>
-
-                        {/* Price */}
-                        <div className="flex items-baseline gap-1 mt-3">
-                          <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
-                          {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
+                      {/* Just the icon */}
+                      <div className="relative z-10">
+                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg`}>
+                          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
                         </div>
                       </div>
+                    </div>
+
+                    {/* Name + Tagline - below the card image */}
+                    <div>
+                      <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
+                      <p className="text-[10px] text-gray-600">{plan.tagline}</p>
+                    </div>
+
+                    {/* Price - below name */}
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
+                      {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
                     </div>
 
                     {/* Limits */}
