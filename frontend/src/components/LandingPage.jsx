@@ -296,7 +296,7 @@ const LandingPage = ({ onGetStarted }) => {
                 <motion.div key={i}
                   initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
-                  className={`relative rounded-2xl overflow-visible flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
+                  className={`relative rounded-2xl overflow-hidden flex flex-col transition-all hover:-translate-y-1 hover:shadow-xl ${
                     plan.highlight
                       ? 'bg-[#111] border-2 border-amber-500/40 shadow-lg shadow-amber-500/5'
                       : 'bg-[#111] border border-white/[0.06]'
@@ -313,36 +313,31 @@ const LandingPage = ({ onGetStarted }) => {
                   )}
 
                   <div className="p-5 sm:p-6 space-y-4 flex-1 flex flex-col">
-                    {/* Top area: Icon on left, Card floating right */}
-                    <div className="relative min-h-[120px] sm:min-h-[130px]">
-                      {/* Card Image - floating right */}
-                      <div className="absolute -top-10 -right-3 sm:-right-4 w-[90px] sm:w-[100px] z-10 pointer-events-none">
-                        <img src={plan.cardImage} alt={`${plan.name} card`}
-                          className="w-full h-auto rounded-sm"
-                          style={{
-                            filter: plan.id === 'rookie' ? 'drop-shadow(0 8px 24px rgba(156,163,175,0.25))' :
-                                   plan.id === 'all_star' ? 'drop-shadow(0 8px 28px rgba(59,130,246,0.45))' :
-                                   plan.id === 'hall_of_fame' ? 'drop-shadow(0 8px 32px rgba(245,158,11,0.55))' :
-                                   'drop-shadow(0 8px 32px rgba(147,51,234,0.55))',
-                          }}
-                          loading="lazy" />
-                      </div>
+                    {/* Top area: Card image centered */}
+                    <div className="relative flex items-center justify-center h-[140px] sm:h-[160px]">
+                      <img src={plan.cardImage} alt={`${plan.name} card`}
+                        className="h-full w-auto object-contain rounded-sm"
+                        style={{
+                          filter: plan.id === 'rookie' ? 'drop-shadow(0 8px 24px rgba(156,163,175,0.25))' :
+                                 plan.id === 'all_star' ? 'drop-shadow(0 8px 28px rgba(59,130,246,0.45))' :
+                                 plan.id === 'hall_of_fame' ? 'drop-shadow(0 8px 32px rgba(245,158,11,0.55))' :
+                                 'drop-shadow(0 8px 32px rgba(147,51,234,0.55))',
+                        }}
+                        loading="lazy" />
+                    </div>
 
-                      {/* Just the icon */}
-                      <div className="relative z-10">
-                        <div className={`w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg`}>
-                          <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                        </div>
+                    {/* Name + Tagline */}
+                    <div className="flex items-center gap-2">
+                      <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center shadow-lg flex-shrink-0`}>
+                        <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
+                        <p className="text-[10px] text-gray-600">{plan.tagline}</p>
                       </div>
                     </div>
 
-                    {/* Name + Tagline - below the card image */}
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.25em] text-gray-500 font-bold">{plan.name}</p>
-                      <p className="text-[10px] text-gray-600">{plan.tagline}</p>
-                    </div>
-
-                    {/* Price - below name */}
+                    {/* Price */}
                     <div className="flex items-baseline gap-1">
                       <span className="text-3xl sm:text-4xl font-black text-white">{plan.price}</span>
                       {plan.period && <span className="text-sm text-gray-500">{plan.period}</span>}
