@@ -350,7 +350,7 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
       .catch(() => {});
   }, [item.ebay_item_id, shopSlug, API, baseFront, baseBack, item.image]);
 
-  // Generate social media image (vertical 1080x1350)
+  // Generate social media image (vertical 1080x1350 — showcase style)
   const generateShareImage = async () => {
     if (!frontSrc) return;
     setGenerating(true);
@@ -363,23 +363,15 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
 
       // Plan colors
       const planColors = {
-        rookie: { main: '#9ca3af', glow: 'rgba(156,163,175,0.35)', glowRgb: '156,163,175' },
-        all_star: { main: '#3b82f6', glow: 'rgba(59,130,246,0.35)', glowRgb: '59,130,246' },
-        hall_of_fame: { main: '#f59e0b', glow: 'rgba(245,158,11,0.35)', glowRgb: '245,158,11' },
-        legend: { main: '#a855f7', glow: 'rgba(168,85,247,0.35)', glowRgb: '168,85,247' },
+        rookie: { main: '#9ca3af', r: 156, g: 163, b: 175 },
+        all_star: { main: '#3b82f6', r: 59, g: 130, b: 246 },
+        hall_of_fame: { main: '#f59e0b', r: 245, g: 158, b: 11 },
+        legend: { main: '#a855f7', r: 168, g: 85, b: 247 },
       };
       const c = planColors[shopPlan] || planColors.rookie;
 
-      // === BACKGROUND ===
+      // === SOLID DARK BACKGROUND ===
       ctx.fillStyle = '#080808';
-      ctx.fillRect(0, 0, W, H);
-
-      // Subtle radial glow behind card area
-      const grd = ctx.createRadialGradient(W / 2, 480, 80, W / 2, 480, 520);
-      grd.addColorStop(0, `rgba(${c.glowRgb},0.18)`);
-      grd.addColorStop(0.6, `rgba(${c.glowRgb},0.05)`);
-      grd.addColorStop(1, 'transparent');
-      ctx.fillStyle = grd;
       ctx.fillRect(0, 0, W, H);
 
       // === LOAD CARD IMAGE ===
@@ -391,139 +383,119 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
         img.src = frontSrc;
       });
 
-      // Card dimensions — fill most of the width with padding
-      const pad = 80;
-      const maxW = W - pad * 2;
-      const maxH = 920;
+      // Card dimensions — BIG, ~88% of width
+      const maxW = W * 0.88;
+      const maxH = H * 0.68;
       const ratio = Math.min(maxW / img.width, maxH / img.height);
       const cw = img.width * ratio;
       const ch = img.height * ratio;
       const cx = (W - cw) / 2;
-      const cy = 60;
+      const cy = 45;
 
-      // === CARD FRAME (rounded rect with glow) ===
-      const r = 18;
-      ctx.save();
-      // Glow shadow
-      ctx.shadowColor = c.glow;
-      ctx.shadowBlur = 50;
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      // Rounded clip
-      ctx.beginPath();
-      ctx.moveTo(cx + r, cy);
-      ctx.lineTo(cx + cw - r, cy);
-      ctx.quadraticCurveTo(cx + cw, cy, cx + cw, cy + r);
-      ctx.lineTo(cx + cw, cy + ch - r);
-      ctx.quadraticCurveTo(cx + cw, cy + ch, cx + cw - r, cy + ch);
-      ctx.lineTo(cx + r, cy + ch);
-      ctx.quadraticCurveTo(cx, cy + ch, cx, cy + ch - r);
-      ctx.lineTo(cx, cy + r);
-      ctx.quadraticCurveTo(cx, cy, cx + r, cy);
-      ctx.closePath();
-      // Fill shadow area first
-      ctx.fillStyle = '#111';
-      ctx.fill();
-      ctx.restore();
+      // === DRAMATIC GLOW BEHIND CARD ===
+      // Large soft glow
+      const glow1 = ctx.createRadialGradient(W / 2, cy + ch / 2, ch * 0.15, W / 2, cy + ch / 2, ch * 0.75);
+      glow1.addColorStop(0, `rgba(${c.r},${c.g},${c.b},0.25)`);
+      glow1.addColorStop(0.4, `rgba(${c.r},${c.g},${c.b},0.08)`);
+      glow1.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow1;
+      ctx.fillRect(0, 0, W, H);
 
-      // Draw card image clipped to rounded rect
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(cx + r, cy);
-      ctx.lineTo(cx + cw - r, cy);
-      ctx.quadraticCurveTo(cx + cw, cy, cx + cw, cy + r);
-      ctx.lineTo(cx + cw, cy + ch - r);
-      ctx.quadraticCurveTo(cx + cw, cy + ch, cx + cw - r, cy + ch);
-      ctx.lineTo(cx + r, cy + ch);
-      ctx.quadraticCurveTo(cx, cy + ch, cx, cy + ch - r);
-      ctx.lineTo(cx, cy + r);
-      ctx.quadraticCurveTo(cx, cy, cx + r, cy);
-      ctx.closePath();
-      ctx.clip();
+      // Tighter bright center glow
+      const glow2 = ctx.createRadialGradient(W / 2, cy + ch / 2, 20, W / 2, cy + ch / 2, ch * 0.5);
+      glow2.addColorStop(0, `rgba(${c.r},${c.g},${c.b},0.15)`);
+      glow2.addColorStop(1, 'transparent');
+      ctx.fillStyle = glow2;
+      ctx.fillRect(0, 0, W, H);
+
+      // === DRAW CARD WITH GLOW SHADOW ===
+      // Multiple shadow layers for dramatic depth
+      for (let i = 3; i >= 0; i--) {
+        ctx.save();
+        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},${0.08 + i * 0.06})`;
+        ctx.shadowBlur = 30 + i * 25;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 4 + i * 2;
+        ctx.fillStyle = 'rgba(0,0,0,0)';
+        ctx.fillRect(cx, cy, cw, ch);
+        ctx.restore();
+      }
+
+      // Draw the card image
       ctx.drawImage(img, cx, cy, cw, ch);
-      ctx.restore();
 
-      // Subtle border on the rounded card
-      ctx.strokeStyle = `rgba(${c.glowRgb},0.3)`;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(cx + r, cy);
-      ctx.lineTo(cx + cw - r, cy);
-      ctx.quadraticCurveTo(cx + cw, cy, cx + cw, cy + r);
-      ctx.lineTo(cx + cw, cy + ch - r);
-      ctx.quadraticCurveTo(cx + cw, cy + ch, cx + cw - r, cy + ch);
-      ctx.lineTo(cx + r, cy + ch);
-      ctx.quadraticCurveTo(cx, cy + ch, cx, cy + ch - r);
-      ctx.lineTo(cx, cy + r);
-      ctx.quadraticCurveTo(cx, cy, cx + r, cy);
-      ctx.closePath();
-      ctx.stroke();
+      // Subtle bright edge glow on the card border
+      ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},0.2)`;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(cx - 1, cy - 1, cw + 2, ch + 2);
 
-      // === BOTTOM INFO AREA ===
-      const infoY = cy + ch + 30;
+      // === BOTTOM INFO ===
+      const infoY = cy + ch + 28;
 
-      // Card name — FULL name, wrapped
+      // Card name — full, left aligned, multi-line
       ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 34px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'left';
-      const nameText = item.card_name || '';
-      const nameMaxW = price ? W - 240 : W - pad * 2;
-      const nameLines = _wrapText(ctx, nameText, nameMaxW);
+      const nameLines = _wrapText(ctx, item.card_name || '', W - 300);
       nameLines.forEach((line, i) => {
-        ctx.fillText(line, pad, infoY + 36 + i * 44);
+        ctx.fillText(line, 65, infoY + 40 + i * 48);
       });
 
       // === PRICE BUBBLE (right side) ===
       if (price) {
         const priceStr = `$${parseFloat(price).toFixed(2)}`;
-        ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = 'bold 40px -apple-system, BlinkMacSystemFont, sans-serif';
         const priceW = ctx.measureText(priceStr).width;
-        const bubbleW = priceW + 48;
-        const bubbleH = 58;
-        const bubbleX = W - pad - bubbleW;
-        const bubbleY = infoY + 12;
+        const bubbleW = priceW + 52;
+        const bubbleH = 62;
+        const bubbleX = W - 65 - bubbleW;
+        const bubbleY = infoY + 8;
         const br = bubbleH / 2;
 
-        // Bubble background
+        // Bubble glow
+        ctx.save();
+        ctx.shadowColor = `rgba(${c.r},${c.g},${c.b},0.4)`;
+        ctx.shadowBlur = 20;
+
+        // Pill shape
         ctx.fillStyle = c.main;
         ctx.beginPath();
         ctx.moveTo(bubbleX + br, bubbleY);
         ctx.lineTo(bubbleX + bubbleW - br, bubbleY);
-        ctx.quadraticCurveTo(bubbleX + bubbleW, bubbleY, bubbleX + bubbleW, bubbleY + br);
-        ctx.quadraticCurveTo(bubbleX + bubbleW, bubbleY + bubbleH, bubbleX + bubbleW - br, bubbleY + bubbleH);
+        ctx.arc(bubbleX + bubbleW - br, bubbleY + br, br, -Math.PI / 2, Math.PI / 2);
         ctx.lineTo(bubbleX + br, bubbleY + bubbleH);
-        ctx.quadraticCurveTo(bubbleX, bubbleY + bubbleH, bubbleX, bubbleY + br);
-        ctx.quadraticCurveTo(bubbleX, bubbleY, bubbleX + br, bubbleY);
+        ctx.arc(bubbleX + br, bubbleY + br, br, Math.PI / 2, -Math.PI / 2);
         ctx.closePath();
         ctx.fill();
+        ctx.restore();
 
-        // Price text
+        // Price text (dark on colored bubble)
         ctx.fillStyle = '#000000';
-        ctx.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+        ctx.font = 'bold 38px -apple-system, BlinkMacSystemFont, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(priceStr, bubbleX + bubbleW / 2, bubbleY + 40);
+        ctx.fillText(priceStr, bubbleX + bubbleW / 2, bubbleY + 43);
         ctx.textAlign = 'left';
       }
 
-      // === FOOTER: Shop branding ===
-      // Divider line
-      ctx.strokeStyle = `rgba(${c.glowRgb},0.15)`;
+      // === FOOTER ===
+      // Thin divider
+      ctx.strokeStyle = `rgba(${c.r},${c.g},${c.b},0.12)`;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(pad, H - 100);
-      ctx.lineTo(W - pad, H - 100);
+      ctx.moveTo(65, H - 105);
+      ctx.lineTo(W - 65, H - 105);
       ctx.stroke();
 
       // Shop name
-      ctx.fillStyle = '#888888';
-      ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillStyle = '#777777';
+      ctx.font = 'bold 24px -apple-system, BlinkMacSystemFont, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(shopName || 'Card Shop', W / 2, H - 58);
+      ctx.fillText(shopName || 'Card Shop', W / 2, H - 62);
 
-      // "Available Now" tag
+      // "Available Now"
       ctx.fillStyle = c.main;
-      ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, sans-serif';
-      ctx.fillText('AVAILABLE NOW', W / 2, H - 32);
+      ctx.font = 'bold 15px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText('AVAILABLE NOW', W / 2, H - 34);
 
       // === DOWNLOAD ===
       const link = document.createElement('a');
