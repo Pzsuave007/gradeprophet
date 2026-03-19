@@ -424,18 +424,15 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
 
   useEffect(() => {
     const API = process.env.REACT_APP_BACKEND_URL;
-    const token = localStorage.getItem('token');
-    if (token) {
-      axios.get(`${API}/api/settings`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => {
-          setShopName(r.data.shop_name || r.data.display_name || '');
-          setShopLogo(r.data.shop_logo || '');
-        })
-        .catch(() => {});
-      axios.get(`${API}/api/subscription`, { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => setShopPlan(r.data.plan_id || 'rookie'))
-        .catch(() => {});
-    }
+    axios.get(`${API}/api/settings`)
+      .then(r => {
+        setShopName(r.data.shop_name || r.data.display_name || '');
+        setShopLogo(r.data.shop_logo || '');
+      })
+      .catch(() => {});
+    axios.get(`${API}/api/subscription/my-plan`)
+      .then(r => setShopPlan(r.data.plan_id || 'rookie'))
+      .catch(() => {});
   }, []);
 
   if (!item) return null;

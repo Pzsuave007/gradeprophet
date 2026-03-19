@@ -191,3 +191,7 @@ async def generate_scanner_token(request: Request):
         "name": user.get("name"),
         "message": "Pega este token en el campo 'Scanner Token' de la app FlipSlab Scanner",
     }
+
+
+# Dev login endpoint removed after testing
+
