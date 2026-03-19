@@ -1,5 +1,14 @@
 # FlipSlab Engine - Product Requirements Document
 
+## CRITICAL DEPLOYMENT INFO (DO NOT SKIP)
+- **Production URL:** `https://flipslabengine.com`
+- **Production REACT_APP_BACKEND_URL:** `https://flipslabengine.com`
+- **User's deploy process:** Push to GitHub → `git pull` on server → `bash fix.sh`
+- **fix.sh copies `frontend/build/*`** to the web root — source `.jsx` files are NOT served directly
+- **EVERY TIME you do `yarn build`:** FIRST set `REACT_APP_BACKEND_URL=https://flipslabengine.com` in `.env`, build, THEN restore the preview URL
+- **User language:** Spanish
+- **Admin email:** pzsuave007@gmail.com (Google Auth)
+
 ## Original Problem Statement
 Build a multi-tiered subscription model for the "FlipSlab Engine" sports card trading platform. Features include admin panel, public Card Shop, image optimization, photo cropping, eBay photo syncing, and Social Post image generator.
 
