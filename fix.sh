@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================"
-echo "  FlipSlab Engine - Update"
+echo "  FlipSlab Engine - Update (No Build)"
 echo "============================================"
 
 REPO="/home/gradeprophet"
@@ -25,7 +25,7 @@ cp -f "$REPO/backend/utils/"*.py "$PROD/utils/"
 cp -f "$REPO/backend/models/"*.py "$PROD/models/" 2>/dev/null
 echo "  OK"
 
-echo "[3/4] Frontend (pre-built)..."
+echo "[3/4] Frontend (pre-built, NO compile)..."
 rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  OK"
