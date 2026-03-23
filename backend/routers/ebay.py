@@ -320,10 +320,10 @@ async def get_seller_orders(request: Request, limit: int = 20):
 async def get_my_listings_trading(
     request: Request,
     page: int = 1,
-    limit: int = 20,
-    sold_days: int = 30,
+    limit: int = 200,
+    sold_days: int = 60,
     sold_page: int = 1,
-    sold_limit: int = 20
+    sold_limit: int = 200
 ):
     """Get seller's active and sold listings via Trading API"""
     user = await get_current_user(request)
@@ -520,7 +520,27 @@ async def get_my_listings_trading(
                     {"$set": {"category": "sold", "listed": False}}
                 )
                 if result.modified_count > 0:
-                    logger.info(f"Auto-marked {result.modified_count} items as sold for user {user['user_id']}")
+                    logger.info(f"Auto-marked {result.modified_count} items as sold (from SoldList) for user {user['user_id']}")
+
+        # Cross-reference: items marked as listed in inventory but NOT in eBay active list = sold or ended
+        active_ebay_ids = set(l.get("itemid") for l in listings if l.get("itemid"))
+        sold_ebay_id_set = set(s.get("itemid") for s in sold if s.get("itemid"))
+        listed_items = await db.inventory.find(
+            {"user_id": user["user_id"], "listed": True, "ebay_item_id": {"$ne": None}, "category": {"$ne": "sold"}},
+            {"_id": 0, "id": 1, "ebay_item_id": 1}
+        ).to_list(500)
+        stale_ids = []
+        for inv_item in listed_items:
+            eid = inv_item.get("ebay_item_id")
+            if eid and eid not in active_ebay_ids:
+                stale_ids.append(eid)
+        if stale_ids:
+            result = await db.inventory.update_many(
+                {"user_id": user["user_id"], "ebay_item_id": {"$in": stale_ids}},
+                {"$set": {"category": "sold", "listed": False}}
+            )
+            if result.modified_count > 0:
+                logger.info(f"Auto-marked {result.modified_count} items as sold (not in ActiveList) for user {user['user_id']}")
 
         return {
             "active": listings,
