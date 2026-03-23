@@ -957,6 +957,11 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 
   useEffect(() => { fetchInventory(search); }, [fetchInventory]);
 
+  // Trigger eBay sold sync silently on mount
+  useEffect(() => {
+    axios.get(`${API}/api/ebay/my-listings?limit=200&sold_limit=200&sold_days=60`).catch(() => {});
+  }, []);
+
   // Handle pending detail card from Quick Scan or external navigation
   useEffect(() => {
     if (pendingDetailCard) {
