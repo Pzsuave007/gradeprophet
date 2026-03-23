@@ -511,6 +511,17 @@ async def get_my_listings_trading(
             except Exception as e:
                 logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
 
+        # Auto-mark inventory items as sold if they appear in eBay SoldList
+        if sold:
+            sold_ebay_ids = [s.get("itemid") for s in sold if s.get("itemid")]
+            if sold_ebay_ids:
+                result = await db.inventory.update_many(
+                    {"user_id": user["user_id"], "ebay_item_id": {"$in": sold_ebay_ids}, "category": {"$ne": "sold"}},
+                    {"$set": {"category": "sold", "listed": False}}
+                )
+                if result.modified_count > 0:
+                    logger.info(f"Auto-marked {result.modified_count} items as sold for user {user['user_id']}")
+
         return {
             "active": listings,
             "sold": sold,
