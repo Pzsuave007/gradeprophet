@@ -938,6 +938,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
       if (filters.condition) params.append('condition', filters.condition);
       if (activeCategory === 'listed') {
         params.append('listed', 'true');
+      } else if (activeCategory === 'sold') {
+        params.append('category', 'sold');
       } else if (activeCategory !== 'all') {
         params.append('category', activeCategory);
         params.append('listed', 'false');
@@ -1060,6 +1062,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     { id: 'collection', label: 'Collection', icon: Heart, count: s.collection_count || 0 },
     { id: 'for_sale', label: 'For Sale', icon: ShoppingBag, count: s.for_sale_count || 0 },
     { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
+    { id: 'sold', label: 'Sold', icon: TrendingUp, count: s.sold_count || 0 },
   ];
 
   return (
@@ -1101,8 +1104,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
         <ViewToggle view={viewMode} onChange={setViewMode} />
         {!selectMode ? (
           <>
-            {activeCategory !== 'listed' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
-            {activeCategory !== 'listed' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
+            {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
+            {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
           </>
         ) : (
           <>
@@ -1138,8 +1141,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
       ) : items.length === 0 ? (
         <div className="text-center py-16 bg-[#111] border border-[#1a1a1a] rounded-xl">
           <Package className="w-10 h-10 text-gray-700 mx-auto mb-3" />
-          <p className="text-sm text-gray-400 mb-4">{activeCategory === 'listed' ? 'No cards listed on eBay yet' : 'No cards found'}</p>
-          {activeCategory !== 'listed' && <button onClick={openAdd} className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold" data-testid="empty-add-card-btn"><Plus className="w-4 h-4 inline mr-1" /> Add Card</button>}
+          <p className="text-sm text-gray-400 mb-4">{activeCategory === 'listed' ? 'No cards listed on eBay yet' : activeCategory === 'sold' ? 'No sold items yet' : 'No cards found'}</p>
+          {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={openAdd} className="px-4 py-2 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold" data-testid="empty-add-card-btn"><Plus className="w-4 h-4 inline mr-1" /> Add Card</button>}
         </div>
       ) : viewMode === 'grid' ? (
         /* GRID VIEW */
@@ -1347,7 +1350,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 // =========== MAIN INVENTORY WITH SCANNER ===========
 const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCategory, onAddCategoryConsumed }) => {
   const [mainTab, setMainTab] = useState('cards');
-  const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('for_sale');
   const [scannerView, setScannerView] = useState('scan');
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [frontImage, setFrontImage] = useState(null);
@@ -1372,7 +1375,7 @@ const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCa
       <AnimatePresence mode="wait">
         {mainTab === 'cards' && (<motion.div key="cards" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><InventoryList activeCategory={activeCategory} onCategoryChange={setActiveCategory} pendingDetailCard={pendingDetailCard} onDetailCardConsumed={onDetailCardConsumed} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={onAddCategoryConsumed} /></motion.div>)}
         {mainTab === 'batch' && (<motion.div key="batch" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-          <BatchUploadView onBack={() => setMainTab('cards')} onComplete={() => { setMainTab('cards'); setActiveCategory('all'); }} />
+          <BatchUploadView onBack={() => setMainTab('cards')} onComplete={() => { setMainTab('cards'); setActiveCategory('for_sale'); }} />
         </motion.div>)}
         {mainTab === 'scan' && (<motion.div key="scan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
           {scannerView === 'scan' && <CardScanner onAnalysisComplete={handleAnalysisComplete} isAnalyzing={isAnalyzing} setIsAnalyzing={setIsAnalyzing} />}

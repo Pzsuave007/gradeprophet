@@ -266,7 +266,7 @@ async def get_inventory(
             query["condition"] = condition
         if listed is not None and listed != "":
             query["listed"] = listed.lower() == "true"
-        if category and category in ("collection", "for_sale"):
+        if category and category in ("collection", "for_sale", "sold"):
             query["category"] = category
 
         sort_order = -1 if sort_dir == "desc" else 1
@@ -297,6 +297,7 @@ async def get_inventory_stats(request: Request):
         not_listed = await db.inventory.count_documents({**uq, "listed": {"$ne": True}})
         collection_count = await db.inventory.count_documents({**uq, "category": "collection", "listed": {"$ne": True}})
         for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}})
+        sold_count = await db.inventory.count_documents({**uq, "category": "sold"})
 
         pipeline = [
             {"$match": {**uq, "purchase_price": {"$gt": 0}}},
@@ -314,6 +315,7 @@ async def get_inventory_stats(request: Request):
             "total_cards": total, "total_quantity": inv_agg.get("total_quantity", total),
             "graded": graded, "raw": raw, "listed": listed, "not_listed": not_listed,
             "collection_count": collection_count, "for_sale_count": for_sale_count,
+            "sold_count": sold_count,
             "total_invested": round(inv_agg.get("total_invested", 0), 2),
             "avg_price": round(inv_agg.get("avg_price", 0), 2),
         }

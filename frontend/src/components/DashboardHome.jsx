@@ -298,7 +298,7 @@ const PlanUsageBanner = ({ getUsage, planId, onUpgrade }) => {
           </button>
         )}
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {meters.map(({ label, current, limit, unlimited, icon: Icon, color }) => {
           const pct = unlimited ? 100 : limit > 0 ? Math.min((current / limit) * 100, 100) : 0;
           const isNear = !unlimited && limit > 0 && pct >= 80;

@@ -42,11 +42,10 @@ const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA', 'CSG', 'BVG', 'BCC
 const GRADE_OPTIONS = ['10', '9.5', '9', '8.5', '8', '7.5', '7', '6.5', '6', '5.5', '5', '4.5', '4', '3.5', '3', '2.5', '2', '1.5', '1', 'Authentic'];
 
 const CONDITIONS = [
-  { id: 1000, label: 'New', desc: 'Brand new, never opened' },
-  { id: 2750, label: 'Like New', desc: 'Opened but barely used' },
-  { id: 3000, label: 'Very Good', desc: 'Minor wear' },
-  { id: 4000, label: 'Good', desc: 'Some wear visible' },
-  { id: 5000, label: 'Acceptable', desc: 'Noticeable wear' },
+  { id: 2750, label: 'Near Mint or Better', desc: 'Pack fresh / Mint condition' },
+  { id: 3000, label: 'Very Good', desc: 'Minor corner/edge wear' },
+  { id: 4000, label: 'Good', desc: 'Visible wear, still presentable' },
+  { id: 5000, label: 'Acceptable', desc: 'Heavy wear, creases, or damage' },
 ];
 
 const fmt = (v) => { const n = parseFloat(v); return isNaN(n) || n === 0 ? '-' : `$${n.toFixed(2)}`; };

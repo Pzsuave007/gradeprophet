@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams } from 'react-router-dom';
 import {
   Store, MapPin, ExternalLink, Search, Filter, X,
   Package, ShoppingCart, Tag, ChevronDown, RotateCcw,
-  Crown, Star, Shield, Award, Download, Share2
+  Crown, Star, Shield, Award, Share2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -211,7 +211,7 @@ const ShopPage = () => {
 
       {/* Card Modal */}
       <AnimatePresence>
-        {selectedCard && <CardModal item={selectedCard} onClose={() => setSelectedCard(null)} shopSlug={slug} shopName={shop.name} shopPlan={shop.plan} />}
+        {selectedCard && <CardModal item={selectedCard} items={filtered} onNavigate={setSelectedCard} onClose={() => setSelectedCard(null)} shopSlug={slug} shopName={shop.name} shopPlan={shop.plan} />}
       </AnimatePresence>
 
       {/* Footer */}
@@ -327,7 +327,7 @@ function _wrapText(ctx, text, maxWidth) {
 }
 
 // =========== CARD MODAL WITH 3D FLIP ===========
-const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
+const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopPlan }) => {
   const API = process.env.REACT_APP_BACKEND_URL;
   const baseFront = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
   const baseBack = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
@@ -336,6 +336,38 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
   const [flipped, setFlipped] = useState(false);
   const [generating, setGenerating] = useState(false);
   const price = item.listed_price || item.purchase_price;
+
+  // Navigation
+  const currentIdx = items ? items.findIndex(i => (i.id || i.ebay_item_id) === (item.id || item.ebay_item_id)) : -1;
+  const hasPrev = currentIdx > 0;
+  const hasNext = items && currentIdx < items.length - 1;
+  const goNext = useCallback(() => { if (hasNext) { onNavigate(items[currentIdx + 1]); } }, [hasNext, items, currentIdx, onNavigate]);
+  const goPrev = useCallback(() => { if (hasPrev) { onNavigate(items[currentIdx - 1]); } }, [hasPrev, items, currentIdx, onNavigate]);
+
+  // Swipe support
+  const touchRef = useRef(null);
+  const handleTouchStart = (e) => { touchRef.current = e.touches[0].clientX; };
+  const handleTouchEnd = (e) => {
+    if (touchRef.current === null) return;
+    const diff = e.changedTouches[0].clientX - touchRef.current;
+    if (diff > 60) goPrev();
+    else if (diff < -60) goNext();
+    touchRef.current = null;
+  };
+
+  // Keyboard navigation
+  useEffect(() => {
+    const handleKey = (e) => { if (e.key === 'ArrowLeft') goPrev(); else if (e.key === 'ArrowRight') goNext(); };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [goPrev, goNext]);
+
+  // Reset flip state when item changes
+  useEffect(() => {
+    setFlipped(false);
+    setFrontSrc(item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null);
+    setBackSrc(item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null);
+  }, [item]);
 
   // Fetch all eBay images for flip effect (only for eBay-sourced items without back image)
   useEffect(() => {
@@ -518,7 +550,8 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
         exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
         className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
-        onClick={e => e.stopPropagation()}>
+        onClick={e => e.stopPropagation()}
+        onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
         {/* Close button */}
         <button onClick={onClose}
@@ -526,6 +559,27 @@ const CardModal = ({ item, onClose, shopSlug, shopName, shopPlan }) => {
           data-testid="shop-modal-close">
           <X className="w-5 h-5" />
         </button>
+
+        {/* Prev/Next arrows */}
+        {hasPrev && (
+          <button onClick={goPrev} data-testid="shop-modal-prev"
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors border border-white/10">
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+        )}
+        {hasNext && (
+          <button onClick={goNext} data-testid="shop-modal-next"
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 w-9 h-9 rounded-full bg-black/60 backdrop-blur-sm flex items-center justify-center text-gray-400 hover:text-white transition-colors border border-white/10">
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        )}
+
+        {/* Card counter */}
+        {items && items.length > 1 && (
+          <div className="absolute top-3 left-3 z-20 px-2.5 py-1 rounded-full bg-black/60 backdrop-blur-sm text-[11px] text-gray-400 font-medium border border-white/10">
+            {currentIdx + 1} / {items.length}
+          </div>
+        )}
 
         {/* 3D Flip Card */}
         <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1200 }}>
