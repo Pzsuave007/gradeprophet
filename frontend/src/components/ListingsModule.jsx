@@ -60,7 +60,7 @@ const DURATIONS_AUCTION = [
 
 
 // =========== LISTING DETAIL / EDIT VIEW (INLINE, NO POPUP) ===========
-const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
+const ListingDetail = ({ listing, cardData, onBack, onSuccess, onEndListing }) => {
   const [form, setForm] = useState({ title: '', price: '', quantity: 1, description: '', best_offer: false, shipping_option: null, shipping_cost: 0 });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -213,31 +213,40 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
             {/* Price Lookup Links */}
             <div className="space-y-1.5 mt-2">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
-              <div className="flex flex-wrap gap-1.5">
-                <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(listing.title || '')}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-yellow-500/50 transition-colors"
-                  data-testid="listing-lookup-ebay-sold">
-                  <ExternalLink className="w-3 h-3" /> eBay Sold
-                </a>
-                <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent(listing.title || '')}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
-                  data-testid="listing-lookup-cardladder">
-                  <ExternalLink className="w-3 h-3" /> CardLadder
-                </a>
-                <a href={`https://www.sportscardinvestor.com/cards/${encodeURIComponent((listing.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '').replace(/--+/g, '-'))}`}
-                  target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
-                  data-testid="listing-lookup-sci">
-                  <ExternalLink className="w-3 h-3" /> SCI
-                </a>
-                <a href="https://130point.com/sales/" target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-amber-500/50 transition-colors"
-                  data-testid="listing-lookup-130point">
-                  <ExternalLink className="w-3 h-3" /> 130Point
-                </a>
-              </div>
+              {(() => {
+                const c = cardData || {};
+                const searchQ = [c.year, c.set_name, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ') || listing.title || '';
+                const sciSlug = c.player
+                  ? `${(c.player || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}-${(c.sport || 'basketball').toLowerCase()}/${[c.year, (c.set_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'), 'base', c.card_number].filter(Boolean).join('-')}${c.condition === 'Graded' && c.grading_company && c.grade ? '/' + (c.grading_company || '').toLowerCase() + '-' + c.grade : ''}`
+                  : (listing.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '').replace(/--+/g, '-');
+                return (
+                  <div className="flex flex-wrap gap-1.5">
+                    <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQ)}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-yellow-500/50 transition-colors"
+                      data-testid="listing-lookup-ebay-sold">
+                      <ExternalLink className="w-3 h-3" /> eBay Sold
+                    </a>
+                    <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent(searchQ)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
+                      data-testid="listing-lookup-cardladder">
+                      <ExternalLink className="w-3 h-3" /> CardLadder
+                    </a>
+                    <a href={`https://www.sportscardinvestor.com/cards/${encodeURIComponent(sciSlug)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
+                      data-testid="listing-lookup-sci">
+                      <ExternalLink className="w-3 h-3" /> SCI
+                    </a>
+                    <a href="https://130point.com/sales/" target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-amber-500/50 transition-colors"
+                      data-testid="listing-lookup-130point">
+                      <ExternalLink className="w-3 h-3" /> 130Point
+                    </a>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>
@@ -894,6 +903,7 @@ const ListingsModule = () => {
       <div className="pb-8" data-testid="listings-page">
         <ListingDetail
           listing={selectedListing}
+          cardData={inventoryItems.find(i => i.ebay_item_id === selectedListing.item_id)}
           onBack={() => setSelectedListing(null)}
           onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(); }}
           onEndListing={endListing}
