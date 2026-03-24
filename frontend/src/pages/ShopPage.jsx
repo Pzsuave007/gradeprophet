@@ -88,7 +88,7 @@ const ShopPage = () => {
 
       {/* Hero */}
       <header className="relative border-b border-white/[0.04]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
           {(() => {
             const plan = shop.plan || 'rookie';
             const glow = PLAN_GLOW[plan] || PLAN_GLOW.rookie;
@@ -155,7 +155,7 @@ const ShopPage = () => {
 
       {/* Search/Filter Bar */}
       <div className="sticky top-0 z-20 border-b border-white/[0.04] bg-[#050505]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
             <input type="text" value={search} onChange={e => setSearch(e.target.value)}
@@ -174,7 +174,7 @@ const ShopPage = () => {
           {showFilters && (
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
               className="overflow-hidden border-t border-white/[0.04]">
-              <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap gap-2">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap gap-2">
                 <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="shop-sport-filter">
                   <option value="all" className="bg-[#111] text-white">All Sports</option>
@@ -193,7 +193,7 @@ const ShopPage = () => {
       </div>
 
       {/* Cards Grid */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {filtered.length === 0 ? (
           <div className="text-center py-24">
             <Package className="w-16 h-16 text-gray-800 mx-auto mb-4" />
@@ -216,7 +216,7 @@ const ShopPage = () => {
 
       {/* Footer */}
       <footer className="border-t border-white/[0.04] mt-12">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-between">
           <a href="/" className="flex items-center gap-2 text-gray-600 hover:text-white transition-colors">
             <div className="w-5 h-5 bg-gradient-to-br from-amber-500 to-red-500 rounded" />
             <span className="text-[10px] font-bold tracking-wider uppercase">Powered by FlipSlab Engine</span>
