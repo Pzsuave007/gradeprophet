@@ -209,10 +209,32 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
                 </button>
               )}
             </div>
+
+            {/* Price Lookup Links */}
+            <div className="space-y-1.5 mt-2">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
+              <div className="flex flex-wrap gap-1.5">
+                <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent(listing.title || '')}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
+                  data-testid="listing-lookup-cardladder">
+                  <ExternalLink className="w-3 h-3" /> CardLadder
+                </a>
+                <a href={`https://www.sportscardinvestor.com/cards/${encodeURIComponent((listing.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '').replace(/--+/g, '-'))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
+                  data-testid="listing-lookup-sci">
+                  <ExternalLink className="w-3 h-3" /> SCI
+                </a>
+                <a href="https://130point.com/sales/" target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-amber-500/50 transition-colors"
+                  data-testid="listing-lookup-130point">
+                  <ExternalLink className="w-3 h-3" /> 130Point
+                </a>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* RIGHT: Edit Fields + Market Data */}
         <div className="lg:col-span-3 space-y-3 sm:space-y-4">
 
           {/* YOUR PRICE + MARKET COMPARISON - Combined prominent panel */}

@@ -840,6 +840,30 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 </div>
               </div>
               {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
+
+              {/* Price Lookup Links */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([item.year, item.set_name, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
+                    data-testid="lookup-cardladder">
+                    <ExternalLink className="w-3 h-3" /> CardLadder
+                  </a>
+                  <a href={`https://www.sportscardinvestor.com/cards/${encodeURIComponent((item.player || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, ''))}-${encodeURIComponent((item.sport || 'basketball').toLowerCase())}/${encodeURIComponent([item.year, (item.set_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'), 'base', item.card_number].filter(Boolean).join('-'))}${item.condition === 'Graded' && item.grading_company && item.grade ? '/' + encodeURIComponent((item.grading_company || '').toLowerCase() + '-' + item.grade) : ''}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-xs text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
+                    data-testid="lookup-sci">
+                    <ExternalLink className="w-3 h-3" /> SCI
+                  </a>
+                  <a href="https://130point.com/sales/" target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-xs text-gray-300 hover:text-white hover:border-amber-500/50 transition-colors"
+                    data-testid="lookup-130point">
+                    <ExternalLink className="w-3 h-3" /> 130Point
+                  </a>
+                </div>
+              </div>
             </div>
 
             {/* Action Buttons */}
