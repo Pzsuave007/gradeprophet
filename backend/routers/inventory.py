@@ -237,6 +237,7 @@ async def get_inventory(
     condition: Optional[str] = None,
     listed: Optional[str] = None,
     category: Optional[str] = None,
+    ebay_item_id: Optional[str] = None,
     sort_by: Optional[str] = "created_at",
     sort_dir: Optional[str] = "desc",
     skip: int = 0,
@@ -268,6 +269,8 @@ async def get_inventory(
             query["listed"] = listed.lower() == "true"
         if category and category in ("collection", "for_sale", "sold"):
             query["category"] = category
+        if ebay_item_id:
+            query["ebay_item_id"] = ebay_item_id
 
         sort_order = -1 if sort_dir == "desc" else 1
         valid_sorts = ["created_at", "card_name", "player", "year", "purchase_price", "grade"]

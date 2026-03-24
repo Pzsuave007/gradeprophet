@@ -60,13 +60,24 @@ const DURATIONS_AUCTION = [
 
 
 // =========== LISTING DETAIL / EDIT VIEW (INLINE, NO POPUP) ===========
-const ListingDetail = ({ listing, cardData, onBack, onSuccess, onEndListing }) => {
+const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, onEndListing }) => {
   const [form, setForm] = useState({ title: '', price: '', quantity: 1, description: '', best_offer: false, shipping_option: null, shipping_cost: 0 });
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [marketData, setMarketData] = useState(null);
   const [loadingMarket, setLoadingMarket] = useState(true);
+  const [cardData, setCardData] = useState(initialCardData || null);
   const listingId = listing?.item_id;
+
+  // Fetch card data from inventory if not passed
+  useEffect(() => {
+    if (initialCardData) { setCardData(initialCardData); return; }
+    if (!listingId) return;
+    axios.get(`${API}/api/inventory?ebay_item_id=${listingId}&limit=1`).then(res => {
+      const items = res.data.items || [];
+      if (items.length > 0) setCardData(items[0]);
+    }).catch(() => {});
+  }, [listingId, initialCardData]);
 
   // Initialize form when listing changes
   useEffect(() => {
