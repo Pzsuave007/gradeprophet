@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -925,6 +925,9 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState(new Set());
   const [showCreateListing, setShowCreateListing] = useState(false);
+  const [showBulkShipping, setShowBulkShipping] = useState(false);
+  const [bulkShippingOption, setBulkShippingOption] = useState('');
+  const [bulkUpdating, setBulkUpdating] = useState(false);
 
   // Add/Edit inline view state
   const [showForm, setShowForm] = useState(false);
@@ -1032,6 +1035,39 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     setShowCreateListing(true);
   };
 
+  const SHIPPING_OPTS = [
+    { id: 'FreeShipping', label: 'Free Shipping', cost: 0 },
+    { id: 'PWEEnvelope', label: 'PWE Envelope', cost: 2.50 },
+    { id: 'USPSFirstClass', label: 'USPS First Class', cost: 4.50 },
+    { id: 'USPSPriority', label: 'USPS Priority', cost: 8.50 },
+  ];
+
+  const bulkUpdateShipping = async () => {
+    if (!bulkShippingOption) { toast.error('Select a shipping option'); return; }
+    const selectedItems = items.filter(i => selected.has(i.id) && i.ebay_item_id);
+    if (selectedItems.length === 0) { toast.error('No eBay items selected'); return; }
+    const opt = SHIPPING_OPTS.find(s => s.id === bulkShippingOption);
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-revise-shipping`, {
+        item_ids: selectedItems.map(i => i.ebay_item_id),
+        shipping_option: bulkShippingOption,
+        shipping_cost: opt?.cost || 0,
+      });
+      if (res.data.success) {
+        toast.success(`Shipping updated on ${res.data.updated}/${res.data.total} listings`);
+        setShowBulkShipping(false);
+        exitSelectMode();
+      } else {
+        toast.error('Failed to update shipping');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update shipping');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   const [flippedCards, setFlippedCards] = useState(new Set());
   const toggleFlip = (e, itemId) => {
     e.stopPropagation();
@@ -1114,7 +1150,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
         <ViewToggle view={viewMode} onChange={setViewMode} />
         {!selectMode ? (
           <>
-            {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
+            {activeCategory !== 'sold' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
             {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
           </>
         ) : (
@@ -1123,10 +1159,17 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               {selected.size === items.length ? 'Deselect All' : 'Select All'}
             </button>
             <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="cancel-select-btn">Cancel</button>
-            <button onClick={startListOnEbay} disabled={selected.size === 0}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
-              <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
-            </button>
+            {activeCategory === 'listed' ? (
+              <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors" data-testid="bulk-shipping-btn">
+                <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+            ) : (
+              <button onClick={startListOnEbay} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
+                <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
+              </button>
+            )}
           </>
         )}
       </div>
@@ -1146,6 +1189,42 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
       </AnimatePresence>
 
       <p className="text-[11px] text-gray-600 mb-3">{total} card{total !== 1 ? 's' : ''}</p>
+
+      {/* Bulk Shipping Update Modal */}
+      <AnimatePresence>
+        {showBulkShipping && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+            <div className="bg-[#111] border border-amber-500/30 rounded-xl p-4" data-testid="bulk-shipping-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-amber-400" />
+                  <p className="text-sm font-bold text-white">Bulk Update Shipping</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">{selected.size} items</span>
+                </div>
+                <button onClick={() => setShowBulkShipping(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {SHIPPING_OPTS.map(s => (
+                  <button key={s.id} onClick={() => setBulkShippingOption(s.id)}
+                    className={`px-3 py-2.5 rounded-lg text-left transition-all ${bulkShippingOption === s.id ? 'bg-amber-500/15 border-2 border-amber-500/50 ring-1 ring-amber-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                    data-testid={`bulk-ship-opt-${s.id}`}>
+                    <p className={`text-xs font-bold ${bulkShippingOption === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
+                    <p className="text-[10px] text-gray-600">{s.cost > 0 ? `$${s.cost.toFixed(2)}` : 'Free'}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={bulkUpdateShipping} disabled={!bulkShippingOption || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-500 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-ship-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><Truck className="w-4 h-4" /> Apply to {selected.size} Listings</>}
+                </button>
+                <button onClick={() => setShowBulkShipping(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-ship-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {loading ? (<div className="flex items-center justify-center py-16"><RefreshCw className="w-6 h-6 text-[#3b82f6] animate-spin" /></div>
       ) : items.length === 0 ? (

@@ -250,7 +250,7 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
             <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Shipping</label>
             <div className="grid grid-cols-2 gap-2">
               {SHIPPING_OPTIONS.map(s => (
-                <button key={s.id} onClick={() => { update('shipping_option', s.id); update('shipping_cost', s.cost); }}
+                <button key={s.id} onClick={() => onChange(index, { ...f, shipping_option: s.id, shipping_cost: s.cost })}
                   className={`px-3 py-2 rounded-lg text-left transition-colors ${f.shipping_option === s.id ? 'bg-[#3b82f6]/10 border border-[#3b82f6]/30' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
                   data-testid={`shipping-${s.id}-${index}`}>
                   <p className={`text-xs font-bold ${f.shipping_option === s.id ? 'text-[#3b82f6]' : 'text-gray-400'}`}>{s.label}</p>
@@ -601,7 +601,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-xs text-gray-500">Shipping:</span>
               {SHIPPING_OPTIONS.map(s => (
-                <button key={s.id} onClick={() => { applyToAll('shipping_option', s.id); applyToAll('shipping_cost', s.cost); }}
+                <button key={s.id} onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' ? { ...fm, shipping_option: s.id, shipping_cost: s.cost } : fm))}
                   className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
                   data-testid={`batch-shipping-${s.id}`}>
                   {s.label}

@@ -61,6 +61,11 @@ class ReviseListingRequest(BaseModel):
     shipping_option: Optional[str] = None
     shipping_cost: Optional[float] = None
 
+class BulkReviseShippingRequest(BaseModel):
+    item_ids: list[str]
+    shipping_option: str
+    shipping_cost: float = 0.0
+
 class ListingAIRequest(BaseModel):
     card_name: str
     player: Optional[str] = None
@@ -952,6 +957,67 @@ async def revise_ebay_listing(data: ReviseListingRequest, request: Request):
     except Exception as e:
         logger.error(f"Revise eBay listing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sell/bulk-revise-shipping")
+async def bulk_revise_shipping(data: BulkReviseShippingRequest, request: Request):
+    """Bulk update shipping on multiple active eBay listings"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    ebay_service = data.shipping_option
+    if data.shipping_option == "PWEEnvelope":
+        ebay_service = "USPSFirstClass"
+
+    if data.shipping_option == "FreeShipping":
+        shipping_xml = '<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>USPSFirstClass</ShippingService><FreeShipping>true</FreeShipping><ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>'
+    else:
+        s_cost = data.shipping_cost if data.shipping_cost > 0 else (2.50 if data.shipping_option == "PWEEnvelope" else 4.50 if data.shipping_option == "USPSFirstClass" else 8.50)
+        shipping_xml = f'<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{ebay_service}</ShippingService><ShippingServiceCost currencyID="USD">{s_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>'
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{shipping_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True})
+                else:
+                    # Try ReviseItem for auction items
+                    xml_body2 = xml_body.replace("ReviseFixedPriceItemRequest", "ReviseItemRequest")
+                    resp2 = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "ReviseItem",
+                        "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                    }, content=xml_body2)
+                    root2 = ET.fromstring(resp2.text)
+                    ack2 = root2.find("e:Ack", ns)
+                    if ack2 is not None and ack2.text in ("Success", "Warning"):
+                        results.append({"item_id": item_id, "success": True})
+                    else:
+                        err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                        results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    success_count = sum(1 for r in results if r["success"])
+    return {"success": success_count > 0, "total": len(data.item_ids), "updated": success_count, "results": results}
 
 
 @router.post("/sell/update-photos")
