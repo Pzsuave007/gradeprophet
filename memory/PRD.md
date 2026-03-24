@@ -4,29 +4,30 @@
 - **Production URL:** `https://flipslabengine.com`
 - **Production REACT_APP_BACKEND_URL:** `https://flipslabengine.com`
 - **User's deploy process:** Push to GitHub → `git pull` on server → `bash fix.sh`
-- **fix.sh copies `frontend/build/*`** to the web root — source `.jsx` files are NOT served directly
-- **EVERY TIME frontend changes are made:** Build with `REACT_APP_BACKEND_URL=https://flipslabengine.com`, then restore preview URL
-- **User language:** Spanish (but also comfortable in English)
+- **fix.sh copies `frontend/build/*`** to the web root
+- **EVERY TIME frontend changes are made:** Build with production URL, then restore preview URL
+- **User language:** Spanish (comfortable in English too)
 - **Admin email:** pzsuave007@gmail.com (Google Auth)
 - **Scanner token for testing:** `scan_74b1544bdc4a4aa2b3fa9839c4e42f64`
 
 ## Original Problem Statement
-Build a multi-tiered subscription model for the "FlipSlab Engine" sports card trading platform. Features include admin panel, public Card Shop, image optimization, photo cropping, eBay photo syncing, and Social Post image generator.
+Build a multi-tiered subscription model for the "FlipSlab Engine" sports card trading platform. Features include admin panel, public Card Shop, eBay syncing, Social Post generator, and now a public Marketplace.
 
 ## Core Features Implemented
-- **Admin Panel** (`/admin`): Private route for admin to manage users
-- **Public Card Shop** (`/shop/:slug`): Active eBay listings with 3D flip, glow effects
+- **Admin Panel** (`/admin`): Private route for admin
+- **Public Card Shop** (`/shop/:slug`): Individual seller stores with tier-based theming
+- **Public Marketplace** (`/marketplace`): Aggregates all cards from all sellers with search, filters (sport, condition, seller, price sort), card modal with 3D flip, swipe navigation, seller info, and eBay buy links
 - **Social Post Editor**: Full editor with presets, frames, icons, text, background colors
-- **Subscription System**: Rookie (free), All-Star, Hall of Fame, Legend tiers (Stripe test keys)
+- **Subscription System**: Rookie, All-Star, Hall of Fame, Legend tiers (Stripe test keys)
 - **eBay Integration**: Trading & Fulfillment APIs for inventory sync and listing management
 - **AI Card Identification**: OpenAI GPT-4o
 - **Google Auth**: Emergent-managed Google OAuth
-- **Scanner Token**: Long-lived tokens for desktop FlipSlab Scanner app
+- **Scanner Token**: Long-lived tokens for desktop scanner
 - **Inventory Sold Tab**: Automatic sync of sold items from eBay
-- **Card Title Wrapping**: Full text visible across all sections (March 24, 2026)
-- **Shipping Selection Fix**: Fixed React state race condition in CreateListingView (March 24, 2026)
-- **Bulk Shipping Update**: Select multiple listings in Listings/Active AND Inventory/Listed to update shipping in bulk (March 24, 2026)
-- **Price Lookup Links**: CardLadder, SportsCardInvestor, 130Point buttons in both Inventory card detail and Listings detail (March 24, 2026)
+- **Bulk Shipping Update**: Select multiple listings to update shipping in bulk (Inventory/Listed + Listings/Active)
+- **Price Lookup Links**: eBay Sold + CardLadder buttons using structured card data
+- **Listings Search + Sport Filter**: Search bar + sport detection filter in Listings section
+- **Shipping Selection Fix**: Fixed React state race condition in CreateListingView
 
 ## Architecture
 ```
@@ -34,42 +35,49 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 ├── backend/
 │   ├── server.py
 │   ├── database.py
-│   ├── utils/auth.py
-│   └── routers/ (auth, inventory, ebay, shop, subscription, admin, flipfinder, settings)
+│   └── routers/
+│       ├── marketplace.py     # NEW: Public marketplace API
+│       ├── ebay.py            # Bulk revise shipping endpoint
+│       ├── inventory.py
+│       ├── shop.py
+│       └── (auth, cards, settings, subscription, admin, flipfinder, etc.)
 ├── frontend/
+│   ├── src/pages/
+│   │   ├── MarketplacePage.jsx  # NEW: Public marketplace with full features
+│   │   ├── ShopPage.jsx
+│   │   └── Dashboard.jsx
 │   ├── src/components/
-│   │   ├── SocialPostEditor.jsx
-│   │   ├── InventoryModule.jsx    # Bulk shipping + Price lookup links
-│   │   ├── ListingsModule.jsx     # Bulk shipping + Price lookup links
-│   │   ├── CreateListingView.jsx  # Fixed shipping race condition
-│   │   └── LandingPage.jsx
-│   └── src/pages/
-│       ├── Dashboard.jsx
-│       └── ShopPage.jsx
+│   │   ├── InventoryModule.jsx  # Bulk shipping + Price lookup
+│   │   ├── ListingsModule.jsx   # Bulk shipping + Search + Sport filter + Price lookup
+│   │   ├── CreateListingView.jsx # Fixed shipping race condition
+│   │   └── SocialPostEditor.jsx
+│   └── src/App.js               # Added /marketplace route
 ```
 
 ## Key API Endpoints
-- `POST /api/ebay/sell/bulk-revise-shipping` — Bulk update shipping on multiple eBay listings
-- `POST /api/ebay/sell/revise` — Revise a single eBay listing
-- `POST /api/ebay/sell/create` — Create a new eBay listing
-- `GET /api/ebay/my-listings` — Fetch user's eBay listings (triggers sold sync)
-- `GET /api/inventory` — Fetch inventory items (supports category=sold, limit=500)
+- `GET /api/marketplace` — Public: all listed cards with filters (sport, condition, seller, search, sort)
+- `POST /api/ebay/sell/bulk-revise-shipping` — Bulk update shipping
+- `GET /api/shop/:slug` — Individual seller shop
+- `GET /api/inventory` — User inventory
+- `GET /api/ebay/my-listings` — User's eBay listings
 
 ## Next Priority Task
-- **P0: Stripe Production Integration** — Configure production keys for subscription payments
+- **P0: Stripe Production Integration**
 
 ## Upcoming Tasks
-- P1: Whatnot & Shopify Integration (Legend tier feature)
+- P1: Add Marketplace link to Landing Page and Dashboard navigation
+- P1: Whatnot & Shopify Integration (Legend tier)
 
 ## Future / Backlog
-- P2: New User Onboarding wizard
-- P3: "Flip Finder" core logic enhancements
-- P4: Windows Scanner App
-- P5: Team Access for "Legend" tier
-- P6: Refactor `InventoryModule.jsx` (1400+ lines)
+- P2: Direct purchase within FlipSlab (requires Stripe)
+- P3: New User Onboarding wizard
+- P4: "Flip Finder" core logic enhancements
+- P5: Windows Scanner App
+- P6: Team Access for "Legend" tier
+- P7: Refactor `InventoryModule.jsx` (1400+ lines)
 
 ## 3rd Party Integrations
 - **eBay API**: Trading and Fulfillment APIs
 - **OpenAI GPT-4o**: Card identification
 - **Emergent Google Auth**: User login
-- **Stripe**: Integrated with test keys, production setup PENDING
+- **Stripe**: Test keys active, production setup PENDING
