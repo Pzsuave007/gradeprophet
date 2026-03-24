@@ -845,6 +845,12 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
               <div className="space-y-1.5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
                 <div className="flex flex-wrap gap-1.5">
+                  <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([item.year, item.set_name, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-xs text-gray-300 hover:text-white hover:border-yellow-500/50 transition-colors"
+                    data-testid="lookup-ebay-sold">
+                    <ExternalLink className="w-3 h-3" /> eBay Sold
+                  </a>
                   <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([item.year, item.set_name, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"

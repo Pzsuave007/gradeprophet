@@ -214,6 +214,12 @@ const ListingDetail = ({ listing, onBack, onSuccess, onEndListing }) => {
             <div className="space-y-1.5 mt-2">
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
               <div className="flex flex-wrap gap-1.5">
+                <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(listing.title || '')}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-yellow-500/50 transition-colors"
+                  data-testid="listing-lookup-ebay-sold">
+                  <ExternalLink className="w-3 h-3" /> eBay Sold
+                </a>
                 <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent(listing.title || '')}`}
                   target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
