@@ -549,7 +549,7 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
+        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
@@ -582,12 +582,12 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
         )}
 
         {/* 3D Flip Card */}
-        <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1200 }}>
+        <div className="relative mx-4 mt-4 mb-2 flex-shrink-0" style={{ perspective: 1200 }}>
           <motion.div
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative aspect-[3/4] max-h-[65vh] cursor-pointer"
+            className="relative aspect-[3/4] max-h-[45vh] sm:max-h-[50vh] mx-auto cursor-pointer"
             onClick={() => backSrc && setFlipped(!flipped)}
           >
             {/* Front */}
@@ -622,10 +622,10 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
         </div>
 
         {/* Card Info */}
-        <div className="px-5 pb-6 space-y-4">
+        <div className="px-5 pb-5 pt-2 space-y-2.5 flex-shrink-0">
           <div>
-            <h2 className="text-base sm:text-lg font-black text-white leading-tight">{item.card_name}</h2>
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <h2 className="text-sm sm:text-base font-black text-white leading-tight">{item.card_name}</h2>
+            <div className="flex flex-wrap items-center gap-1 mt-1.5">
               {item.player && (
                 <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   {item.player}
@@ -655,7 +655,7 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
           </div>
 
           {/* Price + Actions */}
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/[0.04]">
+          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-white/[0.04]">
             {price ? (
               <div>
                 <p className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">Asking Price</p>

@@ -144,7 +144,7 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
       <motion.div
         initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[92vh] overflow-y-auto shadow-2xl"
+        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
@@ -174,12 +174,12 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
         )}
 
         {/* 3D Flip Card */}
-        <div className="relative mx-4 mt-4 mb-3" style={{ perspective: 1200 }}>
+        <div className="relative mx-4 mt-4 mb-2 flex-shrink-0" style={{ perspective: 1200 }}>
           <motion.div
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative aspect-[3/4] max-h-[65vh] cursor-pointer"
+            className="relative aspect-[3/4] max-h-[45vh] sm:max-h-[50vh] mx-auto cursor-pointer"
             onClick={() => backSrc && setFlipped(!flipped)}
           >
             <div className="absolute inset-0 rounded-2xl overflow-hidden bg-[#080808]"
@@ -207,10 +207,10 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
         </div>
 
         {/* Card Info */}
-        <div className="px-5 pb-6 space-y-4">
+        <div className="px-5 pb-5 pt-2 space-y-2.5 flex-shrink-0">
           <div>
-            <h2 className="text-base sm:text-lg font-black text-white leading-tight">{item.card_name}</h2>
-            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+            <h2 className="text-sm sm:text-base font-black text-white leading-tight">{item.card_name}</h2>
+            <div className="flex flex-wrap items-center gap-1 mt-1.5">
               {item.player && (
                 <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
                   {item.player}
@@ -239,14 +239,14 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
 
           {/* Seller Info */}
           {item.seller_name && (
-            <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
+            <div className="flex items-center gap-2.5 py-2 px-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
               {item.seller_logo ? (
-                <img src={item.seller_logo} alt="" className="w-8 h-8 rounded-lg object-cover" />
+                <img src={item.seller_logo} alt="" className="w-7 h-7 rounded-lg object-cover" />
               ) : (
-                <div className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center"><Store className="w-4 h-4 text-gray-600" /></div>
+                <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center"><Store className="w-3.5 h-3.5 text-gray-600" /></div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-white truncate">{item.seller_name}</p>
+                <p className="text-[11px] font-bold text-white truncate">{item.seller_name}</p>
                 {item.seller_slug && (
                   <a href={`/shop/${item.seller_slug}`} className="text-[10px] text-[#3b82f6] hover:underline" onClick={e => e.stopPropagation()}>
                     Visit Store
@@ -257,11 +257,11 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
           )}
 
           {/* Price + Buy */}
-          <div className="flex items-center justify-between gap-3 pt-3 border-t border-white/[0.04]">
+          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-white/[0.04]">
             {price ? (
               <div>
                 <p className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">Asking Price</p>
-                <p className="text-2xl font-black text-amber-400">${parseFloat(price).toFixed(2)}</p>
+                <p className="text-xl font-black text-amber-400">${parseFloat(price).toFixed(2)}</p>
               </div>
             ) : (
               <div><p className="text-sm text-gray-500">Price on eBay</p></div>
