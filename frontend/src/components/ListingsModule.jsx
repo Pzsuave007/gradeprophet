@@ -769,6 +769,7 @@ const ListingsModule = () => {
   const [soldDays, setSoldDays] = useState(30);
   const [pageSize, setPageSize] = useState(200);
   const [listingsSearch, setListingsSearch] = useState('');
+  const [sportFilter, setSportFilter] = useState('all');
 
   // Bulk select state
   const [selectMode, setSelectMode] = useState(false);
@@ -876,8 +877,29 @@ const ListingsModule = () => {
   };
 
   const eb = ebayData || { active: [], sold: [], active_total: 0, sold_total: 0 };
-  const sortedActive = sortItems(eb.active, activeSort, 'active').filter(i => !listingsSearch || (i.title || '').toLowerCase().includes(listingsSearch.toLowerCase()));
-  const sortedSold = sortItems(eb.sold, soldSort, 'sold').filter(i => !listingsSearch || (i.title || '').toLowerCase().includes(listingsSearch.toLowerCase()));
+
+  // Build sport map from inventory items
+  const sportMap = {};
+  inventoryItems.forEach(inv => { if (inv.ebay_item_id && inv.sport) sportMap[inv.ebay_item_id] = inv.sport; });
+  const SPORT_KEYWORDS = { Basketball: /basketball|nba|topps chrome|prizm|hoops|mosaic|donruss optic/i, Baseball: /baseball|mlb|bowman|topps series|gypsy queen|heritage/i, Football: /football|nfl|playoff|contenders/i, Soccer: /soccer|fifa|premier league|futbol/i, Hockey: /hockey|nhl|upper deck.*ice/i };
+  const detectSport = (item) => {
+    if (sportMap[item.item_id]) return sportMap[item.item_id];
+    const t = item.title || '';
+    for (const [sport, regex] of Object.entries(SPORT_KEYWORDS)) { if (regex.test(t)) return sport; }
+    return 'Other';
+  };
+
+  // Get available sports from all listings
+  const allSports = [...new Set([...eb.active, ...eb.sold].map(detectSport))].sort();
+
+  const filterBySearchAndSport = (items) => items.filter(i => {
+    const matchSearch = !listingsSearch || (i.title || '').toLowerCase().includes(listingsSearch.toLowerCase());
+    const matchSport = sportFilter === 'all' || detectSport(i) === sportFilter;
+    return matchSearch && matchSport;
+  });
+
+  const sortedActive = filterBySearchAndSport(sortItems(eb.active, activeSort, 'active'));
+  const sortedSold = filterBySearchAndSport(sortItems(eb.sold, soldSort, 'sold'));
   const totalValue = eb.active.reduce((s, i) => s + (i.price || 0), 0);
   const totalSold = eb.sold.reduce((s, i) => s + (i.price || 0), 0);
 
@@ -983,16 +1005,26 @@ const ListingsModule = () => {
           <ViewToggle view={viewMode} onChange={setViewMode} />
         </div>
 
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
-          <input type="text" placeholder="Search listings..." value={listingsSearch} onChange={e => setListingsSearch(e.target.value)}
-            className="w-full bg-[#111] border border-[#1a1a1a] rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors"
-            data-testid="listings-search-input" />
-          {listingsSearch && (
-            <button onClick={() => setListingsSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors" data-testid="listings-search-clear">
-              <X className="w-4 h-4" />
-            </button>
+        {/* Search Bar + Sport Filter */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+            <input type="text" placeholder="Search listings..." value={listingsSearch} onChange={e => setListingsSearch(e.target.value)}
+              className="w-full bg-[#111] border border-[#1a1a1a] rounded-xl pl-10 pr-10 py-2.5 text-sm text-white placeholder-gray-600 focus:border-[#3b82f6] focus:outline-none transition-colors"
+              data-testid="listings-search-input" />
+            {listingsSearch && (
+              <button onClick={() => setListingsSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white transition-colors" data-testid="listings-search-clear">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {allSports.length > 1 && (
+            <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
+              className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
+              data-testid="sport-filter-select">
+              <option value="all">All Sports</option>
+              {allSports.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
           )}
         </div>
 
