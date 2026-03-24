@@ -66,13 +66,13 @@ async def get_marketplace(
         ).to_list(500)
         plan_map = {s["user_id"]: s.get("plan_id", "rookie") for s in subs}
 
-        # Build query for inventory items that are listed on eBay or for sale
+        # Build query for inventory items — only show items with eBay listing or with a price
         inv_query = {
             "user_id": {"$in": user_ids},
             "category": {"$ne": "sold"},
             "$or": [
-                {"ebay_item_id": {"$exists": True, "$ne": None}},
-                {"category": "for_sale"},
+                {"ebay_item_id": {"$exists": True, "$nin": [None, ""]}},
+                {"category": "for_sale", "listed_price": {"$exists": True, "$gt": 0}},
             ]
         }
 
@@ -112,7 +112,7 @@ async def get_marketplace(
              "image": 1, "back_image": 1, "category": 1, "listed_at": 1, "created_at": 1}
         ).to_list(1000)
 
-        # Filter by price range
+        # Filter items — must have a price to appear on marketplace
         items = []
         for item in items_raw:
             price = item.get("listed_price") or item.get("purchase_price") or 0
@@ -121,6 +121,9 @@ async def get_marketplace(
                     price = float(price)
                 except (ValueError, TypeError):
                     price = 0
+            # Skip items without price or ebay listing
+            if price <= 0 and not item.get("ebay_item_id"):
+                continue
             if min_price is not None and price < min_price:
                 continue
             if max_price is not None and price > max_price:
