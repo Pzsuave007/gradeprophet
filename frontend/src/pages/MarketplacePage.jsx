@@ -463,7 +463,7 @@ const MarketplacePage = () => {
             <p className="text-xs text-gray-700 mt-1">Try adjusting your search or filters</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-5">
             {items.map((item, idx) => (
               <MarketCardTile key={`${item.ebay_item_id || item.card_name}-${idx}`} item={item} index={idx} onClick={() => setSelectedCard(item)} />
             ))}

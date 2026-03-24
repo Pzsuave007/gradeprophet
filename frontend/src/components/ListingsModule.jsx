@@ -1136,7 +1136,7 @@ const ListingsModule = () => {
             </button>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
                 className={`bg-[#1a1a1a] border rounded-xl overflow-hidden transition-all cursor-pointer group ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/50'}`}
@@ -1244,7 +1244,7 @@ const ListingsModule = () => {
             <p className="text-sm text-gray-400">No sold items yet</p>
           </div>
         ) : viewMode === 'grid' ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {sortedSold.map((item, i) => (
               <motion.div key={item.item_id || i} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
                 className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden group cursor-pointer hover:border-emerald-500/30 transition-all"
