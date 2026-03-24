@@ -216,33 +216,19 @@ const ListingDetail = ({ listing, cardData, onBack, onSuccess, onEndListing }) =
               {(() => {
                 const c = cardData || {};
                 const searchQ = [c.year, c.set_name, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ') || listing.title || '';
-                const sciSlug = c.player
-                  ? `${(c.player || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '')}-${(c.sport || 'basketball').toLowerCase()}/${[c.year, (c.set_name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'), 'base', c.card_number].filter(Boolean).join('-')}${c.condition === 'Graded' && c.grading_company && c.grade ? '/' + (c.grading_company || '').toLowerCase() + '-' + c.grade : ''}`
-                  : (listing.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '').replace(/--+/g, '-');
                 return (
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-2 gap-2">
                     <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQ)}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-yellow-500/50 transition-colors"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold text-xs hover:bg-yellow-500/20 active:scale-95 transition-all"
                       data-testid="listing-lookup-ebay-sold">
-                      <ExternalLink className="w-3 h-3" /> eBay Sold
+                      <TrendingUp className="w-4 h-4" /> eBay Sold
                     </a>
                     <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent(searchQ)}`}
                       target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-[#3b82f6]/50 transition-colors"
+                      className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-xs hover:bg-[#3b82f6]/20 active:scale-95 transition-all"
                       data-testid="listing-lookup-cardladder">
-                      <ExternalLink className="w-3 h-3" /> CardLadder
-                    </a>
-                    <a href={`https://www.sportscardinvestor.com/cards/${encodeURIComponent(sciSlug)}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-emerald-500/50 transition-colors"
-                      data-testid="listing-lookup-sci">
-                      <ExternalLink className="w-3 h-3" /> SCI
-                    </a>
-                    <a href="https://130point.com/sales/" target="_blank" rel="noopener noreferrer"
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs text-gray-300 hover:text-white hover:border-amber-500/50 transition-colors"
-                      data-testid="listing-lookup-130point">
-                      <ExternalLink className="w-3 h-3" /> 130Point
+                      <TrendingUp className="w-4 h-4" /> CardLadder
                     </a>
                   </div>
                 );
