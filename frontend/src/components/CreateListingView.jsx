@@ -118,6 +118,21 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
                   )}
                 </div>
               )}
+              {/* Price Lookup Links */}
+              <div className="grid grid-cols-2 gap-1.5 mt-2">
+                <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([f.year, f.set_name, f.player_name, f.card_number ? '#' + f.card_number : '', f.is_graded && f.grading_company ? f.grading_company : '', f.is_graded && f.grade ? f.grade : ''].filter(Boolean).join(' '))}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold text-[10px] hover:bg-yellow-500/20 active:scale-95 transition-all"
+                  data-testid={`lookup-ebay-${index}`}>
+                  <TrendingUp className="w-3 h-3" /> eBay Sold
+                </a>
+                <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([f.year, f.set_name, f.player_name, f.card_number ? '#' + f.card_number : '', f.is_graded && f.grading_company ? f.grading_company : '', f.is_graded && f.grade ? f.grade : ''].filter(Boolean).join(' '))}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-1.5 py-2 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-[10px] hover:bg-[#3b82f6]/20 active:scale-95 transition-all"
+                  data-testid={`lookup-cardladder-${index}`}>
+                  <TrendingUp className="w-3 h-3" /> CardLadder
+                </a>
+              </div>
             </div>
             <div>
               <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Format</label>
