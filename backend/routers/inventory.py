@@ -240,7 +240,7 @@ async def get_inventory(
     sort_by: Optional[str] = "created_at",
     sort_dir: Optional[str] = "desc",
     skip: int = 0,
-    limit: int = 50,
+    limit: int = 500,
 ):
     """Get inventory with search and filters"""
     try:

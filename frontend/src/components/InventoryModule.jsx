@@ -945,7 +945,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
         params.append('listed', 'false');
       }
       if (filters.listed) params.append('listed', filters.listed);
-      params.append('limit', '50');
+      params.append('limit', '500');
       const [itemsRes, statsRes] = await Promise.all([
         axios.get(`${API}/api/inventory?${params}`),
         axios.get(`${API}/api/inventory/stats`)
@@ -955,12 +955,17 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     finally { setLoading(false); }
   }, [filters, activeCategory]);
 
-  useEffect(() => { fetchInventory(search); }, [fetchInventory]);
-
-  // Trigger eBay sold sync silently on mount
+  // On mount: sync eBay sold items first, then load inventory
+  const syncDone = useRef(false);
   useEffect(() => {
-    axios.get(`${API}/api/ebay/my-listings?limit=200&sold_limit=200&sold_days=60`).catch(() => {});
+    if (syncDone.current) return;
+    syncDone.current = true;
+    axios.get(`${API}/api/ebay/my-listings?limit=200&sold_limit=200&sold_days=60`)
+      .catch(() => {})
+      .finally(() => fetchInventory(search));
   }, []);
+
+  useEffect(() => { if (syncDone.current) fetchInventory(search); }, [fetchInventory]);
 
   // Handle pending detail card from Quick Scan or external navigation
   useEffect(() => {
