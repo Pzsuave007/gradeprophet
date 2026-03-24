@@ -218,7 +218,7 @@ const ListingDetail = ({ listing, cardData, onBack, onSuccess, onEndListing }) =
                 const FILLER = /\b(card|cards|sports|basketball|baseball|football|soccer|hockey|legend|legends|star|rookie|rc|hot|invest|investment|rare|sp|ssp|lot|nm|ex|vg|good|fair|poor)\b/gi;
                 const hasCardData = c.player || c.year || c.set_name;
                 const searchQ = hasCardData
-                  ? [c.year, c.set_name, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ')
+                  ? [c.year, c.set_name, c.variation, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ')
                   : (listing.title || '').replace(FILLER, '').replace(/\s{2,}/g, ' ').trim();
                 return (
                   <div className="grid grid-cols-2 gap-2">

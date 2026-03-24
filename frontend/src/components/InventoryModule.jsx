@@ -845,13 +845,13 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
               <div className="space-y-1.5">
                 <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
                 <div className="grid grid-cols-2 gap-2">
-                  <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([item.year, item.set_name, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+                  <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([item.year, item.set_name, item.variation, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold text-xs hover:bg-yellow-500/20 active:scale-95 transition-all"
                     data-testid="lookup-ebay-sold">
                     <TrendingUp className="w-4 h-4" /> eBay Sold
                   </a>
-                  <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([item.year, item.set_name, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}`}
+                  <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([item.year, item.set_name, item.variation, item.player, item.card_number ? '#' + item.card_number : '', item.condition === 'Graded' && item.grading_company ? item.grading_company : '', item.condition === 'Graded' && item.grade ? item.grade : ''].filter(Boolean).join(' '))}`}
                     target="_blank" rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-xs hover:bg-[#3b82f6]/20 active:scale-95 transition-all"
                     data-testid="lookup-cardladder">
