@@ -5,7 +5,7 @@ import {
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
   Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
-  ArrowDownUp, Calendar, ChevronDown
+  ArrowDownUp, Calendar, ChevronDown, Check
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -742,6 +742,48 @@ const ListingsModule = () => {
   const [soldDays, setSoldDays] = useState(30);
   const [pageSize, setPageSize] = useState(200);
 
+  // Bulk select state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState(new Set());
+  const [showBulkShipping, setShowBulkShipping] = useState(false);
+  const [bulkShippingOption, setBulkShippingOption] = useState('');
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+
+  const toggleSelect = (itemId) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      next.has(itemId) ? next.delete(itemId) : next.add(itemId);
+      return next;
+    });
+  };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); };
+
+  const bulkUpdateShipping = async (items) => {
+    if (!bulkShippingOption) { toast.error('Select a shipping option'); return; }
+    const selectedItems = items.filter(i => selected.has(i.item_id));
+    if (selectedItems.length === 0) { toast.error('No items selected'); return; }
+    const opt = SHIPPING_OPTIONS.find(s => s.id === bulkShippingOption);
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-revise-shipping`, {
+        item_ids: selectedItems.map(i => i.item_id),
+        shipping_option: bulkShippingOption,
+        shipping_cost: opt?.cost || 0,
+      });
+      if (res.data.success) {
+        toast.success(`Shipping updated on ${res.data.updated}/${res.data.total} listings`);
+        setShowBulkShipping(false);
+        exitSelectMode();
+      } else {
+        toast.error('Failed to update shipping');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update shipping');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
   const fetchData = useCallback(async () => {
     try {
       const [ebayRes, invRes] = await Promise.allSettled([
@@ -846,11 +888,35 @@ const ListingsModule = () => {
             data-testid="refresh-listings-btn">
             <RefreshCw className="w-4 h-4" />
           </button>
-          <button onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
-            data-testid="create-listing-btn">
-            <Plus className="w-4 h-4" />Create Listing
-          </button>
+          {activeTab === 'active' && !selectMode && (
+            <button onClick={() => setSelectMode(true)}
+              className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors"
+              data-testid="listings-select-mode-btn">
+              <Check className="w-4 h-4" /> Select
+            </button>
+          )}
+          {selectMode && (
+            <>
+              <button onClick={() => {
+                if (selected.size === sortedActive.length) setSelected(new Set());
+                else setSelected(new Set(sortedActive.map(i => i.item_id)));
+              }} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="listings-select-all-btn">
+                {selected.size === sortedActive.length ? 'Deselect All' : 'Select All'}
+              </button>
+              <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="listings-cancel-select-btn">Cancel</button>
+              <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-shipping-btn">
+                <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+            </>
+          )}
+          {!selectMode && (
+            <button onClick={() => setShowCreateModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
+              data-testid="create-listing-btn">
+              <Plus className="w-4 h-4" />Create Listing
+            </button>
+          )}
         </div>
       </div>
 
@@ -877,7 +943,7 @@ const ListingsModule = () => {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex gap-1">
             {tabs.map(({ id, label, icon: Icon }) => (
-              <button key={id} onClick={() => setActiveTab(id)}
+              <button key={id} onClick={() => { setActiveTab(id); exitSelectMode(); }}
                 className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-colors ${
                   activeTab === id ? 'bg-[#3b82f6] text-white' : 'bg-[#111] text-gray-500 hover:text-white border border-[#1a1a1a]'
                 }`} data-testid={`listings-tab-${id}`}>
@@ -949,6 +1015,42 @@ const ListingsModule = () => {
         </div>
       </div>
 
+      {/* Bulk Shipping Panel */}
+      <AnimatePresence>
+        {showBulkShipping && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-amber-500/30 rounded-xl p-4" data-testid="listings-bulk-shipping-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-amber-400" />
+                  <p className="text-sm font-bold text-white">Bulk Update Shipping</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400">{selected.size} items</span>
+                </div>
+                <button onClick={() => setShowBulkShipping(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {SHIPPING_OPTIONS.map(s => (
+                  <button key={s.id} onClick={() => setBulkShippingOption(s.id)}
+                    className={`px-3 py-2.5 rounded-lg text-left transition-all ${bulkShippingOption === s.id ? 'bg-amber-500/15 border-2 border-amber-500/50 ring-1 ring-amber-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                    data-testid={`listings-bulk-ship-opt-${s.id}`}>
+                    <p className={`text-xs font-bold ${bulkShippingOption === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
+                    <p className="text-[10px] text-gray-600">{s.cost > 0 ? `$${s.cost.toFixed(2)}` : 'Free'}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => bulkUpdateShipping(sortedActive)} disabled={!bulkShippingOption || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-500 disabled:opacity-50 transition-colors"
+                  data-testid="listings-bulk-ship-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><Truck className="w-4 h-4" /> Apply to {selected.size} Listings</>}
+                </button>
+                <button onClick={() => setShowBulkShipping(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-ship-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Active Listings */}
       {activeTab === 'active' && (
         sortedActive.length === 0 ? (
@@ -963,12 +1065,20 @@ const ListingsModule = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
-                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden hover:border-[#3b82f6]/50 transition-all cursor-pointer group"
-                onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
+                className={`bg-[#1a1a1a] border rounded-xl overflow-hidden transition-all cursor-pointer group ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/50'}`}
+                onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="aspect-square bg-[#111] overflow-hidden relative">
                   {item.image_url ? (
                     <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
                   ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                  {/* Selection checkbox */}
+                  {selectMode && (
+                    <div className="absolute top-2 left-2 z-10">
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selected.has(item.item_id) ? 'bg-amber-500 border-amber-500' : 'bg-black/50 border-gray-400'}`}>
+                        {selected.has(item.item_id) && <Check className="w-4 h-4 text-white" />}
+                      </div>
+                    </div>
+                  )}
                   {/* Big Price Badge */}
                   <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-2 px-2.5">
                     <span className="text-lg font-black text-white drop-shadow-lg">${item.price}</span>
@@ -976,17 +1086,19 @@ const ListingsModule = () => {
                   <span className="absolute top-2 right-2 text-[9px] px-2 py-0.5 rounded bg-black/70 text-gray-200 uppercase font-bold">
                     {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
                   </span>
-                  {/* Action overlay on hover */}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
-                    <span className="px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
-                      <Edit2 className="w-3.5 h-3.5" />Edit
-                    </span>
-                    <button onClick={(e) => endListing(item.item_id, e)}
-                      className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg hover:bg-red-500 transition-colors"
-                      data-testid={`end-listing-${i}`}>
-                      <Trash2 className="w-3.5 h-3.5" />End
-                    </button>
-                  </div>
+                  {/* Action overlay on hover - only when not in select mode */}
+                  {!selectMode && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">
+                      <span className="px-3 py-1.5 rounded-lg bg-[#3b82f6] text-white text-xs font-bold flex items-center gap-1.5 shadow-lg">
+                        <Edit2 className="w-3.5 h-3.5" />Edit
+                      </span>
+                      <button onClick={(e) => endListing(item.item_id, e)}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg hover:bg-red-500 transition-colors"
+                        data-testid={`end-listing-${i}`}>
+                        <Trash2 className="w-3.5 h-3.5" />End
+                      </button>
+                    </div>
+                  )}
                 </div>
                 <div className="p-3">
                   <p className="text-xs font-semibold text-white line-clamp-2 leading-relaxed mb-2">{item.title}</p>
@@ -1008,8 +1120,13 @@ const ListingsModule = () => {
           <div className="space-y-1.5">
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 flex items-center gap-3 hover:border-[#3b82f6]/40 transition-colors cursor-pointer"
-                onClick={() => setSelectedListing(item)} data-testid={`active-listing-${i}`}>
+                className={`bg-[#1a1a1a] border rounded-xl p-3 flex items-center gap-3 transition-colors cursor-pointer ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/40'}`}
+                onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
+                {selectMode && (
+                  <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected.has(item.item_id) ? 'bg-amber-500 border-amber-500' : 'bg-transparent border-gray-600'}`}>
+                    {selected.has(item.item_id) && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                )}
                 <div className="w-14 h-14 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
                   {item.image_url ? <img src={item.image_url} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-3 text-gray-700" />}
                 </div>
@@ -1024,17 +1141,21 @@ const ListingsModule = () => {
                 <div className="text-right flex-shrink-0">
                   <p className="text-lg font-black text-white">${item.price}</p>
                 </div>
-                <button onClick={e => { e.stopPropagation(); setSelectedListing(item); }}
-                  className="p-2 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>
-                  <Edit2 className="w-4 h-4" />
-                </button>
-                <button onClick={(e) => endListing(item.item_id, e)}
-                  className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-500" data-testid={`end-btn-${i}`}>
-                  <Trash2 className="w-4 h-4" />
-                </button>
-                <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
-                  <ExternalLink className="w-4 h-4 text-gray-600 hover:text-[#3b82f6]" />
-                </a>
+                {!selectMode && (
+                  <>
+                    <button onClick={e => { e.stopPropagation(); setSelectedListing(item); }}
+                      className="p-2 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button onClick={(e) => endListing(item.item_id, e)}
+                      className="p-2 hover:bg-red-500/10 rounded-lg transition-colors text-gray-500 hover:text-red-500" data-testid={`end-btn-${i}`}>
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                    <a href={item.url} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()} className="p-2 hover:bg-white/5 rounded-lg transition-colors">
+                      <ExternalLink className="w-4 h-4 text-gray-600 hover:text-[#3b82f6]" />
+                    </a>
+                  </>
+                )}
               </motion.div>
             ))}
           </div>

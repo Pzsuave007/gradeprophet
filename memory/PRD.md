@@ -18,19 +18,7 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 ### Implemented
 - **Admin Panel** (`/admin`): Private route for admin to manage users and view platform stats
 - **Public Card Shop** (`/shop/:slug`): Shows all active eBay listings with tier-based theming, 3D flip, glow effects
-- **Social Post Editor** (fully functional):
-  - Drag/resize all elements via native pointer events (no react-rnd)
-  - 8 glow presets (Legend, Gold, Ice, Fire, Emerald, Clean, Flamingo, Aqua)
-  - Glow intensity & corner roundness sliders
-  - **Frame element** — empty rectangle with rounded corners, sits below card (z-index 0)
-  - **Shield element** — decorative shield icon with glow
-  - **3 Custom Text fields** — editable text with alignment control (left/center/right)
-  - **2 Icon slots** — 10 icons to choose from (Star, Heart, Trophy, Flame, Zap, Crown, Diamond, Shield, Target, Award)
-  - **8 Background colors** (Black, Charcoal, Navy, Midnight, Forest, Wine, Slate, White)
-  - **Global Presets** — admin creates presets, all users can apply them (stored in `global_settings` collection)
-  - Toggle visibility of all 14 elements
-  - Export to PNG (1080x1350 @ 4:5 ratio)
-  - Self-fetches shop data (name, logo, plan) — no dependency on InventoryModule props
+- **Social Post Editor** (fully functional): Drag/resize elements, glow presets, frames, icons, custom text, background colors, global presets
 - **Subscription System**: Rookie (free), All-Star, Hall of Fame, Legend tiers with Stripe (test keys)
 - **eBay Integration**: Trading & Fulfillment APIs for inventory sync and listing management
 - **AI Card Identification**: OpenAI GPT-4o
@@ -38,7 +26,9 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **Scanner Token**: Long-lived tokens for desktop FlipSlab Scanner app
 - **Dev Login Endpoint**: `GET /api/auth/dev-login?token=xxx` sets session cookie for testing
 - **Inventory Sold Tab**: Automatic sync of sold items from eBay
-- **Card Title Wrapping**: Titles no longer truncated — full text visible across all sections (fixed March 24, 2026)
+- **Card Title Wrapping**: Titles no longer truncated (March 24, 2026)
+- **Bulk Shipping Update**: Select multiple listings in both Listings/Active and Inventory/Listed tabs to update shipping in bulk via eBay API (March 24, 2026)
+- **Shipping Selection Fix**: Fixed React state race condition that prevented shipping option from being saved when creating eBay listings (March 24, 2026)
 
 ### Architecture
 ```
@@ -50,24 +40,30 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 │   └── routers/ (auth, inventory, ebay, shop, subscription, admin, flipfinder, settings)
 ├── frontend/
 │   ├── src/components/
-│   │   ├── SocialPostEditor.jsx   # Full editor with frame, icons, custom text, bg colors, global presets
-│   │   ├── InventoryModule.jsx    # Card detail + Social Post integration
+│   │   ├── SocialPostEditor.jsx
+│   │   ├── InventoryModule.jsx    # Bulk shipping in Listed tab
+│   │   ├── ListingsModule.jsx     # Bulk shipping in Active tab
+│   │   ├── CreateListingView.jsx  # Fixed shipping race condition
 │   │   └── LandingPage.jsx
 │   └── src/pages/
 │       ├── Dashboard.jsx
 │       └── ShopPage.jsx
 ```
 
-## Bug Fixes Applied
-- **March 19, 2026:** Social Post Editor blank canvas fix, subscription endpoint fix, settings/subscription fetch fix, frame z-index fix
-- **March 24, 2026:** Card title truncation fix — removed `truncate` CSS class from InventoryModule.jsx and ShopPage.jsx
-
 ## DB Collections
-- **global_settings**: Stores global editor presets (`key: "editor_presets"`)
-- **user_settings**: Per-user settings (shop_name, shop_logo, ebay data, etc.)
+- **global_settings**: Global editor presets
+- **user_settings**: Per-user settings
 - **users**: User accounts
-- **user_sessions**: Session tokens (including scanner tokens)
+- **user_sessions**: Session tokens
 - **subscriptions**: User subscription data
+- **inventory**: Card inventory (category can be "sold")
+
+## Key API Endpoints
+- `POST /api/ebay/sell/bulk-revise-shipping` — Bulk update shipping on multiple eBay listings
+- `POST /api/ebay/sell/revise` — Revise a single eBay listing
+- `POST /api/ebay/sell/create` — Create a new eBay listing
+- `GET /api/ebay/my-listings` — Fetch user's eBay listings (triggers sold sync)
+- `GET /api/inventory` — Fetch inventory items (supports category=sold, limit=500)
 
 ## Next Priority Task
 - **P0: Stripe Production Integration** — Configure production keys for subscription payments
