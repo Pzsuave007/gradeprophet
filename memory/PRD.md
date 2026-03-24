@@ -37,6 +37,8 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **Google Auth**: Emergent-managed Google OAuth
 - **Scanner Token**: Long-lived tokens for desktop FlipSlab Scanner app
 - **Dev Login Endpoint**: `GET /api/auth/dev-login?token=xxx` sets session cookie for testing
+- **Inventory Sold Tab**: Automatic sync of sold items from eBay
+- **Card Title Wrapping**: Titles no longer truncated — full text visible across all sections (fixed March 24, 2026)
 
 ### Architecture
 ```
@@ -56,11 +58,9 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 │       └── ShopPage.jsx
 ```
 
-## Bug Fixes Applied (March 19, 2026)
-- **Social Post Editor blank canvas**: Removed react-rnd, replaced with native pointer events
-- **Subscription endpoint**: Fixed `/api/subscription` → `/api/subscription/my-plan`
-- **Settings/Subscription fetch**: Removed token guard, editor self-fetches data
-- **Frame z-index**: Moved frame below card (z-index 0) so card is always clickable
+## Bug Fixes Applied
+- **March 19, 2026:** Social Post Editor blank canvas fix, subscription endpoint fix, settings/subscription fetch fix, frame z-index fix
+- **March 24, 2026:** Card title truncation fix — removed `truncate` CSS class from InventoryModule.jsx and ShopPage.jsx
 
 ## DB Collections
 - **global_settings**: Stores global editor presets (`key: "editor_presets"`)
@@ -80,7 +80,7 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - P3: "Flip Finder" core logic enhancements
 - P4: Windows Scanner App
 - P5: Team Access for "Legend" tier
-- P6: Refactor `InventoryModule.jsx` (1300+ lines)
+- P6: Refactor `InventoryModule.jsx` (1400+ lines)
 
 ## Tech Stack
 - Frontend: React 19, Tailwind CSS, Framer Motion, Shadcn/UI
