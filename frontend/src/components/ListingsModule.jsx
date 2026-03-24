@@ -1022,8 +1022,8 @@ const ListingsModule = () => {
             <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
               className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
               data-testid="sport-filter-select">
-              <option value="all">All Sports</option>
-              {allSports.map(s => <option key={s} value={s}>{s}</option>)}
+              <option value="all" className="bg-[#111] text-white">All Sports</option>
+              {allSports.map(s => <option key={s} value={s} className="bg-[#111] text-white">{s}</option>)}
             </select>
           )}
         </div>

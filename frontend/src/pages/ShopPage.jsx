@@ -177,14 +177,14 @@ const ShopPage = () => {
               <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap gap-2">
                 <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="shop-sport-filter">
-                  <option value="all">All Sports</option>
-                  {(shop.sports || []).map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="all" className="bg-[#111] text-white">All Sports</option>
+                  {(shop.sports || []).map(s => <option key={s} value={s} className="bg-[#111] text-white">{s}</option>)}
                 </select>
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="shop-sort">
-                  <option value="newest">Newest First</option>
-                  <option value="price_high">Price: High to Low</option>
-                  <option value="price_low">Price: Low to High</option>
+                  <option value="newest" className="bg-[#111] text-white">Newest First</option>
+                  <option value="price_high" className="bg-[#111] text-white">Price: High to Low</option>
+                  <option value="price_low" className="bg-[#111] text-white">Price: Low to High</option>
                 </select>
               </div>
             </motion.div>

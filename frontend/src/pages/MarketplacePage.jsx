@@ -400,9 +400,9 @@ const MarketplacePage = () => {
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
             className="hidden sm:block appearance-none bg-white/[0.04] border border-white/[0.06] rounded-xl px-3 py-2.5 text-xs text-white outline-none cursor-pointer hover:border-white/10 transition-colors"
             data-testid="marketplace-sort">
-            <option value="newest">Newest</option>
-            <option value="price_high">Price: High → Low</option>
-            <option value="price_low">Price: Low → High</option>
+            <option value="newest" className="bg-[#111] text-white">Newest</option>
+            <option value="price_high" className="bg-[#111] text-white">Price: High → Low</option>
+            <option value="price_low" className="bg-[#111] text-white">Price: Low → High</option>
           </select>
           <span className="text-xs text-gray-600 hidden sm:block">{items.length} cards</span>
         </div>
@@ -413,26 +413,26 @@ const MarketplacePage = () => {
               <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex flex-wrap gap-2">
                 <select value={sportFilter} onChange={e => setSportFilter(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="marketplace-sport-filter">
-                  <option value="all">All Sports</option>
-                  {availableSports.map(s => <option key={s} value={s}>{s}</option>)}
+                  <option value="all" className="bg-[#111] text-white">All Sports</option>
+                  {availableSports.map(s => <option key={s} value={s} className="bg-[#111] text-white">{s}</option>)}
                 </select>
                 <select value={conditionFilter} onChange={e => setConditionFilter(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="marketplace-condition-filter">
-                  <option value="all">All Conditions</option>
-                  <option value="Graded">Graded</option>
-                  <option value="Raw">Raw</option>
+                  <option value="all" className="bg-[#111] text-white">All Conditions</option>
+                  <option value="Graded" className="bg-[#111] text-white">Graded</option>
+                  <option value="Raw" className="bg-[#111] text-white">Raw</option>
                 </select>
                 <select value={sellerFilter} onChange={e => setSellerFilter(e.target.value)}
                   className="bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none max-w-[180px]" data-testid="marketplace-seller-filter">
-                  <option value="all">All Sellers</option>
-                  {availableSellers.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
+                  <option value="all" className="bg-[#111] text-white">All Sellers</option>
+                  {availableSellers.map(s => <option key={s.name} value={s.name} className="bg-[#111] text-white">{s.name}</option>)}
                 </select>
                 {/* Sort for mobile */}
                 <select value={sortBy} onChange={e => setSortBy(e.target.value)}
                   className="sm:hidden bg-white/[0.04] border border-white/[0.06] rounded-lg px-3 py-2 text-xs text-white outline-none" data-testid="marketplace-sort-mobile">
-                  <option value="newest">Newest</option>
-                  <option value="price_high">Price: High → Low</option>
-                  <option value="price_low">Price: Low → High</option>
+                  <option value="newest" className="bg-[#111] text-white">Newest</option>
+                  <option value="price_high" className="bg-[#111] text-white">Price: High → Low</option>
+                  <option value="price_low" className="bg-[#111] text-white">Price: Low → High</option>
                 </select>
                 {activeFilterCount > 0 && (
                   <button onClick={() => { setSportFilter('all'); setConditionFilter('all'); setSellerFilter('all'); }}
