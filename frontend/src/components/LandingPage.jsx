@@ -144,12 +144,20 @@ const LandingPage = ({ onGetStarted }) => {
           <a href="#features" className="hover:text-white transition-colors">Features</a>
           <a href="#actions" className="hover:text-white transition-colors">How It Works</a>
           <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
+          <a href="/marketplace" className="hover:text-white transition-colors text-amber-400/80 hover:text-amber-400 font-semibold">Marketplace</a>
         </div>
-        <button onClick={onGetStarted}
+        <div className="flex items-center gap-3">
+          <a href="/marketplace"
+            className="px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-sm font-semibold text-amber-400 hover:bg-amber-500/20 transition-colors md:hidden"
+            data-testid="nav-marketplace-btn">
+            Marketplace
+          </a>
+          <button onClick={onGetStarted}
           className="px-5 py-2 rounded-lg bg-white/[0.06] border border-white/[0.08] text-sm font-medium text-white hover:bg-white/[0.1] transition-colors"
           data-testid="nav-login-btn">
           Sign In
         </button>
+        </div>
       </nav>
 
       {/* HERO */}

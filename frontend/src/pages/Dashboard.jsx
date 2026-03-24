@@ -13,6 +13,7 @@ import {
   Crosshair,
   BarChart3
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { PlanProvider } from '../hooks/usePlan';
 import DashboardHome from '../components/DashboardHome';
 import InventoryModule from '../components/InventoryModule';
@@ -59,6 +60,7 @@ const Dashboard = ({ user, onLogout }) => {
   const [quickScanOpen, setQuickScanOpen] = useState(false);
   const [pendingDetailCard, setPendingDetailCard] = useState(null);
   const [pendingAddCategory, setPendingAddCategory] = useState(null);
+  const navigate = useNavigate();
 
   const token = localStorage.getItem('flipslab_token');
 
@@ -142,6 +144,15 @@ const Dashboard = ({ user, onLogout }) => {
           ))}
         </nav>
 
+        {/* Marketplace Link */}
+        <div className="px-3 mb-2">
+          <button onClick={() => navigate('/marketplace')}
+            className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-semibold bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors"
+            data-testid="nav-marketplace">
+            <Zap className="w-4 h-4" /> Marketplace
+          </button>
+        </div>
+
         {/* Sidebar Footer */}
         <div className="px-3 py-3 border-t border-[#1a1a1a]">
           <div className="flex items-center gap-2.5 mb-2">
@@ -212,6 +223,11 @@ const Dashboard = ({ user, onLogout }) => {
                   data-testid="mobile-nav-quickscan"
                   className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-all">
                   <Camera className="w-4 h-4" /> Quick Scan
+                </button>
+                <button onClick={() => { navigate('/marketplace'); setSidebarOpen(false); }}
+                  data-testid="mobile-nav-marketplace"
+                  className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 transition-all">
+                  <Zap className="w-4 h-4" /> Marketplace
                 </button>
               </nav>
             </motion.aside>

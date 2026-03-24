@@ -19,15 +19,27 @@ async def get_marketplace(
 ):
     """Public marketplace — aggregates all listed cards from all users"""
     try:
-        # Get all users who have eBay connected and a shop
-        all_settings = await db.user_settings.find(
-            {"ebay_user_token": {"$exists": True, "$ne": None}},
-            {"_id": 0, "user_id": 1, "shop_name": 1, "display_name": 1, "shop_logo": 1, "shop_slug": 1, "location": 1}
+        # Get all users who have eBay connected (tokens stored in ebay_tokens collection)
+        ebay_token_docs = await db.ebay_tokens.find(
+            {"type": "user_token"},
+            {"_id": 0, "user_id": 1}
         ).to_list(500)
 
-        user_ids = [s["user_id"] for s in all_settings if s.get("user_id")]
+        user_ids = list(set(doc["user_id"] for doc in ebay_token_docs if doc.get("user_id")))
+
+        # Also include users with inventory items that have ebay_item_id
+        if not user_ids:
+            inv_users = await db.inventory.distinct("user_id", {"ebay_item_id": {"$exists": True, "$ne": None}})
+            user_ids = list(set(inv_users))
+
         if not user_ids:
             return {"items": [], "sellers": [], "sports": [], "total": 0}
+
+        # Get user settings for shop info
+        all_settings = await db.user_settings.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "shop_name": 1, "display_name": 1, "shop_logo": 1, "shop_slug": 1, "location": 1}
+        ).to_list(500)
 
         settings_map = {}
         for s in all_settings:
@@ -54,9 +66,10 @@ async def get_marketplace(
         ).to_list(500)
         plan_map = {s["user_id"]: s.get("plan_id", "rookie") for s in subs}
 
-        # Build query for inventory items that are listed on eBay
+        # Build query for inventory items that are listed on eBay or for sale
         inv_query = {
             "user_id": {"$in": user_ids},
+            "category": {"$ne": "sold"},
             "$or": [
                 {"ebay_item_id": {"$exists": True, "$ne": None}},
                 {"category": "for_sale"},
@@ -68,7 +81,19 @@ async def get_marketplace(
         if condition:
             inv_query["condition"] = condition
         if seller:
-            inv_query["user_id"] = seller
+            # Seller filter is by name — find matching user_id
+            seller_uid = None
+            for uid, info in settings_map.items():
+                if info.get("name") == seller:
+                    seller_uid = uid
+                    break
+            if not seller_uid:
+                for uid, info in users_map.items():
+                    if info.get("name") == seller:
+                        seller_uid = uid
+                        break
+            if seller_uid:
+                inv_query["user_id"] = seller_uid
         if search:
             inv_query["$and"] = inv_query.get("$and", [])
             inv_query["$and"].append({
