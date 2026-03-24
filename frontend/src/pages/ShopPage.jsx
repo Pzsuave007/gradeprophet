@@ -201,7 +201,7 @@ const ShopPage = () => {
             <p className="text-xs text-gray-700 mt-1">Check back soon!</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-5">
             {filtered.map((item, idx) => (
               <CardTile key={item.id || idx} item={item} index={idx} plan={shop.plan} onClick={() => setSelectedCard(item)} />
             ))}
