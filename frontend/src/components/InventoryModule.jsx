@@ -1208,12 +1208,12 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 )}
               </div>
               <div className="p-2.5">
-                <p className="text-[11px] font-semibold text-white truncate">{item.card_name}</p>
+                <p className="text-[11px] font-semibold text-white leading-tight">{item.card_name}</p>
                 <div className="flex items-center justify-between mt-1.5">
                   {item.condition === 'Graded' && item.grade ? <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span> : <span className="text-[10px] text-gray-600">Raw</span>}
                   <span className="text-[11px] text-white"><span className="text-[8px] text-gray-500 uppercase mr-1">Invested</span><span className="font-bold">{formatPrice(item.purchase_price)}</span></span>
                 </div>
-                {item.player && <p className="text-[10px] text-gray-500 mt-0.5 truncate">{item.player} {item.year || ''}</p>}
+                {item.player && <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{item.player} {item.year || ''}</p>}
                 {item.listed && item.listed_price && item.purchase_price > 0 && (
                   <p className={`text-[9px] mt-0.5 font-medium ${item.listed_price - item.purchase_price > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {item.listed_price - item.purchase_price > 0 ? '+' : ''}{formatPrice(item.listed_price - item.purchase_price)} profit
@@ -1275,7 +1275,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white truncate">{item.card_name}</p>
+                <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white leading-tight">{item.card_name}</p>
                   {item.listed ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0 uppercase font-medium flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />Listed</span>
                     : item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">For Sale</span>
                     : <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>}

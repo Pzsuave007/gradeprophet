@@ -298,8 +298,8 @@ const CardTile = ({ item, index, plan, onClick }) => {
       </div>
 
       <div className="p-3">
-        <p className="text-[11px] sm:text-xs font-bold text-white truncate leading-tight">{item.card_name}</p>
-        {item.player && <p className="text-[10px] text-gray-500 truncate mt-0.5">{item.player}</p>}
+        <p className="text-[11px] sm:text-xs font-bold text-white leading-tight">{item.card_name}</p>
+        {item.player && <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{item.player}</p>}
         {price && (
           <p className="text-sm font-black text-amber-400 mt-1.5">${parseFloat(price).toFixed(2)}</p>
         )}

@@ -7,7 +7,7 @@ from PIL import Image
 import io
 
 class GradeProphetAPITester:
-    def __init__(self, base_url="https://card-post-gen.preview.emergentagent.com"):
+    def __init__(self, base_url="https://inventory-overhaul-4.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_base = f"{base_url}/api"
         self.tests_run = 0

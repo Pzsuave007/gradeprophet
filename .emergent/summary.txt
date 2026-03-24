@@ -1,165 +1,171 @@
 <analysis>**original_problem_statement:**
-The user wants to implement a multi-tiered subscription model for the FlipSlab Engine application. This involves creating four distinct plans (ROOKIE, ALL-STAR, HALL OF FAME, LEGEND) with specific feature limitations and price points. The core tasks included integrating Stripe for payment processing, designing and building a premium, responsive pricing page for both the public landing page and the authenticated user account section, and finally, implementing the logic to enforce the limits and gate features based on the user's active subscription plan.
+The user's initial goal was to build a multi-tiered subscription model for their FlipSlab Engine application. This has expanded to include a full-featured admin panel, a public Card Shop, eBay photo syncing, and a highly sophisticated, interactive Social Post image generator.
 
-The user also reported several UI/UX issues, including mobile responsiveness problems and a critical production login failure, which needed to be addressed.
+During this session, the scope grew significantly to include:
+- A complete overhaul and feature expansion of the Social Post Editor (adding frames, icons, custom text, background colors, and a global preset system).
+- A new Sold Items category in the inventory, which automatically syncs with eBay sales.
+- Several UI/UX fixes, including addressing truncated card titles, fixing mobile layout issues, and adding swipe navigation to the card shop.
+- A fix for the production deployment process, where the agent now handles the frontend build.
+- Creation of server management scripts (, ) for the user's production environment.
 
 **PRODUCT REQUIREMENTS:**
-*   **Subscription Tiers:**
-    *   **ROOKIE (Free):** 30 inventory items, 30 AI scans/month, 30 eBay listings, basic dashboard, limited Flip Finder & Market.
-    *   **ALL-STAR (.99/mo):** 200 items, 200 scans, 200 listings, full dashboard, partial Flip Finder & Market access.
-    *   **HALL OF FAME (4.99/mo):** 500 items, 500 scans, 500 listings, full dashboard with exports, full Flip Finder & Market, Photo Editor.
-    *   **LEGEND (4.99/mo):** Unlimited everything, plus future access to Whatnot/Shopify integration, Windows scanner app, and team access.
-*   **Stripe Integration:** A complete checkout flow and a webhook to manage subscription statuses.
-*   **Pricing Page:** A visually appealing and responsive pricing section on the landing page and within the user's account settings, featuring custom card images for each tier.
-*   **Feature Gating:** The application must enforce the limits of each plan. Features unavailable to a user's tier should be visually disabled (grayed out) with a prompt to upgrade.
+-   **Admin Panel:** Private route () for admin () to manage users and platform. Admin now also has exclusive rights to create/delete global Social Post Editor presets.
+-   **Public Card Shop:** A public URL () displaying a user's active eBay listings. Card titles must be fully visible. A new swipe/arrow key navigation has been added to the card detail modal.
+-   **Social Post Generator:** A full-fledged interactive editor within the inventory section for creating promotional images. It now includes many new elements and a global preset system managed by the admin.
+-   **Inventory Management:** Must now include a Sold tab that automatically populates based on eBay sales. The default view should be For Sale. Item titles must be fully visible.
 
-**User's preferred language**: Spanish. The user frequently communicates in Spanish. The next agent **MUST** continue the conversation in Spanish.
+**User's preferred language**: Spanish. The next agent **MUST** continue the conversation in Spanish.
 
 **what currently exists?**
-The application now has a complete subscription system integrated with Stripe. A fully designed, responsive pricing page with four tiers and custom card imagery is live on both the landing page () and the user's account page (). The backend supports creating Stripe checkout sessions and a webhook is in place to listen for subscription updates.
-
-A critical production login bug was diagnosed and fixed. The root cause was the  library (required for Stripe) failing to install on the production server. The  deployment script has been updated to include the necessary  for the installation, resolving the backend crash.
-
-The process of enforcing plan limits has begun. The backend now has logic to check inventory and AI scan counts against the user's plan. On the frontend, a  hook and an  component have been created to facilitate feature locking, and their implementation has started in the  and  modules.
+The application is a full-featured sports card trading platform with functional subscription, admin, and inventory systems. The Social Post Editor is now feature-complete, including a global preset system, custom text, icons, and background colors. The inventory management has been enhanced with an automatic Sold items category that syncs with eBay, and the item query limit has been raised from 50 to 500. Several UI bugs have been fixed, including mobile layout issues and adding swipe navigation. A new, stable deployment workflow has been established where the agent runs the production build (yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.) before the user pulls the changes. Card titles are now set to wrap instead of being truncated.
 
 **Last working item**:
-*   **Last item agent was working:** The agent was in the middle of implementing the feature gating and limit enforcement for the new subscription plans.
-*   **Status:** IN PROGRESS
-*   **Agent Testing Done:** N
-*   **Which testing method agent to use?** After completing the implementation, use the frontend testing agent to verify the gating logic. The tests should cover:
-    1.  A Rookie user attempting to access a locked feature (e.g., Auction Alerts in Flip Finder) and seeing the .
-    2.  A Rookie user trying to add a 31st card to inventory and receiving a limit reached error from the backend, which is then handled gracefully by the frontend with an upgrade prompt.
-    3.  A Rookie user attempting the 31st AI scan and getting a similar limit-reached error.
-*   **User Testing Done:** N
+-   **Last item agent was working:** The user reported that long card titles were being cut off with ... across the application (Inventory and Shop pages), hiding critical information. The agent identified the  CSS class as the cause and applied fixes to  and  to allow titles to wrap to multiple lines.
+-   **Status:** IN PROGRESS
+-   **Agent Testing Done:** N
+-   **Which testing method agent to use?** Frontend testing agent.
+    1.  Log in and navigate to the Inventory page. Verify that cards with long titles now show the full text, wrapped onto multiple lines.
+    2.  Navigate to a public Shop page. Verify that card titles on the main grid also wrap correctly.
+    3.  Click a card to open the detail modal and confirm the full title is visible there as well.
+-   **User Testing Done:** N
 
 **All Pending/In progress Issue list**:
-*   **Issue 1: Production Login Failure (P0)**
-    *   **Description:** User reported that login was failing on the production server (), redirecting incorrectly. The agent diagnosed that the entire backend was crashing because the  dependency (for Stripe) was not being installed correctly by the  script.
-    *   **Attempted fixes:** The  script was updated to include  during the  command.
-    *   **Next step:** The user needs to deploy the updated code () to their server to apply the fix. The issue is considered resolved from the agent's side, pending user verification.
-    *   **Status:** USER VERIFICATION PENDING
-    *   **Is recurring issue?** Y (Login/deployment issues have occurred before, but for different root causes).
+-   **Issue 1: Fix Truncated Card Titles (P0)**
+    -   **Description:** Card titles are cut off if they are too long to fit on one line in the Inventory and public Shop pages.
+    -   **Attempted fixes:** The agent used  to remove the  CSS class from the title elements in  and . The fix has been applied to the code but not yet built or deployed.
+    -   **Next debug checklist:**
+        1.  Temporarily set  in .
+        2.  Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. in the  directory.
+        3.  Revert the change to .
+        4.  Inform the user that the build is complete and ready for them to pull and deploy using their  script.
+    -   **Why fix this issue?** Critical card details (like grade or parallel type) in the title are being hidden, causing user confusion.
+    -   **Status:** IN PROGRESS
+    -   **Is recurring issue?** N
+    -   **Should Test frontend/backend/both after fix?** Frontend.
+    -   **Blocked on other issue:** None.
 
 **In progress Task List**:
-*   **Task 1: Complete Subscription Plan Limit Enforcement (P0)**
-    *   **Where to resume:** The agent has already created the backend endpoints () and started adding checks to the  and  routers. On the frontend, the  hook, , and  component are created. Gating has been partially applied to . The next agent must resume by:
-        1.  Finishing the gating logic in  and  to correctly disable sub-features for different tiers (e.g., locking Auction Alerts for All-Star users).
-        2.  Applying the  to other feature entry points: Photo Editor, report exports, etc.
-        3.  Implementing frontend error handling for when the backend returns a limit reached error (e.g., for adding inventory or using an AI scan). This should display a toast notification and an upgrade prompt.
-        4.  Adding a backend check for the number of active eBay listings.
-    *   **What will be achieved with this?** The application will fully enforce the subscription model, creating a clear path for user monetization.
-    *   **Status:** IN PROGRESS
-    *   **Should Test frontend/backend/both after fix?** Both.
+*   None apart from the issue above.
 
 **Upcoming and Future Tasks**
 *   **Upcoming Tasks:**
-    *   **P1: Whatnot & Shopify Integration:** Implement multi-marketplace support as a premium feature for the Legend tier.
-    *   **P2: Refactor :** Break down the large component into smaller, manageable sub-components.
+    *   **P0: Stripe Production Integration:** The user has confirmed this is the next major task after the current batch of fixes are complete.
+    *   **P1: Whatnot & Shopify Integration:** A premium feature for the Legend tier.
 *   **Future Tasks:**
-    *   **P3: New User Onboarding:** A setup wizard to guide new users.
-    *   **P4: Flip Finder Core Logic Enhancements:** Improve the underlying analytics of the Flip Finder tool.
-    *   **P5: Windows Scanner App:** Build the standalone desktop application.
-    *   **P6: Team Access:** Allow multiple users under a single Legend account.
+    *   **P2: New User Onboarding:** A setup wizard.
+    *   **P3: Flip Finder Core Logic Enhancements.**
+    *   **P4: Windows Scanner App.**
+    *   **P5: Team Access:** For Legend tier accounts.
+    *   **P6: Refactor :** This component is now over 1400 lines and remains a high priority for refactoring.
 
 **Completed work in this session**
-- **Subscription System & Stripe Integration:**
-    - Successfully integrated Stripe to handle four subscription tiers (Rookie, All-Star, Hall of Fame, Legend).
-    - Created backend endpoints () for plan details, checkout sessions, and status polling.
-    - Implemented a Stripe webhook in  to handle subscription events.
-- **Premium Pricing Page Design:**
-    - Created and implemented a responsive, high-quality pricing page on both the public landing page and the user's account settings.
-    - Iterated extensively on the design based on user feedback, including multiple layout changes and the integration of user-provided images of high-value graded cards (Kobe, Jordan, etc.) with custom CSS glow effects.
-- **Critical Bug Fix (Production Login):**
-    - Diagnosed and fixed a backend crash on the production server caused by a failed dependency installation (). Updated the  deployment script.
-- **UI/UX & Responsiveness:**
-    - Restored  and  to the main navigation.
-    - Implemented a Scan New Card batch workflow for rapid mobile scanning.
-    - Cleaned up dead code (,  references).
-    - Fixed multiple mobile responsiveness issues in , , and the  detail view.
-    - Fixed a low memory crash on mobile during image uploads by optimizing image compression.
+-   **Social Post Editor Major Overhaul:**
+    -   Fixed the blank canvas bug by removing  and using native pointer events.
+    -   Made the component self-sufficient by fetching its own data via API.
+    -   Added multiple new editable elements: Frame, Shield, 3 Custom Text fields (with alignment), 2 Icon slots (10 icons), and a Background Color selector.
+    -   Implemented a global, server-side preset system (admin create/delete, user apply).
+-   **Inventory & eBay Sync:**
+    -   Added a Sold tab to the inventory.
+    -   Implemented a robust, automatic sync to move sold items from eBay to the Sold category upon loading the inventory page.
+    -   Increased the inventory display limit from 50 to 500.
+    -   Set the default inventory tab to For Sale.
+-   **UI/UX Fixes:**
+    -   Added swipe and arrow-key navigation between cards in the Shop Page modal.
+    -   Fixed overlapping Account Limits display on mobile devices.
+    -   Updated the eBay listing form with specific condition options for raw trading cards.
+    -   Removed an unwanted Download button from the Shop Page.
+-   **Production & Deployment:**
+    -   Diagnosed and fixed the user's deployment issue by establishing a new workflow where the agent runs yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. before the user deploys.
+    -   Documented the production URL and build process in  to prevent future errors.
+    -   Created  and  scripts to improve the user's production server management.
 
 **Earlier issues found/mentioned but not fixed**
-- Minor non-critical ESLint warnings remain in the frontend build process.
+-   A minor, pre-existing ESLint warning in  ().
 
 **Known issue recurrence from previous fork**
-- **Deployment Fragility:** While the previous root cause was resolved, a new deployment-related issue occurred due to a missing dependency URL in . This specific issue is now resolved, but it highlights the need to be careful with deployment scripts when adding new dependencies.
-- **Recurrence count:** 2
-- **Status:** RESOLVED
+-   None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Subscription Gating/Entitlements:** Using a combination of backend checks for hard limits and a frontend  component to enforce subscription plans.
-- **React Context API for Global State:** Using a  and  hook to distribute user plan information throughout the application without prop drilling.
-- **Stripe Integration:** Implementing Stripe Checkout for subscriptions, using a backend webhook to update user status upon successful payment.
-- **Advanced CSS for UI/UX:** Using responsive design (Tailwind CSS), transforms (), filters (), and absolute positioning to create a dynamic, premium-feeling pricing page based on user mockups.
+-   **Automatic eBay Sync:** The sync logic in  now uses a dual-check: it marks items as sold if they appear in eBay's  OR if they are marked  in the local DB but are no longer in eBay's .
+-   **Frontend Build Workflow:** The agent is now responsible for running yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. with the production URL () before notifying the user to pull the changes. This ensures the compiled  directory is up-to-date.
+-   **Server Process Management:** A cron job () was set up via a script to ensure the backend  process restarts automatically if the user's server reboots.
+-   **Race Condition Fix:** The inventory's sold-item sync was fixed by ensuring the API call to sync with eBay completes *before* the API call to fetch inventory items is made.
+-   **CSS Word Wrapping:** The  class was removed and replaced with , , and adjusted heights to allow multi-line titles.
 
 **key DB schema**
--   **subscriptions**: Stores , , , , .
--   **usage_stats**: Stores ,  (e.g., 2026-03), and .
+-   **user_settings**: Now contains , an array for admin-created social post editor layouts.
+-   **inventory**: The  field can now be . Items are moved to this category automatically based on eBay sales data.
 
 **changes in tech stack**
--   **Added:**  (Python library)
--   **Added:**  (Python library, requires special installation)
+-   The  dependency was removed. No new dependencies were added.
 
 **All files of reference**
-*   : Defines the logic for plan limits.
-*   : The main backend router for all subscription-related actions.
-*   : The React hook for accessing plan data.
-*   : The UI component for displaying a locked feature.
-*   : A primary target for applying feature gates.
-*   : Another primary target for applying feature gates.
-*   : The deployment script, updated to fix the production bug.
+-   : Target for the title truncation fix.
+-   : Also a target for the title truncation fix.
+-   : Contains the core logic for the automatic sold item sync.
+-   : Must be temporarily modified before running yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command..
+-   : The user's production deployment script.
 
 **Areas that need refactoring**:
--  is still a monolithic file and a good candidate for being broken down into smaller components.
+-    is now over 1400 lines and is a critical candidate for being broken down into smaller components.
 
 **key api endpoints**
-*   : Returns the details of all available plans.
-*   : Returns the current user's plan, usage, and feature access rights.
-*   : Creates a Stripe checkout session for a user to upgrade.
-*   : A public endpoint that listens for events from Stripe (e.g., ).
+-   : Fetches user's eBay listings and now implicitly triggers the automatic sync that marks items as sold in the database.
+-   : Fetches inventory items. Now supports  and has an increased default  of 500.
+-   : Fetches global editor presets for all users.
+-   : Endpoints for the admin to manage global presets.
 
 **Critical Info for New Agent**
-- **You MUST communicate in Spanish.**
-- The immediate and highest priority task is to **finish implementing the plan limit enforcement**. The foundation is laid (backend checks started, frontend  hook and  component created), but the work needs to be completed across all relevant features.
-- The production login issue has been diagnosed and the fix is in . The user must deploy this change to their server. Do not try to fix the login again unless the user confirms the deployment failed or the issue persists after a successful deployment.
-- When applying feature gates, ensure the UI is grayed out or clearly disabled, and use the  component to provide a clear call-to-action for the user to upgrade their plan.
+-   **You MUST communicate in Spanish.**
+-   **Deployment Workflow:** Your primary responsibility after making frontend changes is to run the production build. The process is: 1. Edit  to set . 2. Run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.. 3. Revert . 4. Inform the user they can pull from GitHub and run their  script. This is crucial and documented in .
+-   Your immediate task is to finalize the fix for truncated card titles by running the production build and notifying the user.
 
 **documents and test reports created in this job**
--  has been updated with the new subscription plan details and monetization strategy.
+-    (updated)
+-   
+-   
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **User:** Asks to add two cards per plan in a fan-like arrangement. (Status: RESOLVED)
-2.  **User:** Requests to separate the fanned cards slightly more. (Status: RESOLVED)
-3.  **User:** Expresses satisfaction with the final two-card design. (Status: RESOLVED)
-4.  **User:** Asks the agent to start implementing the plan limits and feature gating. (Status: RESOLVED, task is now in progress)
-5.  **User:** Reports that the login is broken again in production, claiming it's using an Emergent URL. (Status: In Progress, agent is investigating)
-6.  **User:** Confirms the login issue is on his production server. (Status: In Progress, agent is investigating)
-7.  **User:** Expresses frustration over the recurring login issue. (Status: In Progress, agent is investigating)
-8.  **User:** Diagnoses the login issue (backend crash due to failed dependency install) and provides the fixed  script for the user to deploy. (Status: USER VERIFICATION PENDING)
-9.  **User:** Asks agent to start implementing the plan limitations, using grayed-out UI for locked features. (Status: RESOLVED)
-10. **User:** Gives the green light to proceed with implementing the plan limits. (Status: RESOLVED)
+1.  **(LATEST)** i need you to fix something important, the title of the card on any of the sections, i need to be able to see the entire title, right now is cutting off if it doesnt fit on one line...
+2.  why is there only 50 items on my inventory section under (listed) where there is 89 listed items, also the sold items still not working...
+3.  on the listings section has that feature already, it shows the cards already sold in one tab, so why dont we use that and apply it in the inventory section
+4.  why on sold is only showing the last order items, and not all the items sold?
+5.  ...This cards should move automatically when they get sold from ebay
+6.  User requested 4 fixes: 1) Sold Items tab, 2) Fix account limits on mobile, 3) Swipe on store page, 4) Add card condition options to eBay form.
+7.  ready (after running the autostart script).
+8.  no dame un file para que lo corra y se instale lo que tu me estas diciendo (Request for the  script).
+9.  ...no hay manera que tu programes algo que haga que si el seridor se re inicia el backend se reinicie tambien? (Asking for the backend to auto-restart on server reboot).
+10. so my server went down today and got back up but the webapp stop working and i believe is the backend correct?
 
 **Project Health Check:**
-*   **Broken:** None. The production login issue is understood and a fix has been provided.
-*   **Mocked:** N/A.
+*   **Broken:** No features are critically broken, but the title truncation is a high-priority UX bug currently being fixed.
+*   **Mocked:** N/A
 
 **3rd Party Integrations**
-*   **eBay API:** Active, used for listings.
-*   **OpenAI GPT-4o:** Active, used for card identification.
-*   **Emergent Google Auth:** Active, for user login.
-*   **Stripe:** **Newly Added**. Used for subscription payments. It is implemented via the  library, which requires a specific installation command.
+*   **eBay API:** Trading and Fulfillment APIs. Heavily used for inventory and sales syncing.
+*   **OpenAI GPT-4o:** Used for card identification.
+*   **Emergent Google Auth:** Used for user login.
+*   **Stripe:** Integrated with test keys. Production key setup is pending.
 
 **Testing status**
-- **Testing agent used after significant changes:** NO
-- **Troubleshoot agent used after agent stuck in loop:** NO
-- **Test files created:** None.
-- **Known regressions:** None.
+-   **Testing agent used after significant changes:** NO
+-   **Troubleshoot agent used after agent stuck in loop:** NO
+-   **Test files created:** None.
+-   **Known regressions:** None.
 
 **Credentials to test flow:**
-- Create a new account via Google Auth or email/password. This will default to the Rookie free plan. Use the UI to navigate to the Account section and test the upgrade flow via the pricing page.
+-   **User:** 
+-   **Password:** (None - Use Google Auth)
 
 **What agent forgot to execute**
-- The backend check for the number of active eBay listings based on the user's plan has not been implemented yet. This needs to be added to the  or  router when a new listing is created or synced.</analysis>
+- The agent has applied the code changes for the truncated titles but has not yet executed the crucial final step of the established workflow: running yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. with the production URL and notifying the user. This must be the very next action.</analysis>
