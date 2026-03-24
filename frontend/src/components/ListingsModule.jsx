@@ -215,7 +215,11 @@ const ListingDetail = ({ listing, cardData, onBack, onSuccess, onEndListing }) =
               <p className="text-[10px] text-gray-500 uppercase tracking-wider font-medium">Price Lookup</p>
               {(() => {
                 const c = cardData || {};
-                const searchQ = [c.year, c.set_name, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ') || listing.title || '';
+                const FILLER = /\b(card|cards|sports|basketball|baseball|football|soccer|hockey|legend|legends|star|rookie|rc|hot|invest|investment|rare|sp|ssp|lot|nm|ex|vg|good|fair|poor)\b/gi;
+                const hasCardData = c.player || c.year || c.set_name;
+                const searchQ = hasCardData
+                  ? [c.year, c.set_name, c.player, c.card_number ? '#' + c.card_number : '', c.condition === 'Graded' && c.grading_company ? c.grading_company : '', c.condition === 'Graded' && c.grade ? c.grade : ''].filter(Boolean).join(' ')
+                  : (listing.title || '').replace(FILLER, '').replace(/\s{2,}/g, ' ').trim();
                 return (
                   <div className="grid grid-cols-2 gap-2">
                     <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent(searchQ)}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
