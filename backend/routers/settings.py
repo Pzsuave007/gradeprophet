@@ -161,3 +161,11 @@ async def delete_editor_preset(preset_id: str, request: Request):
         {"$set": {"presets": filtered}},
     )
     return {"success": True}
+
+
+@router.get("/photo-presets")
+async def get_photo_presets(request: Request):
+    """Get global photo presets (available to all authenticated users)"""
+    await get_current_user(request)
+    presets = await db.photo_presets.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return {"presets": presets}

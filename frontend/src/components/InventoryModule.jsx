@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck, Zap
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck, Zap, Star
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -445,10 +445,20 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     saturation: 0, temperature: 0, sharpness: 0,
   });
   const MIXER_DEFAULT = { brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0 };
+  const [customPresets, setCustomPresets] = useState([]);
   const imgContainerRef = React.useRef(null);
   const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
   const canEditPhoto = hasFeature('photo_editor');
+
+  // Fetch global presets
+  useEffect(() => {
+    if (showEditor) {
+      axios.get(`${API}/api/settings/photo-presets`, { withCredentials: true })
+        .then(r => setCustomPresets(r.data.presets || []))
+        .catch(() => {});
+    }
+  }, [showEditor]);
   const [shopName, setShopName] = useState('');
   const [shopLogo, setShopLogo] = useState('');
   const [shopPlan, setShopPlan] = useState('rookie');
@@ -471,6 +481,10 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
 
+  // Check if active preset is a custom one
+  const isCustomPreset = activePreset.startsWith('custom_');
+  const customPreset = isCustomPreset ? customPresets.find(p => p.id === activePreset) : null;
+
   // Compute filters from preset+intensity OR mixer values
   const preset = PRESETS.find(p => p.id === activePreset) || PRESETS[0];
   const pct = intensity / 100;
@@ -483,6 +497,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     shadows: Math.max(0, mixer.shadows),
     highlights: mixer.highlights,
     temperature: mixer.temperature,
+  } : isCustomPreset && customPreset ? {
+    brightness: Math.round(100 + (customPreset.brightness || 0) * pct),
+    contrast: Math.round(100 + (customPreset.contrast || 0) * pct),
+    saturate: Math.round(100 + (customPreset.saturation || 0) * pct),
+    sharpness: Math.round(Math.max(0, (customPreset.sharpness || 0) * pct)),
+    shadows: Math.round(Math.max(0, (customPreset.shadows || 0) * pct)),
+    highlights: Math.round((customPreset.highlights || 0) * pct),
+    temperature: Math.round((customPreset.temperature || 0) * pct),
   } : {
     brightness: Math.round(100 + (preset.brightness - 100) * pct),
     contrast: Math.round(100 + (preset.contrast - 100) * pct),
@@ -533,7 +555,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const filterStyle = (showBefore || (activePreset === 'original' && !showMixer) || (showMixer && Object.values(mixer).every(v => v === 0)))
     ? 'none'
     : `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${hasAdvanced ? ' url(#card-adv-filter)' : ''}`;
-  const hasChanges = showMixer ? Object.values(mixer).some(v => v !== 0) : activePreset !== 'original';
+  const hasChanges = showMixer ? Object.values(mixer).some(v => v !== 0) : (activePreset !== 'original');
 
   const saveEnhanced = async (side) => {
     const src = side === 'back' ? backSrc : frontSrc;
@@ -859,6 +881,26 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   data-testid={`preset-${id}`}>
                   <Icon className="w-4 h-4" />
                   {label}
+                </button>
+              ))}
+              {/* Custom Global Presets */}
+              {customPresets.length > 0 && <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />}
+              {customPresets.map(cp => (
+                <button key={cp.id} onClick={() => {
+                    setActivePreset(cp.id);
+                    setShowMixer(false);
+                    if (showMixer) {
+                      setMixer({ brightness: cp.brightness || 0, contrast: cp.contrast || 0, shadows: cp.shadows || 0, highlights: cp.highlights || 0, saturation: cp.saturation || 0, temperature: cp.temperature || 0, sharpness: cp.sharpness || 0 });
+                    }
+                  }}
+                  className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 ${
+                    activePreset === cp.id
+                      ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                      : 'bg-[#1a1a1a] text-amber-400/60 border border-amber-500/20'
+                  }`}
+                  data-testid={`preset-${cp.id}`}>
+                  {cp.featured ? <Star className="w-4 h-4" /> : <Sliders className="w-4 h-4" />}
+                  {cp.name}
                 </button>
               ))}
               <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />

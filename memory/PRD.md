@@ -28,7 +28,8 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **Listings Search + Sport Filter**: Search + auto-detect sport dropdown
 - **Shipping Selection Fix**: React state race condition fixed
 - **Cert Number Feature**: AI extracts cert # from graded card slabs, stored in inventory, displayed in detail views, passed to eBay as Item Specific
-- **Mobile Card Modal Optimization**: Shop/Marketplace modals now use full-screen layout on mobile with image filling available space, compact info footer, no scrollbars
+- **Custom Global Presets (Admin)**: Admin can create, edit, delete photo presets from Admin Panel. These presets appear for ALL users in the Photo Editor alongside default presets.
+- **Photo Editor Mixer**: Full manual control panel with 7 individual sliders (Brightness, Contrast, Shadows, Highlights, Saturation, Temperature, Sharpness)
 - **Auth Bug Fix**: Fixed `ValueError: day is out of range for month` in session expiry calculation (replaced `.replace(day=)` with `timedelta`)
 - **Test Login**: Added password hash to Google Auth user for email/password login testing
 

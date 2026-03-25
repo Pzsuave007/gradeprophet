@@ -1,7 +1,10 @@
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
+from typing import Optional
 from database import db
 from utils.auth import get_current_user
 from datetime import datetime, timezone
+import uuid
 import logging
 
 logger = logging.getLogger(__name__)
@@ -196,3 +199,79 @@ async def get_transactions(request: Request, skip: int = 0, limit: int = 50):
         })
 
     return {"transactions": enriched, "total": total}
+
+
+# ── Photo Presets Management ──
+
+class PresetCreate(BaseModel):
+    name: str
+    brightness: int = 0
+    contrast: int = 0
+    shadows: int = 0
+    highlights: int = 0
+    saturation: int = 0
+    temperature: int = 0
+    sharpness: int = 0
+    featured: bool = False
+
+class PresetUpdate(BaseModel):
+    name: Optional[str] = None
+    brightness: Optional[int] = None
+    contrast: Optional[int] = None
+    shadows: Optional[int] = None
+    highlights: Optional[int] = None
+    saturation: Optional[int] = None
+    temperature: Optional[int] = None
+    sharpness: Optional[int] = None
+    featured: Optional[bool] = None
+
+
+@router.get("/photo-presets")
+async def get_admin_presets(request: Request):
+    await require_admin(request)
+    presets = await db.photo_presets.find({}, {"_id": 0}).sort("created_at", 1).to_list(100)
+    return {"presets": presets}
+
+
+@router.post("/photo-presets")
+async def create_preset(data: PresetCreate, request: Request):
+    admin = await require_admin(request)
+    preset = {
+        "id": f"custom_{uuid.uuid4().hex[:8]}",
+        "name": data.name,
+        "brightness": data.brightness,
+        "contrast": data.contrast,
+        "shadows": data.shadows,
+        "highlights": data.highlights,
+        "saturation": data.saturation,
+        "temperature": data.temperature,
+        "sharpness": data.sharpness,
+        "featured": data.featured,
+        "created_by": admin.get("email"),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.photo_presets.insert_one(preset)
+    preset.pop("_id", None)
+    return preset
+
+
+@router.put("/photo-presets/{preset_id}")
+async def update_preset(preset_id: str, data: PresetUpdate, request: Request):
+    await require_admin(request)
+    existing = await db.photo_presets.find_one({"id": preset_id}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    updates = {k: v for k, v in data.dict().items() if v is not None}
+    if updates:
+        await db.photo_presets.update_one({"id": preset_id}, {"$set": updates})
+    updated = await db.photo_presets.find_one({"id": preset_id}, {"_id": 0})
+    return updated
+
+
+@router.delete("/photo-presets/{preset_id}")
+async def delete_preset(preset_id: str, request: Request):
+    await require_admin(request)
+    result = await db.photo_presets.delete_one({"id": preset_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    return {"success": True}

@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, Shield, DollarSign, Package, Zap, Tag, Search,
   ChevronLeft, ChevronRight, Crown, Ban, Trash2, Eye,
-  RefreshCw, BarChart3, ArrowUpRight, X, AlertTriangle
+  RefreshCw, BarChart3, ArrowUpRight, X, AlertTriangle,
+  Sliders, Plus, Save, Star, Pencil, Sun, Palette, Sparkles, Layers, Focus
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -277,6 +278,174 @@ const TransactionsTab = ({ transactions }) => (
   </div>
 );
 
+// ==================== PRESETS TAB ====================
+const MIXER_FIELDS = [
+  { key: 'brightness', label: 'Brightness', min: -50, max: 50, icon: Sun },
+  { key: 'contrast', label: 'Contrast', min: -50, max: 50, icon: Layers },
+  { key: 'shadows', label: 'Shadows', min: 0, max: 100, icon: Layers },
+  { key: 'highlights', label: 'Highlights', min: -50, max: 50, icon: Sparkles },
+  { key: 'saturation', label: 'Saturation', min: -50, max: 80, icon: Palette },
+  { key: 'temperature', label: 'Temperature', min: -50, max: 50, icon: Sun },
+  { key: 'sharpness', label: 'Sharpness', min: 0, max: 50, icon: Focus },
+];
+
+const PresetsTab = () => {
+  const [presets, setPresets] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState(null); // null or preset object
+  const [form, setForm] = useState({ name: '', brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0, featured: false });
+
+  const fetchPresets = useCallback(async () => {
+    try {
+      const res = await axios.get(`${API}/api/admin/photo-presets`, { withCredentials: true });
+      setPresets(res.data.presets || []);
+    } catch { toast.error('Failed to load presets'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { fetchPresets(); }, [fetchPresets]);
+
+  const openNew = () => {
+    setEditing('new');
+    setForm({ name: '', brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0, featured: false });
+  };
+
+  const openEdit = (p) => {
+    setEditing(p.id);
+    setForm({ name: p.name, brightness: p.brightness || 0, contrast: p.contrast || 0, shadows: p.shadows || 0, highlights: p.highlights || 0, saturation: p.saturation || 0, temperature: p.temperature || 0, sharpness: p.sharpness || 0, featured: p.featured || false });
+  };
+
+  const handleSave = async () => {
+    if (!form.name.trim()) { toast.error('Name is required'); return; }
+    try {
+      if (editing === 'new') {
+        await axios.post(`${API}/api/admin/photo-presets`, form, { withCredentials: true });
+        toast.success('Preset created');
+      } else {
+        await axios.put(`${API}/api/admin/photo-presets/${editing}`, form, { withCredentials: true });
+        toast.success('Preset updated');
+      }
+      setEditing(null);
+      fetchPresets();
+    } catch { toast.error('Failed to save preset'); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Delete this preset?')) return;
+    try {
+      await axios.delete(`${API}/api/admin/photo-presets/${id}`, { withCredentials: true });
+      toast.success('Preset deleted');
+      fetchPresets();
+    } catch { toast.error('Failed to delete'); }
+  };
+
+  if (loading) return <div className="text-center py-8 text-gray-600 text-xs">Loading presets...</div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2"><Sliders className="w-4 h-4 text-amber-400" /> Global Photo Presets</h3>
+        <button onClick={openNew} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 transition-colors" data-testid="admin-add-preset">
+          <Plus className="w-3.5 h-3.5" /> New Preset
+        </button>
+      </div>
+
+      {/* Presets List */}
+      <div className="grid gap-3">
+        {presets.map(p => (
+          <div key={p.id} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 flex items-center gap-4" data-testid={`preset-row-${p.id}`}>
+            <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center shrink-0">
+              {p.featured ? <Star className="w-5 h-5 text-amber-400" /> : <Sliders className="w-5 h-5 text-gray-500" />}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-bold text-white">{p.name}</span>
+                {p.featured && <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Featured</span>}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1 text-[9px] text-gray-500">
+                {p.brightness !== 0 && <span>Bright: {p.brightness > 0 ? '+' : ''}{p.brightness}</span>}
+                {p.contrast !== 0 && <span>Contrast: {p.contrast > 0 ? '+' : ''}{p.contrast}</span>}
+                {p.shadows > 0 && <span>Shadows: +{p.shadows}</span>}
+                {p.highlights !== 0 && <span>Highlights: {p.highlights > 0 ? '+' : ''}{p.highlights}</span>}
+                {p.saturation !== 0 && <span>Sat: {p.saturation > 0 ? '+' : ''}{p.saturation}</span>}
+                {p.temperature !== 0 && <span>Temp: {p.temperature > 0 ? '+' : ''}{p.temperature}</span>}
+                {p.sharpness > 0 && <span>Sharp: +{p.sharpness}</span>}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button onClick={() => openEdit(p)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" data-testid={`edit-preset-${p.id}`}>
+                <Pencil className="w-3.5 h-3.5" />
+              </button>
+              <button onClick={() => handleDelete(p.id)} className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors" data-testid={`delete-preset-${p.id}`}>
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {presets.length === 0 && (
+          <div className="text-center py-8 bg-[#111] border border-[#1a1a1a] rounded-xl">
+            <Sliders className="w-8 h-8 text-gray-700 mx-auto mb-2" />
+            <p className="text-xs text-gray-600">No custom presets yet</p>
+            <p className="text-[10px] text-gray-700 mt-1">Create presets that all users can use in the Photo Editor</p>
+          </div>
+        )}
+      </div>
+
+      {/* Edit/Create Modal */}
+      <AnimatePresence>
+        {editing && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setEditing(null)}>
+            <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-[#0f0f0f] border border-[#2a2a2a] rounded-2xl w-full max-w-md p-5 space-y-4"
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white">{editing === 'new' ? 'New Preset' : 'Edit Preset'}</h3>
+                <button onClick={() => setEditing(null)} className="p-1 text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+              </div>
+
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Preset name (e.g. Card Pop, eBay Pro)"
+                className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-amber-500/50"
+                data-testid="preset-name-input" />
+
+              <div className="space-y-2">
+                {MIXER_FIELDS.map(({ key, label, min, max, icon: SlIcon }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <SlIcon className="w-3 h-3 text-gray-600 shrink-0" />
+                    <label className="text-[9px] text-gray-500 uppercase tracking-wider shrink-0 w-[72px]">{label}</label>
+                    <input type="range" min={min} max={max} value={form[key]}
+                      onChange={e => setForm(f => ({ ...f, [key]: parseInt(e.target.value) }))}
+                      className="flex-1 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-amber-500"
+                      data-testid={`preset-slider-${key}`} />
+                    <span className={`text-[10px] font-bold w-8 text-right ${form[key] === 0 ? 'text-gray-600' : 'text-amber-400'}`}>
+                      {form[key] > 0 ? '+' : ''}{form[key]}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.featured} onChange={e => setForm(f => ({ ...f, featured: e.target.checked }))}
+                  className="w-4 h-4 rounded bg-[#1a1a1a] border-[#2a2a2a] text-amber-500 focus:ring-amber-500" />
+                <Star className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs text-gray-400">Featured preset</span>
+              </label>
+
+              <button onClick={handleSave}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 transition-colors active:scale-[0.98]"
+                data-testid="preset-save-btn">
+                <Save className="w-4 h-4" /> {editing === 'new' ? 'Create Preset' : 'Save Changes'}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // ==================== MAIN ADMIN PAGE ====================
 const AdminPage = ({ onBack }) => {
   const [stats, setStats] = useState(null);
@@ -417,6 +586,7 @@ const AdminPage = ({ onBack }) => {
               {[
                 { id: 'users', label: 'Users', icon: Users },
                 { id: 'transactions', label: 'Transactions', icon: DollarSign },
+                { id: 'presets', label: 'Presets', icon: Sliders },
               ].map(({ id, label, icon: Icon }) => (
                 <button key={id} onClick={() => setActiveTab(id)}
                   className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors ${
@@ -485,6 +655,7 @@ const AdminPage = ({ onBack }) => {
 
             {/* Transactions Tab */}
             {activeTab === 'transactions' && <TransactionsTab transactions={transactions} />}
+            {activeTab === 'presets' && <PresetsTab />}
           </div>
         </div>
       </div>
