@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import uuid
 import logging
 import httpx
@@ -48,7 +48,7 @@ async def register(data: RegisterRequest, response: Response):
     await db.user_sessions.insert_one({
         "user_id": user_id,
         "session_token": session_token,
-        "expires_at": datetime.now(timezone.utc).replace(day=datetime.now(timezone.utc).day + 7),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
         "created_at": datetime.now(timezone.utc),
     })
 
@@ -73,7 +73,7 @@ async def login(data: LoginRequest, response: Response):
     await db.user_sessions.insert_one({
         "user_id": user["user_id"],
         "session_token": session_token,
-        "expires_at": datetime.now(timezone.utc).replace(day=datetime.now(timezone.utc).day + 7),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
         "created_at": datetime.now(timezone.utc),
     })
 
@@ -134,7 +134,7 @@ async def process_google_session(request: Request, response: Response):
     await db.user_sessions.insert_one({
         "user_id": user_id,
         "session_token": session_token,
-        "expires_at": datetime.now(timezone.utc).replace(day=datetime.now(timezone.utc).day + 7),
+        "expires_at": datetime.now(timezone.utc) + timedelta(days=7),
         "created_at": datetime.now(timezone.utc),
     })
 

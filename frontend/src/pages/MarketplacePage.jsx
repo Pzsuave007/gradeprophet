@@ -144,7 +144,7 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
       <motion.div
         initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 60, opacity: 0 }}
         transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-t-3xl sm:rounded-3xl w-full sm:max-w-lg max-h-[100dvh] sm:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
+        className="relative bg-[#0a0a0a] border border-white/[0.06] rounded-none sm:rounded-3xl w-full sm:max-w-lg h-[100dvh] sm:h-auto sm:max-h-[95vh] overflow-hidden shadow-2xl flex flex-col"
         onClick={e => e.stopPropagation()}
         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
@@ -174,12 +174,12 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
         )}
 
         {/* 3D Flip Card - Full width on mobile */}
-        <div className="relative mx-1 mt-1 mb-0 sm:mx-4 sm:mt-4 sm:mb-2 flex-1 min-h-0 flex flex-col" style={{ perspective: 1200 }}>
+        <div className="relative mx-1 mt-1 mb-0 sm:mx-4 sm:mt-4 sm:mb-2 flex-1 min-h-0 sm:flex-shrink-0 sm:flex-grow-0" style={{ perspective: 1200 }}>
           <motion.div
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative flex-1 min-h-0 sm:aspect-[3/4] sm:max-h-[50vh] sm:flex-none mx-auto w-full cursor-pointer"
+            className="relative w-full h-full sm:aspect-[3/4] sm:max-h-[50vh] mx-auto cursor-pointer"
             onClick={() => backSrc && setFlipped(!flipped)}
           >
             <div className="absolute inset-0 rounded-xl sm:rounded-2xl overflow-hidden bg-[#080808]"

@@ -28,6 +28,9 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **Listings Search + Sport Filter**: Search + auto-detect sport dropdown
 - **Shipping Selection Fix**: React state race condition fixed
 - **Cert Number Feature**: AI extracts cert # from graded card slabs, stored in inventory, displayed in detail views, passed to eBay as Item Specific
+- **Mobile Card Modal Optimization**: Shop/Marketplace modals now use full-screen layout on mobile with image filling available space, compact info footer, no scrollbars
+- **Auth Bug Fix**: Fixed `ValueError: day is out of range for month` in session expiry calculation (replaced `.replace(day=)` with `timedelta`)
+- **Test Login**: Added password hash to Google Auth user for email/password login testing
 
 ## Architecture
 ```
