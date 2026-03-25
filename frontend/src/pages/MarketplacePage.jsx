@@ -173,16 +173,16 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
           </div>
         )}
 
-        {/* 3D Flip Card */}
-        <div className="relative mx-4 mt-4 mb-2 flex-shrink-0" style={{ perspective: 1200 }}>
+        {/* 3D Flip Card - Full width on mobile */}
+        <div className="relative mx-1 mt-1 mb-0 sm:mx-4 sm:mt-4 sm:mb-2 flex-1 min-h-0 flex flex-col" style={{ perspective: 1200 }}>
           <motion.div
             animate={{ rotateY: flipped ? 180 : 0 }}
             transition={{ duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
             style={{ transformStyle: 'preserve-3d' }}
-            className="relative aspect-[3/4] max-h-[45vh] sm:max-h-[50vh] mx-auto cursor-pointer"
+            className="relative flex-1 min-h-0 sm:aspect-[3/4] sm:max-h-[50vh] sm:flex-none mx-auto w-full cursor-pointer"
             onClick={() => backSrc && setFlipped(!flipped)}
           >
-            <div className="absolute inset-0 rounded-2xl overflow-hidden bg-[#080808]"
+            <div className="absolute inset-0 rounded-xl sm:rounded-2xl overflow-hidden bg-[#080808]"
               style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
               {frontSrc ? (
                 <img src={frontSrc} alt={item.card_name} className="w-full h-full object-contain" />
@@ -191,7 +191,7 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
               )}
             </div>
             {backSrc && (
-              <div className="absolute inset-0 rounded-2xl overflow-hidden bg-[#080808]"
+              <div className="absolute inset-0 rounded-xl sm:rounded-2xl overflow-hidden bg-[#080808]"
                 style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
                 <img src={backSrc} alt="Back" className="w-full h-full object-contain" />
               </div>
@@ -199,83 +199,76 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
           </motion.div>
           {backSrc && (
             <button onClick={() => setFlipped(!flipped)}
-              className="absolute bottom-3 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white/70 hover:text-white transition-colors"
+              className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-sm border border-white/10 text-[10px] font-bold text-white/70 hover:text-white transition-colors"
               data-testid="marketplace-modal-flip">
               <RotateCcw className="w-3 h-3" /> {flipped ? 'View Front' : 'View Back'}
             </button>
           )}
         </div>
 
-        {/* Card Info */}
-        <div className="px-5 pb-5 pt-2 space-y-2.5 flex-shrink-0">
-          <div>
-            <h2 className="text-sm sm:text-base font-black text-white leading-tight">{item.card_name}</h2>
-            <div className="flex flex-wrap items-center gap-1 mt-1.5">
-              {item.player && (
-                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                  {item.player}
-                </span>
-              )}
-              {item.sport && (
-                <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/5 text-gray-400">
-                  {item.sport}
-                </span>
-              )}
-              {item.year && (
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/5 text-gray-400">{item.year}</span>
-              )}
-              {item.condition && (
-                <span className="text-[9px] font-bold px-2 py-0.5 rounded-full border"
-                  style={{
-                    color: item.condition === 'Graded' ? '#f59e0b' : '#9ca3af',
-                    borderColor: item.condition === 'Graded' ? 'rgba(245,158,11,0.2)' : 'rgba(156,163,175,0.2)',
-                    background: item.condition === 'Graded' ? 'rgba(245,158,11,0.1)' : 'rgba(156,163,175,0.05)',
-                  }}>
-                  {item.condition === 'Graded' ? `${item.grading_company || ''} ${item.grade || ''}`.trim() : 'Raw'}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {/* Seller Info */}
-          {item.seller_name && (
-            <div className="flex items-center gap-2.5 py-2 px-3 rounded-xl bg-white/[0.03] border border-white/[0.05]">
-              {item.seller_logo ? (
-                <img src={item.seller_logo} alt="" className="w-7 h-7 rounded-lg object-cover" />
-              ) : (
-                <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center"><Store className="w-3.5 h-3.5 text-gray-600" /></div>
-              )}
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-white truncate">{item.seller_name}</p>
-                {item.seller_slug && (
-                  <a href={`/shop/${item.seller_slug}`} className="text-[10px] text-[#3b82f6] hover:underline" onClick={e => e.stopPropagation()}>
-                    Visit Store
-                  </a>
+        {/* Card Info - Compact on mobile */}
+        <div className="px-3 pb-3 pt-1.5 sm:px-5 sm:pb-5 sm:pt-2 space-y-1.5 sm:space-y-2.5 flex-shrink-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <h2 className="text-xs sm:text-base font-black text-white leading-tight truncate">{item.card_name}</h2>
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                {item.player && (
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                    {item.player}
+                  </span>
+                )}
+                {item.sport && (
+                  <span className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400">
+                    {item.sport}
+                  </span>
+                )}
+                {item.year && (
+                  <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400">{item.year}</span>
+                )}
+                {item.condition && (
+                  <span className="text-[8px] sm:text-[9px] font-bold px-1.5 py-0.5 rounded-full border"
+                    style={{
+                      color: item.condition === 'Graded' ? '#f59e0b' : '#9ca3af',
+                      borderColor: item.condition === 'Graded' ? 'rgba(245,158,11,0.2)' : 'rgba(156,163,175,0.2)',
+                      background: item.condition === 'Graded' ? 'rgba(245,158,11,0.1)' : 'rgba(156,163,175,0.05)',
+                    }}>
+                    {item.condition === 'Graded' ? `${item.grading_company || ''} ${item.grade || ''}`.trim() : 'Raw'}
+                  </span>
                 )}
               </div>
             </div>
-          )}
-
-          {/* Price + Buy */}
-          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-white/[0.04]">
-            {price ? (
-              <div>
-                <p className="text-[9px] text-gray-600 uppercase tracking-[0.15em] font-bold">Asking Price</p>
-                <p className="text-xl font-black text-amber-400">${parseFloat(price).toFixed(2)}</p>
-              </div>
-            ) : (
-              <div><p className="text-sm text-gray-500">Price on eBay</p></div>
+            {price && (
+              <p className="text-lg sm:text-xl font-black text-amber-400 flex-shrink-0">${parseFloat(price).toFixed(2)}</p>
             )}
-            <div className="flex items-center gap-2">
-              {item.ebay_item_id && (
-                <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-sm hover:from-amber-400 hover:to-orange-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20"
-                  data-testid="marketplace-buy-ebay-btn">
-                  <ShoppingCart className="w-4 h-4" /> Buy on eBay
-                  <ExternalLink className="w-3 h-3 opacity-60" />
-                </a>
-              )}
-            </div>
+          </div>
+
+          {/* Seller + Buy row */}
+          <div className="flex items-center gap-2 pt-1.5 sm:pt-2.5 border-t border-white/[0.04]">
+            {item.seller_name && (
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {item.seller_logo ? (
+                  <img src={item.seller_logo} alt="" className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white/5 flex items-center justify-center flex-shrink-0"><Store className="w-3 h-3 text-gray-600" /></div>
+                )}
+                <div className="min-w-0">
+                  <p className="text-[10px] sm:text-[11px] font-bold text-white truncate">{item.seller_name}</p>
+                  {item.seller_slug && (
+                    <a href={`/shop/${item.seller_slug}`} className="text-[9px] sm:text-[10px] text-[#3b82f6] hover:underline" onClick={e => e.stopPropagation()}>
+                      Visit Store
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+            {item.ebay_item_id && (
+              <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2.5 sm:px-5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-black font-bold text-xs sm:text-sm hover:from-amber-400 hover:to-orange-400 transition-all active:scale-95 shadow-lg shadow-amber-500/20 flex-shrink-0"
+                data-testid="marketplace-buy-ebay-btn">
+                <ShoppingCart className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> Buy
+                <ExternalLink className="w-3 h-3 opacity-60" />
+              </a>
+            )}
           </div>
         </div>
       </motion.div>
