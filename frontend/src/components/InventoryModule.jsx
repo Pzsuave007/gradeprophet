@@ -446,19 +446,39 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   });
   const MIXER_DEFAULT = { brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0 };
   const [customPresets, setCustomPresets] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [savePresetName, setSavePresetName] = useState('');
+  const [showSavePreset, setShowSavePreset] = useState(false);
   const imgContainerRef = React.useRef(null);
   const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
   const canEditPhoto = hasFeature('photo_editor');
 
-  // Fetch global presets
+  // Fetch global presets + check admin
   useEffect(() => {
     if (showEditor) {
       axios.get(`${API}/api/settings/photo-presets`, { withCredentials: true })
         .then(r => setCustomPresets(r.data.presets || []))
         .catch(() => {});
+      axios.get(`${API}/api/auth/me`, { withCredentials: true })
+        .then(r => { if (r.data.email === 'pzsuave007@gmail.com') setIsAdmin(true); })
+        .catch(() => {});
     }
   }, [showEditor]);
+
+  const handleSaveAsPreset = async () => {
+    if (!savePresetName.trim()) return;
+    try {
+      const res = await axios.post(`${API}/api/admin/photo-presets`, {
+        name: savePresetName.trim(),
+        ...mixer,
+        featured: false,
+      }, { withCredentials: true });
+      setCustomPresets(prev => [...prev, res.data]);
+      setShowSavePreset(false);
+      setSavePresetName('');
+    } catch { /* ignore */ }
+  };
   const [shopName, setShopName] = useState('');
   const [shopLogo, setShopLogo] = useState('');
   const [shopPlan, setShopPlan] = useState('rookie');
@@ -960,6 +980,27 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   data-testid="mixer-reset">
                   Reset All
                 </button>
+                {isAdmin && Object.values(mixer).some(v => v !== 0) && !showSavePreset && (
+                  <button onClick={() => setShowSavePreset(true)}
+                    className="flex items-center gap-1.5 text-[9px] text-amber-400 hover:text-amber-300 transition-colors uppercase tracking-wider mt-1 ml-auto"
+                    data-testid="save-as-preset-btn">
+                    <Star className="w-3 h-3" /> Save as Preset
+                  </button>
+                )}
+                {showSavePreset && (
+                  <div className="flex items-center gap-2 mt-2 w-full">
+                    <input value={savePresetName} onChange={e => setSavePresetName(e.target.value)}
+                      placeholder="Preset name..."
+                      className="flex-1 bg-[#1a1a1a] border border-amber-500/30 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-600 outline-none focus:border-amber-500"
+                      onKeyDown={e => e.key === 'Enter' && handleSaveAsPreset()}
+                      data-testid="save-preset-name-input" autoFocus />
+                    <button onClick={handleSaveAsPreset}
+                      className="px-3 py-1.5 rounded-lg bg-amber-500 text-black text-[10px] font-bold hover:bg-amber-400 transition-colors"
+                      data-testid="save-preset-confirm">Save</button>
+                    <button onClick={() => { setShowSavePreset(false); setSavePresetName(''); }}
+                      className="px-2 py-1.5 rounded-lg bg-white/5 text-gray-500 text-[10px] hover:text-white transition-colors">Cancel</button>
+                  </div>
+                )}
               </div>
             ) : (
             /* Intensity Slider (preset mode) */
