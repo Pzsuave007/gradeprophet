@@ -421,12 +421,12 @@ const CropOverlay = ({ onCropApply, onCropCancel }) => {
 // =========== CARD DETAIL FULLSCREEN ===========
 const PRESETS = [
   { id: 'original', label: 'Original', icon: ImageIcon, brightness: 100, contrast: 100, saturate: 100, sharpness: 0, shadows: 0 },
-  { id: 'scanner', label: 'Scanner Fix', icon: Zap, brightness: 112, contrast: 95, saturate: 120, sharpness: 10, shadows: 65 },
+  { id: 'scanner', label: 'Scanner Fix', icon: Zap, brightness: 112, contrast: 95, saturate: 120, sharpness: 0, shadows: 65 },
   { id: 'bright', label: 'Bright', icon: Sun, brightness: 118, contrast: 97, saturate: 105, sharpness: 0, shadows: 40 },
-  { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 10, shadows: 15 },
+  { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 0, shadows: 15 },
   { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 104, contrast: 106, saturate: 98, sharpness: 30, shadows: 0 },
-  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 115, contrast: 102, saturate: 110, sharpness: 15, shadows: 50 },
-  { id: 'pop', label: 'Pop', icon: Palette, brightness: 110, contrast: 108, saturate: 135, sharpness: 20, shadows: 55 },
+  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 115, contrast: 102, saturate: 110, sharpness: 0, shadows: 50 },
+  { id: 'pop', label: 'Pop', icon: Palette, brightness: 110, contrast: 108, saturate: 135, sharpness: 0, shadows: 55 },
 ];
 
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
