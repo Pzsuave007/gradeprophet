@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck, Zap
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -420,12 +420,13 @@ const CropOverlay = ({ onCropApply, onCropCancel }) => {
 
 // =========== CARD DETAIL FULLSCREEN ===========
 const PRESETS = [
-  { id: 'original', label: 'Original', icon: ImageIcon, brightness: 100, contrast: 100, saturate: 100, sharpness: 0 },
-  { id: 'bright', label: 'Bright', icon: Sun, brightness: 108, contrast: 103, saturate: 95, sharpness: 0 },
-  { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 10 },
-  { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 104, contrast: 106, saturate: 98, sharpness: 30 },
-  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 108, contrast: 108, saturate: 92, sharpness: 15 },
-  { id: 'pop', label: 'Pop', icon: Palette, brightness: 105, contrast: 115, saturate: 125, sharpness: 30 },
+  { id: 'original', label: 'Original', icon: ImageIcon, brightness: 100, contrast: 100, saturate: 100, sharpness: 0, shadows: 0 },
+  { id: 'scanner', label: 'Scanner Fix', icon: Zap, brightness: 112, contrast: 95, saturate: 120, sharpness: 10, shadows: 65 },
+  { id: 'bright', label: 'Bright', icon: Sun, brightness: 118, contrast: 97, saturate: 105, sharpness: 0, shadows: 40 },
+  { id: 'clean', label: 'Clean', icon: Layers, brightness: 106, contrast: 105, saturate: 90, sharpness: 10, shadows: 15 },
+  { id: 'sharp', label: 'Sharp', icon: Focus, brightness: 104, contrast: 106, saturate: 98, sharpness: 30, shadows: 0 },
+  { id: 'ebay', label: 'eBay Ready', icon: ShoppingBag, brightness: 115, contrast: 102, saturate: 110, sharpness: 15, shadows: 50 },
+  { id: 'pop', label: 'Pop', icon: Palette, brightness: 110, contrast: 108, saturate: 135, sharpness: 20, shadows: 55 },
 ];
 
 const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFlipped, onImageSaved }) => {
@@ -472,13 +473,19 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     contrast: Math.round(100 + (preset.contrast - 100) * pct),
     saturate: Math.round(100 + (preset.saturate - 100) * pct),
     sharpness: Math.round(preset.sharpness * pct),
+    shadows: Math.round((preset.shadows || 0) * pct),
   };
 
   const sharpAmt = filters.sharpness / 100;
   const sharpKernel = `0 ${-sharpAmt} 0 ${-sharpAmt} ${1 + 4 * sharpAmt} ${-sharpAmt} 0 ${-sharpAmt} 0`;
+  // Shadow lift uses gamma curve: exponent < 1 lifts shadows
+  const shadowGamma = filters.shadows > 0 ? Math.max(0.4, 1 - (filters.shadows / 100) * 0.55) : 1;
+  const hasShadowLift = filters.shadows > 0;
+  const hasSharpness = filters.sharpness > 0;
+  const svgFilterId = `card-enhance-${hasShadowLift ? 's' : ''}${hasSharpness ? 'k' : ''}`;
   const filterStyle = (showBefore || activePreset === 'original')
     ? 'none'
-    : `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${filters.sharpness > 0 ? ' url(#card-sharpen)' : ''}`;
+    : `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${(hasShadowLift || hasSharpness) ? ` url(#${svgFilterId})` : ''}`;
   const hasChanges = activePreset !== 'original';
 
   const saveEnhanced = async (side) => {
@@ -498,6 +505,26 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       const ctx = canvas.getContext('2d');
       ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
       ctx.drawImage(img, 0, 0);
+
+      // Apply shadow lifting via gamma curve on pixels
+      if (filters.shadows > 0) {
+        const gamma = Math.max(0.4, 1 - (filters.shadows / 100) * 0.55);
+        const w = canvas.width, h = canvas.height;
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const d = imageData.data;
+        // Build lookup table for performance
+        const lut = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) {
+          lut[i] = Math.min(255, Math.round(255 * Math.pow(i / 255, gamma)));
+        }
+        for (let i = 0; i < d.length; i += 4) {
+          d[i] = lut[d[i]];
+          d[i + 1] = lut[d[i + 1]];
+          d[i + 2] = lut[d[i + 2]];
+        }
+        ctx.putImageData(imageData, 0, 0);
+      }
+
       if (filters.sharpness > 0) {
         const s = filters.sharpness / 100;
         const w = canvas.width, h = canvas.height;
@@ -649,12 +676,36 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       className="fixed inset-0 z-[90] bg-[#0a0a0a] flex flex-col"
       data-testid="card-detail-modal"
     >
-      {/* SVG filter for sharpness live preview */}
+      {/* SVG filters for shadow lifting + sharpness live preview */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
         <defs>
-          <filter id="card-sharpen">
-            <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
-          </filter>
+          {/* Shadow lift only */}
+          {hasShadowLift && !hasSharpness && (
+            <filter id="card-enhance-s">
+              <feComponentTransfer>
+                <feFuncR type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+                <feFuncG type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+                <feFuncB type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+              </feComponentTransfer>
+            </filter>
+          )}
+          {/* Sharpness only */}
+          {!hasShadowLift && hasSharpness && (
+            <filter id="card-enhance-k">
+              <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
+            </filter>
+          )}
+          {/* Shadow lift + sharpness combined */}
+          {hasShadowLift && hasSharpness && (
+            <filter id="card-enhance-sk">
+              <feComponentTransfer>
+                <feFuncR type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+                <feFuncG type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+                <feFuncB type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
+              </feComponentTransfer>
+              <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
+            </filter>
+          )}
         </defs>
       </svg>
 
