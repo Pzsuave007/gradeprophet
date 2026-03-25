@@ -437,8 +437,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const [showBefore, setShowBefore] = useState(false);
   const [saving, setSaving] = useState(false);
   const [cropMode, setCropMode] = useState(false);
-  const [undoData, setUndoData] = useState(null); // { side, originalBase64 }
+  const [undoData, setUndoData] = useState(null);
   const [syncingPhotos, setSyncingPhotos] = useState(false);
+  const [showMixer, setShowMixer] = useState(false);
+  const [mixer, setMixer] = useState({
+    brightness: 0, contrast: 0, shadows: 0, highlights: 0,
+    saturation: 0, temperature: 0, sharpness: 0,
+  });
+  const MIXER_DEFAULT = { brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0 };
   const imgContainerRef = React.useRef(null);
   const editorImgRef = React.useRef(null);
   const { hasFeature } = usePlan();
@@ -465,28 +471,69 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
   const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
   const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
 
-  // Compute filters from preset + intensity
+  // Compute filters from preset+intensity OR mixer values
   const preset = PRESETS.find(p => p.id === activePreset) || PRESETS[0];
   const pct = intensity / 100;
-  const filters = {
+
+  const filters = showMixer ? {
+    brightness: 100 + mixer.brightness,
+    contrast: 100 + mixer.contrast,
+    saturate: 100 + mixer.saturation,
+    sharpness: Math.max(0, mixer.sharpness),
+    shadows: Math.max(0, mixer.shadows),
+    highlights: mixer.highlights,
+    temperature: mixer.temperature,
+  } : {
     brightness: Math.round(100 + (preset.brightness - 100) * pct),
     contrast: Math.round(100 + (preset.contrast - 100) * pct),
     saturate: Math.round(100 + (preset.saturate - 100) * pct),
-    sharpness: Math.round(preset.sharpness * pct),
+    sharpness: Math.round((preset.sharpness || 0) * pct),
     shadows: Math.round((preset.shadows || 0) * pct),
+    highlights: 0,
+    temperature: 0,
   };
 
   const sharpAmt = filters.sharpness / 100;
   const sharpKernel = `0 ${-sharpAmt} 0 ${-sharpAmt} ${1 + 4 * sharpAmt} ${-sharpAmt} 0 ${-sharpAmt} 0`;
-  // Shadow lift uses gamma curve: exponent < 1 lifts shadows
   const shadowGamma = filters.shadows > 0 ? Math.max(0.4, 1 - (filters.shadows / 100) * 0.55) : 1;
+  const highlightGamma = filters.highlights !== 0 ? Math.max(0.5, Math.min(1.5, 1 - (filters.highlights / 100) * 0.4)) : 1;
+  const tempShift = filters.temperature / 100; // -0.5 to +0.5
+
   const hasShadowLift = filters.shadows > 0;
+  const hasHighlightAdj = filters.highlights !== 0;
   const hasSharpness = filters.sharpness > 0;
-  const svgFilterId = `card-enhance-${hasShadowLift ? 's' : ''}${hasSharpness ? 'k' : ''}`;
-  const filterStyle = (showBefore || activePreset === 'original')
+  const hasTempAdj = filters.temperature !== 0;
+  const hasAdvanced = hasShadowLift || hasHighlightAdj || hasSharpness || hasTempAdj;
+
+  // Build tone curve table for shadows + highlights
+  const buildToneCurve = () => {
+    const pts = 17; // 17 points for feComponentTransfer table
+    const vals = [];
+    for (let i = 0; i < pts; i++) {
+      let v = i / (pts - 1); // 0 to 1
+      // Shadow lift (gamma on lower range)
+      if (hasShadowLift) v = Math.pow(v, shadowGamma);
+      // Highlight adjustment (gamma on upper range)
+      if (hasHighlightAdj) {
+        const t = Math.max(0, (v - 0.5) * 2); // 0 at midpoint, 1 at white
+        const adj = t * (1 - Math.pow(v, highlightGamma));
+        v = Math.min(1, v + adj * 0.3);
+      }
+      vals.push(v.toFixed(4));
+    }
+    return vals.join(' ');
+  };
+  const toneCurveTable = (hasShadowLift || hasHighlightAdj) ? buildToneCurve() : null;
+
+  // Temperature color matrix: warm adds red/yellow, cool adds blue
+  const tempMatrix = hasTempAdj
+    ? `${1 + tempShift * 0.15} 0 0 0 ${tempShift * 0.03}  0 ${1 + tempShift * 0.05} 0 0 0  0 0 ${1 - tempShift * 0.15} 0 ${-tempShift * 0.03}  0 0 0 1 0`
+    : null;
+
+  const filterStyle = (showBefore || (activePreset === 'original' && !showMixer) || (showMixer && Object.values(mixer).every(v => v === 0)))
     ? 'none'
-    : `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${(hasShadowLift || hasSharpness) ? ` url(#${svgFilterId})` : ''}`;
-  const hasChanges = activePreset !== 'original';
+    : `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)${hasAdvanced ? ' url(#card-adv-filter)' : ''}`;
+  const hasChanges = showMixer ? Object.values(mixer).some(v => v !== 0) : activePreset !== 'original';
 
   const saveEnhanced = async (side) => {
     const src = side === 'back' ? backSrc : frontSrc;
@@ -506,21 +553,40 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       ctx.filter = `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%)`;
       ctx.drawImage(img, 0, 0);
 
-      // Apply shadow lifting via gamma curve on pixels
-      if (filters.shadows > 0) {
-        const gamma = Math.max(0.4, 1 - (filters.shadows / 100) * 0.55);
+      // Apply shadow lifting + highlights + temperature via pixel manipulation
+      if (filters.shadows > 0 || filters.highlights !== 0 || filters.temperature !== 0) {
         const w = canvas.width, h = canvas.height;
         const imageData = ctx.getImageData(0, 0, w, h);
         const d = imageData.data;
-        // Build lookup table for performance
-        const lut = new Uint8Array(256);
+        const sGamma = filters.shadows > 0 ? Math.max(0.4, 1 - (filters.shadows / 100) * 0.55) : 1;
+        const hGamma = filters.highlights !== 0 ? Math.max(0.5, Math.min(1.5, 1 - (filters.highlights / 100) * 0.4)) : 1;
+        const tShift = filters.temperature / 100;
+
+        // Build per-channel LUTs
+        const lutR = new Uint8Array(256);
+        const lutG = new Uint8Array(256);
+        const lutB = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
-          lut[i] = Math.min(255, Math.round(255 * Math.pow(i / 255, gamma)));
+          let v = i / 255;
+          // Shadows: gamma curve
+          if (filters.shadows > 0) v = Math.pow(v, sGamma);
+          // Highlights: adjust upper range
+          if (filters.highlights !== 0) {
+            const t = Math.max(0, (v - 0.5) * 2);
+            const adj = t * (1 - Math.pow(v, hGamma));
+            v = Math.min(1, v + adj * 0.3);
+          }
+          // Base value clamped
+          const base = Math.min(255, Math.max(0, Math.round(v * 255)));
+          // Temperature: warm adds R/Y, cool adds B
+          lutR[i] = Math.min(255, Math.max(0, Math.round(base * (1 + tShift * 0.15) + tShift * 8)));
+          lutG[i] = Math.min(255, Math.max(0, Math.round(base * (1 + tShift * 0.05))));
+          lutB[i] = Math.min(255, Math.max(0, Math.round(base * (1 - tShift * 0.15) - tShift * 8)));
         }
         for (let i = 0; i < d.length; i += 4) {
-          d[i] = lut[d[i]];
-          d[i + 1] = lut[d[i + 1]];
-          d[i + 2] = lut[d[i + 2]];
+          d[i] = lutR[d[i]];
+          d[i + 1] = lutG[d[i + 1]];
+          d[i + 2] = lutB[d[i + 2]];
         }
         ctx.putImageData(imageData, 0, 0);
       }
@@ -676,34 +742,24 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       className="fixed inset-0 z-[90] bg-[#0a0a0a] flex flex-col"
       data-testid="card-detail-modal"
     >
-      {/* SVG filters for shadow lifting + sharpness live preview */}
+      {/* SVG filter for advanced adjustments (shadows, highlights, temperature, sharpness) */}
       <svg style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }}>
         <defs>
-          {/* Shadow lift only */}
-          {hasShadowLift && !hasSharpness && (
-            <filter id="card-enhance-s">
-              <feComponentTransfer>
-                <feFuncR type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-                <feFuncG type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-                <feFuncB type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-              </feComponentTransfer>
-            </filter>
-          )}
-          {/* Sharpness only */}
-          {!hasShadowLift && hasSharpness && (
-            <filter id="card-enhance-k">
-              <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
-            </filter>
-          )}
-          {/* Shadow lift + sharpness combined */}
-          {hasShadowLift && hasSharpness && (
-            <filter id="card-enhance-sk">
-              <feComponentTransfer>
-                <feFuncR type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-                <feFuncG type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-                <feFuncB type="gamma" amplitude="1" exponent={shadowGamma} offset="0" />
-              </feComponentTransfer>
-              <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
+          {hasAdvanced && (
+            <filter id="card-adv-filter" colorInterpolationFilters="sRGB">
+              {toneCurveTable && (
+                <feComponentTransfer>
+                  <feFuncR type="table" tableValues={toneCurveTable} />
+                  <feFuncG type="table" tableValues={toneCurveTable} />
+                  <feFuncB type="table" tableValues={toneCurveTable} />
+                </feComponentTransfer>
+              )}
+              {tempMatrix && (
+                <feColorMatrix type="matrix" values={tempMatrix} />
+              )}
+              {hasSharpness && (
+                <feConvolveMatrix order="3" kernelMatrix={sharpKernel} preserveAlpha="true" />
+              )}
             </filter>
           )}
         </defs>
@@ -788,9 +844,15 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
               )}
               <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />
               {PRESETS.map(({ id, label, icon: Icon }) => (
-                <button key={id} onClick={() => setActivePreset(id)}
+                <button key={id} onClick={() => {
+                    setActivePreset(id);
+                    if (showMixer) {
+                      const p = PRESETS.find(pr => pr.id === id) || PRESETS[0];
+                      setMixer({ brightness: p.brightness - 100, contrast: p.contrast - 100, shadows: p.shadows || 0, highlights: 0, saturation: p.saturate - 100, temperature: 0, sharpness: p.sharpness || 0 });
+                    }
+                  }}
                   className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 ${
-                    activePreset === id
+                    activePreset === id && !showMixer
                       ? 'bg-[#3b82f6] text-white shadow-lg shadow-[#3b82f6]/20'
                       : 'bg-[#1a1a1a] text-gray-400 border border-[#2a2a2a]'
                   }`}
@@ -799,10 +861,67 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   {label}
                 </button>
               ))}
+              <div className="w-px bg-[#2a2a2a] shrink-0 my-1" />
+              <button onClick={() => {
+                  if (!showMixer) {
+                    const p = PRESETS.find(pr => pr.id === activePreset) || PRESETS[0];
+                    const pct2 = intensity / 100;
+                    setMixer({
+                      brightness: Math.round((p.brightness - 100) * pct2),
+                      contrast: Math.round((p.contrast - 100) * pct2),
+                      shadows: Math.round((p.shadows || 0) * pct2),
+                      highlights: 0,
+                      saturation: Math.round((p.saturate - 100) * pct2),
+                      temperature: 0,
+                      sharpness: Math.round((p.sharpness || 0) * pct2),
+                    });
+                  }
+                  setShowMixer(!showMixer);
+                }}
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-bold shrink-0 transition-all active:scale-95 ${
+                  showMixer
+                    ? 'bg-amber-500 text-black shadow-lg shadow-amber-500/20'
+                    : 'bg-[#1a1a1a] text-gray-400 border border-[#2a2a2a]'
+                }`}
+                data-testid="mixer-toggle-btn">
+                <Sliders className="w-4 h-4" />
+                Mixer
+              </button>
             </div>
 
-            {/* Intensity Slider */}
-            {activePreset !== 'original' && (
+            {/* Mixer Sliders Panel */}
+            {showMixer ? (
+              <div className="space-y-1.5 mb-3" data-testid="mixer-panel">
+                {[
+                  { key: 'brightness', label: 'Brightness', min: -50, max: 50, icon: Sun },
+                  { key: 'contrast', label: 'Contrast', min: -50, max: 50, icon: CircleDot },
+                  { key: 'shadows', label: 'Shadows', min: 0, max: 100, icon: Layers },
+                  { key: 'highlights', label: 'Highlights', min: -50, max: 50, icon: Sparkles },
+                  { key: 'saturation', label: 'Saturation', min: -50, max: 80, icon: Palette },
+                  { key: 'temperature', label: 'Temperature', min: -50, max: 50, icon: Sun },
+                  { key: 'sharpness', label: 'Sharpness', min: 0, max: 50, icon: Focus },
+                ].map(({ key, label, min, max, icon: SlIcon }) => (
+                  <div key={key} className="flex items-center gap-2">
+                    <SlIcon className="w-3 h-3 text-gray-600 shrink-0" />
+                    <label className="text-[9px] text-gray-500 uppercase tracking-wider shrink-0 w-[72px]">{label}</label>
+                    <input type="range" min={min} max={max} value={mixer[key]}
+                      onChange={e => setMixer(m => ({ ...m, [key]: parseInt(e.target.value) }))}
+                      className="flex-1 h-1 bg-[#1a1a1a] rounded-full appearance-none cursor-pointer accent-amber-500"
+                      data-testid={`mixer-${key}`} />
+                    <span className={`text-[10px] font-bold w-8 text-right ${mixer[key] === 0 ? 'text-gray-600' : 'text-amber-400'}`}>
+                      {mixer[key] > 0 ? '+' : ''}{mixer[key]}
+                    </span>
+                  </div>
+                ))}
+                <button onClick={() => setMixer({...MIXER_DEFAULT})}
+                  className="text-[9px] text-gray-500 hover:text-white transition-colors uppercase tracking-wider mt-1"
+                  data-testid="mixer-reset">
+                  Reset All
+                </button>
+              </div>
+            ) : (
+            /* Intensity Slider (preset mode) */
+            activePreset !== 'original' && (
               <div className="flex items-center gap-3 mb-3">
                 <label className="text-[9px] text-gray-500 uppercase tracking-wider shrink-0 w-16">Intensity</label>
                 <input type="range" min={10} max={100} value={intensity}
@@ -811,7 +930,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   data-testid="slider-intensity" />
                 <span className="text-[10px] font-bold text-[#3b82f6] w-8 text-right">{intensity}%</span>
               </div>
-            )}
+            ))}
 
             {/* Save Button */}
             {hasChanges && (
