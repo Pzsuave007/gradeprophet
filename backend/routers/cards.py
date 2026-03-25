@@ -651,6 +651,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
                     if variation: update_fields["variation"] = variation
                     update_fields["card_name"] = card_name
                     if card_info.get("sport"): update_fields["sport"] = card_info["sport"]
+                    if card_info.get("cert_number"): update_fields["cert_number"] = card_info["cert_number"]
 
                     logger.info(f"Re-identified with front+back: {card_name}")
                 except Exception as e:
@@ -725,6 +726,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
         "condition": card_info.get("condition", "Raw"),
         "grade": card_info.get("grade"),
         "grading_company": card_info.get("grading_company", ""),
+        "cert_number": card_info.get("cert_number"),
         "purchase_price": 0,
         "estimated_value": card_info.get("estimated_value", 0),
         "quantity": 1,

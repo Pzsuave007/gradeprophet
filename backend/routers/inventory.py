@@ -27,6 +27,7 @@ class InventoryItem(BaseModel):
     condition: Optional[str] = "Raw"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
+    cert_number: Optional[str] = None
     purchase_price: Optional[float] = None
     card_value: Optional[float] = None
     quantity: int = 1
@@ -51,6 +52,7 @@ class InventoryItemCreate(BaseModel):
     condition: Optional[str] = "Raw"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
+    cert_number: Optional[str] = None
     purchase_price: Optional[float] = None
     card_value: Optional[float] = None
     quantity: int = 1
@@ -71,6 +73,7 @@ class InventoryItemUpdate(BaseModel):
     condition: Optional[str] = None
     grading_company: Optional[str] = None
     grade: Optional[float] = None
+    cert_number: Optional[str] = None
     purchase_price: Optional[float] = None
     card_value: Optional[float] = None
     quantity: Optional[int] = None
@@ -145,6 +148,7 @@ async def create_inventory_item(data: InventoryItemCreate, request: Request):
             set_name=data.set_name, card_number=data.card_number,
             variation=data.variation, condition=data.condition,
             grading_company=data.grading_company, grade=data.grade,
+            cert_number=data.cert_number,
             purchase_price=data.purchase_price, quantity=data.quantity,
             notes=data.notes, image=image_thumb, back_image=back_image_thumb,
             category=data.category, sport=data.sport,

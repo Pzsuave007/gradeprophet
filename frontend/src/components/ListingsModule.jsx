@@ -206,6 +206,12 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
                 <span className="text-[11px] sm:text-xs text-amber-400 flex items-center gap-1"><Eye className="w-3 h-3" />{listing.watch_count}</span>
               </div>
             )}
+            {cardData?.cert_number && (
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-gray-600">Cert #</span>
+                <span className="text-[11px] sm:text-xs text-amber-300 font-mono font-bold" data-testid="listing-cert-number">{cardData.cert_number}</span>
+              </div>
+            )}
             <div className="flex gap-2">
               <a href={listing.url} target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-1.5 py-2 sm:py-2.5 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] text-xs sm:text-sm text-[#3b82f6] hover:bg-[#3b82f6]/10 transition-colors"

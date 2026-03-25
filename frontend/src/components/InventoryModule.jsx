@@ -36,7 +36,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const backFileRef = useRef(null);
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
-    variation: '', condition: 'Raw', grading_company: '', grade: '',
+    variation: '', condition: 'Raw', grading_company: '', grade: '', cert_number: '',
     purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -50,6 +50,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         card_name: editItem.card_name || '', player: editItem.player || '', year: editItem.year || '',
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
         condition: editItem.condition || 'Raw', grading_company: editItem.grading_company || '', grade: editItem.grade || '',
+        cert_number: editItem.cert_number || '',
         purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
         image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
       });
@@ -77,6 +78,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         condition: d.is_graded ? 'Graded' : 'Raw',
         grading_company: d.grading_company || f.grading_company,
         grade: d.grade ? String(d.grade) : f.grade,
+        cert_number: d.cert_number || f.cert_number,
         sport: d.sport || f.sport,
       }));
       toast.success(backImageData ? 'Card identified with front + back!' : 'Card identified! Review the details below.');
@@ -148,7 +150,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       if (!payload.image_base64) delete payload.image_base64;
       if (!payload.back_image_base64) delete payload.back_image_base64;
       if (!payload.sport) delete payload.sport;
-      if (payload.condition === 'Raw') { payload.grading_company = null; payload.grade = null; }
+      if (payload.condition === 'Raw') { payload.grading_company = null; payload.grade = null; payload.cert_number = null; }
       await onSave(payload, editItem?.id);
       onBack();
     } catch (err) { toast.error(err.response?.data?.detail || 'Failed to save'); }
@@ -244,6 +246,11 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
             <div><label className={labelCls}>Grade</label><select className={inputCls} value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} data-testid="select-grade"><option value="">Select...</option>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
           </>)}
         </div>
+        {form.condition === 'Graded' && (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div><label className={labelCls}>Cert #</label><input className={inputCls} placeholder="e.g. 12345678" value={form.cert_number} onChange={e => setForm(f => ({ ...f, cert_number: e.target.value }))} data-testid="input-cert-number" /></div>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Purchase Price ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.purchase_price} onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))} data-testid="input-price" /></div>
           <div><label className={labelCls}>Value ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.card_value} onChange={e => setForm(f => ({ ...f, card_value: e.target.value }))} data-testid="input-value" /></div>
@@ -860,6 +867,12 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                   <p className="text-sm font-bold text-white mt-0.5">{item.listed && item.listed_price ? `$${Number(item.listed_price).toFixed(2)}` : item.quantity || 1}</p>
                 </div>
               </div>
+              {item.condition === 'Graded' && item.cert_number && (
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-3 py-2 flex items-center gap-2">
+                  <span className="text-[10px] text-gray-500 uppercase tracking-wider">Cert #</span>
+                  <span className="text-sm font-mono font-bold text-amber-300" data-testid="cert-number-display">{item.cert_number}</span>
+                </div>
+              )}
               {item.notes && <p className="text-xs text-gray-500 italic">{item.notes}</p>}
 
               {/* Price Lookup Links */}

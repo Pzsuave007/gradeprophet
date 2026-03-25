@@ -49,6 +49,7 @@ class EbayListingCreateRequest(BaseModel):
     card_number: Optional[str] = None
     grading_company: Optional[str] = None
     grade: Optional[str] = None
+    cert_number: Optional[str] = None
     best_offer: bool = False
 
 class ReviseListingRequest(BaseModel):
@@ -115,6 +116,8 @@ def generate_listing_description(item: dict) -> str:
     if item.get("variation"): lines.append(f"Variation: {item['variation']}")
     if item.get("condition") == "Graded" and item.get("grade"):
         lines.append(f"Grade: {item.get('grading_company', 'PSA')} {item['grade']}")
+        if item.get("cert_number"):
+            lines.append(f"Cert #: {item['cert_number']}")
     else:
         lines.append("Condition: Raw / Ungraded")
     lines.extend(["", "Ships securely in penny sleeve and top loader.", "Ships within 1 business day."])
@@ -731,6 +734,10 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     if set_n: specifics.append(f'<NameValueList><Name>Set</Name><Value>{html.escape(set_n)}</Value></NameValueList>')
     card_num = data.card_number or item.get("card_number")
     if card_num: specifics.append(f'<NameValueList><Name>Card Number</Name><Value>{html.escape(str(card_num))}</Value></NameValueList>')
+
+    # Certification number for graded cards
+    cert_num = data.cert_number or item.get("cert_number")
+    if cert_num: specifics.append(f'<NameValueList><Name>Certification Number</Name><Value>{html.escape(str(cert_num))}</Value></NameValueList>')
 
     grading_co = data.grading_company or item.get("grading_company") or ""
     grade_val = data.grade or (str(item.get("grade")) if item.get("grade") else "")

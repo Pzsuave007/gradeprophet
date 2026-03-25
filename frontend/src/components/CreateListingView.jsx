@@ -441,6 +441,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             is_graded: item.condition === 'Graded',
             grading_company: item.grading_company || '',
             grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
+            cert_number: item.cert_number || '',
             best_offer: false,
             quantity: item.quantity || 1,
             status: null, error: null, ebay_item_id: null,
@@ -459,6 +460,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             is_graded: item.condition === 'Graded',
             grading_company: item.grading_company || '',
             grade: item.grade ? String(item.grade).replace(/\.0$/, '') : '',
+            cert_number: item.cert_number || '',
             best_offer: false, quantity: item.quantity || 1,
             status: null, error: null, ebay_item_id: null,
           });
@@ -512,6 +514,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           card_number: form.card_number || '',
           grading_company: form.is_graded ? (form.grading_company || null) : null,
           grade: form.is_graded ? (form.grade || null) : null,
+          cert_number: form.is_graded ? (form.cert_number || null) : null,
           best_offer: form.best_offer || false,
         });
 

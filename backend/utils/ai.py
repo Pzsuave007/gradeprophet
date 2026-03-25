@@ -327,6 +327,7 @@ Return ONLY valid JSON with these fields (use null for anything you can't determ
   "is_graded": <true if card is in a grading slab/case, false if raw>,
   "grading_company": "<PSA, BGS, SGC, CGC, HGA, or null if raw>",
   "grade": <numeric grade if graded, e.g. 9, 9.5, 10, or null if raw>,
+  "cert_number": "<certification number printed on the grading slab label, usually 8-10 digits, or null if raw/not visible>",
   "sport": "<Basketball, Baseball, Football, Soccer, Hockey, or Other>",
   "estimated_condition": "<Mint, Near Mint, Excellent, Good, Fair - your visual assessment>"
 }
@@ -341,6 +342,7 @@ The PSA label typically contains:
 - Card name/number (e.g., #138, Kobe Bryant RC)
 - Player name
 - Grade (should be 10 or Gem Mint)
+- Certification number (a long number, usually 8-10 digits, printed on the label)
 
 Return ONLY a JSON object with this format (no other text):
 {
@@ -348,7 +350,8 @@ Return ONLY a JSON object with this format (no other text):
     "year": "<year>",
     "set": "<card set/brand>",
     "player": "<player name>",
-    "grade": "<grade number>"
+    "grade": "<grade number>",
+    "cert_number": "<certification number>"
 }
 
 Example response:
@@ -357,7 +360,8 @@ Example response:
     "year": "1996-97",
     "set": "Upper Deck SP",
     "player": "Kobe Bryant",
-    "grade": "10"
+    "grade": "10",
+    "cert_number": "12345678"
 }
 
 If you cannot read certain information, use "Unknown" for that field but try your best to read the label."""
