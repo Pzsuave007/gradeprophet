@@ -28,6 +28,7 @@ class InventoryItem(BaseModel):
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     purchase_price: Optional[float] = None
+    card_value: Optional[float] = None
     quantity: int = 1
     notes: Optional[str] = None
     image: Optional[str] = None
@@ -51,6 +52,7 @@ class InventoryItemCreate(BaseModel):
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     purchase_price: Optional[float] = None
+    card_value: Optional[float] = None
     quantity: int = 1
     notes: Optional[str] = None
     image_base64: Optional[str] = None
@@ -70,6 +72,7 @@ class InventoryItemUpdate(BaseModel):
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     purchase_price: Optional[float] = None
+    card_value: Optional[float] = None
     quantity: Optional[int] = None
     notes: Optional[str] = None
     image_base64: Optional[str] = None

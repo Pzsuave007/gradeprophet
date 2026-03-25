@@ -37,7 +37,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
     variation: '', condition: 'Raw', grading_company: '', grade: '',
-    purchase_price: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
+    purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [backImagePreview, setBackImagePreview] = useState(null);
@@ -50,7 +50,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         card_name: editItem.card_name || '', player: editItem.player || '', year: editItem.year || '',
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
         condition: editItem.condition || 'Raw', grading_company: editItem.grading_company || '', grade: editItem.grade || '',
-        purchase_price: editItem.purchase_price || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
+        purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
         image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
       });
       setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
@@ -143,6 +143,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       payload.year = payload.year ? parseInt(payload.year) : null;
       payload.grade = payload.grade ? parseFloat(payload.grade) : null;
       payload.purchase_price = payload.purchase_price ? parseFloat(payload.purchase_price) : null;
+      payload.card_value = payload.card_value ? parseFloat(payload.card_value) : null;
       payload.quantity = parseInt(payload.quantity) || 1;
       if (!payload.image_base64) delete payload.image_base64;
       if (!payload.back_image_base64) delete payload.back_image_base64;
@@ -245,8 +246,24 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Purchase Price ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.purchase_price} onChange={e => setForm(f => ({ ...f, purchase_price: e.target.value }))} data-testid="input-price" /></div>
+          <div><label className={labelCls}>Value ($)</label><input className={inputCls} type="number" step="0.01" placeholder="0.00" value={form.card_value} onChange={e => setForm(f => ({ ...f, card_value: e.target.value }))} data-testid="input-value" /></div>
           <div><label className={labelCls}>Quantity</label><input className={inputCls} type="number" min="1" placeholder="1" value={form.quantity} onChange={e => setForm(f => ({ ...f, quantity: e.target.value }))} data-testid="input-quantity" /></div>
-          <div><label className={labelCls}>Notes</label><input className={inputCls} placeholder="Optional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" /></div>
+        </div>
+        <div><label className={labelCls}>Notes</label><input className={inputCls} placeholder="Optional notes" value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} data-testid="input-notes" /></div>
+        {/* Price Lookup */}
+        <div className="grid grid-cols-2 gap-2">
+          <a href={`https://www.ebay.com/sch/i.html?_nkw=${encodeURIComponent([form.year, form.set_name, form.variation, form.player, form.card_number ? '#' + form.card_number : '', form.condition === 'Graded' && form.grading_company ? form.grading_company : '', form.condition === 'Graded' && form.grade ? form.grade : ''].filter(Boolean).join(' '))}&_sacat=0&_from=R40&LH_Sold=1&rt=nc&LH_Complete=1`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-yellow-500/10 border border-yellow-500/30 text-yellow-400 font-bold text-xs hover:bg-yellow-500/20 active:scale-95 transition-all"
+            data-testid="edit-lookup-ebay">
+            <TrendingUp className="w-4 h-4" /> eBay Sold
+          </a>
+          <a href={`https://app.cardladder.com/sales-history?direction=desc&sort=date&q=${encodeURIComponent([form.year, form.set_name, form.variation, form.player, form.card_number ? '#' + form.card_number : '', form.condition === 'Graded' && form.grading_company ? form.grading_company : '', form.condition === 'Graded' && form.grade ? form.grade : ''].filter(Boolean).join(' '))}`}
+            target="_blank" rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-[#3b82f6] font-bold text-xs hover:bg-[#3b82f6]/20 active:scale-95 transition-all"
+            data-testid="edit-lookup-cardladder">
+            <TrendingUp className="w-4 h-4" /> CardLadder
+          </a>
         </div>
         <div className="flex justify-end gap-2 pt-2">
           <button type="button" onClick={onBack} className="px-4 py-2.5 rounded-lg text-sm text-gray-400 hover:text-white hover:bg-white/5 transition-colors" data-testid="form-cancel-btn">Cancel</button>
@@ -833,6 +850,10 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">Cost</p>
                   <p className="text-sm font-bold text-white mt-0.5">{item.purchase_price ? `$${Number(item.purchase_price).toFixed(2)}` : '-'}</p>
+                </div>
+                <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
+                  <p className="text-[10px] text-gray-500 uppercase tracking-wider">Value</p>
+                  <p className="text-sm font-bold text-emerald-400 mt-0.5">{item.card_value ? `$${Number(item.card_value).toFixed(2)}` : '-'}</p>
                 </div>
                 <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl p-3 text-center">
                   <p className="text-[10px] text-gray-500 uppercase tracking-wider">{item.listed ? 'Listed' : 'Qty'}</p>
