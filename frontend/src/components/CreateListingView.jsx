@@ -421,7 +421,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
           newForms.push({
             title: ai.title || p.title || item.card_name || '',
             description: ai.description || p.description || '',
-            price: p.suggested_price || (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99'),
+            price: item.card_value ? Number(item.card_value).toFixed(2) : (p.suggested_price || (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99')),
             purchase_price: p.purchase_price || item.purchase_price || 0,
             market_data: p.market_data || null,
             listing_format: 'FixedPriceItem',
@@ -448,7 +448,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
         } catch {
           newForms.push({
             title: item.card_name || '', description: '',
-            price: item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99',
+            price: item.card_value ? Number(item.card_value).toFixed(2) : (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99'),
             listing_format: 'FixedPriceItem', duration: 'GTC',
             condition_id: 3000, condition_description: '',
             shipping_option: defaultShipping, shipping_cost: shippingCosts[defaultShipping] || 4.50,
