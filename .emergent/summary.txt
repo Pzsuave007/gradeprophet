@@ -1,173 +1,135 @@
-<analysis>**original_problem_statement:**
-The user's initial request in this session was to address a bug in the eBay listing form and to add a bulk shipping update feature. This quickly expanded into a major feature development and UI/UX overhaul session, including:
-- **Bulk Shipping Feature:** Implemented in both the Inventory and Listings modules.
-- **Price Lookup Integration:** Added dynamic buttons for eBay Sold and CardLadder to the Inventory details, Listings details, the Edit Card form, and the Create eBay Listing form. This involved multiple iterations to refine the search query to use structured data (year, set, player, variation, grade) instead of just the title.
-- **Public Marketplace:** A brand new, full-featured public page at  was built from scratch. It aggregates all users' listings with advanced search, filtering (sport, condition, seller, price, sort), and a refined UI inspired by the existing Shop page.
-- **Inventory Data Enrichment:** Added a  field to the inventory, which now auto-populates the price in the eBay listing form.
-- **Search & Filter for Listings:** Added a search bar and a dynamic sport filter to the main Listings page.
-- **UI/UX Polish:** Fixed dropdown styles, removed scrollbars from modals by creating more compact layouts, adjusted grid column counts for better viewing on large screens, and standardized page widths.
-- **Bug Fixes:** Resolved numerous issues, including incorrect data fetching in the marketplace, missing data for price lookups, and incorrect field usage in forms.
-- **Cert Number Feature (In Progress):** The user requested to capture the graded card certification number (e.g., PSA Cert #) via AI, store it, and include it in the eBay listing.
+<analysis>**original_problem_statement:** 
+The user requested the completion of the Cert Number feature for graded cards, optimization of the mobile Marketplace/Shop modals to utilize full screen space without scrollbars, and major enhancements to the Photo Editor to fix dark scanner images (introducing a manual Mixer and Admin-controlled Global Presets). Later in the session, the user requested DevOps assistance because their production server was frequently crashing due to Out Of Memory (OOM) errors.
 
-**PRODUCT REQUIREMENTS:**
--   **Bulk Actions:** Users must be able to select multiple listed items (in Inventory and Listings pages) and update their shipping profiles in one action.
--   **Efficient Price Lookup:** Price lookup buttons (eBay Sold, CardLadder) must be available in all relevant contexts (Inventory detail, Listing detail, Edit form, Listing form) and must use structured card data (including ) for accurate searches.
--   **Public Marketplace ():** A public, visually appealing page that showcases all for-sale items from all users. It must include comprehensive filtering (sport, price, condition, seller, sort) and search capabilities. The UI should be polished, with features like image flipping and swipe navigation in the card modal.
--   **Data-Driven Listing:** The  saved in the inventory should automatically populate the  field when creating an eBay listing to streamline the user's workflow.
--   **Graded Card Certification Number:** The system should capture the  for graded cards, store it, and pass it to eBay during listing creation.
+**User's preferred language**: Spanish. The next agent **MUST** respond in Spanish.
 
-**User's preferred language**: Spanish. The next agent **MUST** continue the conversation in Spanish.
-
-**what currently exists?**
-The application is a mature card management platform with a fully functional public marketplace. Bulk editing for shipping is implemented in both the Inventory and Listings pages. A robust price lookup system using CardLadder and eBay Sold links is integrated in all key views, using structured card data for accuracy. The Listings page now has powerful search and filtering capabilities. The UI has been significantly polished, with consistent layouts, responsive grids, and fixes for modals and dropdowns. The backend supports all new features, including a dedicated endpoint for the marketplace and an updated inventory model with a  field. The Cert Number feature has been initiated, with the AI prompt updated to extract the number.
+**what currently exists?** 
+The platform is a mature card management system. The Cert Number feature is fully integrated across the AI prompt, DB models, UI forms, and eBay listing payload. The mobile modals for Marketplace and Shop now feature a sleek, full-screen layout. The Photo Editor has been heavily upgraded with advanced Canvas/SVG shadow-lifting, a 7-slider manual Mixer, and the ability for the Admin to create and save Global Presets directly from the editor, which are visible to all users. On the infrastructure side, a 2GB swap file was successfully created on the user's production server, and a resource audit was conducted.
 
 **Last working item**:
--   **Last item agent was working:** Implementing the Cert Number feature. The user wants the AI to extract the certification number from graded card images, save it to the inventory, and include it in the eBay listing data. The agent began by updating the AI prompt in  to include  in its JSON output.
--   **Status:** IN PROGRESS
--   **Agent Testing Done:** N
--   **Which testing method agent to use?** both. This requires backend validation of the AI and API changes, and frontend validation of the UI.
--   **User Testing Done:** N
+- **Last item agent was working:** Server Memory Optimization. The agent analyzed the user's server resource audit, identified Apache, SpamAssassin, and MongoDB as the main RAM consumers on a 3.6GB server, and created an  script to safely lower their memory footprints.
+- **Status:** USER VERIFICATION PENDING
+- **Agent Testing Done:** N/A (This is a sysadmin bash script for the user's live production server, cannot be tested in the local preview sandbox).
+- **Which testing method agent to use?** NA
+- **User Testing Done:** N (Waiting for the user to execute the script and confirm server stability).
 
 **All Pending/In progress Issue list**:
--   **Issue 1: Complete Cert Number Integration (P0)**
-    -   **Description:** The user wants to capture the certification number of graded cards (e.g., PSA Cert #) during AI scanning, save it, and use it when listing on eBay.
-    -   **Attempted fixes:** The agent updated the AI prompt in  to instruct the AI to extract the .
-    -   **Next debug checklist:**
-        1.  Add  (or similar) field to the  and  Pydantic models in .
-        2.  Update the AI card analysis function in  to receive the  from the AI response and save it to the new  document.
-        3.  Update the  in  to include an input field for  when the card condition is Graded.
-        4.  Ensure  is saved when creating/updating an inventory item.
-        5.  Display the  in the card detail view in .
-        6.  Update the  endpoint in  to accept the  and add it as an Item Specific in the XML payload sent to eBay.
-    -   **Why fix this issue?** Including the cert number on eBay listings for graded cards increases buyer trust and allows eBay to show population reports, potentially increasing the item's value and visibility.
-    -   **Status:** IN PROGRESS
-    -   **Is recurring issue?** N
-    -   **Should Test frontend/backend/both after fix?** Both.
+Issue 1: Production Server Memory Optimization (P0)
+- **Attempted fixes:** Agent already provided  (executed successfully by user) and . Agent just created  to limit SpamAssassin children, Apache workers, and MongoDB cache.
+- **Next debug checklist:** 
+  1. Wait for the user to run .
+  2. Ask the user for the output of                total        used        free      shared  buff/cache   available
+Mem:            31Gi       6.5Gi        14Gi        44Mi        10Gi        24Gi
+Swap:             0B          0B          0B and  after running it.
+  3. Ask the user if they actively use MySQL on that server (it consumes ~450MB RAM). If not, provide a command to disable it.
+- **Why fix this issue and what will be achieved with the fix?** The user's GoDaddy server is repeatedly crashing because 3.6GB RAM is insufficient for the current cPanel/Web stack alongside FlipSlab. Optimizing services will prevent downtime.
+- **Status:** USER VERIFICATION PENDING
+- **Is recurring issue?** Y (Server crashing was continuous before Swap; needs optimization to fully resolve).
+- **Should Test frontend/backend/both after fix?** Neither (Infrastructure fix).
 
 **In progress Task List**:
-*   None apart from the issue above.
+*None. All coding tasks were completed.*
 
 **Upcoming and Future Tasks**
-*   **Upcoming Tasks:**
-    *   **P0: Stripe Production Integration:** The user has confirmed this is the next major task after the current batch of fixes are complete.
-    *   **P1: Whatnot & Shopify Integration:** A premium feature for the Legend tier.
-*   **Future Tasks:**
-    *   **P2: Direct Purchase on FlipSlab:** Allow users to buy cards directly on the platform, likely using Stripe.
-    *   **P3: New User Onboarding:** A setup wizard.
-    *   **P4: Flip Finder Core Logic Enhancements.**
-    *   **P5: Windows Scanner App.**
-    *   **P6: Team Access:** For Legend tier accounts.
-    *   **P7: Refactor  & :** These components have grown large and complex.
+- **P0: Stripe Production Integration:** The next major planned application feature.
+- **P1: Whatnot & Shopify Integration:** Premium feature for Legend tier.
+- **P2: Direct Purchase on FlipSlab:** Allow direct buys using Stripe.
+- **P3: New User Onboarding:** Setup wizard.
+- **P4: Flip Finder Core Logic Enhancements.**
+- **P5: Windows Scanner App.**
+- **P6: Team Access.**
+- **P7: Refactor  & :** These files are >1500 lines and need breaking down.
 
 **Completed work in this session**
--   **Feature: Public Marketplace ()**:
-    -   Created a new public page showing all for-sale items from all users.
-    -   Backend endpoint aggregates data from , , and .
-    -   UI includes search, advanced filters (sport, condition, seller, price, sort), and a refined card modal.
-    -   Fixed a bug to correctly filter out items with no price.
--   **Feature: Bulk Shipping Update**:
-    -   Implemented in  and .
-    -   Allows users to select multiple items and change the shipping profile at once.
--   **Feature: Advanced Price Lookups**:
-    -   Added eBay Sold and CardLadder buttons to the Inventory detail, Edit Card form, Listing detail, and Create Listing form.
-    -   Refined search logic to use structured data (, , , , ) for accuracy.
--   **Feature: Value Field & Price Automation**:
-    -   Added a  field to the inventory item model and Edit Card form.
-    -   This  now automatically populates the Price field in the eBay listing form, streamlining the workflow.
--   **Feature: Listings Page Search & Filter**:
-    -   Added a real-time search bar.
-    -   Added a dynamic sport filter that appears only when multiple sports are present.
--   **UI/UX Overhaul**:
-    -   Fixed dropdowns showing white text on a white background across the application.
-    -   Redesigned card modals (, ) to be more compact and prevent scrollbars.
-    -   Standardized page widths and responsive grid layouts for consistency.
--   **Bug Fixes**:
-    -   **Critical:** Fixed a bug where the Shipping Profile was not being saved when creating a new listing.
-    -   **Critical:** Fixed the Price Lookup buttons in  to use structured data by implementing a direct fetch for the full inventory item, ensuring  and other details are included.
-    -   Finalized and built the Truncated Card Titles fix from the previous session.
+- Cert Number feature for graded cards (AI, Backend, Frontend, eBay payload) (DONE)
+- Fixed  session expiration  bug (Date calculation exceeded month limits) (DONE)
+- Overhauled mobile UI for Marketplace/Shop modals (Full screen, no scrollbars, compact info) (DONE)
+- Photo Editor: Advanced shadow lifting and Scanner Fix preset (DONE)
+- Photo Editor: Added 7-slider manual Mixer (Brightness, Shadows, Saturation, etc.) (DONE)
+- Photo Editor: Admin Global Presets (CRUD in Admin panel, Save as Preset button in Editor) (DONE)
+- DevOps: Created  and successfully added 2GB Swap to user's server (DONE)
 
 **Earlier issues found/mentioned but not fixed**
--   Minor pre-existing ESLint warning in  ().
--   Python code style warnings () in  were noted but not fixed.
+None.
 
 **Known issue recurrence from previous fork**
--   None.
+- None.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
--   **Data Aggregation (Backend):** The marketplace endpoint () aggregates data from multiple collections (, , ) to create a public view.
--   **Fallback Data Fetching (Frontend):** In , the component now attempts to find card data in the pre-fetched list and falls back to a direct API call () if not found, ensuring detailed data is always available.
--   **Data-Driven UI:** The sport filter in  only renders if the data contains more than one sport, preventing unnecessary UI clutter.
--   **Workflow Automation:** The  from the inventory now automatically populates the price in the eBay listing form, directly addressing a user pain point and saving time.
--   **CSS Layout Strategy:** Fixed modal overflow issues by switching from  to  with a  layout, making content inside the modal adapt rather than causing the modal itself to scroll.
+- **Photo Editor Tech:** Uses SVG  with gamma curves for live preview shadow lifting, and Canvas Pixel Manipulation with lookup tables for saving the actual image rapidly.
+- **Admin Presets:** Saved in the  collection under a global key. The frontend checks if the current user matches  to show the Save as Preset button inside the editor.
+- **DevOps/Infrastructure:** The user relies on the agent to provide  scripts that they pull via Git and run on their AlmaLinux/cPanel VPS to apply updates and manage server health.
 
 **key DB schema**
--   **inventory**: Added . A  field is pending implementation.
+- : Uses a document with  to store global photo presets.
+- : Added  (string).
 
 **changes in tech stack**
--   None.
+- None.
 
 **All files of reference**
--   : (Last modified) Contains the AI prompt for card identification.
--   : Location for the Edit Card form and inventory display.
--   : Location for the listing detail modal.
--   : eBay listing form.
--   : Defines the inventory data model.
--   : Handles interaction with the eBay API.
--   : The new public marketplace.
--   : The backend for the new marketplace.
+-  (Auth bug fix)
+-  (Core Photo Editor logic)
+-  (Preset management)
+-  (Pending DevOps script)
 
 **Areas that need refactoring**:
--    (now over 1500 lines) and  (now over 1300 lines) are very large and would benefit from being broken down into smaller, more manageable components.
+-  is over 1500 lines and handles forms, API calls, rendering, and now complex Canvas/SVG photo manipulation.
 
 **key api endpoints**
--   : (NEW) Fetches aggregated card data for the public marketplace.
--   : (NEW) Updates the shipping profile for multiple eBay listings at once.
--   : (MODIFIED) Now accepts an  query parameter to fetch a specific item.
+- : Creates a global photo preset.
+- : Fetches global presets for the editor.
+- : AI analysis endpoint (now returns ).
 
 **Critical Info for New Agent**
--   **You MUST communicate in Spanish.**
--   The user is highly engaged and provides specific, actionable feedback. Pay close attention to their requests.
--   The established deployment workflow is crucial: make code changes, run yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. with the production URL, revert the  file, and then notify the user they can pull and run their script.
--   The immediate task is to continue the implementation of the Cert Number feature, which requires changes across the full stack (AI prompt, DB model, backend API, and multiple frontend components).
+- **You MUST communicate in Spanish.**
+- The user operates their own VPS server and prefers when you create  scripts (like , , ) that they can execute to handle deployments and server maintenance.
+- If the user asks why player/sport tags don't show up in the preview environment for the Shop/Marketplace, remind yourself (and them) that the preview environment lacks linked eBay/Inventory items, but production works perfectly because the items are correctly linked there.
+- The hardcoded admin email for UI features is . 
 
 **documents and test reports created in this job**
--    (updated multiple times)
+- 
+- 
+- 
+- 
+- 
 
-**Last 10 User Messages and any pending HUMAN messages**
-1.  **(LATEST)** The user requested the addition of a Cert Number field for graded cards, to be populated by AI and included in eBay listings. (IN PROGRESS)
-2.  The user confirmed the idea of auto-populating the eBay listing Price from the  field. (DONE)
-3.  The user requested the addition of a Value field and price lookup buttons to the Edit Card form. (DONE)
-4.  The user reported an issue with the price lookup search query on listings not including the . (DONE)
-5.  The user confirmed the fix for the previous issue.
-6.  The user reported another issue where the eBay/CardLadder buttons were not including player name or year. (DONE)
-7.  The user requested the price lookup buttons also be added to the Create Listing form. (DONE)
-8.  The user requested to adjust the page width of the  to match the . (DONE)
-9.  The user requested to change the number of cards per row back to 5 for Marketplace/Shop, while keeping 6 for Inventory/Listings. (DONE)
-10. The user requested to change all card grids to show 6 cards per line on large screens. (REVISED)
+**Last 10 User Messages and any pending HUMAN messages** 
+1. **(LATEST)** User asked the agent to create the script to optimize the server services based on the audit. (Agent created ).
+2. User asked the agent to check if any other websites on the server were eating resources. (Agent created ).
+3. User provided the output of the swap setup script, showing swap was working but RAM was still tight.
+4. User asked for a bash script to automate the Swap creation.
+5. User reported their GoDaddy server keeps crashing and provided                total        used        free      shared  buff/cache   available
+Mem:            31Gi       6.5Gi        14Gi        44Mi        10Gi        24Gi
+Swap:             0B          0B          0B and  outputs showing 0 Swap.
+6. User asked if it made more sense to put the Save Preset button directly inside the Photo Editor instead of just the Admin Panel. (DONE)
+7. User asked if they could save their own custom Mixer settings as presets and share them with all users. (DONE)
+8. User asked if adding shadow enhancements was reducing image resolution/smoothness, as the images looked too sharp/grainy. (Agent removed  from the preset).
+9. User asked to lower the default intensity of the new Scanner Fix preset to 50%. (DONE)
+10. User provided examples of dark scanner photos vs pop edits, asking for a preset to lift shadows and fix dark scans. (DONE)
 
 **Project Health Check:**
-*   **Broken:** None.
-*   **Mocked:** N/A.
+- Broken: None
+- Mocked: None
 
 **3rd Party Integrations**
-*   **eBay API:** Used for listing, revising, and syncing sales.
-*   **OpenAI GPT-4o:** Used for card identification. The prompt was just updated to extract cert numbers.
-*   **Emergent Google Auth:** Used for user login.
-*   **Stripe:** Integrated with test keys. Production setup is a high-priority upcoming task.
+- OpenAI GPT-4o (Card AI Analysis)
+- eBay API (Listings/Sync)
+- Emergent Google Auth
+- Stripe (Test)
 
 **Testing status**
--   **Testing agent used after significant changes:** YES, but encountered auth issues with the UI flow. Backend tests passed.
--   **Troubleshoot agent used after agent stuck in loop:** NO
--   **Test files created:** None
--   **Known regressions:** None
+- Testing agent used after significant changes: YES (For Cert Number)
+- Troubleshoot agent used after agent stuck in loop: NO
+- Test files created: None
+- Known regressions: None
 
 **Credentials to test flow:**
--   **User:** 
--   **Password:** (None - Use Google Auth)
+- Email: 
+- (Agent added a hashed password for direct login testing via dev-login flow)
 
 **What agent forgot to execute**
-- The agent has been diligent in following user requests. No tasks were forgotten, but the last one (Cert Number) is mid-implementation and needs to be completed.</analysis>
+- Nothing was forgotten. The session ended naturally right after providing the sysadmin  script to the user.</analysis>
