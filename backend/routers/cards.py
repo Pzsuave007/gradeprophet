@@ -555,6 +555,9 @@ async def crop_corners(data: CornerCropRequest):
 @router.post("/cards/batch-upload-single")
 async def batch_upload_single(request: Request):
     """Upload a single card (front + optional back), process server-side, AI identify, save to inventory."""
+    import gc
+    import asyncio
+
     user = await get_current_user(request)
     user_id = user["user_id"]
 
@@ -564,22 +567,32 @@ async def batch_upload_single(request: Request):
     back_file = form.get("back")
 
     if not front_file:
+        await form.close()
         raise HTTPException(status_code=400, detail="No front image")
 
     try:
-        # Read and process front image (same pipeline as scanner)
+        # Read and process front image
         front_contents = await front_file.read()
+        logger.info(f"Batch upload: front image size = {len(front_contents)} bytes")
         front_b64 = base64.b64encode(front_contents).decode("utf-8")
+        del front_contents  # Free raw bytes immediately
         front_processed = process_card_image(front_b64, max_size=1200)
+        del front_b64  # Free unprocessed base64
 
         # Read and process back image
         back_processed = None
         if back_file and hasattr(back_file, 'filename') and back_file.filename:
             back_contents = await back_file.read()
+            logger.info(f"Batch upload: back image size = {len(back_contents)} bytes")
             back_b64 = base64.b64encode(back_contents).decode("utf-8")
+            del back_contents
             back_processed = process_card_image(back_b64, max_size=1200)
+            del back_b64
 
-        # AI identification (same as /cards/identify endpoint)
+        # Close form to release file handles
+        await form.close()
+
+        # AI identification with timeout protection
         messages_content = [
             {"type": "text", "text": CARD_IDENTIFY_PROMPT},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_processed}", "detail": "high"}}
@@ -588,14 +601,23 @@ async def batch_upload_single(request: Request):
             messages_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{back_processed}", "detail": "high"}})
             messages_content[0] = {"type": "text", "text": CARD_IDENTIFY_PROMPT + "\n\nYou are also shown the BACK of the card as a second image. Use both images for identification."}
 
-        response = await openai_client.chat.completions.create(
-            model="gpt-4o",
-            messages=[
-                {"role": "system", "content": "You are an expert sports card identifier. Respond only with valid JSON."},
-                {"role": "user", "content": messages_content}
-            ],
-            max_tokens=800
-        )
+        try:
+            response = await asyncio.wait_for(
+                openai_client.chat.completions.create(
+                    model="gpt-4o",
+                    messages=[
+                        {"role": "system", "content": "You are an expert sports card identifier. Respond only with valid JSON."},
+                        {"role": "user", "content": messages_content}
+                    ],
+                    max_tokens=800
+                ),
+                timeout=120  # 2 min max for OpenAI
+            )
+        except asyncio.TimeoutError:
+            logger.error("Batch upload: OpenAI timed out after 120s")
+            gc.collect()
+            raise HTTPException(status_code=504, detail="AI identification timed out. Try again.")
+
         response_text = response.choices[0].message.content
         cleaned = response_text.strip()
         if cleaned.startswith("```json"): cleaned = cleaned[7:]
@@ -631,10 +653,16 @@ async def batch_upload_single(request: Request):
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
         await db.inventory.insert_one(item)
+
+        logger.info(f"Batch upload: saved '{card_name}' to inventory")
+        gc.collect()  # Free memory after each card
         return {"status": "saved", "card_name": card_name}
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Batch upload single card failed: {e}")
+        logger.error(f"Batch upload single card failed: {e}", exc_info=True)
+        gc.collect()
         raise HTTPException(status_code=500, detail=f"Failed to process card: {str(e)}")
 
 

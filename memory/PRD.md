@@ -78,6 +78,15 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **P1:** Whatnot & Shopify Integration (Legend tier)
 
 ## Recent Changes (This Session)
+- **Batch Upload Mobile Fix (Feb 2026)** — Root cause: mobile browsers invalidate File object references during long async operations (OpenAI calls take 30-60s/card). Fix: 
+  1. **Frontend**: Files now immediately buffered into JS heap via `new File([arrayBuffer], ...)` on selection — immune to mobile OS reclamation
+  2. **Frontend**: Added retry logic (2 attempts per card) for transient failures
+  3. **Frontend**: Snapshot pairs array at upload start to prevent closure issues  
+  4. **Backend**: Explicit memory cleanup (`del`, `gc.collect()`) after each card
+  5. **Backend**: `form.close()` to release file handles between requests
+  6. **Backend**: `asyncio.wait_for` timeout (120s) on OpenAI calls to prevent hangs
+  7. **Frontend**: Added "buffering" loading state when reading files from device
+  - Status: PENDING USER MOBILE VERIFICATION
 - **Bug Fix: False Sold Items** — Items were incorrectly marked as "sold" in inventory when eBay's `GetMyeBaySelling` API returned paginated results (only first 200). Items beyond page 1 were flagged as "sold" by aggressive cross-reference logic. **Fix:** Now ONLY marks items as sold if confirmed in eBay's `SoldList`. Never marks items sold just because they're absent from `ActiveList`.
 - **Listings Pagination ("Load More")** — Changed from loading 200 items at once to loading 50 at a time with a "Load More" button. Both Active and Sold tabs support incremental loading. Shows "X of Y listings" counter.
 - **New endpoint `POST /api/ebay/fix-false-sold`** — Queries ALL pages of eBay active listings and restores inventory items that were incorrectly marked as sold. Has a "Fix Sold" button in Listings UI.

@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import {
   Upload, X, ChevronLeft, RefreshCw,
-  Image as ImageIcon, Layers
+  Image as ImageIcon, Layers, Loader2
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -15,6 +15,7 @@ const BatchUploadView = ({ onClose, onComplete }) => {
   const [pairingMode, setPairingMode] = useState('alternating');
   const [category, setCategory] = useState('collection');
   const [uploading, setUploading] = useState(false);
+  const [buffering, setBuffering] = useState(false);
   const [progress, setProgress] = useState({ current: 0, total: 0, cardName: '' });
 
   // Create and cache blob URLs
@@ -33,14 +34,34 @@ const BatchUploadView = ({ onClose, onComplete }) => {
     };
   }, []);
 
-  const handleFiles = (newFiles) => {
+  // Buffer files into JS heap memory immediately to prevent mobile file reference loss
+  const handleFiles = async (newFiles) => {
     const imageFiles = Array.from(newFiles).filter(f =>
       f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(f.name)
     );
     if (imageFiles.length === 0) { toast.error('No image files found'); return; }
-    imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-    setFiles(prev => [...prev, ...imageFiles]);
-    toast.success(`${imageFiles.length} images added`);
+
+    setBuffering(true);
+    const buffered = [];
+    for (const file of imageFiles) {
+      try {
+        // Read file data into JS memory immediately - prevents mobile OS from reclaiming the reference
+        const arrayBuffer = await file.arrayBuffer();
+        const safeFile = new File([arrayBuffer], file.name, {
+          type: file.type || 'image/jpeg',
+          lastModified: file.lastModified,
+        });
+        buffered.push(safeFile);
+      } catch (e) {
+        console.error(`Failed to buffer ${file.name}:`, e);
+      }
+    }
+    setBuffering(false);
+
+    if (buffered.length === 0) { toast.error('Could not read image files'); return; }
+    buffered.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+    setFiles(prev => [...prev, ...buffered]);
+    toast.success(`${buffered.length} images loaded`);
   };
 
   const removeFile = (idx) => setFiles(prev => prev.filter((_, i) => i !== idx));
@@ -60,18 +81,10 @@ const BatchUploadView = ({ onClose, onComplete }) => {
   const pairs = getPairs();
   const cardCount = pairs.length;
 
-  // Upload each card pair one at a time to server
-  const handleUpload = async () => {
-    if (files.length === 0) return;
-    setUploading(true);
-
-    let saved = 0;
-    let errors = 0;
-
-    for (let i = 0; i < pairs.length; i++) {
-      const pair = pairs[i];
-      setProgress({ current: i, total: cardCount, cardName: `Uploading card ${i + 1} of ${cardCount}...` });
-
+  // Upload a single card pair with retry
+  const uploadSingleCard = async (pair, index, total) => {
+    const maxRetries = 2;
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const formData = new FormData();
         formData.append('category', category);
@@ -80,24 +93,53 @@ const BatchUploadView = ({ onClose, onComplete }) => {
 
         const res = await axios.post(`${API}/api/cards/batch-upload-single`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 180000, // 3 min per card
+          timeout: 180000,
         });
-
-        saved++;
-        setProgress({ current: i + 1, total: cardCount, cardName: `Card ${i + 1}: ${res.data.card_name}` });
+        return { ok: true, name: res.data.card_name };
       } catch (err) {
         const errMsg = err.response?.data?.detail || err.message || 'Unknown error';
-        console.error(`Card ${i + 1} failed:`, errMsg);
+        console.error(`Card ${index + 1} attempt ${attempt} failed:`, errMsg);
+        if (attempt < maxRetries) {
+          await new Promise(r => setTimeout(r, 2000));
+        } else {
+          return { ok: false, name: errMsg };
+        }
+      }
+    }
+    return { ok: false, name: 'Max retries reached' };
+  };
+
+  // Upload each card pair one at a time to server
+  const handleUpload = async () => {
+    if (files.length === 0) return;
+    setUploading(true);
+
+    // Snapshot pairs at start to avoid closure issues during async loop
+    const uploadPairs = [...pairs];
+    const total = uploadPairs.length;
+    let saved = 0;
+    let errors = 0;
+
+    for (let i = 0; i < uploadPairs.length; i++) {
+      const pair = uploadPairs[i];
+      setProgress({ current: i, total, cardName: `Uploading card ${i + 1} of ${total}...` });
+
+      const result = await uploadSingleCard(pair, i, total);
+
+      if (result.ok) {
+        saved++;
+        setProgress({ current: i + 1, total, cardName: `Card ${i + 1}: ${result.name}` });
+      } else {
         errors++;
-        setProgress({ current: i + 1, total: cardCount, cardName: `Card ${i + 1}: Failed - ${errMsg}` });
+        setProgress({ current: i + 1, total, cardName: `Card ${i + 1}: Failed - ${result.name}` });
       }
 
-      // Small delay between cards
-      if (i < pairs.length - 1) await new Promise(r => setTimeout(r, 1000));
+      // Delay between cards to let server breathe
+      if (i < uploadPairs.length - 1) await new Promise(r => setTimeout(r, 1500));
     }
 
     setUploading(false);
-    if (saved > 0) toast.success(`${saved} of ${cardCount} cards saved to inventory!`);
+    if (saved > 0) toast.success(`${saved} of ${total} cards saved to inventory!`);
     if (errors > 0) toast.warning(`${errors} cards could not be identified`);
     if (saved > 0) onComplete();
     else toast.error('No cards were saved. Check your connection and try again.');
@@ -120,8 +162,8 @@ const BatchUploadView = ({ onClose, onComplete }) => {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Upload area */}
         <div
-          className="border-2 border-dashed border-[#2a2a2a] rounded-xl p-6 text-center cursor-pointer hover:border-[#3b82f6]/50 transition-colors"
-          onClick={() => fileRef.current?.click()}
+          className={`border-2 border-dashed border-[#2a2a2a] rounded-xl p-6 text-center cursor-pointer hover:border-[#3b82f6]/50 transition-colors ${buffering ? 'opacity-60 pointer-events-none' : ''}`}
+          onClick={() => !buffering && fileRef.current?.click()}
           onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('border-[#3b82f6]'); }}
           onDragLeave={e => e.currentTarget.classList.remove('border-[#3b82f6]')}
           onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('border-[#3b82f6]'); handleFiles(e.dataTransfer.files); }}
@@ -129,9 +171,19 @@ const BatchUploadView = ({ onClose, onComplete }) => {
         >
           <input ref={fileRef} type="file" accept="image/*" multiple className="hidden"
             onChange={e => { handleFiles(e.target.files); e.target.value = ''; }} />
-          <Upload className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-          <p className="text-sm text-gray-400">Tap to select photos or drag & drop</p>
-          <p className="text-[10px] text-gray-600 mt-1">Front + Back pairs (alternating)</p>
+          {buffering ? (
+            <>
+              <Loader2 className="w-8 h-8 text-[#3b82f6] mx-auto mb-2 animate-spin" />
+              <p className="text-sm text-[#3b82f6]">Loading images into memory...</p>
+              <p className="text-[10px] text-gray-600 mt-1">This ensures all cards process correctly</p>
+            </>
+          ) : (
+            <>
+              <Upload className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+              <p className="text-sm text-gray-400">Tap to select photos or drag & drop</p>
+              <p className="text-[10px] text-gray-600 mt-1">Front + Back pairs (alternating)</p>
+            </>
+          )}
         </div>
 
         {/* Options */}
@@ -217,7 +269,7 @@ const BatchUploadView = ({ onClose, onComplete }) => {
       {/* Footer */}
       <div className="flex items-center justify-between p-4 border-t border-[#1a1a1a]">
         <button onClick={onClose} className="text-sm text-gray-400 hover:text-white" data-testid="batch-cancel-btn">Cancel</button>
-        <button onClick={handleUpload} disabled={uploading || files.length === 0}
+        <button onClick={handleUpload} disabled={uploading || buffering || files.length === 0}
           className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors disabled:opacity-50"
           data-testid="batch-upload-btn">
           {uploading ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processing...</> : <><Upload className="w-4 h-4" /> Upload {cardCount} Cards</>}
