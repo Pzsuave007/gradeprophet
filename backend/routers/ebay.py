@@ -327,53 +327,20 @@ async def get_seller_orders(request: Request, limit: int = 20):
 @router.get("/seller/my-listings")
 async def get_my_listings_trading(
     request: Request,
-    page: int = 1,
-    limit: int = 200,
     sold_days: int = 60,
-    sold_page: int = 1,
-    sold_limit: int = 200
 ):
-    """Get seller's active and sold listings via Trading API"""
+    """Get ALL seller's active and sold listings via Trading API (paginated internally)"""
     user = await get_current_user(request)
     token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
-    # Clamp sold_days to eBay's max of 60
     sold_days = min(max(sold_days, 1), 60)
 
     try:
         import xml.etree.ElementTree as ET
-        xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
-<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <DetailLevel>ReturnAll</DetailLevel>
-  <ActiveList>
-    <Sort>TimeLeft</Sort>
-    <Pagination><EntriesPerPage>{limit}</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
-  </ActiveList>
-  <SoldList>
-    <DurationInDays>{sold_days}</DurationInDays>
-    <Sort>EndTime</Sort>
-    <Pagination><EntriesPerPage>{sold_limit}</EntriesPerPage><PageNumber>{sold_page}</PageNumber></Pagination>
-  </SoldList>
-</GetMyeBaySellingRequest>'''
-
-        async with httpx.AsyncClient(timeout=25.0) as http_client:
-            resp = await http_client.post(
-                "https://api.ebay.com/ws/api.dll",
-                headers={
-                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                    "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
-                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
-                },
-                content=xml_body
-            )
-
         ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
-        root = ET.fromstring(resp.text)
 
-        # Helper to upgrade eBay image URLs to high-res
         def get_hires_image(item_el):
             full_pic = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
             if full_pic is not None and full_pic.text:
@@ -387,102 +354,146 @@ async def get_my_listings_trading(
                 url = url.replace("s-l225", "s-l800")
             return url
 
-        # Parse active listings
-        listings = []
-        active_node = root.find(".//e:ActiveList", ns)
+        def parse_active_item(item_el):
+            item_data = {}
+            for field in ["ItemID", "Title"]:
+                el = item_el.find(f"e:{field}", ns)
+                item_data[field.lower()] = el.text if el is not None else ""
+            price_el = item_el.find(".//e:CurrentPrice", ns)
+            item_data["price"] = float(price_el.text) if price_el is not None else 0
+            item_data["image_url"] = get_hires_image(item_el)
+            tl_el = item_el.find("e:TimeLeft", ns)
+            item_data["time_left"] = tl_el.text if tl_el is not None else ""
+            qty_el = item_el.find("e:QuantityAvailable", ns)
+            item_data["quantity"] = int(qty_el.text) if qty_el is not None else 1
+            wc_el = item_el.find("e:WatchCount", ns)
+            item_data["watchers"] = int(wc_el.text) if wc_el is not None else 0
+            bid_el = item_el.find(".//e:BidCount", ns)
+            item_data["bids"] = int(bid_el.text) if bid_el is not None else 0
+            list_type_el = item_el.find("e:ListingType", ns)
+            item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
+            start_el = item_el.find(".//e:ListingDetails/e:StartTime", ns)
+            item_data["start_time"] = start_el.text if start_el is not None else ""
+            item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
+            return item_data
+
+        def parse_sold_item(item_el):
+            trans_el = item_el.find("e:Transaction", ns)
+            actual_item = item_el.find(".//e:Item", ns)
+            if actual_item is None:
+                return None
+            item_data = {}
+            item_id_el = actual_item.find("e:ItemID", ns)
+            item_data["itemid"] = item_id_el.text if item_id_el is not None else ""
+            title_el = actual_item.find("e:Title", ns)
+            item_data["title"] = title_el.text if title_el is not None else ""
+            sold_price = 0
+            if trans_el is not None:
+                tp_el = trans_el.find("e:TotalPrice", ns)
+                if tp_el is None:
+                    tp_el = trans_el.find("e:TransactionPrice", ns)
+                if tp_el is not None:
+                    sold_price = float(tp_el.text)
+            if sold_price == 0:
+                price_el = actual_item.find(".//e:CurrentPrice", ns)
+                if price_el is not None:
+                    sold_price = float(price_el.text)
+            item_data["price"] = sold_price
+            item_data["image_url"] = get_hires_image(actual_item)
+            buyer = ""
+            if trans_el is not None:
+                buyer_el = trans_el.find("e:Buyer/e:UserID", ns)
+                if buyer_el is not None:
+                    buyer = buyer_el.text
+            item_data["buyer"] = buyer
+            if trans_el is not None:
+                date_el = trans_el.find("e:CreatedDate", ns)
+                if date_el is not None:
+                    item_data["sold_date"] = date_el.text
+            qty_el = None
+            if trans_el is not None:
+                qty_el = trans_el.find("e:QuantityPurchased", ns)
+            item_data["quantity_sold"] = int(qty_el.text) if qty_el is not None else 1
+            item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
+            return item_data
+
+        # Fetch ALL active listings (paginate through all eBay pages)
+        all_active = []
         active_total = 0
-        if active_node:
-            count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
-            active_total = int(count_el.text) if count_el is not None else 0
-            for item_el in active_node.findall(".//e:Item", ns):
-                item_data = {}
-                for field in ["ItemID", "Title"]:
-                    el = item_el.find(f"e:{field}", ns)
-                    item_data[field.lower()] = el.text if el is not None else ""
+        active_page = 1
+        async with httpx.AsyncClient(timeout=25.0) as http_client:
+            while True:
+                xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <DetailLevel>ReturnAll</DetailLevel>
+  <ActiveList>
+    <Sort>TimeLeft</Sort>
+    <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{active_page}</PageNumber></Pagination>
+  </ActiveList>
+  {f'<SoldList><DurationInDays>{sold_days}</DurationInDays><Sort>EndTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination></SoldList>' if active_page == 1 else ''}
+</GetMyeBaySellingRequest>'''
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={
+                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                        "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
+                    },
+                    content=xml_body
+                )
+                root = ET.fromstring(resp.text)
+                active_node = root.find(".//e:ActiveList", ns)
+                if active_node:
+                    if active_page == 1:
+                        count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+                        active_total = int(count_el.text) if count_el is not None else 0
+                    for item_el in active_node.findall(".//e:Item", ns):
+                        all_active.append(parse_active_item(item_el))
+                    total_pages_el = active_node.find("e:PaginationResult/e:TotalNumberOfPages", ns)
+                    total_pages = int(total_pages_el.text) if total_pages_el is not None else 1
+                    if active_page >= total_pages:
+                        break
+                    active_page += 1
+                else:
+                    break
 
-                price_el = item_el.find(".//e:CurrentPrice", ns)
-                item_data["price"] = float(price_el.text) if price_el is not None else 0
-                item_data["image_url"] = get_hires_image(item_el)
+                # Parse sold only from first page request
+                if active_page == 2:
+                    pass  # sold already parsed below
 
-                tl_el = item_el.find("e:TimeLeft", ns)
-                item_data["time_left"] = tl_el.text if tl_el is not None else ""
-
-                qty_el = item_el.find("e:QuantityAvailable", ns)
-                item_data["quantity"] = int(qty_el.text) if qty_el is not None else 1
-
-                wc_el = item_el.find("e:WatchCount", ns)
-                item_data["watchers"] = int(wc_el.text) if wc_el is not None else 0
-
-                bid_el = item_el.find(".//e:BidCount", ns)
-                item_data["bids"] = int(bid_el.text) if bid_el is not None else 0
-
-                list_type_el = item_el.find("e:ListingType", ns)
-                item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
-
-                start_el = item_el.find(".//e:ListingDetails/e:StartTime", ns)
-                item_data["start_time"] = start_el.text if start_el is not None else ""
-
-                item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
-                listings.append(item_data)
-
-        # Parse sold listings
+        # Fetch sold listings separately
         sold = []
-        sold_node = root.find(".//e:SoldList", ns)
         sold_total = 0
+        async with httpx.AsyncClient(timeout=25.0) as http_client:
+            sold_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <DetailLevel>ReturnAll</DetailLevel>
+  <SoldList>
+    <DurationInDays>{sold_days}</DurationInDays>
+    <Sort>EndTime</Sort>
+    <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination>
+  </SoldList>
+</GetMyeBaySellingRequest>'''
+            sold_resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
+                },
+                content=sold_xml
+            )
+        sold_root = ET.fromstring(sold_resp.text)
+        sold_node = sold_root.find(".//e:SoldList", ns)
         if sold_node:
             count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
             sold_total = int(count_el.text) if count_el is not None else 0
             for item_el in sold_node.findall(".//e:OrderTransaction", ns):
-                # SoldList wraps items in OrderTransaction/Transaction/Item
-                trans_el = item_el.find("e:Transaction", ns)
-                actual_item = item_el.find(".//e:Item", ns)
-                if actual_item is None:
-                    continue
-
-                item_data = {}
-                item_id_el = actual_item.find("e:ItemID", ns)
-                item_data["itemid"] = item_id_el.text if item_id_el is not None else ""
-
-                title_el = actual_item.find("e:Title", ns)
-                item_data["title"] = title_el.text if title_el is not None else ""
-
-                # Sold price from Transaction/TotalPrice or Transaction/TransactionPrice
-                sold_price = 0
-                if trans_el is not None:
-                    tp_el = trans_el.find("e:TotalPrice", ns)
-                    if tp_el is None:
-                        tp_el = trans_el.find("e:TransactionPrice", ns)
-                    if tp_el is not None:
-                        sold_price = float(tp_el.text)
-                if sold_price == 0:
-                    price_el = actual_item.find(".//e:CurrentPrice", ns)
-                    if price_el is not None:
-                        sold_price = float(price_el.text)
-                item_data["price"] = sold_price
-
-                item_data["image_url"] = get_hires_image(actual_item)
-
-                # Buyer info
-                buyer = ""
-                if trans_el is not None:
-                    buyer_el = trans_el.find("e:Buyer/e:UserID", ns)
-                    if buyer_el is not None:
-                        buyer = buyer_el.text
-                item_data["buyer"] = buyer
-
-                # Sold date
-                if trans_el is not None:
-                    date_el = trans_el.find("e:CreatedDate", ns)
-                    if date_el is not None:
-                        item_data["sold_date"] = date_el.text
-
-                qty_el = None
-                if trans_el is not None:
-                    qty_el = trans_el.find("e:QuantityPurchased", ns)
-                item_data["quantity_sold"] = int(qty_el.text) if qty_el is not None else 1
-
-                item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
-                sold.append(item_data)
+                item_data = parse_sold_item(item_el)
+                if item_data:
+                    sold.append(item_data)
 
         # Fetch images for sold items that are missing them via Browse API
         sold_without_images = [s for s in sold if not s.get("image_url")]
@@ -535,11 +546,10 @@ async def get_my_listings_trading(
                 logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold (confirmed in SoldList) for user {user['user_id']}")
 
         return {
-            "active": listings,
+            "active": all_active,
             "sold": sold,
             "active_total": active_total,
             "sold_total": sold_total,
-            "page": page
         }
     except Exception as e:
         logger.error(f"My listings failed: {e}")

@@ -777,9 +777,8 @@ const ListingsModule = () => {
   const [ebayData, setEbayData] = useState({ active: [], sold: [], active_total: 0, sold_total: 0 });
   const [inventoryItems, setInventoryItems] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [activePage, setActivePage] = useState(1);
-  const [soldPage, setSoldPage] = useState(1);
+  const [activeShowCount, setActiveShowCount] = useState(LOAD_BATCH);
+  const [soldShowCount, setSoldShowCount] = useState(LOAD_BATCH);
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
@@ -831,13 +830,11 @@ const ListingsModule = () => {
     }
   };
 
-  const fetchData = useCallback(async (reset = true) => {
+  const fetchData = useCallback(async () => {
     try {
-      const page = reset ? 1 : activePage;
-      const sPage = reset ? 1 : soldPage;
       const [ebayRes, invRes] = await Promise.allSettled([
-        axios.get(`${API}/api/ebay/seller/my-listings?limit=${LOAD_BATCH}&page=${page}&sold_days=${soldDays}&sold_limit=${LOAD_BATCH}&sold_page=${sPage}`),
-        reset ? axios.get(`${API}/api/inventory?limit=500`) : Promise.resolve(null),
+        axios.get(`${API}/api/ebay/seller/my-listings?sold_days=${soldDays}`),
+        axios.get(`${API}/api/inventory?limit=500`),
       ]);
       if (ebayRes.status === 'fulfilled') {
         const raw = ebayRes.value.data;
@@ -864,42 +861,22 @@ const ListingsModule = () => {
           quantity_sold: item.quantity_sold || 1,
           url: item.url || '',
         }));
-        if (reset) {
-          setEbayData({
-            active: activeItems,
-            sold: soldItems,
-            active_total: raw.active_total ?? activeItems.length,
-            sold_total: raw.sold_total ?? soldItems.length,
-          });
-          setActivePage(2);
-          setSoldPage(2);
-        } else {
-          setEbayData(prev => ({
-            active: activeTab === 'active' ? [...prev.active, ...activeItems] : prev.active,
-            sold: activeTab === 'sold' ? [...prev.sold, ...soldItems] : prev.sold,
-            active_total: raw.active_total ?? prev.active_total,
-            sold_total: raw.sold_total ?? prev.sold_total,
-          }));
-          if (activeTab === 'active') setActivePage(p => p + 1);
-          else setSoldPage(p => p + 1);
-        }
+        setEbayData({
+          active: activeItems,
+          sold: soldItems,
+          active_total: raw.active_total ?? activeItems.length,
+          sold_total: raw.sold_total ?? soldItems.length,
+        });
       }
-      if (reset && invRes.status === 'fulfilled' && invRes.value) setInventoryItems(invRes.value.data.items || []);
+      if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);
     } catch (e) { console.error(e); }
-    finally { setLoading(false); setLoadingMore(false); }
-  }, [soldDays, activeTab, activePage, soldPage]);
-
-  // Initial load
-  useEffect(() => {
-    setLoading(true);
-    fetchData(true);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    finally { setLoading(false); }
   }, [soldDays]);
 
-  const loadMore = () => {
-    setLoadingMore(true);
-    fetchData(false);
-  };
+  useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
+
+  const loadMoreActive = () => setActiveShowCount(prev => prev + LOAD_BATCH);
+  const loadMoreSold = () => setSoldShowCount(prev => prev + LOAD_BATCH);
 
   const [fixingFalseSold, setFixingFalseSold] = useState(false);
   const fixFalseSold = async () => {
@@ -909,7 +886,7 @@ const ListingsModule = () => {
       if (res.data.fixed > 0) {
         toast.success(`Restored ${res.data.fixed} items that were incorrectly marked as sold`);
         setLoading(true);
-        fetchData(true);
+        fetchData();
       } else {
         toast.info('No incorrectly sold items found');
       }
@@ -929,7 +906,7 @@ const ListingsModule = () => {
         toast.success('Listing ended on eBay');
         setSelectedListing(null);
         setLoading(true);
-        fetchData(true);
+        fetchData();
       } else {
         toast.error(res.data.message || 'Failed to end listing');
       }
@@ -960,10 +937,14 @@ const ListingsModule = () => {
     return matchSearch && matchSport;
   });
 
-  const sortedActive = filterBySearchAndSport(sortItems(eb.active, activeSort, 'active'));
-  const sortedSold = filterBySearchAndSport(sortItems(eb.sold, soldSort, 'sold'));
+  const allSortedActive = filterBySearchAndSport(sortItems(eb.active, activeSort, 'active'));
+  const allSortedSold = filterBySearchAndSport(sortItems(eb.sold, soldSort, 'sold'));
+  const sortedActive = allSortedActive.slice(0, activeShowCount);
+  const sortedSold = allSortedSold.slice(0, soldShowCount);
   const totalValue = eb.active.reduce((s, i) => s + (i.price || 0), 0);
   const totalSold = eb.sold.reduce((s, i) => s + (i.price || 0), 0);
+  const hasMoreActive = activeShowCount < allSortedActive.length;
+  const hasMoreSold = soldShowCount < allSortedSold.length;
 
   const tabs = [
     { id: 'active', label: `Active (${eb.active_total || 0})`, icon: Tag },
@@ -980,7 +961,7 @@ const ListingsModule = () => {
           listing={selectedListing}
           cardData={inventoryItems.find(i => i.ebay_item_id === selectedListing.item_id)}
           onBack={() => setSelectedListing(null)}
-          onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(true); }}
+          onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(); }}
           onEndListing={endListing}
         />
       </div>
@@ -996,7 +977,7 @@ const ListingsModule = () => {
           <p className="text-xs text-gray-500 mt-0.5">Manage your eBay listings</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => { setLoading(true); fetchData(true); }}
+          <button onClick={() => { setLoading(true); fetchData(); }}
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white hover:border-[#3b82f6]/30 transition-colors"
             data-testid="refresh-listings-btn">
             <RefreshCw className="w-4 h-4" />
@@ -1018,10 +999,10 @@ const ListingsModule = () => {
           {selectMode && (
             <>
               <button onClick={() => {
-                if (selected.size === sortedActive.length) setSelected(new Set());
-                else setSelected(new Set(sortedActive.map(i => i.item_id)));
+                if (selected.size === allSortedActive.length) setSelected(new Set());
+                else setSelected(new Set(allSortedActive.map(i => i.item_id)));
               }} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="listings-select-all-btn">
-                {selected.size === sortedActive.length ? 'Deselect All' : 'Select All'}
+                {selected.size === allSortedActive.length ? 'Deselect All' : 'Select All'}
               </button>
               <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="listings-cancel-select-btn">Cancel</button>
               <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
@@ -1137,7 +1118,7 @@ const ListingsModule = () => {
           )}
 
           <span className="text-[10px] text-gray-600 ml-auto">
-            {activeTab === 'active' ? `${sortedActive.length} of ${eb.active_total} listings` : `${sortedSold.length} of ${eb.sold_total} sold`}
+            {activeTab === 'active' ? `${sortedActive.length} of ${allSortedActive.length} listings` : `${sortedSold.length} of ${allSortedSold.length} sold`}
           </span>
         </div>
       </div>
@@ -1166,7 +1147,7 @@ const ListingsModule = () => {
                 ))}
               </div>
               <div className="flex items-center gap-3">
-                <button onClick={() => bulkUpdateShipping(sortedActive)} disabled={!bulkShippingOption || bulkUpdating}
+                <button onClick={() => bulkUpdateShipping(allSortedActive)} disabled={!bulkShippingOption || bulkUpdating}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-bold hover:bg-amber-500 disabled:opacity-50 transition-colors"
                   data-testid="listings-bulk-ship-apply-btn">
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><Truck className="w-4 h-4" /> Apply to {selected.size} Listings</>}
@@ -1290,12 +1271,12 @@ const ListingsModule = () => {
       )}
 
       {/* Load More - Active */}
-      {activeTab === 'active' && eb.active.length > 0 && eb.active.length < eb.active_total && (
+      {activeTab === 'active' && hasMoreActive && (
         <div className="flex justify-center pt-2">
-          <button onClick={loadMore} disabled={loadingMore}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-[#3b82f6]/40 transition-all disabled:opacity-50"
+          <button onClick={loadMoreActive}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-[#3b82f6]/40 transition-all"
             data-testid="load-more-active-btn">
-            {loadingMore ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</> : <><Plus className="w-4 h-4" /> Load More ({eb.active_total - eb.active.length} remaining)</>}
+            <Plus className="w-4 h-4" /> Load More ({allSortedActive.length - sortedActive.length} remaining)
           </button>
         </div>
       )}
@@ -1366,18 +1347,18 @@ const ListingsModule = () => {
       )}
 
       {/* Load More - Sold */}
-      {activeTab === 'sold' && eb.sold.length > 0 && eb.sold.length < eb.sold_total && (
+      {activeTab === 'sold' && hasMoreSold && (
         <div className="flex justify-center pt-2">
-          <button onClick={loadMore} disabled={loadingMore}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-emerald-500/40 transition-all disabled:opacity-50"
+          <button onClick={loadMoreSold}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-emerald-500/40 transition-all"
             data-testid="load-more-sold-btn">
-            {loadingMore ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</> : <><Plus className="w-4 h-4" /> Load More ({eb.sold_total - eb.sold.length} remaining)</>}
+            <Plus className="w-4 h-4" /> Load More ({allSortedSold.length - sortedSold.length} remaining)
           </button>
         </div>
       )}
 
       {/* Create Listing Modal */}
-      <CreateListingModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} inventoryItems={inventoryItems} onSuccess={() => { setLoading(true); fetchData(true); }} />
+      <CreateListingModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} inventoryItems={inventoryItems} onSuccess={() => { setLoading(true); fetchData(); }} />
     </div>
   );
 };
