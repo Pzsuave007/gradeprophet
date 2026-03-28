@@ -519,48 +519,20 @@ async def get_my_listings_trading(
             except Exception as e:
                 logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
 
-        # Auto-mark inventory items as sold if they appear in eBay SoldList
-        if sold:
-            sold_ebay_ids = [s.get("itemid") for s in sold if s.get("itemid")]
-            if sold_ebay_ids:
-                result = await db.inventory.update_many(
-                    {"user_id": user["user_id"], "ebay_item_id": {"$in": sold_ebay_ids}, "category": {"$ne": "sold"}},
-                    {"$set": {"category": "sold", "listed": False}}
-                )
-                if result.modified_count > 0:
-                    logger.info(f"Auto-marked {result.modified_count} items as sold (from SoldList) for user {user['user_id']}")
+        # Auto-mark inventory items as sold ONLY if confirmed in eBay SoldList
+        # Never mark as sold based solely on absence from ActiveList (pagination limits cause false positives)
 
-        # Cross-reference: items marked as listed in inventory but NOT in eBay active list = sold or ended
-        # Grace period: skip items listed less than 2 hours ago (eBay propagation delay)
-        from datetime import timedelta
-        grace_cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
-        active_ebay_ids = set(l.get("itemid") for l in listings if l.get("itemid"))
+        # Cross-reference: ONLY mark items as sold if confirmed in eBay's SoldList
+        # Do NOT mark items as sold just because they're missing from ActiveList
+        # (pagination limits, API delays, or ended listings can cause false positives)
         sold_ebay_id_set = set(s.get("itemid") for s in sold if s.get("itemid"))
-        listed_items = await db.inventory.find(
-            {"user_id": user["user_id"], "listed": True, "ebay_item_id": {"$ne": None}, "category": {"$ne": "sold"}},
-            {"_id": 0, "id": 1, "ebay_item_id": 1, "listed_at": 1}
-        ).to_list(500)
-        stale_ids = []
-        for inv_item in listed_items:
-            eid = inv_item.get("ebay_item_id")
-            listed_at = inv_item.get("listed_at", "")
-            if eid and eid not in active_ebay_ids:
-                # Only mark as sold if listed more than 2 hours ago AND confirmed in eBay's sold list
-                if listed_at and listed_at > grace_cutoff:
-                    logger.info(f"Skipping stale check for {eid} - listed recently ({listed_at})")
-                    continue
-                if eid in sold_ebay_id_set:
-                    stale_ids.append(eid)
-                else:
-                    logger.info(f"Item {eid} not in active or sold list but past grace period - marking ended")
-                    stale_ids.append(eid)
-        if stale_ids:
-            result = await db.inventory.update_many(
-                {"user_id": user["user_id"], "ebay_item_id": {"$in": stale_ids}},
+        if sold_ebay_id_set:
+            confirmed_sold = await db.inventory.update_many(
+                {"user_id": user["user_id"], "ebay_item_id": {"$in": list(sold_ebay_id_set)}, "category": {"$ne": "sold"}},
                 {"$set": {"category": "sold", "listed": False}}
             )
-            if result.modified_count > 0:
-                logger.info(f"Auto-marked {result.modified_count} items as sold (not in ActiveList, past grace period) for user {user['user_id']}")
+            if confirmed_sold.modified_count > 0:
+                logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold (confirmed in SoldList) for user {user['user_id']}")
 
         return {
             "active": listings,
@@ -572,6 +544,88 @@ async def get_my_listings_trading(
     except Exception as e:
         logger.error(f"My listings failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/fix-false-sold")
+async def fix_false_sold_items(request: Request):
+    """Fix items incorrectly marked as sold - restores items that have an active eBay listing"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    # Find all inventory items marked as sold that have an ebay_item_id
+    sold_items = await db.inventory.find(
+        {"user_id": user_id, "category": "sold", "ebay_item_id": {"$ne": None}},
+        {"_id": 0, "id": 1, "ebay_item_id": 1, "card_name": 1}
+    ).to_list(500)
+
+    if not sold_items:
+        return {"fixed": 0, "message": "No sold items with eBay IDs found"}
+
+    # Check which of these are actually still active on eBay
+    import xml.etree.ElementTree as ET
+    all_active_ids = set()
+    page = 1
+    while True:
+        xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ActiveList>
+    <Sort>TimeLeft</Sort>
+    <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{page}</PageNumber></Pagination>
+  </ActiveList>
+</GetMyeBaySellingRequest>'''
+        async with httpx.AsyncClient(timeout=25.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/ws/api.dll",
+                headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
+                },
+                content=xml_body
+            )
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        active_node = root.find(".//e:ActiveList", ns)
+        if not active_node:
+            break
+        items_on_page = active_node.findall(".//e:Item", ns)
+        for item_el in items_on_page:
+            iid = item_el.find("e:ItemID", ns)
+            if iid is not None and iid.text:
+                all_active_ids.add(iid.text)
+        total_pages_el = active_node.find("e:PaginationResult/e:TotalNumberOfPages", ns)
+        total_pages = int(total_pages_el.text) if total_pages_el is not None else 1
+        if page >= total_pages:
+            break
+        page += 1
+
+    # Restore items that are still active on eBay but marked as sold in our system
+    fixed_items = []
+    for inv_item in sold_items:
+        if inv_item.get("ebay_item_id") in all_active_ids:
+            fixed_items.append(inv_item["ebay_item_id"])
+
+    fixed_count = 0
+    if fixed_items:
+        result = await db.inventory.update_many(
+            {"user_id": user_id, "ebay_item_id": {"$in": fixed_items}},
+            {"$set": {"category": "for_sale", "listed": True}}
+        )
+        fixed_count = result.modified_count
+        logger.info(f"Fixed {fixed_count} falsely sold items for user {user_id}")
+
+    return {
+        "fixed": fixed_count,
+        "total_checked": len(sold_items),
+        "active_on_ebay": len(all_active_ids),
+        "message": f"Restored {fixed_count} items that were incorrectly marked as sold"
+    }
+
 
 
 # ---- Sell Routes ----

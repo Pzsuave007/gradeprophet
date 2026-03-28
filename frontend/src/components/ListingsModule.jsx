@@ -875,6 +875,24 @@ const ListingsModule = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const [fixingFalseSold, setFixingFalseSold] = useState(false);
+  const fixFalseSold = async () => {
+    setFixingFalseSold(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/fix-false-sold`);
+      if (res.data.fixed > 0) {
+        toast.success(`Restored ${res.data.fixed} items that were incorrectly marked as sold`);
+        fetchData();
+      } else {
+        toast.info('No incorrectly sold items found');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to fix sold items');
+    } finally {
+      setFixingFalseSold(false);
+    }
+  };
+
   const endListing = async (itemId, e) => {
     if (e) e.stopPropagation();
     if (!window.confirm('End this listing on eBay? This cannot be undone.')) return;
@@ -955,6 +973,13 @@ const ListingsModule = () => {
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white hover:border-[#3b82f6]/30 transition-colors"
             data-testid="refresh-listings-btn">
             <RefreshCw className="w-4 h-4" />
+          </button>
+          <button onClick={fixFalseSold} disabled={fixingFalseSold}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-amber-400 text-sm hover:text-amber-300 hover:border-amber-500/30 transition-colors disabled:opacity-50"
+            data-testid="fix-false-sold-btn"
+            title="Fix items incorrectly marked as sold">
+            {fixingFalseSold ? <RefreshCw className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+            <span className="hidden sm:inline">{fixingFalseSold ? 'Fixing...' : 'Fix Sold'}</span>
           </button>
           {activeTab === 'active' && !selectMode && (
             <button onClick={() => setSelectMode(true)}
