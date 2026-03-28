@@ -262,59 +262,58 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
     abortRef.current = false;
     setProgress(0);
 
+    // Track results locally so we don't depend on React state timing
+    const results = [];
+
     for (let i = 0; i < cards.length; i++) {
       if (abortRef.current) break;
 
       setCards(prev => prev.map((c, idx) => idx === i ? { ...c, status: 'identifying' } : c));
 
       try {
-        // Resize the data URLs to standard format (WebP 0.82, 1200px max)
         const frontB64 = await resizeDataURL(pairs[i].front);
         let backB64 = null;
-        if (pairs[i].back) {
-          backB64 = await resizeDataURL(pairs[i].back);
-        }
+        if (pairs[i].back) backB64 = await resizeDataURL(pairs[i].back);
 
-        // Call AI identification
         const payload = { front_image_base64: frontB64 };
         if (backB64) payload.back_image_base64 = backB64;
 
         const res = await axios.post(`${API}/api/cards/identify`, payload, { timeout: 60000 });
         const d = res.data;
 
-        setCards(prev => prev.map((c, idx) => idx === i ? {
-          ...c,
+        const cardData = {
           status: d.error ? 'error' : 'identified',
-          frontBase64: frontB64,
-          backBase64: backB64,
-          card_name: d.card_name || '',
-          player: d.player || '',
-          year: d.year ? String(d.year) : '',
-          set_name: d.set_name || '',
-          card_number: d.card_number || '',
-          variation: d.variation || '',
+          frontBase64: frontB64, backBase64: backB64,
+          card_name: d.card_name || '', player: d.player || '',
+          year: d.year ? String(d.year) : '', set_name: d.set_name || '',
+          card_number: d.card_number || '', variation: d.variation || '',
           condition: d.is_graded ? 'Graded' : 'Raw',
           grading_company: d.grading_company || '',
-          grade: d.grade ? String(d.grade) : '',
-          sport: d.sport || '',
-        } : c));
+          grade: d.grade ? String(d.grade) : '', sport: d.sport || '',
+        };
+        results.push(cardData);
+        setCards(prev => prev.map((c, idx) => idx === i ? { ...c, ...cardData } : c));
       } catch (err) {
-        console.error(`Card ${i+1} identification failed:`, err.message);
-        // Use the original data URLs for manual editing
-        const frontB64 = pairs[i].front;
-        const backB64 = pairs[i].back;
+        console.error(`Card ${i+1} failed:`, err.message);
+        results.push({ status: 'error', frontBase64: pairs[i].front, backBase64: pairs[i].back });
         setCards(prev => prev.map((c, idx) => idx === i ? {
-          ...c, status: 'error', frontBase64: frontB64, backBase64: backB64,
+          ...c, status: 'error', frontBase64: pairs[i].front, backBase64: pairs[i].back,
         } : c));
       }
 
       setProgress(i + 1);
-      // Small delay between cards to avoid overwhelming mobile/API
       if (i < cards.length - 1) await new Promise(r => setTimeout(r, 500));
     }
 
     setIdentifying(false);
-    toast.success('AI identification complete!');
+
+    // Auto-save identified cards directly from local results
+    const validCards = results.filter(c => c.status === 'identified' && c.card_name?.trim());
+    if (validCards.length > 0) {
+      await saveCards(validCards);
+    } else {
+      toast.error('No cards were identified. Try again or add manually.');
+    }
   };
 
   const stopIdentifying = () => { abortRef.current = true; };
@@ -328,10 +327,7 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
     if (expandedCard === idx) setExpandedCard(null);
   };
 
-  const saveAll = async () => {
-    const validCards = cards.filter(c => c.card_name.trim());
-    if (validCards.length === 0) { toast.error('No cards with names to save'); return; }
-
+  const saveCards = async (validCards) => {
     setSaving(true);
     try {
       const payload = {
@@ -347,19 +343,15 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
           grading_company: c.condition === 'Graded' ? (c.grading_company || null) : null,
           grade: c.condition === 'Graded' && c.grade ? parseFloat(c.grade) : null,
           purchase_price: c.purchase_price ? parseFloat(c.purchase_price) : null,
-          quantity: parseInt(c.quantity) || 1,
-          notes: c.notes || null,
+          quantity: 1,
+          notes: null,
           image_base64: c.frontBase64 || null,
           back_image_base64: c.backBase64 || null,
           sport: c.sport || null,
         })),
       };
-
       const res = await axios.post(`${API}/api/inventory/batch-save`, payload);
       toast.success(`${res.data.saved} cards saved to inventory!`);
-      if (res.data.errors?.length > 0) {
-        toast.warning(`${res.data.errors.length} cards had errors`);
-      }
       onComplete();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to save cards');
@@ -399,17 +391,20 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
             )}
           </div>
         </div>
-        {(identifying || progress > 0) && (
+        {(identifying || saving || progress > 0) && (
           <div className="space-y-1">
             <div className="w-full bg-[#0a0a0a] rounded-full h-2 overflow-hidden">
               <motion.div
-                className="h-full bg-[#3b82f6] rounded-full"
+                className={`h-full rounded-full ${saving ? 'bg-emerald-500' : 'bg-[#3b82f6]'}`}
                 initial={{ width: 0 }}
-                animate={{ width: `${(progress / cards.length) * 100}%` }}
+                animate={{ width: saving ? '100%' : `${(progress / cards.length) * 100}%` }}
                 transition={{ duration: 0.3 }}
               />
             </div>
-            <p className="text-[10px] text-gray-500">{progress}/{cards.length} processed {identifying && <span className="text-[#3b82f6] ml-1">Identifying card {progress + 1}...</span>}</p>
+            <p className="text-[10px] text-gray-500">
+              {saving ? <span className="text-emerald-400">Saving cards to inventory...</span> :
+               <>{progress}/{cards.length} processed {identifying && <span className="text-[#3b82f6] ml-1">Identifying card {progress + 1}...</span>}</>}
+            </p>
           </div>
         )}
       </div>
@@ -548,15 +543,11 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
           data-testid="batch-back-btn">
           <ChevronLeft className="w-4 h-4" /> Back
         </button>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">{cards.filter(c => c.card_name.trim()).length} cards ready</span>
-          <button onClick={saveAll} disabled={saving || cards.filter(c => c.card_name.trim()).length === 0}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors"
-            data-testid="batch-save-all-btn">
-            {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            Save {cards.filter(c => c.card_name.trim()).length} Cards to Inventory
-          </button>
-        </div>
+        {saving && (
+          <div className="flex items-center gap-2 text-emerald-400 text-sm">
+            <RefreshCw className="w-4 h-4 animate-spin" /> Saving to inventory...
+          </div>
+        )}
       </div>
     </div>
   );
