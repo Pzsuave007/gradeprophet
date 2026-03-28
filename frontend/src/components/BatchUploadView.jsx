@@ -210,27 +210,10 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const abortRef = useRef(false);
   const previewUrlsRef = useRef([]);
 
-  // Generate previews using FileReader (more reliable on mobile than createObjectURL)
+  // Generate preview using FileReader directly (most reliable on mobile)
   const fileToPreview = (file) => new Promise((resolve) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new window.Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX = 300;
-        let w = img.width, h = img.height;
-        if (w > MAX || h > MAX) {
-          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
-          else { w = Math.round((w / h) * MAX); h = MAX; }
-        }
-        canvas.width = w;
-        canvas.height = h;
-        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/webp', 0.7));
-      };
-      img.onerror = () => resolve(null);
-      img.src = reader.result;
-    };
+    reader.onload = () => resolve(reader.result);
     reader.onerror = () => resolve(null);
     reader.readAsDataURL(file);
   });
