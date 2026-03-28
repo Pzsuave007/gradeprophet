@@ -552,113 +552,90 @@ async def crop_corners(data: CornerCropRequest):
 
 
 
-@router.post("/cards/batch-upload")
-async def batch_upload(request: Request):
-    """Batch upload: receive image files, process server-side, AI identify, save to inventory."""
+@router.post("/cards/batch-upload-single")
+async def batch_upload_single(request: Request):
+    """Upload a single card (front + optional back), process server-side, AI identify, save to inventory."""
     user = await get_current_user(request)
     user_id = user["user_id"]
 
     form = await request.form()
     category = form.get("category", "collection")
+    front_file = form.get("front")
+    back_file = form.get("back")
 
-    # Collect all uploaded files
-    files = []
-    for key in sorted(form.keys()):
-        if key.startswith("file_"):
-            files.append(form[key])
+    if not front_file:
+        raise HTTPException(status_code=400, detail="No front image")
 
-    if not files:
-        raise HTTPException(status_code=400, detail="No files uploaded")
+    try:
+        # Read and process front image
+        front_contents = await front_file.read()
+        front_b64 = base64.b64encode(front_contents).decode("utf-8")
+        front_processed = create_thumbnail(front_b64, max_size=1200)
 
-    # Pair files: alternating front/back
-    pairs = []
-    i = 0
-    while i < len(files):
-        front_file = files[i]
-        back_file = files[i + 1] if (i + 1 < len(files)) else None
-        pairs.append({"front": front_file, "back": back_file})
-        i += 2
+        # Read and process back image
+        back_processed = None
+        if back_file and back_file.filename:
+            back_contents = await back_file.read()
+            back_b64 = base64.b64encode(back_contents).decode("utf-8")
+            back_processed = create_thumbnail(back_b64, max_size=1200)
 
-    results = []
-    for idx, pair in enumerate(pairs):
-        card_result = {"index": idx, "status": "error", "card_name": ""}
-        try:
-            # Read and process front image
-            front_contents = await pair["front"].read()
-            front_b64 = base64.b64encode(front_contents).decode("utf-8")
-            front_processed = create_thumbnail(front_b64, max_size=1200)
+        # AI identification
+        messages_content = [
+            {"type": "text", "text": CARD_IDENTIFY_PROMPT},
+            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_processed}", "detail": "high"}}
+        ]
+        if back_processed:
+            messages_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{back_processed}", "detail": "high"}})
+            messages_content[0] = {"type": "text", "text": CARD_IDENTIFY_PROMPT + "\n\nYou are also shown the BACK of the card as a second image. Use both images for identification."}
 
-            # Read and process back image
-            back_processed = None
-            if pair["back"]:
-                back_contents = await pair["back"].read()
-                back_b64 = base64.b64encode(back_contents).decode("utf-8")
-                back_processed = create_thumbnail(back_b64, max_size=1200)
+        response = await openai_client.chat.completions.create(
+            model="gpt-4o",
+            messages=[
+                {"role": "system", "content": "You are an expert sports card identifier. Respond only with valid JSON."},
+                {"role": "user", "content": messages_content}
+            ],
+            max_tokens=800
+        )
+        response_text = response.choices[0].message.content
+        cleaned = response_text.strip()
+        if cleaned.startswith("```json"): cleaned = cleaned[7:]
+        if cleaned.startswith("```"): cleaned = cleaned[3:]
+        if cleaned.endswith("```"): cleaned = cleaned[:-3]
+        card_info = json.loads(cleaned.strip())
 
-            # AI identification
-            messages_content = [
-                {"type": "text", "text": CARD_IDENTIFY_PROMPT},
-                {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_processed}", "detail": "high"}}
-            ]
-            if back_processed:
-                messages_content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{back_processed}", "detail": "high"}})
-                messages_content[0] = {"type": "text", "text": CARD_IDENTIFY_PROMPT + "\n\nYou are also shown the BACK of the card as a second image. Use both images for identification. The back can help identify the year and set."}
+        await increment_scan_count(user_id)
 
-            response = await openai_client.chat.completions.create(
-                model="gpt-4o",
-                messages=[
-                    {"role": "system", "content": "You are an expert sports card identifier. Respond only with valid JSON."},
-                    {"role": "user", "content": messages_content}
-                ],
-                max_tokens=800
-            )
-            response_text = response.choices[0].message.content
-            cleaned = response_text.strip()
-            if cleaned.startswith("```json"): cleaned = cleaned[7:]
-            if cleaned.startswith("```"): cleaned = cleaned[3:]
-            if cleaned.endswith("```"): cleaned = cleaned[:-3]
-            card_info = json.loads(cleaned.strip())
+        card_name = card_info.get("card_name", "Unknown Card")
+        item = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "card_name": card_name,
+            "player": card_info.get("player"),
+            "year": card_info.get("year"),
+            "set_name": card_info.get("set_name"),
+            "card_number": card_info.get("card_number"),
+            "variation": card_info.get("variation"),
+            "condition": "Graded" if card_info.get("is_graded") else "Raw",
+            "grading_company": card_info.get("grading_company"),
+            "grade": card_info.get("grade"),
+            "cert_number": card_info.get("cert_number"),
+            "sport": card_info.get("sport"),
+            "image": front_processed,
+            "back_image": back_processed,
+            "thumbnail": create_thumbnail(front_processed, max_size=300),
+            "category": category,
+            "source": "batch_upload",
+            "listed": False,
+            "quantity": 1,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        await db.inventory.insert_one(item)
+        return {"status": "saved", "card_name": card_name}
 
-            await increment_scan_count(user_id)
-
-            # Save to inventory
-            card_name = card_info.get("card_name", f"Card {idx + 1}")
-            item = {
-                "id": str(uuid.uuid4()),
-                "user_id": user_id,
-                "card_name": card_name,
-                "player": card_info.get("player"),
-                "year": card_info.get("year"),
-                "set_name": card_info.get("set_name"),
-                "card_number": card_info.get("card_number"),
-                "variation": card_info.get("variation"),
-                "condition": "Graded" if card_info.get("is_graded") else "Raw",
-                "grading_company": card_info.get("grading_company"),
-                "grade": card_info.get("grade"),
-                "cert_number": card_info.get("cert_number"),
-                "sport": card_info.get("sport"),
-                "image": front_processed,
-                "back_image": back_processed,
-                "thumbnail": create_thumbnail(front_processed, max_size=300),
-                "category": category,
-                "source": "batch_upload",
-                "listed": False,
-                "quantity": 1,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "updated_at": datetime.now(timezone.utc).isoformat(),
-            }
-            await db.inventory.insert_one(item)
-
-            card_result = {"index": idx, "status": "saved", "card_name": card_name}
-        except Exception as e:
-            logger.error(f"Batch upload card {idx} failed: {e}")
-            card_result = {"index": idx, "status": "error", "error": str(e)}
-
-        results.append(card_result)
-
-    saved = sum(1 for r in results if r["status"] == "saved")
-    errors = sum(1 for r in results if r["status"] == "error")
-    return {"saved": saved, "errors": errors, "total": len(pairs), "results": results}
+    except Exception as e:
+        logger.error(f"Batch upload single card failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to process card: {str(e)}")
 
 
 

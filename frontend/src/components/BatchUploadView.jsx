@@ -60,46 +60,41 @@ const BatchUploadView = ({ onClose, onComplete }) => {
   const pairs = getPairs();
   const cardCount = pairs.length;
 
-  // Upload files to server - server handles processing + AI + save
+  // Upload each card pair one at a time to server
   const handleUpload = async () => {
     if (files.length === 0) return;
     setUploading(true);
-    setProgress({ current: 0, total: cardCount, cardName: 'Uploading...' });
 
-    try {
-      const formData = new FormData();
-      formData.append('category', category);
+    let saved = 0;
+    let errors = 0;
 
-      // Add files in order (front, back, front, back...)
-      files.forEach((file, i) => {
-        formData.append(`file_${String(i).padStart(3, '0')}`, file);
-      });
+    for (let i = 0; i < pairs.length; i++) {
+      const pair = pairs[i];
+      setProgress({ current: i + 1, total: cardCount, cardName: `Uploading card ${i + 1} of ${cardCount}...` });
 
-      const res = await axios.post(`${API}/api/cards/batch-upload`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 300000, // 5 min for large batches
-        onUploadProgress: (e) => {
-          if (e.total) {
-            const pct = Math.round((e.loaded / e.total) * 100);
-            setProgress(prev => ({ ...prev, cardName: `Uploading images... ${pct}%` }));
-          }
-        }
-      });
+      try {
+        const formData = new FormData();
+        formData.append('category', category);
+        formData.append('front', pair.front);
+        if (pair.back) formData.append('back', pair.back);
 
-      const { saved, errors, total } = res.data;
-      if (saved > 0) {
-        toast.success(`${saved} of ${total} cards saved to inventory!`);
+        const res = await axios.post(`${API}/api/cards/batch-upload-single`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000,
+        });
+
+        saved++;
+        setProgress({ current: i + 1, total: cardCount, cardName: `${res.data.card_name} saved!` });
+      } catch (err) {
+        console.error(`Card ${i + 1} failed:`, err.response?.data?.detail || err.message);
+        errors++;
       }
-      if (errors > 0) {
-        toast.warning(`${errors} cards could not be identified`);
-      }
-      onComplete();
-    } catch (err) {
-      console.error('Batch upload failed:', err);
-      toast.error(err.response?.data?.detail || 'Upload failed. Try again.');
-    } finally {
-      setUploading(false);
     }
+
+    setUploading(false);
+    if (saved > 0) toast.success(`${saved} of ${cardCount} cards saved to inventory!`);
+    if (errors > 0) toast.warning(`${errors} cards could not be identified`);
+    if (saved > 0) onComplete();
   };
 
   return (
@@ -202,12 +197,12 @@ const BatchUploadView = ({ onClose, onComplete }) => {
               <motion.div
                 className="h-full bg-[#3b82f6] rounded-full"
                 initial={{ width: 0 }}
-                animate={{ width: '100%' }}
-                transition={{ duration: 120, ease: 'linear' }}
+                animate={{ width: `${(progress.current / progress.total) * 100}%` }}
+                transition={{ duration: 0.3 }}
               />
             </div>
             <p className="text-[10px] text-gray-500">
-              Server is processing images & identifying cards with AI...
+              {progress.current}/{progress.total} cards - Server processing & AI identifying...
             </p>
           </div>
         )}
