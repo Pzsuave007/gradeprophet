@@ -225,7 +225,8 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Convert file to base64 using FileReader (more reliable on mobile)
+  // Convert file to base64 - same format as InventoryModule (WebP 0.82, max 1200px)
+  // Uses FileReader as primary method (more reliable on mobile than createObjectURL)
   const fileToBase64 = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -243,8 +244,7 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
-          // Use JPEG (universally supported) instead of WebP
-          const result = canvas.toDataURL('image/jpeg', 0.85);
+          const result = canvas.toDataURL('image/webp', 0.82);
           canvas.width = 0;
           canvas.height = 0;
           resolve(result);
