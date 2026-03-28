@@ -531,24 +531,36 @@ async def get_my_listings_trading(
                     logger.info(f"Auto-marked {result.modified_count} items as sold (from SoldList) for user {user['user_id']}")
 
         # Cross-reference: items marked as listed in inventory but NOT in eBay active list = sold or ended
+        # Grace period: skip items listed less than 2 hours ago (eBay propagation delay)
+        from datetime import timedelta
+        grace_cutoff = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
         active_ebay_ids = set(l.get("itemid") for l in listings if l.get("itemid"))
         sold_ebay_id_set = set(s.get("itemid") for s in sold if s.get("itemid"))
         listed_items = await db.inventory.find(
             {"user_id": user["user_id"], "listed": True, "ebay_item_id": {"$ne": None}, "category": {"$ne": "sold"}},
-            {"_id": 0, "id": 1, "ebay_item_id": 1}
+            {"_id": 0, "id": 1, "ebay_item_id": 1, "listed_at": 1}
         ).to_list(500)
         stale_ids = []
         for inv_item in listed_items:
             eid = inv_item.get("ebay_item_id")
+            listed_at = inv_item.get("listed_at", "")
             if eid and eid not in active_ebay_ids:
-                stale_ids.append(eid)
+                # Only mark as sold if listed more than 2 hours ago AND confirmed in eBay's sold list
+                if listed_at and listed_at > grace_cutoff:
+                    logger.info(f"Skipping stale check for {eid} - listed recently ({listed_at})")
+                    continue
+                if eid in sold_ebay_id_set:
+                    stale_ids.append(eid)
+                else:
+                    logger.info(f"Item {eid} not in active or sold list but past grace period - marking ended")
+                    stale_ids.append(eid)
         if stale_ids:
             result = await db.inventory.update_many(
                 {"user_id": user["user_id"], "ebay_item_id": {"$in": stale_ids}},
                 {"$set": {"category": "sold", "listed": False}}
             )
             if result.modified_count > 0:
-                logger.info(f"Auto-marked {result.modified_count} items as sold (not in ActiveList) for user {user['user_id']}")
+                logger.info(f"Auto-marked {result.modified_count} items as sold (not in ActiveList, past grace period) for user {user['user_id']}")
 
         return {
             "active": listings,
