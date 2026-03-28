@@ -68,6 +68,8 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - `PUT /api/inventory/{id}` - Update inventory item (accepts cert_number)
 - `POST /api/cards/identify` - AI card identification (returns cert_number for graded)
 - `POST /api/cards/scan-upload` - Scanner upload (saves cert_number)
+- `POST /api/cards/batch-upload-queue` - Fast upload: stores raw images, AI processes in background
+- `GET /api/cards/batch-queue-status` - Status of queued batch cards
 
 ## Key DB Schema
 - **inventory**: `cert_number: Optional[str]`, `card_value: float`, standard card fields
@@ -78,14 +80,13 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **P1:** Whatnot & Shopify Integration (Legend tier)
 
 ## Recent Changes (This Session)
-- **Batch Upload Mobile Fix (Feb 2026)** — Root cause: mobile browsers invalidate File object references during long async operations (OpenAI calls take 30-60s/card). Fix: 
-  1. **Frontend**: Files now immediately buffered into JS heap via `new File([arrayBuffer], ...)` on selection — immune to mobile OS reclamation
-  2. **Frontend**: Added retry logic (2 attempts per card) for transient failures
-  3. **Frontend**: Snapshot pairs array at upload start to prevent closure issues  
-  4. **Backend**: Explicit memory cleanup (`del`, `gc.collect()`) after each card
-  5. **Backend**: `form.close()` to release file handles between requests
-  6. **Backend**: `asyncio.wait_for` timeout (120s) on OpenAI calls to prevent hangs
-  7. **Frontend**: Added "buffering" loading state when reading files from device
+- **Batch Upload → Queue Architecture (Feb 2026)** — Complete rewrite of the batch upload flow:
+  - **Before**: Phone waited for each card to be processed (compress + AI identify + save) = 30-60s per card. Phone had to stay awake the entire time.
+  - **After**: Phone ONLY uploads raw images (fast, seconds per card). Server stores images in `batch_queue` collection and processes them in background (`asyncio.create_task`). Phone can sleep after upload.
+  - **New endpoint**: `POST /api/cards/batch-upload-queue` — stores raw images, returns immediately, kicks off background AI processing
+  - **New endpoint**: `GET /api/cards/batch-queue-status` — shows status of queued cards
+  - **Background task**: `_process_queued_card()` — compresses, AI identifies, saves to inventory, cleans up raw data from queue
+  - **Frontend**: Files buffered into JS heap on selection. Upload shows only file transfer progress. "Upload Complete" screen tells user cards are being processed in background.
   - Status: PENDING USER MOBILE VERIFICATION
 - **Bug Fix: False Sold Items** — Items were incorrectly marked as "sold" in inventory when eBay's `GetMyeBaySelling` API returned paginated results (only first 200). Items beyond page 1 were flagged as "sold" by aggressive cross-reference logic. **Fix:** Now ONLY marks items as sold if confirmed in eBay's `SoldList`. Never marks items sold just because they're absent from `ActiveList`.
 - **Listings Pagination ("Load More")** — Changed from loading 200 items at once to loading 50 at a time with a "Load More" button. Both Active and Sold tabs support incremental loading. Shows "X of Y listings" counter.
