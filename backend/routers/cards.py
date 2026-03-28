@@ -567,19 +567,19 @@ async def batch_upload_single(request: Request):
         raise HTTPException(status_code=400, detail="No front image")
 
     try:
-        # Read and process front image
+        # Read and process front image (same pipeline as scanner)
         front_contents = await front_file.read()
         front_b64 = base64.b64encode(front_contents).decode("utf-8")
-        front_processed = create_thumbnail(front_b64, max_size=1200)
+        front_processed = process_card_image(front_b64, max_size=1200)
 
         # Read and process back image
         back_processed = None
-        if back_file and back_file.filename:
+        if back_file and hasattr(back_file, 'filename') and back_file.filename:
             back_contents = await back_file.read()
             back_b64 = base64.b64encode(back_contents).decode("utf-8")
-            back_processed = create_thumbnail(back_b64, max_size=1200)
+            back_processed = process_card_image(back_b64, max_size=1200)
 
-        # AI identification
+        # AI identification (same as /cards/identify endpoint)
         messages_content = [
             {"type": "text", "text": CARD_IDENTIFY_PROMPT},
             {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{front_processed}", "detail": "high"}}

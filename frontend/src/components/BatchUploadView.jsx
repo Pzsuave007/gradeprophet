@@ -70,7 +70,7 @@ const BatchUploadView = ({ onClose, onComplete }) => {
 
     for (let i = 0; i < pairs.length; i++) {
       const pair = pairs[i];
-      setProgress({ current: i + 1, total: cardCount, cardName: `Uploading card ${i + 1} of ${cardCount}...` });
+      setProgress({ current: i, total: cardCount, cardName: `Uploading card ${i + 1} of ${cardCount}...` });
 
       try {
         const formData = new FormData();
@@ -80,21 +80,27 @@ const BatchUploadView = ({ onClose, onComplete }) => {
 
         const res = await axios.post(`${API}/api/cards/batch-upload-single`, formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
-          timeout: 120000,
+          timeout: 180000, // 3 min per card
         });
 
         saved++;
-        setProgress({ current: i + 1, total: cardCount, cardName: `${res.data.card_name} saved!` });
+        setProgress({ current: i + 1, total: cardCount, cardName: `Card ${i + 1}: ${res.data.card_name}` });
       } catch (err) {
-        console.error(`Card ${i + 1} failed:`, err.response?.data?.detail || err.message);
+        const errMsg = err.response?.data?.detail || err.message || 'Unknown error';
+        console.error(`Card ${i + 1} failed:`, errMsg);
         errors++;
+        setProgress({ current: i + 1, total: cardCount, cardName: `Card ${i + 1}: Failed - ${errMsg}` });
       }
+
+      // Small delay between cards
+      if (i < pairs.length - 1) await new Promise(r => setTimeout(r, 1000));
     }
 
     setUploading(false);
     if (saved > 0) toast.success(`${saved} of ${cardCount} cards saved to inventory!`);
     if (errors > 0) toast.warning(`${errors} cards could not be identified`);
     if (saved > 0) onComplete();
+    else toast.error('No cards were saved. Check your connection and try again.');
   };
 
   return (
