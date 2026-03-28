@@ -16,25 +16,25 @@ const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA'];
 const UploadStep = ({ onFilesReady }) => {
   const fileRef = useRef(null);
   const [files, setFiles] = useState([]);
-  const [previews, setPreviews] = useState({}); // Cache blob URLs by file name+size
   const [pairingMode, setPairingMode] = useState('alternating');
   const [category, setCategory] = useState('collection');
 
   // Create and cache blob URLs properly
+  const previewCacheRef = useRef({});
   const getPreview = useCallback((file) => {
     const key = `${file.name}_${file.size}_${file.lastModified}`;
-    if (previews[key]) return previews[key];
+    if (previewCacheRef.current[key]) return previewCacheRef.current[key];
     const url = URL.createObjectURL(file);
-    setPreviews(prev => ({ ...prev, [key]: url }));
+    previewCacheRef.current[key] = url;
     return url;
-  }, [previews]);
+  }, []);
 
-  // Cleanup blob URLs on unmount
+  // Cleanup blob URLs only on unmount
   React.useEffect(() => {
     return () => {
-      Object.values(previews).forEach(url => URL.revokeObjectURL(url));
+      Object.values(previewCacheRef.current).forEach(url => URL.revokeObjectURL(url));
     };
-  }, [previews]);
+  }, []);
 
   const handleFiles = (newFiles) => {
     const imageFiles = Array.from(newFiles).filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(f.name));
@@ -210,18 +210,46 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const abortRef = useRef(false);
   const previewUrlsRef = useRef([]);
 
-  // Generate previews safely on mount
+  // Generate previews using FileReader (more reliable on mobile than createObjectURL)
+  const fileToPreview = (file) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX = 300;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else { w = Math.round((w / h) * MAX); h = MAX; }
+        }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/webp', 0.7));
+      };
+      img.onerror = () => resolve(null);
+      img.src = reader.result;
+    };
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+
   React.useEffect(() => {
-    const urls = [];
-    setCards(prev => prev.map((c, i) => {
-      const frontUrl = URL.createObjectURL(pairs[i].front);
-      urls.push(frontUrl);
-      let backUrl = null;
-      if (pairs[i].back) { backUrl = URL.createObjectURL(pairs[i].back); urls.push(backUrl); }
-      return { ...c, frontPreview: frontUrl, backPreview: backUrl };
-    }));
-    previewUrlsRef.current = urls;
-    return () => urls.forEach(u => URL.revokeObjectURL(u));
+    let cancelled = false;
+    const generatePreviews = async () => {
+      for (let i = 0; i < pairs.length; i++) {
+        if (cancelled) break;
+        const frontUrl = await fileToPreview(pairs[i].front);
+        let backUrl = null;
+        if (pairs[i].back) backUrl = await fileToPreview(pairs[i].back);
+        if (!cancelled) {
+          setCards(prev => prev.map((c, idx) => idx === i ? { ...c, frontPreview: frontUrl, backPreview: backUrl } : c));
+        }
+      }
+    };
+    generatePreviews();
+    return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
