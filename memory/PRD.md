@@ -4,8 +4,12 @@
 - **Production URL:** `https://flipslabengine.com`
 - **Production REACT_APP_BACKEND_URL:** `https://flipslabengine.com`
 - **User's deploy process:** Push to GitHub -> `git pull` on server -> `bash fix.sh`
-- **fix.sh copies `frontend/build/*`** to the web root
-- **EVERY TIME frontend changes are made:** Build with production URL, then restore preview URL
+- **fix.sh copies `frontend/build/*`** to the web root — **NEVER builds on server**
+- **NEVER run `yarn build` or `npm run build` on the production server** — it crashes due to limited RAM (3.6GB shared with MySQL, Apache, MongoDB, SpamAssassin)
+- **EVERY TIME frontend changes are made:** Build locally in preview with `REACT_APP_BACKEND_URL=https://flipslabengine.com yarn build`, then commit `frontend/build/` to git. Then restore preview URL for local dev.
+- **The `frontend/build/` folder MUST be committed to git** — the server pulls and copies these pre-built files directly
+- **Server scripts:** `fix.sh` (backend+frontend copy), `deploy.sh` (alias), `fix_false_sold.sh`, `check_memory.sh`, `optimize_server.sh`, `setup_swap.sh`, `server_audit.sh`
+- **Server OS:** AlmaLinux/cPanel VPS on GoDaddy, 3.6GB RAM + 2GB Swap
 - **User language:** Spanish (comfortable in English too)
 - **Admin email:** pzsuave007@gmail.com (Google Auth)
 - **Scanner token:** `scan_74b1544bdc4a4aa2b3fa9839c4e42f64`
@@ -72,6 +76,12 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 ## Next Priority
 - **P0:** Stripe Production Integration
 - **P1:** Whatnot & Shopify Integration (Legend tier)
+
+## Recent Changes (This Session)
+- **Bug Fix: False Sold Items** — Items were incorrectly marked as "sold" in inventory when eBay's `GetMyeBaySelling` API returned paginated results (only first 200). Items beyond page 1 were flagged as "sold" by aggressive cross-reference logic. **Fix:** Now ONLY marks items as sold if confirmed in eBay's `SoldList`. Never marks items sold just because they're absent from `ActiveList`.
+- **Listings Pagination ("Load More")** — Changed from loading 200 items at once to loading 50 at a time with a "Load More" button. Both Active and Sold tabs support incremental loading. Shows "X of Y listings" counter.
+- **New endpoint `POST /api/ebay/fix-false-sold`** — Queries ALL pages of eBay active listings and restores inventory items that were incorrectly marked as sold. Has a "Fix Sold" button in Listings UI.
+- **Server Memory Optimization** — Created scripts: `setup_swap.sh` (2GB swap), `optimize_server.sh` (SpamAssassin 5→2, Apache 6→3), `check_memory.sh` (health monitor). Result: RAM usage dropped from 2.4GB to 1.7GB, available went from 306MB to 1.8GB.
 
 ## Backlog
 - **P2:** Direct purchase on FlipSlab
