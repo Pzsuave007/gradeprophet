@@ -16,13 +16,29 @@ const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA'];
 const UploadStep = ({ onFilesReady }) => {
   const fileRef = useRef(null);
   const [files, setFiles] = useState([]);
-  const [pairingMode, setPairingMode] = useState('alternating'); // alternating = front,back,front,back
+  const [previews, setPreviews] = useState({}); // Cache blob URLs by file name+size
+  const [pairingMode, setPairingMode] = useState('alternating');
   const [category, setCategory] = useState('collection');
 
+  // Create and cache blob URLs properly
+  const getPreview = useCallback((file) => {
+    const key = `${file.name}_${file.size}_${file.lastModified}`;
+    if (previews[key]) return previews[key];
+    const url = URL.createObjectURL(file);
+    setPreviews(prev => ({ ...prev, [key]: url }));
+    return url;
+  }, [previews]);
+
+  // Cleanup blob URLs on unmount
+  React.useEffect(() => {
+    return () => {
+      Object.values(previews).forEach(url => URL.revokeObjectURL(url));
+    };
+  }, [previews]);
+
   const handleFiles = (newFiles) => {
-    const imageFiles = Array.from(newFiles).filter(f => f.type.startsWith('image/'));
+    const imageFiles = Array.from(newFiles).filter(f => f.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|heic|heif)$/i.test(f.name));
     if (imageFiles.length === 0) { toast.error('No image files found'); return; }
-    // Sort by filename for consistent pairing
     imageFiles.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
     setFiles(prev => [...prev, ...imageFiles]);
     toast.success(`${imageFiles.length} images added`);
@@ -129,14 +145,14 @@ const UploadStep = ({ onFilesReady }) => {
                 <div className="flex gap-1.5">
                   {/* Front thumbnail */}
                   <div className="flex-1 aspect-[3/4] bg-[#0a0a0a] rounded-lg overflow-hidden relative">
-                    <img src={URL.createObjectURL(pair.front)} alt={`Front ${i+1}`} className="w-full h-full object-contain" />
+                    <img src={getPreview(pair.front)} alt={`Front ${i+1}`} className="w-full h-full object-contain" />
                     <span className="absolute bottom-1 left-1 text-[7px] px-1 py-0.5 rounded bg-[#3b82f6]/80 text-white uppercase">Front</span>
                   </div>
                   {/* Back thumbnail */}
                   <div className="flex-1 aspect-[3/4] bg-[#0a0a0a] rounded-lg overflow-hidden relative">
                     {pair.back ? (
                       <>
-                        <img src={URL.createObjectURL(pair.back)} alt={`Back ${i+1}`} className="w-full h-full object-contain" />
+                        <img src={getPreview(pair.back)} alt={`Back ${i+1}`} className="w-full h-full object-contain" />
                         <span className="absolute bottom-1 left-1 text-[7px] px-1 py-0.5 rounded bg-amber-500/80 text-white uppercase">Back</span>
                       </>
                     ) : (
@@ -175,11 +191,11 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const [cards, setCards] = useState(() =>
     pairs.map((p, i) => ({
       idx: i,
-      status: 'pending', // pending, identifying, identified, error
+      status: 'pending',
       frontFile: p.front,
       backFile: p.back,
-      frontPreview: URL.createObjectURL(p.front),
-      backPreview: p.back ? URL.createObjectURL(p.back) : null,
+      frontPreview: null,
+      backPreview: null,
       frontBase64: null,
       backBase64: null,
       card_name: '', player: '', year: '', set_name: '', card_number: '',
@@ -192,31 +208,55 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const [saving, setSaving] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
   const abortRef = useRef(false);
+  const previewUrlsRef = useRef([]);
 
+  // Generate previews safely on mount
+  React.useEffect(() => {
+    const urls = [];
+    setCards(prev => prev.map((c, i) => {
+      const frontUrl = URL.createObjectURL(pairs[i].front);
+      urls.push(frontUrl);
+      let backUrl = null;
+      if (pairs[i].back) { backUrl = URL.createObjectURL(pairs[i].back); urls.push(backUrl); }
+      return { ...c, frontPreview: frontUrl, backPreview: backUrl };
+    }));
+    previewUrlsRef.current = urls;
+    return () => urls.forEach(u => URL.revokeObjectURL(u));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Convert file to base64 using FileReader (more reliable on mobile)
   const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new window.Image();
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      const canvas = document.createElement('canvas');
-      const MAX = 1200;
-      let w = img.width, h = img.height;
-      if (w > MAX || h > MAX) {
-        if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
-        else { w = Math.round((w / h) * MAX); h = MAX; }
-      }
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, w, h);
-      const result = canvas.toDataURL('image/webp', 0.82);
-      canvas.width = 0;
-      canvas.height = 0;
-      img.src = '';
-      resolve(result);
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new window.Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const MAX = 1200;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+            else { w = Math.round((w / h) * MAX); h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          // Use JPEG (universally supported) instead of WebP
+          const result = canvas.toDataURL('image/jpeg', 0.85);
+          canvas.width = 0;
+          canvas.height = 0;
+          resolve(result);
+        } catch (e) {
+          reject(new Error('Canvas conversion failed: ' + e.message));
+        }
+      };
+      img.onerror = () => reject(new Error('Image decode failed'));
+      img.src = reader.result;
     };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
-    img.src = url;
+    reader.onerror = () => reject(new Error('File read failed'));
+    reader.readAsDataURL(file);
   });
 
   const identifyAll = async () => {
@@ -230,18 +270,18 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
       setCards(prev => prev.map((c, idx) => idx === i ? { ...c, status: 'identifying' } : c));
 
       try {
-        // Convert files to base64
+        // Convert files to base64 using FileReader (mobile-safe)
         const frontB64 = await fileToBase64(cards[i].frontFile);
         let backB64 = null;
         if (cards[i].backFile) {
           backB64 = await fileToBase64(cards[i].backFile);
         }
 
-        // Call AI identification
+        // Call AI identification with timeout for mobile
         const payload = { front_image_base64: frontB64 };
         if (backB64) payload.back_image_base64 = backB64;
 
-        const res = await axios.post(`${API}/api/cards/identify`, payload);
+        const res = await axios.post(`${API}/api/cards/identify`, payload, { timeout: 60000 });
         const d = res.data;
 
         setCards(prev => prev.map((c, idx) => idx === i ? {
@@ -261,6 +301,8 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
           sport: d.sport || '',
         } : c));
       } catch (err) {
+        console.error(`Card ${i+1} identification failed:`, err.message);
+        // Try to still get the base64 for manual editing
         const frontB64 = await fileToBase64(cards[i].frontFile).catch(() => null);
         let backB64 = null;
         if (cards[i].backFile) backB64 = await fileToBase64(cards[i].backFile).catch(() => null);
@@ -270,6 +312,8 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
       }
 
       setProgress(i + 1);
+      // Small delay between cards to avoid overwhelming mobile/API
+      if (i < cards.length - 1) await new Promise(r => setTimeout(r, 500));
     }
 
     setIdentifying(false);
