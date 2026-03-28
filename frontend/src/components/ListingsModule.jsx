@@ -2,9 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
-  DollarSign, ShoppingBag, Plus, Search, Layers,
-  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,
-  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
+  DollarSign, ShoppingBag, Plus, Search,
+  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
   ArrowDownUp, Calendar, ChevronDown, Check
 } from 'lucide-react';
 import axios from 'axios';
@@ -748,8 +747,6 @@ const SOLD_DAYS_OPTIONS = [
   { value: 60, label: 'Last 60 days' },
 ];
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
-
 const parseTimeLeftMinutes = (iso) => {
   if (!iso) return 999999;
   const m = iso.match(/P(?:(\d+)D)?T?(?:(\d+)H)?(?:(\d+)M)?/);
@@ -773,18 +770,22 @@ const sortItems = (items, sortBy, type) => {
   }
 };
 
+const LOAD_BATCH = 50;
+
 const ListingsModule = () => {
   const [activeTab, setActiveTab] = useState('active');
-  const [ebayData, setEbayData] = useState(null);
+  const [ebayData, setEbayData] = useState({ active: [], sold: [], active_total: 0, sold_total: 0 });
   const [inventoryItems, setInventoryItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [activePage, setActivePage] = useState(1);
+  const [soldPage, setSoldPage] = useState(1);
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
   const [activeSort, setActiveSort] = useState('listed_desc');
   const [soldSort, setSoldSort] = useState('date_desc');
   const [soldDays, setSoldDays] = useState(30);
-  const [pageSize, setPageSize] = useState(200);
   const [listingsSearch, setListingsSearch] = useState('');
   const [sportFilter, setSportFilter] = useState('all');
 
@@ -830,11 +831,13 @@ const ListingsModule = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (reset = true) => {
     try {
+      const page = reset ? 1 : activePage;
+      const sPage = reset ? 1 : soldPage;
       const [ebayRes, invRes] = await Promise.allSettled([
-        axios.get(`${API}/api/ebay/seller/my-listings?limit=${pageSize}&sold_days=${soldDays}&sold_limit=${pageSize}`),
-        axios.get(`${API}/api/inventory?limit=200`),
+        axios.get(`${API}/api/ebay/seller/my-listings?limit=${LOAD_BATCH}&page=${page}&sold_days=${soldDays}&sold_limit=${LOAD_BATCH}&sold_page=${sPage}`),
+        reset ? axios.get(`${API}/api/inventory?limit=500`) : Promise.resolve(null),
       ]);
       if (ebayRes.status === 'fulfilled') {
         const raw = ebayRes.value.data;
@@ -861,19 +864,42 @@ const ListingsModule = () => {
           quantity_sold: item.quantity_sold || 1,
           url: item.url || '',
         }));
-        setEbayData({
-          active: activeItems,
-          sold: soldItems,
-          active_total: raw.active_total ?? activeItems.length,
-          sold_total: raw.sold_total ?? soldItems.length,
-        });
+        if (reset) {
+          setEbayData({
+            active: activeItems,
+            sold: soldItems,
+            active_total: raw.active_total ?? activeItems.length,
+            sold_total: raw.sold_total ?? soldItems.length,
+          });
+          setActivePage(2);
+          setSoldPage(2);
+        } else {
+          setEbayData(prev => ({
+            active: activeTab === 'active' ? [...prev.active, ...activeItems] : prev.active,
+            sold: activeTab === 'sold' ? [...prev.sold, ...soldItems] : prev.sold,
+            active_total: raw.active_total ?? prev.active_total,
+            sold_total: raw.sold_total ?? prev.sold_total,
+          }));
+          if (activeTab === 'active') setActivePage(p => p + 1);
+          else setSoldPage(p => p + 1);
+        }
       }
-      if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);
+      if (reset && invRes.status === 'fulfilled' && invRes.value) setInventoryItems(invRes.value.data.items || []);
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
-  }, [soldDays, pageSize]);
+    finally { setLoading(false); setLoadingMore(false); }
+  }, [soldDays, activeTab, activePage, soldPage]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // Initial load
+  useEffect(() => {
+    setLoading(true);
+    fetchData(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soldDays]);
+
+  const loadMore = () => {
+    setLoadingMore(true);
+    fetchData(false);
+  };
 
   const [fixingFalseSold, setFixingFalseSold] = useState(false);
   const fixFalseSold = async () => {
@@ -882,7 +908,8 @@ const ListingsModule = () => {
       const res = await axios.post(`${API}/api/ebay/fix-false-sold`);
       if (res.data.fixed > 0) {
         toast.success(`Restored ${res.data.fixed} items that were incorrectly marked as sold`);
-        fetchData();
+        setLoading(true);
+        fetchData(true);
       } else {
         toast.info('No incorrectly sold items found');
       }
@@ -902,7 +929,7 @@ const ListingsModule = () => {
         toast.success('Listing ended on eBay');
         setSelectedListing(null);
         setLoading(true);
-        fetchData();
+        fetchData(true);
       } else {
         toast.error(res.data.message || 'Failed to end listing');
       }
@@ -911,7 +938,7 @@ const ListingsModule = () => {
     }
   };
 
-  const eb = ebayData || { active: [], sold: [], active_total: 0, sold_total: 0 };
+  const eb = ebayData;
 
   // Build sport map from inventory items
   const sportMap = {};
@@ -953,7 +980,7 @@ const ListingsModule = () => {
           listing={selectedListing}
           cardData={inventoryItems.find(i => i.ebay_item_id === selectedListing.item_id)}
           onBack={() => setSelectedListing(null)}
-          onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(); }}
+          onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(true); }}
           onEndListing={endListing}
         />
       </div>
@@ -969,7 +996,7 @@ const ListingsModule = () => {
           <p className="text-xs text-gray-500 mt-0.5">Manage your eBay listings</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => { setLoading(true); fetchData(); }}
+          <button onClick={() => { setLoading(true); fetchData(true); }}
             className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white hover:border-[#3b82f6]/30 transition-colors"
             data-testid="refresh-listings-btn">
             <RefreshCw className="w-4 h-4" />
@@ -1095,7 +1122,7 @@ const ListingsModule = () => {
               <div className="relative">
                 <select
                   value={soldDays}
-                  onChange={e => { setSoldDays(parseInt(e.target.value)); setLoading(true); }}
+                  onChange={e => { setSoldDays(parseInt(e.target.value)); }}
                   className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-lg pl-8 pr-8 py-2 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
                   data-testid="sold-days-select"
                 >
@@ -1109,24 +1136,8 @@ const ListingsModule = () => {
             </>
           )}
 
-          {/* Page Size */}
-          <div className="relative">
-            <select
-              value={pageSize}
-              onChange={e => { setPageSize(parseInt(e.target.value)); setLoading(true); }}
-              className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-lg pl-8 pr-8 py-2 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
-              data-testid="page-size-select"
-            >
-              {PAGE_SIZE_OPTIONS.map(n => (
-                <option key={n} value={n}>Show {n}</option>
-              ))}
-            </select>
-            <Layers className="w-3.5 h-3.5 text-gray-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <ChevronDown className="w-3 h-3 text-gray-600 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
           <span className="text-[10px] text-gray-600 ml-auto">
-            {activeTab === 'active' ? `${sortedActive.length} listings` : `${sortedSold.length} sold`}
+            {activeTab === 'active' ? `${sortedActive.length} of ${eb.active_total} listings` : `${sortedSold.length} of ${eb.sold_total} sold`}
           </span>
         </div>
       </div>
@@ -1180,7 +1191,7 @@ const ListingsModule = () => {
         ) : viewMode === 'grid' ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
             {sortedActive.map((item, i) => (
-              <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.02 }}
+              <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: Math.min(i * 0.02, 0.5) }}
                 className={`bg-[#1a1a1a] border rounded-xl overflow-hidden transition-all cursor-pointer group ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/50'}`}
                 onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="aspect-square bg-[#111] overflow-hidden relative">
@@ -1235,7 +1246,7 @@ const ListingsModule = () => {
         ) : (
           <div className="space-y-1.5">
             {sortedActive.map((item, i) => (
-              <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
+              <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.5) }}
                 className={`bg-[#1a1a1a] border rounded-xl p-3 flex items-center gap-3 transition-colors cursor-pointer ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/40'}`}
                 onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
                 {selectMode && (
@@ -1276,6 +1287,17 @@ const ListingsModule = () => {
             ))}
           </div>
         )
+      )}
+
+      {/* Load More - Active */}
+      {activeTab === 'active' && eb.active.length > 0 && eb.active.length < eb.active_total && (
+        <div className="flex justify-center pt-2">
+          <button onClick={loadMore} disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-[#3b82f6]/40 transition-all disabled:opacity-50"
+            data-testid="load-more-active-btn">
+            {loadingMore ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</> : <><Plus className="w-4 h-4" /> Load More ({eb.active_total - eb.active.length} remaining)</>}
+          </button>
+        </div>
       )}
 
       {/* Sold Listings */}
@@ -1343,8 +1365,19 @@ const ListingsModule = () => {
         )
       )}
 
+      {/* Load More - Sold */}
+      {activeTab === 'sold' && eb.sold.length > 0 && eb.sold.length < eb.sold_total && (
+        <div className="flex justify-center pt-2">
+          <button onClick={loadMore} disabled={loadingMore}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-[#111] border border-[#1a1a1a] text-sm font-semibold text-gray-400 hover:text-white hover:border-emerald-500/40 transition-all disabled:opacity-50"
+            data-testid="load-more-sold-btn">
+            {loadingMore ? <><RefreshCw className="w-4 h-4 animate-spin" /> Loading...</> : <><Plus className="w-4 h-4" /> Load More ({eb.sold_total - eb.sold.length} remaining)</>}
+          </button>
+        </div>
+      )}
+
       {/* Create Listing Modal */}
-      <CreateListingModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} inventoryItems={inventoryItems} onSuccess={fetchData} />
+      <CreateListingModal isOpen={showCreateModal} onClose={() => setShowCreateModal(false)} inventoryItems={inventoryItems} onSuccess={() => { setLoading(true); fetchData(true); }} />
     </div>
   );
 };
