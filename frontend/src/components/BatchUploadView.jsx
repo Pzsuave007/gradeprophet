@@ -74,9 +74,36 @@ const UploadStep = ({ onFilesReady }) => {
   const pairs = getPairs();
   const cardCount = pairs.length;
 
-  const proceed = () => {
+  const [converting, setConverting] = useState(false);
+
+  // Read file as data URL (reliable on all devices including mobile)
+  const fileToDataURL = (file) => new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => resolve(null);
+    reader.readAsDataURL(file);
+  });
+
+  const proceed = async () => {
     if (files.length === 0) { toast.error('Upload some images first'); return; }
-    onFilesReady(pairs, category);
+    // Convert all files to base64 data URLs BEFORE transitioning
+    // Mobile browsers invalidate File objects when the input element unmounts
+    setConverting(true);
+    try {
+      const converted = [];
+      for (const pair of pairs) {
+        const frontData = await fileToDataURL(pair.front);
+        let backData = null;
+        if (pair.back) backData = await fileToDataURL(pair.back);
+        converted.push({ front: frontData, back: backData, frontName: pair.front.name });
+      }
+      onFilesReady(converted, category);
+    } catch (e) {
+      toast.error('Failed to process images');
+      console.error(e);
+    } finally {
+      setConverting(false);
+    }
   };
 
   const inputCls = "w-full bg-[#0a0a0a] border border-[#222] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none transition-colors";
@@ -175,10 +202,10 @@ const UploadStep = ({ onFilesReady }) => {
       {/* Proceed button */}
       {files.length > 0 && (
         <div className="flex justify-end">
-          <button onClick={proceed}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors"
+          <button onClick={proceed} disabled={converting}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors disabled:opacity-50"
             data-testid="batch-identify-btn">
-            <Layers className="w-4 h-4" /> Identify {cardCount} Cards with AI
+            {converting ? <><RefreshCw className="w-4 h-4 animate-spin" /> Preparing...</> : <><Layers className="w-4 h-4" /> Identify {cardCount} Cards with AI</>}
           </button>
         </div>
       )}
@@ -187,15 +214,14 @@ const UploadStep = ({ onFilesReady }) => {
 };
 
 // ============ STEP 2: AI IDENTIFICATION + REVIEW ============
+// pairs now contain { front: dataURL, back: dataURL|null, frontName: string }
 const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const [cards, setCards] = useState(() =>
     pairs.map((p, i) => ({
       idx: i,
       status: 'pending',
-      frontFile: p.front,
-      backFile: p.back,
-      frontPreview: null,
-      backPreview: null,
+      frontPreview: p.front,
+      backPreview: p.back,
       frontBase64: null,
       backBase64: null,
       card_name: '', player: '', year: '', set_name: '', card_number: '',
@@ -208,66 +234,27 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
   const [saving, setSaving] = useState(false);
   const [expandedCard, setExpandedCard] = useState(null);
   const abortRef = useRef(false);
-  const previewUrlsRef = useRef([]);
 
-  // Generate preview using FileReader directly (most reliable on mobile)
-  const fileToPreview = (file) => new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => resolve(null);
-    reader.readAsDataURL(file);
-  });
-
-  React.useEffect(() => {
-    let cancelled = false;
-    const generatePreviews = async () => {
-      for (let i = 0; i < pairs.length; i++) {
-        if (cancelled) break;
-        const frontUrl = await fileToPreview(pairs[i].front);
-        let backUrl = null;
-        if (pairs[i].back) backUrl = await fileToPreview(pairs[i].back);
-        if (!cancelled) {
-          setCards(prev => prev.map((c, idx) => idx === i ? { ...c, frontPreview: frontUrl, backPreview: backUrl } : c));
+  // Resize data URL to standard format (WebP 0.82, max 1200px) - same as InventoryModule
+  const resizeDataURL = (dataUrl) => new Promise((resolve, reject) => {
+    const img = new window.Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const MAX = 1200;
+        let w = img.width, h = img.height;
+        if (w > MAX || h > MAX) {
+          if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
+          else { w = Math.round((w / h) * MAX); h = MAX; }
         }
-      }
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/webp', 0.82));
+      } catch (e) { reject(e); }
     };
-    generatePreviews();
-    return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Convert file to base64 - same format as InventoryModule (WebP 0.82, max 1200px)
-  // Uses FileReader as primary method (more reliable on mobile than createObjectURL)
-  const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new window.Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const MAX = 1200;
-          let w = img.width, h = img.height;
-          if (w > MAX || h > MAX) {
-            if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
-            else { w = Math.round((w / h) * MAX); h = MAX; }
-          }
-          canvas.width = w;
-          canvas.height = h;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0, w, h);
-          const result = canvas.toDataURL('image/webp', 0.82);
-          canvas.width = 0;
-          canvas.height = 0;
-          resolve(result);
-        } catch (e) {
-          reject(new Error('Canvas conversion failed: ' + e.message));
-        }
-      };
-      img.onerror = () => reject(new Error('Image decode failed'));
-      img.src = reader.result;
-    };
-    reader.onerror = () => reject(new Error('File read failed'));
-    reader.readAsDataURL(file);
+    img.onerror = () => reject(new Error('Image decode failed'));
+    img.src = dataUrl;
   });
 
   const identifyAll = async () => {
@@ -281,14 +268,14 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
       setCards(prev => prev.map((c, idx) => idx === i ? { ...c, status: 'identifying' } : c));
 
       try {
-        // Convert files to base64 using FileReader (mobile-safe)
-        const frontB64 = await fileToBase64(cards[i].frontFile);
+        // Resize the data URLs to standard format (WebP 0.82, 1200px max)
+        const frontB64 = await resizeDataURL(pairs[i].front);
         let backB64 = null;
-        if (cards[i].backFile) {
-          backB64 = await fileToBase64(cards[i].backFile);
+        if (pairs[i].back) {
+          backB64 = await resizeDataURL(pairs[i].back);
         }
 
-        // Call AI identification with timeout for mobile
+        // Call AI identification
         const payload = { front_image_base64: frontB64 };
         if (backB64) payload.back_image_base64 = backB64;
 
@@ -313,10 +300,9 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
         } : c));
       } catch (err) {
         console.error(`Card ${i+1} identification failed:`, err.message);
-        // Try to still get the base64 for manual editing
-        const frontB64 = await fileToBase64(cards[i].frontFile).catch(() => null);
-        let backB64 = null;
-        if (cards[i].backFile) backB64 = await fileToBase64(cards[i].backFile).catch(() => null);
+        // Use the original data URLs for manual editing
+        const frontB64 = pairs[i].front;
+        const backB64 = pairs[i].back;
         setCards(prev => prev.map((c, idx) => idx === i ? {
           ...c, status: 'error', frontBase64: frontB64, backBase64: backB64,
         } : c));
@@ -449,7 +435,7 @@ const ReviewStep = ({ pairs, category, onBack, onComplete }) => {
 
               {/* Card info */}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{card.card_name || `Card ${i + 1} - ${card.frontFile.name}`}</p>
+                <p className="text-sm font-medium text-white truncate">{card.card_name || `Card ${i + 1} - ${pairs[i]?.frontName || 'Unknown'}`}</p>
                 <div className="flex items-center gap-2 mt-0.5">
                   {card.player && <span className="text-[10px] text-gray-400">{card.player}</span>}
                   {card.year && <span className="text-[10px] text-gray-600">{card.year}</span>}
