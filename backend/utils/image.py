@@ -1,9 +1,29 @@
 import base64
 import logging
 from io import BytesIO
-from PIL import Image
+from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
+
+
+def fix_exif_rotation(image_base64: str) -> str:
+    """Apply EXIF orientation to physically rotate the image. Mobile cameras store
+    images in landscape and use EXIF tags to indicate rotation. Without this,
+    phone photos appear sideways."""
+    try:
+        image_data = base64.b64decode(image_base64)
+        img = Image.open(BytesIO(image_data))
+        rotated = ImageOps.exif_transpose(img)
+        if rotated is img:
+            return image_base64
+        if rotated.mode in ('RGBA', 'LA', 'P'):
+            rotated = rotated.convert('RGB')
+        buf = BytesIO()
+        rotated.save(buf, format='JPEG', quality=95)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception as e:
+        logger.warning(f"EXIF rotation failed: {e}")
+        return image_base64
 
 
 def auto_crop_card(image_base64: str) -> str:
@@ -176,12 +196,12 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
 
 
 def process_card_image(image_base64: str, max_size: int = 800) -> str:
-    """Full image processing pipeline: crop -> resize (no color enhancement)"""
+    """Full image processing pipeline: EXIF rotate -> crop -> resize"""
+    processed = fix_exif_rotation(image_base64)
     try:
-        processed = auto_crop_card(image_base64)
+        processed = auto_crop_card(processed)
     except Exception as e:
         logger.warning(f"Auto-crop step failed, using original: {e}")
-        processed = image_base64
     processed = create_thumbnail(processed, max_size=max_size)
     return processed
 
