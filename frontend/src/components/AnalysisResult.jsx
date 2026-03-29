@@ -460,7 +460,7 @@ const AnalysisResult = ({ analysis, frontImage, backImage, onNewAnalysis, onDele
               data-testid="add-for-sale-btn"
             >
               <Save className="w-4 h-4 mr-2" />
-              {addingToInventory ? 'Adding...' : 'For Sale'}
+              {addingToInventory ? 'Adding...' : 'Inventory'}
             </Button>
           </div>
         </div>

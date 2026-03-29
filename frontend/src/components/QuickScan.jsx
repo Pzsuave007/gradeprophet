@@ -11,7 +11,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 
 const CATEGORIES = [
   { id: 'collection', label: 'Collection' },
-  { id: 'for_sale', label: 'For Sale' },
+  { id: 'for_sale', label: 'Inventory' },
 ];
 
 const QuickScan = ({ token, onClose, onCardAdded }) => {

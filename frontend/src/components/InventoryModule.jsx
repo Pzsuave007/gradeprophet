@@ -177,7 +177,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         {/* Category */}
         <div><label className={labelCls}>Category</label>
           <div className="flex gap-2">
-            {[{ val: 'collection', label: 'Collection', icon: Heart }, { val: 'for_sale', label: 'For Sale', icon: ShoppingBag }].map(({ val, label, icon: Icon }) => (
+            {[{ val: 'collection', label: 'Collection', icon: Heart }, { val: 'for_sale', label: 'Inventory', icon: ShoppingBag }].map(({ val, label, icon: Icon }) => (
               <button key={val} type="button" onClick={() => setForm(f => ({ ...f, category: val }))}
                 className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${form.category === val ? (val === 'for_sale' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]') : 'bg-[#0a0a0a] border-[#222] text-gray-500 hover:text-white'}`}
                 data-testid={`category-${val}`}><Icon className="w-4 h-4" />{label}</button>
@@ -1054,7 +1054,7 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 )
               )}
               {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
-              {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">For Sale</span>}
+              {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Inventory</span>}
               {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
             </div>
           </div>
@@ -1412,7 +1412,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const categoryTabs = [
     { id: 'all', label: 'All', count: s.total_cards || 0 },
     { id: 'collection', label: 'Collection', icon: Heart, count: s.collection_count || 0 },
-    { id: 'for_sale', label: 'For Sale', icon: ShoppingBag, count: s.for_sale_count || 0 },
+    { id: 'for_sale', label: 'Inventory', icon: ShoppingBag, count: s.for_sale_count || 0 },
     { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
     { id: 'sold', label: 'Sold', icon: TrendingUp, count: s.sold_count || 0 },
   ];
@@ -1662,7 +1662,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white leading-tight">{item.card_name}</p>
                   {item.listed ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0 uppercase font-medium flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />Listed</span>
-                    : item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">For Sale</span>
+                    : item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">Inventory</span>
                     : <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>}
                   {item.back_image && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">F+B</span>}</div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">

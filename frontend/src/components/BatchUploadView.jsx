@@ -203,7 +203,7 @@ const BatchUploadView = ({ onClose, onComplete }) => {
                     className="bg-[#111] border border-[#2a2a2a] rounded-lg px-2 py-1.5 text-xs text-white"
                     data-testid="batch-category-select">
                     <option value="collection">Collection</option>
-                    <option value="for_sale">For Sale</option>
+                    <option value="for_sale">Inventory</option>
                   </select>
                 </div>
                 <span className="text-xs text-gray-500 ml-auto">{files.length} images = {cardCount} cards</span>
