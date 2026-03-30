@@ -241,17 +241,20 @@ async def get_public_shop(slug: str):
     ).to_list(500)
     inv_by_ebay_id = {i["ebay_item_id"]: i for i in inventory_items}
 
-    # Merge: FlipSlab data takes priority, eBay-only items fill the rest
-    # Loop preserves order from ebay_items (already sorted newest first)
+    # Merge: eBay title + price ALWAYS take priority, inventory fills images/sport/condition
     items = []
     for eb in ebay_items:
         ebay_id = eb["ebay_item_id"]
         inv_item = inv_by_ebay_id.get(ebay_id)
         if inv_item:
-            # Use FlipSlab data but ensure listed_at from eBay for sorting
-            if not inv_item.get("listed_at"):
-                inv_item["listed_at"] = eb.get("listed_at", "")
-            items.append(inv_item)
+            merged = {**inv_item}
+            # eBay data overrides inventory for title and price
+            merged["card_name"] = eb["card_name"]
+            merged["listed_price"] = eb["listed_price"]
+            merged["ebay_picture"] = eb.get("ebay_picture") or inv_item.get("ebay_picture", "")
+            if not merged.get("listed_at"):
+                merged["listed_at"] = eb.get("listed_at", "")
+            items.append(merged)
         else:
             # eBay-only listing
             items.append({

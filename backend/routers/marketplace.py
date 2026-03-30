@@ -112,6 +112,26 @@ async def get_marketplace(
              "image": 1, "back_image": 1, "category": 1, "listed_at": 1, "created_at": 1}
         ).to_list(1000)
 
+        # Get cached eBay data to override titles and prices with live eBay values
+        all_shop_caches = await db.user_settings.find(
+            {"user_id": {"$in": user_ids}, "shop_cache.ebay_items": {"$exists": True}},
+            {"_id": 0, "shop_cache.ebay_items": 1}
+        ).to_list(500)
+        ebay_lookup = {}
+        for cache_doc in all_shop_caches:
+            for eb_item in (cache_doc.get("shop_cache", {}).get("ebay_items") or []):
+                ebay_lookup[eb_item["ebay_item_id"]] = eb_item
+
+        # Override inventory data with eBay title + price where available
+        for item in items_raw:
+            ebay_id = item.get("ebay_item_id")
+            if ebay_id and ebay_id in ebay_lookup:
+                eb = ebay_lookup[ebay_id]
+                item["card_name"] = eb.get("card_name") or item.get("card_name", "")
+                item["listed_price"] = eb.get("listed_price") or item.get("listed_price", 0)
+                if eb.get("ebay_picture"):
+                    item["ebay_picture"] = eb["ebay_picture"]
+
         # Filter items — must have a price to appear on marketplace
         items = []
         for item in items_raw:
