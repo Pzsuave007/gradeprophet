@@ -806,7 +806,7 @@ const ListingsModule = () => {
   };
   const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); };
 
-  const CARD_CONDITIONS = ['Near Mint', 'Very Good', 'Good', 'Acceptable'];
+  const CARD_CONDITIONS = ['Near Mint or Better', 'Excellent', 'Very Good', 'Poor'];
 
   const bulkUpdateCondition = async () => {
     if (!bulkConditionValue) { toast.error('Select a condition'); return; }

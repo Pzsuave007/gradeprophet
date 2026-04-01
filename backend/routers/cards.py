@@ -668,7 +668,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
             "card_number": card_info.get("card_number"),
             "variation": card_info.get("variation"),
             "condition": "Graded" if card_info.get("is_graded") else "Raw",
-            "card_condition": "Near Mint",
+            "card_condition": "Near Mint or Better",
             "grading_company": card_info.get("grading_company"),
             "grade": card_info.get("grade"),
             "cert_number": card_info.get("cert_number"),

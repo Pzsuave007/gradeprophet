@@ -21,7 +21,7 @@ import { usePlan } from '../hooks/usePlan';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const CONDITIONS = ['Raw', 'Graded'];
-const RAW_CONDITIONS = ['Near Mint', 'Very Good', 'Good', 'Acceptable'];
+const RAW_CONDITIONS = ['Near Mint or Better', 'Excellent', 'Very Good', 'Poor'];
 const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA', 'Other'];
 const GRADES = [10, 9.5, 9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1];
 
@@ -37,7 +37,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const backFileRef = useRef(null);
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
-    variation: '', condition: 'Raw', card_condition: 'Near Mint', grading_company: '', grade: '', cert_number: '',
+    variation: '', condition: 'Raw', card_condition: 'Near Mint or Better', grading_company: '', grade: '', cert_number: '',
     purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -50,7 +50,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       setForm({
         card_name: editItem.card_name || '', player: editItem.player || '', year: editItem.year || '',
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
-        condition: editItem.condition || 'Raw', card_condition: editItem.card_condition || 'Near Mint',
+        condition: editItem.condition || 'Raw', card_condition: editItem.card_condition || 'Near Mint or Better',
         grading_company: editItem.grading_company || '', grade: editItem.grade || '',
         cert_number: editItem.cert_number || '',
         purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',

@@ -650,7 +650,10 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request
 
     title = generate_listing_title(item)
     description = generate_listing_description(item)
-    condition_id = 2750 if item.get("condition") == "Graded" else {"Near Mint": 2750, "Very Good": 3000, "Good": 4000, "Acceptable": 5000}.get(item.get("card_condition", "Near Mint"), 2750)
+    # For ungraded cards: ConditionID is always 4000, condition shown via descriptor
+    # Map card_condition from inventory to descriptor value for frontend
+    card_cond_to_descriptor = {"Near Mint or Better": 400010, "Excellent": 400011, "Very Good": 400012, "Poor": 400013}
+    condition_id = 2750 if item.get("condition") == "Graded" else card_cond_to_descriptor.get(item.get("card_condition", "Near Mint or Better"), 400010)
 
     purchase_price = item.get("purchase_price", 0) or 0
     suggested_price = round(purchase_price * 1.3, 2) if purchase_price > 0 else 9.99
@@ -829,9 +832,9 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
         grade_id = GRADE_IDS.get(grade_normalized, GRADE_IDS.get(str(int(float(grade_val))), "275022"))
         condition_descriptors_xml = f"<ConditionDescriptors><ConditionDescriptor><Name>27501</Name><Value>{grader_id}</Value></ConditionDescriptor><ConditionDescriptor><Name>27502</Name><Value>{grade_id}</Value></ConditionDescriptor></ConditionDescriptors>"
     else:
-        actual_condition_id = data.condition_id
-        condition_descriptor_map = {1000: "400010", 2750: "400010", 3000: "400012", 4000: "400012", 5000: "400013", 6000: "400013"}
-        card_condition_value = condition_descriptor_map.get(data.condition_id, "400012")
+        actual_condition_id = 4000  # Always 4000 for ungraded sports cards
+        # Frontend now sends descriptor values directly (400010, 400011, 400012, 400013)
+        card_condition_value = str(data.condition_id) if data.condition_id in (400010, 400011, 400012, 400013) else "400010"
         condition_descriptors_xml = f"<ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{card_condition_value}</Value></ConditionDescriptor></ConditionDescriptors>"
 
     item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
@@ -1106,21 +1109,14 @@ async def bulk_revise_shipping(data: BulkReviseShippingRequest, request: Request
 
 class BulkReviseConditionRequest(BaseModel):
     item_ids: List[str]  # eBay item IDs
-    card_condition: str  # "Near Mint", "Very Good", "Good", "Acceptable"
+    card_condition: str  # "Near Mint or Better", "Excellent", "Very Good", "Poor"
 
 
 CONDITION_MAP = {
-    "Near Mint": 2750,
-    "Very Good": 3000,
-    "Good": 4000,
-    "Acceptable": 5000,
-}
-
-CONDITION_DESCRIPTOR_MAP = {
-    2750: "400010",
-    3000: "400012",
-    4000: "400012",
-    5000: "400013",
+    "Near Mint or Better": 400010,
+    "Excellent": 400011,
+    "Very Good": 400012,
+    "Poor": 400013,
 }
 
 
@@ -1133,9 +1129,9 @@ async def bulk_revise_condition(data: BulkReviseConditionRequest, request: Reque
     if data.card_condition not in CONDITION_MAP:
         raise HTTPException(status_code=400, detail=f"Invalid condition: {data.card_condition}")
 
-    condition_id = CONDITION_MAP[data.card_condition]
-    descriptor_value = CONDITION_DESCRIPTOR_MAP[condition_id]
-    condition_xml = f'<ConditionID>{condition_id}</ConditionID><ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{descriptor_value}</Value></ConditionDescriptor></ConditionDescriptors>'
+    descriptor_value = CONDITION_MAP[data.card_condition]
+    # For ungraded sports cards: ConditionID is ALWAYS 4000, sub-condition via descriptor 40001
+    condition_xml = f'<ConditionID>4000</ConditionID><ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{descriptor_value}</Value></ConditionDescriptor></ConditionDescriptors>'
 
     # Update inventory records
     await db.inventory.update_many(

@@ -25,7 +25,7 @@ class InventoryItem(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
-    card_condition: Optional[str] = "Near Mint"
+    card_condition: Optional[str] = "Near Mint or Better"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     cert_number: Optional[str] = None
@@ -51,7 +51,7 @@ class InventoryItemCreate(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
-    card_condition: Optional[str] = "Near Mint"
+    card_condition: Optional[str] = "Near Mint or Better"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     cert_number: Optional[str] = None
@@ -96,7 +96,7 @@ class BatchCardItem(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
-    card_condition: Optional[str] = "Near Mint"
+    card_condition: Optional[str] = "Near Mint or Better"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     purchase_price: Optional[float] = None
@@ -348,7 +348,7 @@ async def bulk_update_condition(data: BulkConditionUpdate, request: Request):
     """Bulk update card_condition for multiple inventory items"""
     try:
         user = await get_current_user(request)
-        valid = ["Near Mint", "Very Good", "Good", "Acceptable"]
+        valid = ["Near Mint or Better", "Excellent", "Very Good", "Poor"]
         if data.card_condition not in valid:
             raise HTTPException(status_code=400, detail=f"Invalid condition. Must be one of: {valid}")
 

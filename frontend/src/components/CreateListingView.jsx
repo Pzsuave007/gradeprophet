@@ -42,10 +42,10 @@ const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA', 'CSG', 'BVG', 'BCC
 const GRADE_OPTIONS = ['10', '9.5', '9', '8.5', '8', '7.5', '7', '6.5', '6', '5.5', '5', '4.5', '4', '3.5', '3', '2.5', '2', '1.5', '1', 'Authentic'];
 
 const CONDITIONS = [
-  { id: 2750, label: 'Near Mint or Better', desc: 'Pack fresh / Mint condition' },
-  { id: 3000, label: 'Very Good', desc: 'Minor corner/edge wear' },
-  { id: 4000, label: 'Good', desc: 'Visible wear, still presentable' },
-  { id: 5000, label: 'Acceptable', desc: 'Heavy wear, creases, or damage' },
+  { id: 400010, label: 'Near Mint or Better', desc: 'Pack fresh / Mint condition' },
+  { id: 400011, label: 'Excellent', desc: 'Minor corner/edge wear' },
+  { id: 400012, label: 'Very Good', desc: 'Visible wear, still presentable' },
+  { id: 400013, label: 'Poor', desc: 'Heavy wear, creases, or damage' },
 ];
 
 const fmt = (v) => { const n = parseFloat(v); return isNaN(n) || n === 0 ? '-' : `$${n.toFixed(2)}`; };
@@ -163,7 +163,7 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
             <div>
               <label className="text-[10px] uppercase tracking-widest text-gray-600 mb-1 block">Condition</label>
               <select className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-[#3b82f6] focus:outline-none"
-                value={f.condition_id || 3000} onChange={e => update('condition_id', parseInt(e.target.value))}
+                value={f.condition_id || 400010} onChange={e => update('condition_id', parseInt(e.target.value))}
                 data-testid={`condition-select-${index}`}>
                 {CONDITIONS.map(c => (
                   <option key={c.id} value={c.id}>{c.label} — {c.desc}</option>
@@ -426,7 +426,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             market_data: p.market_data || null,
             listing_format: 'FixedPriceItem',
             duration: 'GTC',
-            condition_id: p.condition_id || 3000,
+            condition_id: p.condition_id || 400010,
             condition_description: '',
             shipping_option: defaultShipping,
             shipping_cost: shippingCosts[defaultShipping] || 4.50,
@@ -451,7 +451,7 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
             title: item.card_name || '', description: '',
             price: item.card_value ? Number(item.card_value).toFixed(2) : (item.purchase_price ? (item.purchase_price * 1.3).toFixed(2) : '9.99'),
             listing_format: 'FixedPriceItem', duration: 'GTC',
-            condition_id: 3000, condition_description: '',
+            condition_id: 400010, condition_description: '',
             shipping_option: defaultShipping, shipping_cost: shippingCosts[defaultShipping] || 4.50,
             postal_code: defaultPostal, location: defaultLocation,
             sport: item.sport || defaultSport, player: item.player || '',
