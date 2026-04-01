@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
@@ -1101,6 +1101,96 @@ async def bulk_revise_shipping(data: BulkReviseShippingRequest, request: Request
 
     success_count = sum(1 for r in results if r["success"])
     return {"success": success_count > 0, "total": len(data.item_ids), "updated": success_count, "results": results}
+
+
+
+class BulkReviseConditionRequest(BaseModel):
+    item_ids: List[str]  # eBay item IDs
+    card_condition: str  # "Near Mint", "Very Good", "Good", "Acceptable"
+
+
+CONDITION_MAP = {
+    "Near Mint": 2750,
+    "Very Good": 3000,
+    "Good": 4000,
+    "Acceptable": 5000,
+}
+
+CONDITION_DESCRIPTOR_MAP = {
+    2750: "400010",
+    3000: "400012",
+    4000: "400012",
+    5000: "400013",
+}
+
+
+@router.post("/sell/bulk-revise-condition")
+async def bulk_revise_condition(data: BulkReviseConditionRequest, request: Request):
+    """Bulk update condition on active eBay listings + update inventory"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    if data.card_condition not in CONDITION_MAP:
+        raise HTTPException(status_code=400, detail=f"Invalid condition: {data.card_condition}")
+
+    condition_id = CONDITION_MAP[data.card_condition]
+    descriptor_value = CONDITION_DESCRIPTOR_MAP[condition_id]
+    condition_xml = f'<ConditionID>{condition_id}</ConditionID><ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{descriptor_value}</Value></ConditionDescriptor></ConditionDescriptors>'
+
+    # Update inventory records
+    await db.inventory.update_many(
+        {"ebay_item_id": {"$in": data.item_ids}, "user_id": user_id},
+        {"$set": {
+            "card_condition": data.card_condition,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }}
+    )
+
+    # Try to revise on eBay
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        return {"success": True, "total": len(data.item_ids), "updated": len(data.item_ids),
+                "note": "Inventory updated. eBay not connected — listings not revised on eBay."}
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{condition_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True})
+                else:
+                    err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                    results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "eBay rejected condition change"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ebay_ok = sum(1 for r in results if r["success"])
+    ebay_fail = sum(1 for r in results if not r["success"])
+    return {
+        "success": True,
+        "total": len(data.item_ids),
+        "updated": len(data.item_ids),
+        "ebay_revised": ebay_ok,
+        "ebay_failed": ebay_fail,
+        "note": f"Inventory updated. eBay: {ebay_ok} revised, {ebay_fail} failed (eBay may restrict condition changes on some listings).",
+        "results": results,
+    }
+
 
 
 @router.post("/sell/update-photos")

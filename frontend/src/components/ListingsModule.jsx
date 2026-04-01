@@ -794,6 +794,8 @@ const ListingsModule = () => {
   const [showBulkShipping, setShowBulkShipping] = useState(false);
   const [bulkShippingOption, setBulkShippingOption] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [showBulkCondition, setShowBulkCondition] = useState(false);
+  const [bulkConditionValue, setBulkConditionValue] = useState('');
 
   const toggleSelect = (itemId) => {
     setSelected(prev => {
@@ -802,7 +804,29 @@ const ListingsModule = () => {
       return next;
     });
   };
-  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); };
+
+  const CARD_CONDITIONS = ['Near Mint', 'Very Good', 'Good', 'Acceptable'];
+
+  const bulkUpdateCondition = async () => {
+    if (!bulkConditionValue) { toast.error('Select a condition'); return; }
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-revise-condition`, {
+        item_ids: selectedIds,
+        card_condition: bulkConditionValue,
+      });
+      toast.success(res.data.note || `Condition updated on ${res.data.updated} items`);
+      setShowBulkCondition(false);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update condition');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
 
   const bulkUpdateShipping = async (items) => {
     if (!bulkShippingOption) { toast.error('Select a shipping option'); return; }
@@ -1007,7 +1031,11 @@ const ListingsModule = () => {
               <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="listings-cancel-select-btn">Cancel</button>
               <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-shipping-btn">
-                <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
+                <Truck className="w-4 h-4" /> Shipping {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+              <button onClick={() => setShowBulkCondition(true)} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-condition-btn">
+                Condition {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             </>
           )}
@@ -1154,6 +1182,41 @@ const ListingsModule = () => {
                 </button>
                 <button onClick={() => setShowBulkShipping(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-ship-cancel-btn">Cancel</button>
               </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Condition Panel */}
+      <AnimatePresence>
+        {showBulkCondition && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-violet-500/30 rounded-xl p-4" data-testid="listings-bulk-condition-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Bulk Update Condition</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400">{selected.size} listings</span>
+                </div>
+                <button onClick={() => setShowBulkCondition(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {CARD_CONDITIONS.map(c => (
+                  <button key={c} onClick={() => setBulkConditionValue(c)}
+                    className={`px-3 py-2.5 rounded-lg text-left transition-all ${bulkConditionValue === c ? 'bg-violet-500/15 border-2 border-violet-500/50 ring-1 ring-violet-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                    data-testid={`listings-bulk-cond-opt-${c.replace(/\s/g, '-').toLowerCase()}`}>
+                    <p className={`text-xs font-bold ${bulkConditionValue === c ? 'text-violet-400' : 'text-gray-400'}`}>{c}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={bulkUpdateCondition} disabled={!bulkConditionValue || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                  data-testid="listings-bulk-cond-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Apply to {selected.size} Listings</>}
+                </button>
+                <button onClick={() => setShowBulkCondition(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-cond-cancel-btn">Cancel</button>
+              </div>
+              <p className="text-[10px] text-gray-600 mt-3">Updates inventory + tries to revise on eBay (eBay may restrict condition changes on some listings)</p>
             </div>
           </motion.div>
         )}
