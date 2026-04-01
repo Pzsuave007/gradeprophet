@@ -25,6 +25,7 @@ class InventoryItem(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
+    card_condition: Optional[str] = "Near Mint"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     cert_number: Optional[str] = None
@@ -50,6 +51,7 @@ class InventoryItemCreate(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
+    card_condition: Optional[str] = "Near Mint"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     cert_number: Optional[str] = None
@@ -71,6 +73,7 @@ class InventoryItemUpdate(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = None
+    card_condition: Optional[str] = None
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     cert_number: Optional[str] = None
@@ -93,6 +96,7 @@ class BatchCardItem(BaseModel):
     card_number: Optional[str] = None
     variation: Optional[str] = None
     condition: Optional[str] = "Raw"
+    card_condition: Optional[str] = "Near Mint"
     grading_company: Optional[str] = None
     grade: Optional[float] = None
     purchase_price: Optional[float] = None
@@ -331,6 +335,35 @@ async def get_inventory_stats(request: Request):
         }
     except Exception as e:
         logger.error(f"Inventory stats failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BulkConditionUpdate(BaseModel):
+    item_ids: List[str]
+    card_condition: str
+
+
+@router.put("/bulk-update-condition")
+async def bulk_update_condition(data: BulkConditionUpdate, request: Request):
+    """Bulk update card_condition for multiple inventory items"""
+    try:
+        user = await get_current_user(request)
+        valid = ["Near Mint", "Very Good", "Good", "Acceptable"]
+        if data.card_condition not in valid:
+            raise HTTPException(status_code=400, detail=f"Invalid condition. Must be one of: {valid}")
+
+        result = await db.inventory.update_many(
+            {"id": {"$in": data.item_ids}, "user_id": user["user_id"]},
+            {"$set": {
+                "card_condition": data.card_condition,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }}
+        )
+        return {"updated": result.modified_count, "total": len(data.item_ids)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk condition update failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -650,7 +650,7 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request
 
     title = generate_listing_title(item)
     description = generate_listing_description(item)
-    condition_id = 2750 if item.get("condition") == "Graded" else 4000
+    condition_id = 2750 if item.get("condition") == "Graded" else {"Near Mint": 2750, "Very Good": 3000, "Good": 4000, "Acceptable": 5000}.get(item.get("card_condition", "Near Mint"), 2750)
 
     purchase_price = item.get("purchase_price", 0) or 0
     suggested_price = round(purchase_price * 1.3, 2) if purchase_price > 0 else 9.99

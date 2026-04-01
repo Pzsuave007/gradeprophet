@@ -21,6 +21,7 @@ import { usePlan } from '../hooks/usePlan';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const CONDITIONS = ['Raw', 'Graded'];
+const RAW_CONDITIONS = ['Near Mint', 'Very Good', 'Good', 'Acceptable'];
 const GRADING_COMPANIES = ['PSA', 'BGS', 'SGC', 'CGC', 'HGA', 'Other'];
 const GRADES = [10, 9.5, 9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1];
 
@@ -36,7 +37,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const backFileRef = useRef(null);
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
-    variation: '', condition: 'Raw', grading_company: '', grade: '', cert_number: '',
+    variation: '', condition: 'Raw', card_condition: 'Near Mint', grading_company: '', grade: '', cert_number: '',
     purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
@@ -49,7 +50,8 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       setForm({
         card_name: editItem.card_name || '', player: editItem.player || '', year: editItem.year || '',
         set_name: editItem.set_name || '', card_number: editItem.card_number || '', variation: editItem.variation || '',
-        condition: editItem.condition || 'Raw', grading_company: editItem.grading_company || '', grade: editItem.grade || '',
+        condition: editItem.condition || 'Raw', card_condition: editItem.card_condition || 'Near Mint',
+        grading_company: editItem.grading_company || '', grade: editItem.grade || '',
         cert_number: editItem.cert_number || '',
         purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
         image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
@@ -241,6 +243,9 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div><label className={labelCls}>Condition</label><select className={inputCls} value={form.condition} onChange={e => setForm(f => ({ ...f, condition: e.target.value }))} data-testid="select-condition">{CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+          {form.condition === 'Raw' && (
+            <div><label className={labelCls}>Card Condition</label><select className={inputCls} value={form.card_condition} onChange={e => setForm(f => ({ ...f, card_condition: e.target.value }))} data-testid="select-card-condition">{RAW_CONDITIONS.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+          )}
           {form.condition === 'Graded' && (<>
             <div><label className={labelCls}>Grading Co.</label><select className={inputCls} value={form.grading_company} onChange={e => setForm(f => ({ ...f, grading_company: e.target.value }))} data-testid="select-grading-company"><option value="">Select...</option>{GRADING_COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
             <div><label className={labelCls}>Grade</label><select className={inputCls} value={form.grade} onChange={e => setForm(f => ({ ...f, grade: e.target.value }))} data-testid="select-grade"><option value="">Select...</option>{GRADES.map(g => <option key={g} value={g}>{g}</option>)}</select></div>
@@ -1234,6 +1239,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [showBulkShipping, setShowBulkShipping] = useState(false);
   const [bulkShippingOption, setBulkShippingOption] = useState('');
   const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [showBulkCondition, setShowBulkCondition] = useState(false);
+  const [bulkConditionValue, setBulkConditionValue] = useState('');
 
   // Add/Edit inline view state
   const [showForm, setShowForm] = useState(false);
@@ -1374,6 +1381,28 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     }
   };
 
+  const bulkUpdateCondition = async () => {
+    if (!bulkConditionValue) { toast.error('Select a condition'); return; }
+    const selectedIds = items.filter(i => selected.has(i.id) && i.condition !== 'Graded').map(i => i.id);
+    if (selectedIds.length === 0) { toast.error('No raw cards selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.put(`${API}/api/inventory/bulk-update-condition`, {
+        item_ids: selectedIds,
+        card_condition: bulkConditionValue,
+      });
+      toast.success(`Condition updated on ${res.data.updated} cards`);
+      setShowBulkCondition(false);
+      exitSelectMode();
+      fetchInventory(search);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update condition');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+
   const [flippedCards, setFlippedCards] = useState(new Set());
   const toggleFlip = (e, itemId) => {
     e.stopPropagation();
@@ -1471,10 +1500,16 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             ) : (
-              <button onClick={startListOnEbay} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
-                <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
-              </button>
+              <>
+                <button onClick={() => setShowBulkCondition(true)} disabled={selected.size === 0}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="bulk-condition-btn">
+                  Condition {selected.size > 0 ? `(${selected.size})` : ''}
+                </button>
+                <button onClick={startListOnEbay} disabled={selected.size === 0}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
+                  <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
+                </button>
+              </>
             )}
           </>
         )}
@@ -1526,6 +1561,40 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><Truck className="w-4 h-4" /> Apply to {selected.size} Listings</>}
                 </button>
                 <button onClick={() => setShowBulkShipping(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-ship-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Condition Update Panel */}
+      <AnimatePresence>
+        {showBulkCondition && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+            <div className="bg-[#111] border border-violet-500/30 rounded-xl p-4" data-testid="bulk-condition-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Bulk Update Condition</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400">{selected.size} cards</span>
+                </div>
+                <button onClick={() => setShowBulkCondition(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {RAW_CONDITIONS.map(c => (
+                  <button key={c} onClick={() => setBulkConditionValue(c)}
+                    className={`px-3 py-2.5 rounded-lg text-left transition-all ${bulkConditionValue === c ? 'bg-violet-500/15 border-2 border-violet-500/50 ring-1 ring-violet-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                    data-testid={`bulk-cond-opt-${c.replace(/\s/g, '-').toLowerCase()}`}>
+                    <p className={`text-xs font-bold ${bulkConditionValue === c ? 'text-violet-400' : 'text-gray-400'}`}>{c}</p>
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={bulkUpdateCondition} disabled={!bulkConditionValue || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-bold hover:bg-violet-500 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-cond-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Apply to {selected.size} Cards</>}
+                </button>
+                <button onClick={() => setShowBulkCondition(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-cond-cancel-btn">Cancel</button>
               </div>
             </div>
           </motion.div>
@@ -1595,7 +1664,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               <div className="p-2.5">
                 <p className="text-[11px] font-semibold text-white leading-tight">{item.card_name}</p>
                 <div className="flex items-center justify-between mt-1.5">
-                  {item.condition === 'Graded' && item.grade ? <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span> : <span className="text-[10px] text-gray-600">Raw</span>}
+                  {item.condition === 'Graded' && item.grade ? <span className="text-[11px] font-bold text-amber-400">{item.grading_company} {item.grade}</span> : <span className="text-[10px] text-gray-500">{item.card_condition || 'Raw'}</span>}
                   <span className="text-[11px] text-white"><span className="text-[8px] text-gray-500 uppercase mr-1">Invested</span><span className="font-bold">{formatPrice(item.purchase_price)}</span></span>
                 </div>
                 {item.player && <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{item.player} {item.year || ''}</p>}
@@ -1673,7 +1742,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 </div>
               </div>
               <div className="text-center flex-shrink-0">
-                {item.condition === 'Graded' && item.grade ? <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"><span className="text-[9px] uppercase tracking-wider text-amber-400 block">{item.grading_company || 'Graded'}</span><span className="text-sm font-bold text-amber-300">{item.grade}</span></div> : <span className="text-[10px] px-2 py-1 rounded bg-[#1a1a1a] text-gray-500 uppercase">Raw</span>}
+                {item.condition === 'Graded' && item.grade ? <div className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20"><span className="text-[9px] uppercase tracking-wider text-amber-400 block">{item.grading_company || 'Graded'}</span><span className="text-sm font-bold text-amber-300">{item.grade}</span></div> : <span className="text-[10px] px-2 py-1 rounded bg-[#1a1a1a] text-gray-500">{item.card_condition || 'Raw'}</span>}
               </div>
               <div className="text-right flex-shrink-0 w-28">
                 <p className="text-sm font-bold text-white">{item.listed && item.listed_price ? formatPrice(item.listed_price) : formatPrice(item.purchase_price)}</p>
