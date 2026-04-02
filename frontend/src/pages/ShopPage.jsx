@@ -246,7 +246,8 @@ const PLAN_BADGE = {
 // =========== CARD TILE ===========
 const CardTile = ({ item, index, plan, onClick }) => {
   const price = item.listed_price || item.purchase_price;
-  const imgSrc = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
+  const imgSrc = item.store_thumbnail ? `data:image/webp;base64,${item.store_thumbnail}`
+    : item.ebay_picture || (item.thumbnail ? `data:image/jpeg;base64,${item.thumbnail}` : null);
   const glow = PLAN_GLOW[plan] || PLAN_GLOW.rookie;
   const [hovered, setHovered] = useState(false);
 
@@ -329,7 +330,8 @@ function _wrapText(ctx, text, maxWidth) {
 // =========== CARD MODAL WITH 3D FLIP ===========
 const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopPlan }) => {
   const API = process.env.REACT_APP_BACKEND_URL;
-  const baseFront = item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null;
+  const baseFront = item.store_thumbnail ? `data:image/webp;base64,${item.store_thumbnail}`
+    : item.ebay_picture || (item.thumbnail ? `data:image/jpeg;base64,${item.thumbnail}` : null);
   const baseBack = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
   const [frontSrc, setFrontSrc] = useState(baseFront);
   const [backSrc, setBackSrc] = useState(baseBack);
@@ -365,13 +367,14 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
   // Reset flip state when item changes
   useEffect(() => {
     setFlipped(false);
-    setFrontSrc(item.image ? `data:image/jpeg;base64,${item.image}` : item.ebay_picture || null);
+    setFrontSrc(item.store_thumbnail ? `data:image/webp;base64,${item.store_thumbnail}`
+      : item.ebay_picture || (item.thumbnail ? `data:image/jpeg;base64,${item.thumbnail}` : null));
     setBackSrc(item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null);
   }, [item]);
 
   // Fetch all eBay images for flip effect (only for eBay-sourced items without back image)
   useEffect(() => {
-    if (baseBack || !item.ebay_item_id || item.image) return;
+    if (baseBack || !item.ebay_item_id || item.store_thumbnail) return;
     fetch(`${API}/api/shop/${shopSlug}/item/${item.ebay_item_id}`)
       .then(r => r.json())
       .then(data => {

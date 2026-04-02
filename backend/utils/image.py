@@ -195,6 +195,28 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
         return image_base64
 
 
+def create_store_thumbnail(image_base64: str, max_size: int = 400) -> str:
+    """Create a high-quality WebP store thumbnail for the shop page."""
+    try:
+        import io
+
+        image_data = base64.b64decode(image_base64)
+        image = Image.open(io.BytesIO(image_data))
+        image = ImageOps.exif_transpose(image)
+
+        image.thumbnail((max_size, max_size), Image.Resampling.LANCZOS)
+
+        if image.mode in ('RGBA', 'LA', 'P'):
+            image = image.convert('RGB')
+
+        buffer = io.BytesIO()
+        image.save(buffer, format='WEBP', quality=88)
+        return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    except Exception as e:
+        logger.warning(f"Failed to create store thumbnail: {e}")
+        return create_thumbnail(image_base64, max_size=max_size)
+
+
 def process_card_image(image_base64: str, max_size: int = 800) -> str:
     """Full image processing pipeline: EXIF rotate -> crop -> resize"""
     processed = fix_exif_rotation(image_base64)

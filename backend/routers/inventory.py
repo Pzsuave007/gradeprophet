@@ -7,7 +7,7 @@ import re
 import logging
 from database import db
 from utils.auth import get_current_user
-from utils.image import process_card_image
+from utils.image import process_card_image, create_store_thumbnail
 from utils.plan_limits import check_inventory_limit, check_scan_limit, increment_scan_count
 
 logger = logging.getLogger(__name__)
@@ -496,3 +496,35 @@ async def import_from_scan(analysis_id: str, data: ImportFromScanRequest, reques
     except Exception as e:
         logger.error(f"Import from scan failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.post("/generate-store-thumbnails")
+async def generate_store_thumbnails(request: Request):
+    """Generate WebP store thumbnails for existing inventory items that don't have them."""
+    import gc
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+
+    # Find items with an image but no store_thumbnail
+    items = await db.inventory.find(
+        {"user_id": user_id, "image": {"$exists": True, "$ne": None}, "store_thumbnail": {"$exists": False}},
+        {"_id": 0, "id": 1, "image": 1}
+    ).to_list(500)
+
+    updated = 0
+    for item in items:
+        try:
+            store_thumb = create_store_thumbnail(item["image"])
+            await db.inventory.update_one(
+                {"id": item["id"]},
+                {"$set": {"store_thumbnail": store_thumb}}
+            )
+            updated += 1
+        except Exception as e:
+            logger.warning(f"Failed to generate store thumbnail for {item['id']}: {e}")
+        if updated % 20 == 0:
+            gc.collect()
+
+    gc.collect()
+    return {"total_processed": len(items), "updated": updated}

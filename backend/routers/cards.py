@@ -10,7 +10,7 @@ from database import db
 from config import openai_client
 from utils.auth import get_current_user
 from utils.image import (
-    process_card_image, create_thumbnail, crop_corners_from_image,
+    process_card_image, create_thumbnail, create_store_thumbnail, crop_corners_from_image,
     auto_crop_card
 )
 from utils.plan_limits import check_scan_limit, increment_scan_count
@@ -676,6 +676,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
             "image": front_processed,
             "back_image": back_processed,
             "thumbnail": create_thumbnail(front_processed, max_size=300),
+            "store_thumbnail": create_store_thumbnail(front_processed),
             "category": category,
             "source": "batch_upload",
             "listed": False,
@@ -881,6 +882,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     item_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     thumbnail = create_thumbnail(processed)
+    store_thumb = create_store_thumbnail(processed)
 
     doc = {
         "id": item_id,
@@ -892,7 +894,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
         "card_number": card_number,
         "variation": variation,
         "condition": card_info.get("condition", "Raw"),
-        "card_condition": "Near Mint",
+        "card_condition": "Near Mint or Better",
         "grade": card_info.get("grade"),
         "grading_company": card_info.get("grading_company", ""),
         "cert_number": card_info.get("cert_number"),
@@ -903,6 +905,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
         "image": processed,
         "back_image": None,
         "thumbnail": thumbnail,
+        "store_thumbnail": store_thumb,
         "listed": False,
         "category": "for_sale",
         "sport": card_info.get("sport", ""),
