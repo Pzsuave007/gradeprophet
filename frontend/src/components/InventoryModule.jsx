@@ -56,8 +56,9 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
         image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
       });
-      setImagePreview(editItem.image ? `data:image/jpeg;base64,${editItem.image}` : null);
-      setBackImagePreview(editItem.back_image ? `data:image/jpeg;base64,${editItem.back_image}` : null);
+      const frontThumb = editItem.store_thumbnail || editItem.thumbnail;
+      setImagePreview(frontThumb ? `data:image/${editItem.store_thumbnail ? 'webp' : 'jpeg'};base64,${frontThumb}` : null);
+      setBackImagePreview(editItem.back_thumbnail ? `data:image/jpeg;base64,${editItem.back_thumbnail}` : null);
     }
   }, [editItem]);
 

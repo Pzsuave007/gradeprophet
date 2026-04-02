@@ -576,14 +576,14 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
                     className="w-full flex items-center gap-3 p-3 bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl hover:border-[#3b82f6]/50 transition-colors text-left"
                     data-testid={`select-card-${i}`}>
                     <div className="w-10 h-13 rounded bg-[#111] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
-                      {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 text-gray-700" />}
+                      {(item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt="" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 text-gray-700" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">{item.card_name}</p>
                       <div className="flex items-center gap-2 mt-0.5">
                         {item.player && <span className="text-[11px] text-gray-400">{item.player}</span>}
                         {item.condition === 'Graded' && item.grade && <span className="text-[11px] text-amber-400">{item.grading_company} {item.grade}</span>}
-                        {item.back_image ? (
+                        {item.back_thumbnail ? (
                           <span className="text-[10px] text-emerald-400 bg-emerald-400/10 px-1.5 py-0.5 rounded">F+B</span>
                         ) : (
                           <span className="text-[10px] text-gray-500 bg-gray-500/10 px-1.5 py-0.5 rounded">Front</span>
@@ -603,18 +603,18 @@ const CreateListingModal = ({ isOpen, onClose, inventoryItems, onSuccess }) => {
               <div className="flex items-center gap-3 bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg p-3">
                 <div className="flex gap-2 flex-shrink-0">
                   <div className="w-10 h-13 rounded bg-[#111] overflow-hidden border border-[#1a1a1a]">
-                    {selectedItem.image ? <img src={`data:image/jpeg;base64,${selectedItem.image}`} alt="Front" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 text-gray-700" />}
+                    {(selectedItem.store_thumbnail || selectedItem.thumbnail) ? <img src={`data:image/${selectedItem.store_thumbnail ? 'webp' : 'jpeg'};base64,${selectedItem.store_thumbnail || selectedItem.thumbnail}`} alt="Front" className="w-full h-full object-cover" /> : <ImageIcon className="w-full h-full p-2 text-gray-700" />}
                   </div>
-                  {selectedItem.back_image && (
+                  {selectedItem.back_thumbnail && (
                     <div className="w-10 h-13 rounded bg-[#111] overflow-hidden border border-[#1a1a1a]">
-                      <img src={`data:image/jpeg;base64,${selectedItem.back_image}`} alt="Back" className="w-full h-full object-cover" />
+                      <img src={`data:image/jpeg;base64,${selectedItem.back_thumbnail}`} alt="Back" className="w-full h-full object-cover" />
                     </div>
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">{selectedItem.card_name}</p>
                   <p className="text-[11px] text-gray-500">{selectedItem.player} {selectedItem.year || ''}</p>
-                  <p className="text-[10px] mt-0.5">{selectedItem.back_image ? <span className="text-emerald-400">Front + Back images</span> : <span className="text-amber-400">Front image only</span>}</p>
+                  <p className="text-[10px] mt-0.5">{selectedItem.back_thumbnail ? <span className="text-emerald-400">Front + Back images</span> : <span className="text-amber-400">Front image only</span>}</p>
                 </div>
                 <button onClick={handleReset} className="text-xs text-[#3b82f6] hover:text-[#60a5fa]">Change</button>
               </div>

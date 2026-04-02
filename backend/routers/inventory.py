@@ -7,7 +7,7 @@ import re
 import logging
 from database import db
 from utils.auth import get_current_user
-from utils.image import process_card_image, create_store_thumbnail
+from utils.image import process_card_image, create_store_thumbnail, create_thumbnail
 from utils.plan_limits import check_inventory_limit, check_scan_limit, increment_scan_count
 
 logger = logging.getLogger(__name__)
@@ -134,18 +134,24 @@ async def create_inventory_item(data: InventoryItemCreate, request: Request):
             )
 
         image_thumb = None
+        thumbnail = None
+        store_thumb = None
         if data.image_base64:
             img = data.image_base64
             if ',' in img:
                 img = img.split(',')[1]
             image_thumb = process_card_image(img, max_size=800)
+            thumbnail = create_thumbnail(image_thumb, max_size=200)
+            store_thumb = create_store_thumbnail(image_thumb, max_size=400)
 
         back_image_thumb = None
+        back_thumbnail = None
         if data.back_image_base64:
             bimg = data.back_image_base64
             if ',' in bimg:
                 bimg = bimg.split(',')[1]
             back_image_thumb = process_card_image(bimg, max_size=800)
+            back_thumbnail = create_thumbnail(back_image_thumb, max_size=200)
 
         item = InventoryItem(
             card_name=data.card_name, player=data.player, year=data.year,
@@ -162,6 +168,12 @@ async def create_inventory_item(data: InventoryItemCreate, request: Request):
         doc['created_at'] = doc['created_at'].isoformat()
         doc['updated_at'] = doc['updated_at'].isoformat()
         doc['user_id'] = user_id
+        if thumbnail:
+            doc['thumbnail'] = thumbnail
+        if store_thumb:
+            doc['store_thumbnail'] = store_thumb
+        if back_thumbnail:
+            doc['back_thumbnail'] = back_thumbnail
         await db.inventory.insert_one(doc)
         doc.pop('_id', None)
         return doc
@@ -397,12 +409,17 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate, request
                 img = value
                 if ',' in img:
                     img = img.split(',')[1]
-                update_fields["image"] = process_card_image(img, max_size=800)
+                processed = process_card_image(img, max_size=800)
+                update_fields["image"] = processed
+                update_fields["thumbnail"] = create_thumbnail(processed, max_size=200)
+                update_fields["store_thumbnail"] = create_store_thumbnail(processed, max_size=400)
             elif field == "back_image_base64" and value is not None:
                 bimg = value
                 if ',' in bimg:
                     bimg = bimg.split(',')[1]
-                update_fields["back_image"] = process_card_image(bimg, max_size=800)
+                back_processed = process_card_image(bimg, max_size=800)
+                update_fields["back_image"] = back_processed
+                update_fields["back_thumbnail"] = create_thumbnail(back_processed, max_size=200)
             elif field not in ("image_base64", "back_image_base64"):
                 update_fields[field] = value
 
@@ -503,28 +520,35 @@ async def import_from_scan(analysis_id: str, data: ImportFromScanRequest, reques
 
 @router.post("/generate-store-thumbnails")
 async def generate_store_thumbnails(request: Request):
-    """Generate WebP store thumbnails for existing inventory items that don't have them."""
+    """Generate all missing thumbnails (thumbnail, store_thumbnail, back_thumbnail) for existing inventory items."""
     import gc
     user = await get_current_user(request)
     user_id = user["user_id"]
 
-    # Find items with an image but no store_thumbnail
+    # Find items with images but missing any thumbnail type
     items = await db.inventory.find(
-        {"user_id": user_id, "image": {"$exists": True, "$ne": None}, "store_thumbnail": {"$exists": False}},
-        {"_id": 0, "id": 1, "image": 1}
+        {"user_id": user_id, "image": {"$exists": True, "$ne": None}, "$or": [
+            {"store_thumbnail": {"$exists": False}},
+            {"thumbnail": {"$exists": False}},
+        ]},
+        {"_id": 0, "id": 1, "image": 1, "back_image": 1, "store_thumbnail": 1, "thumbnail": 1, "back_thumbnail": 1}
     ).to_list(500)
 
     updated = 0
     for item in items:
         try:
-            store_thumb = create_store_thumbnail(item["image"])
-            await db.inventory.update_one(
-                {"id": item["id"]},
-                {"$set": {"store_thumbnail": store_thumb}}
-            )
-            updated += 1
+            updates = {}
+            if not item.get("store_thumbnail"):
+                updates["store_thumbnail"] = create_store_thumbnail(item["image"])
+            if not item.get("thumbnail"):
+                updates["thumbnail"] = create_thumbnail(item["image"], max_size=200)
+            if item.get("back_image") and not item.get("back_thumbnail"):
+                updates["back_thumbnail"] = create_thumbnail(item["back_image"], max_size=200)
+            if updates:
+                await db.inventory.update_one({"id": item["id"]}, {"$set": updates})
+                updated += 1
         except Exception as e:
-            logger.warning(f"Failed to generate store thumbnail for {item['id']}: {e}")
+            logger.warning(f"Failed to generate thumbnails for {item['id']}: {e}")
         if updated % 20 == 0:
             gc.collect()
 
