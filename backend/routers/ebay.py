@@ -496,40 +496,60 @@ async def get_my_listings_trading(
                 if item_data:
                     sold.append(item_data)
 
-        # Fetch images for sold items that are missing them via Browse API
+        # Fetch images for sold items that are missing them
         sold_without_images = [s for s in sold if not s.get("image_url")]
         if sold_without_images:
-            try:
-                app_token = await get_ebay_app_token()
-                if app_token:
-                    async with httpx.AsyncClient(timeout=15.0) as http_client:
-                        for s_item in sold_without_images[:20]:
-                            item_id = s_item.get("itemid", "")
-                            if not item_id:
-                                continue
-                            try:
-                                browse_resp = await http_client.get(
-                                    f"https://api.ebay.com/buy/browse/v1/item/v1|{item_id}|0",
-                                    headers={
-                                        "Authorization": f"Bearer {app_token}",
-                                        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
-                                    }
-                                )
-                                if browse_resp.status_code == 200:
-                                    browse_data = browse_resp.json()
-                                    img = browse_data.get("image", {}).get("imageUrl", "")
-                                    if img:
-                                        if "s-l140" in img:
-                                            img = img.replace("s-l140", "s-l800")
-                                        elif "s-l225" in img:
-                                            img = img.replace("s-l225", "s-l800")
-                                        elif "s-l500" in img:
-                                            img = img.replace("s-l500", "s-l800")
-                                        s_item["image_url"] = img
-                            except Exception:
-                                pass
-            except Exception as e:
-                logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
+            # First: try to get images from our inventory (ebay_picture saved during listing sync)
+            sold_ids_missing = [s.get("itemid") for s in sold_without_images if s.get("itemid")]
+            if sold_ids_missing:
+                inv_items = await db.inventory.find(
+                    {"user_id": user["user_id"], "ebay_item_id": {"$in": sold_ids_missing}, "ebay_picture": {"$exists": True, "$ne": ""}},
+                    {"_id": 0, "ebay_item_id": 1, "ebay_picture": 1}
+                ).to_list(500)
+                inv_pic_map = {it["ebay_item_id"]: it["ebay_picture"] for it in inv_items}
+                still_missing = []
+                for s_item in sold_without_images:
+                    pic = inv_pic_map.get(s_item.get("itemid"))
+                    if pic:
+                        s_item["image_url"] = pic
+                    else:
+                        still_missing.append(s_item)
+            else:
+                still_missing = sold_without_images
+
+            # Second: fallback to Browse API for any remaining items without images
+            if still_missing:
+                try:
+                    app_token = await get_ebay_app_token()
+                    if app_token:
+                        async with httpx.AsyncClient(timeout=15.0) as http_client:
+                            for s_item in still_missing:
+                                item_id = s_item.get("itemid", "")
+                                if not item_id:
+                                    continue
+                                try:
+                                    browse_resp = await http_client.get(
+                                        f"https://api.ebay.com/buy/browse/v1/item/v1|{item_id}|0",
+                                        headers={
+                                            "Authorization": f"Bearer {app_token}",
+                                            "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                                        }
+                                    )
+                                    if browse_resp.status_code == 200:
+                                        browse_data = browse_resp.json()
+                                        img = browse_data.get("image", {}).get("imageUrl", "")
+                                        if img:
+                                            if "s-l140" in img:
+                                                img = img.replace("s-l140", "s-l800")
+                                            elif "s-l225" in img:
+                                                img = img.replace("s-l225", "s-l800")
+                                            elif "s-l500" in img:
+                                                img = img.replace("s-l500", "s-l800")
+                                            s_item["image_url"] = img
+                                except Exception:
+                                    pass
+                except Exception as e:
+                    logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
 
         # Auto-mark inventory items as sold ONLY if confirmed in eBay SoldList
         # Never mark as sold based solely on absence from ActiveList (pagination limits cause false positives)
