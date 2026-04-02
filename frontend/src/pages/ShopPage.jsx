@@ -231,16 +231,20 @@ const ShopPage = () => {
 // =========== PLAN GLOW CONFIG ===========
 const PLAN_GLOW = {
   rookie:      { border: 'rgba(156,163,175,0.15)', shadow: '0 0 15px rgba(156,163,175,0.08), 0 0 30px rgba(156,163,175,0.04)', hoverShadow: '0 0 20px rgba(156,163,175,0.15), 0 0 40px rgba(156,163,175,0.08)', hoverBorder: 'rgba(156,163,175,0.25)' },
-  all_star:    { border: 'rgba(59,130,246,0.2)',    shadow: '0 0 15px rgba(59,130,246,0.1), 0 0 30px rgba(59,130,246,0.05)',   hoverShadow: '0 0 20px rgba(59,130,246,0.2), 0 0 40px rgba(59,130,246,0.1)',   hoverBorder: 'rgba(59,130,246,0.35)' },
+  mvp:          { border: 'rgba(245,158,11,0.2)',    shadow: '0 0 15px rgba(245,158,11,0.1), 0 0 30px rgba(245,158,11,0.05)',   hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
+  hall_of_famer:{ border: 'rgba(147,51,234,0.2)',    shadow: '0 0 15px rgba(147,51,234,0.1), 0 0 30px rgba(147,51,234,0.05)',   hoverShadow: '0 0 20px rgba(147,51,234,0.25), 0 0 40px rgba(147,51,234,0.1)', hoverBorder: 'rgba(147,51,234,0.4)' },
+  all_star:    { border: 'rgba(245,158,11,0.2)',    shadow: '0 0 15px rgba(245,158,11,0.1), 0 0 30px rgba(245,158,11,0.05)',   hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
   hall_of_fame:{ border: 'rgba(245,158,11,0.2)',    shadow: '0 0 15px rgba(245,158,11,0.1), 0 0 30px rgba(245,158,11,0.05)',   hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
   legend:      { border: 'rgba(168,85,247,0.2)',    shadow: '0 0 15px rgba(168,85,247,0.12), 0 0 30px rgba(168,85,247,0.06)', hoverShadow: '0 0 25px rgba(168,85,247,0.3), 0 0 50px rgba(168,85,247,0.12)', hoverBorder: 'rgba(168,85,247,0.45)' },
 };
 
 const PLAN_BADGE = {
   rookie:       { label: 'Rookie',       Icon: Shield, color: '#9ca3af', bg: 'rgba(156,163,175,0.1)', borderColor: 'rgba(156,163,175,0.2)' },
-  all_star:     { label: 'All-Star',     Icon: Star,   color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  borderColor: 'rgba(59,130,246,0.25)' },
-  hall_of_fame: { label: 'Hall of Fame', Icon: Award,  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  borderColor: 'rgba(245,158,11,0.25)' },
-  legend:       { label: 'Legend',       Icon: Crown,  color: '#a855f7', bg: 'rgba(168,85,247,0.1)',  borderColor: 'rgba(168,85,247,0.25)' },
+  mvp:          { label: 'MVP',            Icon: Award,  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  borderColor: 'rgba(245,158,11,0.25)' },
+  hall_of_famer:{ label: 'Hall of Famer',  Icon: Crown,  color: '#a855f7', bg: 'rgba(147,51,234,0.1)',  borderColor: 'rgba(147,51,234,0.25)' },
+  all_star:     { label: 'MVP',            Icon: Award,  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  borderColor: 'rgba(245,158,11,0.25)' },
+  hall_of_fame: { label: 'MVP',            Icon: Award,  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  borderColor: 'rgba(245,158,11,0.25)' },
+  legend:       { label: 'Hall of Famer',  Icon: Crown,  color: '#a855f7', bg: 'rgba(168,85,247,0.1)',  borderColor: 'rgba(168,85,247,0.25)' },
 };
 
 // =========== CARD TILE ===========
@@ -399,7 +403,9 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
       // Plan colors
       const planColors = {
         rookie: { main: '#9ca3af', r: 156, g: 163, b: 175 },
-        all_star: { main: '#3b82f6', r: 59, g: 130, b: 246 },
+        mvp: { main: '#f59e0b', r: 245, g: 158, b: 11 },
+        hall_of_famer: { main: '#a855f7', r: 168, g: 85, b: 247 },
+        all_star: { main: '#f59e0b', r: 245, g: 158, b: 11 },
         hall_of_fame: { main: '#f59e0b', r: 245, g: 158, b: 11 },
         legend: { main: '#a855f7', r: 168, g: 85, b: 247 },
       };

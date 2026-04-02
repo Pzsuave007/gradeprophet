@@ -289,7 +289,7 @@ const MarketModule = ({ onNavigateToAccount }) => {
   // Rookie: entire Market module locked
   if (!hasMarketFull && planId === 'rookie') {
     return (
-      <UpgradeGate locked={true} planRequired="all_star" featureName="Market Intelligence" onUpgrade={goUpgrade}>
+      <UpgradeGate locked={true} planRequired="mvp" featureName="Market Intelligence" onUpgrade={goUpgrade}>
         <div className="space-y-5 pb-8" data-testid="market-page">
           <div>
             <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">Market Intelligence</h1>
@@ -322,7 +322,7 @@ const MarketModule = ({ onNavigateToAccount }) => {
       {hasSeasonal ? (
         <SeasonalIntelligence />
       ) : (
-        <UpgradeGate locked={true} planRequired="hall_of_fame" featureName="Seasonal Intelligence" onUpgrade={goUpgrade}>
+        <UpgradeGate locked={true} planRequired="hall_of_famer" featureName="Seasonal Intelligence" onUpgrade={goUpgrade}>
           <div className="h-48 bg-[#111] border border-[#1a1a1a] rounded-xl flex items-center justify-center">
             <p className="text-xs text-gray-600">Seasonal market intelligence data</p>
           </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { Lock, ArrowUpRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-const PLAN_NAMES = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
+const PLAN_NAMES = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer', all_star: 'MVP', hall_of_fame: 'MVP', legend: 'Hall of Famer' };
 
 const UpgradeGate = ({ locked, planRequired, featureName, onUpgrade, children }) => {
   if (!locked) return children;

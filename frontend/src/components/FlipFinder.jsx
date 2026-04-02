@@ -79,7 +79,7 @@ const FlipFinder = ({ onNavigateToAccount }) => {
   // Rookie: entire Flip Finder is locked
   if (!flipFinderAccess) {
     return (
-      <UpgradeGate locked={true} planRequired="all_star" featureName="Flip Finder" onUpgrade={goUpgrade}>
+      <UpgradeGate locked={true} planRequired="mvp" featureName="Flip Finder" onUpgrade={goUpgrade}>
         <div className="w-full overflow-x-hidden">
           <div className="flex gap-1 mb-4 pb-1 -mx-1 px-1">
             {subTabs.map(({ id, label, icon: Icon }) => (
@@ -104,9 +104,9 @@ const FlipFinder = ({ onNavigateToAccount }) => {
   };
 
   const minPlanForTab = (id) => {
-    if (id === 'sniper') return 'hall_of_fame';
-    if (id === 'learning') return 'hall_of_fame';
-    return 'all_star';
+    if (id === 'sniper') return 'hall_of_famer';
+    if (id === 'learning') return 'hall_of_famer';
+    return 'mvp';
   };
 
   return (

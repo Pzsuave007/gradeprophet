@@ -8,8 +8,8 @@ import PricingPlans from './PricingPlans';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const PLAN_NAMES = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
-const PLAN_COLORS = { rookie: 'text-gray-400', all_star: 'text-blue-400', hall_of_fame: 'text-amber-400', legend: 'text-purple-400' };
+const PLAN_NAMES = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer', all_star: 'MVP', hall_of_fame: 'MVP', legend: 'Hall of Famer' };
+const PLAN_COLORS = { rookie: 'text-gray-400', mvp: 'text-amber-400', hall_of_famer: 'text-purple-400', all_star: 'text-amber-400', hall_of_fame: 'text-amber-400', legend: 'text-purple-400' };
 
 const AccountModule = () => {
   const [ebayStatus, setEbayStatus] = useState(null);

@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
-  Crown, Star, Trophy, Zap, Check, X, ChevronRight,
+  Crown, Zap, Trophy, Check, X, ChevronRight,
   BarChart3, Camera, Tag, Shield, Users, Monitor,
-  Crosshair, Brain, Image, FileText, Headphones, Rocket
+  Crosshair, Brain, Image, FileText, Headphones
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -21,34 +21,24 @@ const PLAN_META = {
     tagline: 'Start your journey',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/xdgv6i1p_rookie.webp',
   },
-  all_star: {
-    icon: Star,
-    color: 'from-blue-600 to-blue-700',
-    accent: 'text-blue-400',
-    border: 'border-blue-500/30',
-    bg: 'bg-blue-950/20',
-    badge: null,
-    tagline: 'For the serious seller',
-    cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/747pul21_all-start-lebron.jfif',
-  },
-  hall_of_fame: {
+  mvp: {
     icon: Trophy,
     color: 'from-amber-500 to-orange-600',
     accent: 'text-amber-400',
     border: 'border-amber-500/40',
     bg: 'bg-amber-950/20',
     badge: 'MOST POPULAR',
-    tagline: 'Everything you need',
+    tagline: 'Most Valuable Player',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/h4bz6thd_hall-of-fame-kobe.webp',
   },
-  legend: {
+  hall_of_famer: {
     icon: Crown,
     color: 'from-purple-600 to-violet-700',
     accent: 'text-purple-400',
     border: 'border-purple-500/30',
     bg: 'bg-purple-950/20',
     badge: 'UNLIMITED',
-    tagline: 'For shops & enterprises',
+    tagline: 'For shops & power sellers',
     cardImage: 'https://customer-assets.emergentagent.com/job_8941a75b-2157-4d9e-882f-a0cf919e04ed/artifacts/9dwva9ex_legend.webp',
   },
 };
@@ -138,21 +128,21 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
         <p className="text-xs sm:text-sm text-gray-500">Scale your card business with the right tools</p>
       </div>
 
-      {/* Plans Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Plans Grid — 3 columns */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {plans.map((plan, i) => {
           const meta = PLAN_META[plan.id] || PLAN_META.rookie;
           const Icon = meta.icon;
           const isCurrent = currentPlanId === plan.id;
-          const isPopular = plan.id === 'hall_of_fame';
+          const isPopular = plan.id === 'mvp';
 
           return (
             <motion.div
               key={plan.id}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.08 }}
-              className={`relative rounded-xl border ${isPopular ? 'border-amber-500/50 ring-1 ring-amber-500/20' : meta.border} ${meta.bg} overflow-hidden flex flex-col`}
+              transition={{ delay: i * 0.1 }}
+              className={`relative rounded-xl border ${isPopular ? 'border-amber-500/50 ring-1 ring-amber-500/20 scale-[1.02]' : meta.border} ${meta.bg} overflow-hidden flex flex-col`}
               data-testid={`plan-card-${plan.id}`}
             >
               {/* Badge */}
@@ -166,19 +156,17 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
 
               {/* Plan Header */}
               <div className="p-4 sm:p-5 space-y-3">
-                {/* Card Holder Image */}
-                <div className={`relative w-full h-28 sm:h-36 rounded-xl overflow-hidden mb-1 flex items-center justify-center ${
+                {/* Card Image */}
+                <div className={`relative w-full h-32 sm:h-40 rounded-xl overflow-hidden mb-1 flex items-center justify-center ${
                   plan.id === 'rookie' ? 'bg-gradient-to-b from-gray-800/30 to-transparent' :
-                  plan.id === 'all_star' ? 'bg-gradient-to-b from-blue-900/20 to-transparent' :
-                  plan.id === 'hall_of_fame' ? 'bg-gradient-to-b from-amber-900/20 to-transparent' :
+                  plan.id === 'mvp' ? 'bg-gradient-to-b from-amber-900/20 to-transparent' :
                   'bg-gradient-to-b from-purple-900/20 to-transparent'
                 }`}>
                   <img src={meta.cardImage} alt={`${plan.name} card`}
                     className="h-full object-contain rounded-lg"
                     style={{
                       filter: plan.id === 'rookie' ? 'drop-shadow(0 4px 20px rgba(156,163,175,0.3))' :
-                             plan.id === 'all_star' ? 'drop-shadow(0 4px 25px rgba(59,130,246,0.5))' :
-                             plan.id === 'hall_of_fame' ? 'drop-shadow(0 4px 30px rgba(245,158,11,0.6))' :
+                             plan.id === 'mvp' ? 'drop-shadow(0 4px 30px rgba(245,158,11,0.6))' :
                              'drop-shadow(0 4px 30px rgba(147,51,234,0.6))',
                     }}
                     loading="lazy" />
@@ -206,15 +194,11 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
                   )}
                 </div>
 
-                {/* Limits - prominent */}
+                {/* Limits */}
                 <div className="space-y-1.5">
                   {['inventory', 'scans_per_month', 'listings'].map((key) => {
                     const val = plan.limits?.[key];
-                    const labels = {
-                      inventory: 'Cards',
-                      scans_per_month: 'AI Scans/mo',
-                      listings: 'eBay Listings',
-                    };
+                    const labels = { inventory: 'Cards', scans_per_month: 'AI Scans/mo', listings: 'eBay Listings' };
                     return (
                       <div key={key} className="flex items-center justify-between">
                         <span className="text-[10px] sm:text-[11px] text-gray-500">{labels[key]}</span>
@@ -264,11 +248,9 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
                     className={`w-full py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
                       isPopular
                         ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-black hover:from-amber-400 hover:to-orange-400 shadow-lg shadow-amber-500/20'
-                        : plan.id === 'legend'
+                        : plan.id === 'hall_of_famer'
                         ? 'bg-gradient-to-r from-purple-600 to-violet-600 text-white hover:from-purple-500 hover:to-violet-500'
-                        : plan.id === 'rookie'
-                        ? 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
-                        : 'bg-[#3b82f6] text-white hover:bg-[#2563eb]'
+                        : 'bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700'
                     }`}
                     data-testid={`plan-subscribe-${plan.id}`}
                   >

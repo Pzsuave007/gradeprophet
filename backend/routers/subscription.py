@@ -43,43 +43,16 @@ PLANS = {
             "scanner_software": False,
         },
     },
-    "all_star": {
-        "id": "all_star",
-        "name": "All-Star",
+    "mvp": {
+        "id": "mvp",
+        "name": "MVP",
         "price": 9.99,
         "interval": "month",
+        "popular": True,
         "limits": {
-            "inventory": 200,
-            "scans_per_month": 200,
-            "listings": 200,
-        },
-        "features": {
-            "dashboard_full": True,
-            "flip_finder": True,
-            "flip_finder_monitor": True,
-            "flip_finder_alerts": False,
-            "flip_finder_analyze": True,
-            "flip_finder_ai": False,
-            "market_full": False,
-            "market_seasonal": False,
-            "photo_editor": False,
-            "photo_presets_premium": False,
-            "export_reports": False,
-            "priority_support": False,
-            "multi_marketplace": False,
-            "team_access": False,
-            "scanner_software": False,
-        },
-    },
-    "hall_of_fame": {
-        "id": "hall_of_fame",
-        "name": "Hall of Fame",
-        "price": 14.99,
-        "interval": "month",
-        "limits": {
-            "inventory": 500,
-            "scans_per_month": 500,
-            "listings": 500,
+            "inventory": 250,
+            "scans_per_month": 250,
+            "listings": 250,
         },
         "features": {
             "dashboard_full": True,
@@ -93,16 +66,16 @@ PLANS = {
             "photo_editor": True,
             "photo_presets_premium": True,
             "export_reports": True,
-            "priority_support": True,
+            "priority_support": False,
             "multi_marketplace": False,
             "team_access": False,
             "scanner_software": False,
         },
     },
-    "legend": {
-        "id": "legend",
-        "name": "Legend",
-        "price": 24.99,
+    "hall_of_famer": {
+        "id": "hall_of_famer",
+        "name": "Hall of Famer",
+        "price": 19.99,
         "interval": "month",
         "limits": {
             "inventory": -1,
@@ -129,8 +102,16 @@ PLANS = {
     },
 }
 
+# Backward compatibility: map old plan IDs to new ones
+PLAN_ALIASES = {
+    "all_star": "mvp",
+    "hall_of_fame": "mvp",
+    "legend": "hall_of_famer",
+}
+
 
 def get_plan(plan_id: str):
+    plan_id = PLAN_ALIASES.get(plan_id, plan_id)
     return PLANS.get(plan_id, PLANS["rookie"])
 
 
@@ -150,6 +131,7 @@ async def get_my_plan(request: Request):
         scans_used = 0
     else:
         plan_id = user_sub.get("plan_id", "rookie")
+        plan_id = PLAN_ALIASES.get(plan_id, plan_id)
         scans_used = user_sub.get("scans_used", 0)
 
     plan = get_plan(plan_id)

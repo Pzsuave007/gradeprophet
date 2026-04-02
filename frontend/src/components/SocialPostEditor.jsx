@@ -46,9 +46,11 @@ const ICON_OPTIONS = [
 
 const TIER_CONFIG = {
   rookie: { label: 'ROOKIE', Icon: Shield },
-  all_star: { label: 'ALL-STAR', Icon: Star },
-  hall_of_fame: { label: 'HALL OF FAME', Icon: Award },
-  legend: { label: 'LEGEND', Icon: Crown },
+  mvp: { label: 'MVP', Icon: Star },
+  hall_of_famer: { label: 'HALL OF FAMER', Icon: Award },
+  all_star: { label: 'MVP', Icon: Star },
+  hall_of_fame: { label: 'MVP', Icon: Star },
+  legend: { label: 'HALL OF FAMER', Icon: Crown },
 };
 
 const CANVAS_W = 1080;
@@ -178,7 +180,7 @@ const SocialPostEditor = ({ item, shopName: propShopName, shopLogo: propShopLogo
 
   const [preset, setPreset] = useState(GLOW_PRESETS[0]);
   useEffect(() => {
-    const map = { legend: 'purple', hall_of_fame: 'gold', all_star: 'blue' };
+    const map = { hall_of_famer: 'purple', mvp: 'gold', legend: 'purple', hall_of_fame: 'gold', all_star: 'gold' };
     const found = GLOW_PRESETS.find(p => p.id === (map[shopPlan] || 'purple'));
     if (found) setPreset(found);
   }, [shopPlan]);

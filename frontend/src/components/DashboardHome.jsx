@@ -259,8 +259,8 @@ const HobbyNewsFeed = () => {
   );
 };
 
-const PLAN_LABELS = { rookie: 'Rookie', all_star: 'All-Star', hall_of_fame: 'Hall of Fame', legend: 'Legend' };
-const PLAN_COLORS = { rookie: '#6b7280', all_star: '#3b82f6', hall_of_fame: '#f59e0b', legend: '#a855f7' };
+const PLAN_LABELS = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer', all_star: 'MVP', hall_of_fame: 'MVP', legend: 'Hall of Famer' };
+const PLAN_COLORS = { rookie: '#6b7280', mvp: '#f59e0b', hall_of_famer: '#a855f7', all_star: '#f59e0b', hall_of_fame: '#f59e0b', legend: '#a855f7' };
 
 const PlanUsageBanner = ({ getUsage, planId, onUpgrade }) => {
   const inv = getUsage('inventory');
@@ -440,7 +440,7 @@ const DashboardHome = ({ onNavigate }) => {
         hasDashboardFull ? (
           <SalesOverviewTab filteredStats={filteredStats} filteredCumulative={filteredCumulative} s={s} inv={inv} lst={lst} onNavigate={onNavigate} />
         ) : (
-          <UpgradeGate locked={true} planRequired="all_star" featureName="Sales Overview" onUpgrade={() => onNavigate?.('account')}>
+          <UpgradeGate locked={true} planRequired="mvp" featureName="Sales Overview" onUpgrade={() => onNavigate?.('account')}>
             <div className="h-64 bg-[#111] border border-[#1a1a1a] rounded-xl" />
           </UpgradeGate>
         )

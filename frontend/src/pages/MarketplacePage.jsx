@@ -11,7 +11,9 @@ const API = process.env.REACT_APP_BACKEND_URL;
 
 const PLAN_GLOW = {
   rookie:      { border: 'rgba(156,163,175,0.15)', shadow: '0 0 15px rgba(156,163,175,0.08)', hoverShadow: '0 0 20px rgba(156,163,175,0.15), 0 0 40px rgba(156,163,175,0.08)', hoverBorder: 'rgba(156,163,175,0.25)' },
-  all_star:    { border: 'rgba(59,130,246,0.2)', shadow: '0 0 15px rgba(59,130,246,0.1)', hoverShadow: '0 0 20px rgba(59,130,246,0.2), 0 0 40px rgba(59,130,246,0.1)', hoverBorder: 'rgba(59,130,246,0.35)' },
+  mvp:          { border: 'rgba(245,158,11,0.2)', shadow: '0 0 15px rgba(245,158,11,0.1)', hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
+  hall_of_famer:{ border: 'rgba(147,51,234,0.2)', shadow: '0 0 15px rgba(147,51,234,0.1)', hoverShadow: '0 0 20px rgba(147,51,234,0.25), 0 0 40px rgba(147,51,234,0.1)', hoverBorder: 'rgba(147,51,234,0.4)' },
+  all_star:    { border: 'rgba(245,158,11,0.2)', shadow: '0 0 15px rgba(245,158,11,0.1)', hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
   hall_of_fame:{ border: 'rgba(245,158,11,0.2)', shadow: '0 0 15px rgba(245,158,11,0.1)', hoverShadow: '0 0 20px rgba(245,158,11,0.25), 0 0 40px rgba(245,158,11,0.1)', hoverBorder: 'rgba(245,158,11,0.4)' },
   legend:      { border: 'rgba(168,85,247,0.2)', shadow: '0 0 15px rgba(168,85,247,0.12)', hoverShadow: '0 0 25px rgba(168,85,247,0.3), 0 0 50px rgba(168,85,247,0.12)', hoverBorder: 'rgba(168,85,247,0.45)' },
 };
