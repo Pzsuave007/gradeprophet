@@ -1,40 +1,60 @@
-from fastapi import APIRouter, HTTPException
-from database import db
+from fastapi import APIRouter, HTTPException, Request
 from datetime import datetime, timezone
+from database import db
 import httpx
 import logging
 
-logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/shop", tags=["shop"])
+logger = logging.getLogger(__name__)
 
-CACHE_TTL = 300  # 5 min
+CACHE_TTL = 300  # 5 min — after this, stale cache is served + background refresh
 
 
 async def _fetch_ebay_shop_data(user_id: str):
-    """Fetch ALL active eBay listings with details + sold count. Cached."""
-    from utils.ebay import get_ebay_user_token
-    import xml.etree.ElementTree as ET
-
-    # Check cache
+    """Always return cached data instantly. If stale, kick off background refresh."""
     settings = await db.user_settings.find_one(
         {"user_id": user_id},
         {"_id": 0, "shop_cache": 1}
     )
     cache = (settings or {}).get("shop_cache")
-    if cache and cache.get("updated_at"):
+    has_cache = cache and cache.get("ebay_items") is not None
+
+    if has_cache and cache.get("updated_at"):
         try:
             cached_at = datetime.fromisoformat(cache["updated_at"])
             age = (datetime.now(timezone.utc) - cached_at).total_seconds()
-            if age < CACHE_TTL and (cache.get("sales_count", 0) > 0 or cache.get("ebay_items")):
+            if age < CACHE_TTL:
+                # Fresh cache
+                return cache.get("ebay_items", []), cache.get("sales_count", 0)
+            else:
+                # Stale cache — serve it now, refresh in background
+                import asyncio
+                asyncio.create_task(_refresh_shop_cache_bg(user_id))
                 return cache.get("ebay_items", []), cache.get("sales_count", 0)
         except Exception:
             pass
 
+    # No cache — must fetch synchronously (first visit only)
+    items, sales = await _do_ebay_fetch(user_id)
+    return items, sales
+
+
+async def _refresh_shop_cache_bg(user_id: str):
+    """Background task to refresh shop cache without blocking."""
+    try:
+        await _do_ebay_fetch(user_id)
+    except Exception as e:
+        logger.warning(f"Background shop cache refresh failed: {e}")
+
+
+async def _do_ebay_fetch(user_id: str):
+    """Actually fetch from eBay API and update cache."""
+    from utils.ebay import get_ebay_user_token
+    import xml.etree.ElementTree as ET
+
     try:
         token = await get_ebay_user_token(user_id)
         if not token:
-            if cache:
-                return cache.get("ebay_items", []), cache.get("sales_count", 0)
             return [], 0
 
         ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
@@ -92,17 +112,14 @@ async def _fetch_ebay_shop_data(user_id: str):
                         continue
 
                     title = _xml_text(item_el, "e:Title", ns) or ""
-                    # Price: try BuyItNowPrice, then CurrentPrice
                     price = _xml_text(item_el, ".//e:BuyItNowPrice", ns)
                     if not price or price == "0.0":
                         price = _xml_text(item_el, ".//e:CurrentPrice", ns)
-                    # Picture - upgrade to high res
                     pic_url = _xml_text(item_el, ".//e:PictureDetails/e:GalleryURL", ns) or ""
                     if not pic_url:
                         pic_url = _xml_text(item_el, ".//e:GalleryURL", ns) or ""
                     pic_url = _to_hires_ebay_img(pic_url)
 
-                    # Start time for sorting (newest first)
                     start_time = _xml_text(item_el, ".//e:ListingDetails/e:StartTime", ns) or ""
 
                     all_ebay_items.append({
@@ -122,7 +139,6 @@ async def _fetch_ebay_shop_data(user_id: str):
 
         logger.info(f"Shop data for {user_id}: {len(all_ebay_items)} active listings, {sales_count} sales")
 
-        # Sort by newest first
         all_ebay_items.sort(key=lambda x: x.get("listed_at", ""), reverse=True)
 
         # Update cache
@@ -138,6 +154,9 @@ async def _fetch_ebay_shop_data(user_id: str):
 
     except Exception as e:
         logger.warning(f"Failed to fetch eBay shop data: {e}")
+        # Try to return stale cache
+        settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "shop_cache": 1})
+        cache = (settings or {}).get("shop_cache")
         if cache:
             return cache.get("ebay_items", []), cache.get("sales_count", 0)
         return [], 0
@@ -154,7 +173,6 @@ def _to_hires_ebay_img(url: str) -> str:
     if not url:
         return ""
     import re
-    # Replace thumbnail path with full image path and upgrade resolution
     url = url.replace("/thumbs/images/", "/images/")
     url = re.sub(r's-l\d+', 's-l1600', url)
     return url
@@ -231,17 +249,17 @@ async def get_public_shop(slug: str):
     )
     plan = (sub.get("plan_id") if sub else None) or "rookie"
 
-    # Fetch ALL active eBay listings + sales count
+    # Fetch eBay listings (instant from cache, refreshes in background if stale)
     ebay_items, sales_count = await _fetch_ebay_shop_data(user_id)
 
-    # Get FlipSlab inventory items that have eBay IDs (for richer data: images, sport, condition)
+    # Get inventory items — only fields needed for display (exclude heavy base64 images)
     inventory_items = await db.inventory.find(
         {"user_id": user_id, "ebay_item_id": {"$exists": True, "$ne": None}},
-        {"_id": 0, "user_id": 0}
+        {"_id": 0, "user_id": 0, "image": 0, "back_image": 0}
     ).to_list(500)
     inv_by_ebay_id = {i["ebay_item_id"]: i for i in inventory_items}
 
-    # Merge: eBay title + price ALWAYS take priority, inventory fills images/sport/condition
+    # Merge: eBay title + price ALWAYS take priority, inventory fills sport/condition
     items = []
     for eb in ebay_items:
         ebay_id = eb["ebay_item_id"]
