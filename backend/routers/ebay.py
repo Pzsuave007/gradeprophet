@@ -545,6 +545,17 @@ async def get_my_listings_trading(
             if confirmed_sold.modified_count > 0:
                 logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold (confirmed in SoldList) for user {user['user_id']}")
 
+        # Sync eBay listing photos to inventory items so the Inventory "Listed" tab
+        # shows the worked/edited eBay photos instead of raw scan thumbnails
+        for listing in all_active:
+            ebay_id = listing.get("itemid")
+            img_url = listing.get("image_url")
+            if ebay_id and img_url:
+                await db.inventory.update_one(
+                    {"user_id": user["user_id"], "ebay_item_id": ebay_id, "ebay_picture": {"$ne": img_url}},
+                    {"$set": {"ebay_picture": img_url}}
+                )
+
         return {
             "active": all_active,
             "sold": sold,

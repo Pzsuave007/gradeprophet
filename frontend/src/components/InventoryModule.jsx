@@ -1648,8 +1648,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 >
                   {/* FRONT */}
                   <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
-                    {(item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
-                      : item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                    {item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                      : (item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                   </div>
                   {/* BACK */}
@@ -1750,8 +1750,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 </div>
               )}
               <div className="w-12 h-16 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
-                {(item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
-                  : item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
+                {item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
+                  : (item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
                   : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
               </div>
               <div className="flex-1 min-w-0">
