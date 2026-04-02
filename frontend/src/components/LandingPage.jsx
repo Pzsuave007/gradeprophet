@@ -247,7 +247,7 @@ const LandingPage = ({ onGetStarted }) => {
             <h2 className="text-3xl sm:text-4xl font-black tracking-tight">Everything You Need to Flip</h2>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-12">
             {FEATURES.map((f, i) => (
               <motion.div key={i}
                 initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -280,7 +280,7 @@ const LandingPage = ({ onGetStarted }) => {
             <p className="text-sm text-gray-500 mt-3">Start free. Upgrade when you're ready to dominate.</p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
             {PLANS.map((plan, i) => {
               const Icon = plan.icon;
               return (

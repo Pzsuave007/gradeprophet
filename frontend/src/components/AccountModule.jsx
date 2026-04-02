@@ -293,23 +293,30 @@ const AccountModule = () => {
                   <p className="text-xs font-bold text-white">Store QR Code</p>
                   <span className="text-[10px] text-gray-600">For labels & packaging</span>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="bg-white p-2 rounded-lg" data-testid="shop-qr-code">
-                    <QRCodeCanvas value={shopUrl} size={120} level="H" includeMargin={false} />
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <div className="bg-white p-3 rounded-lg" data-testid="shop-qr-code">
+                    <QRCodeCanvas value={shopUrl} size={200} level="H" includeMargin={false} />
                   </div>
                   <div className="flex flex-col gap-2">
                     <p className="text-[10px] text-gray-500 max-w-[180px]">Scan to visit your store. Download and add to your labels.</p>
                     <button onClick={() => {
                       const canvas = document.querySelector('[data-testid="shop-qr-code"] canvas');
                       if (!canvas) return;
+                      // Create high-res QR for download (600px)
+                      const hiRes = document.createElement('canvas');
+                      hiRes.width = 600;
+                      hiRes.height = 600;
+                      const ctx = hiRes.getContext('2d');
+                      ctx.imageSmoothingEnabled = false;
+                      ctx.drawImage(canvas, 0, 0, 600, 600);
                       const link = document.createElement('a');
                       link.download = `flipslab-store-${shopSlug}-qr.png`;
-                      link.href = canvas.toDataURL('image/png');
+                      link.href = hiRes.toDataURL('image/png');
                       link.click();
                       toast.success('QR Code downloaded!');
                     }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#3b82f6] text-xs font-bold hover:bg-[#3b82f6]/20 transition-colors"
                       data-testid="download-qr-btn">
-                      <Download className="w-3.5 h-3.5" /> Download PNG
+                      <Download className="w-3.5 h-3.5" /> Download PNG (High Res)
                     </button>
                   </div>
                 </div>
