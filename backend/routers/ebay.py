@@ -5,6 +5,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from io import BytesIO
 from PIL import Image
+import asyncio
 import base64
 import uuid
 import json
@@ -545,16 +546,22 @@ async def get_my_listings_trading(
             if confirmed_sold.modified_count > 0:
                 logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold (confirmed in SoldList) for user {user['user_id']}")
 
-        # Sync eBay listing photos to inventory items so the Inventory "Listed" tab
-        # shows the worked/edited eBay photos instead of raw scan thumbnails
-        for listing in all_active:
-            ebay_id = listing.get("itemid")
-            img_url = listing.get("image_url")
-            if ebay_id and img_url:
-                await db.inventory.update_one(
-                    {"user_id": user["user_id"], "ebay_item_id": ebay_id, "ebay_picture": {"$ne": img_url}},
-                    {"$set": {"ebay_picture": img_url}}
-                )
+        # Sync eBay listing photos to inventory items in background
+        # (non-blocking so it can't break the response)
+        async def _sync_ebay_photos(uid, listings):
+            try:
+                for listing in listings:
+                    ebay_id = listing.get("itemid")
+                    img_url = listing.get("image_url")
+                    if ebay_id and img_url:
+                        await db.inventory.update_one(
+                            {"user_id": uid, "ebay_item_id": ebay_id, "ebay_picture": {"$ne": img_url}},
+                            {"$set": {"ebay_picture": img_url}}
+                        )
+            except Exception as ex:
+                logger.warning(f"Background eBay photo sync error: {ex}")
+
+        asyncio.create_task(_sync_ebay_photos(user["user_id"], all_active))
 
         return {
             "active": all_active,
