@@ -258,9 +258,9 @@ async def get_seller_listings(request: Request, limit: int = 10, offset: int = 0
                 elif pic_el is not None and pic_el.text:
                     pic_url = pic_el.text
                 if pic_url and "s-l140" in pic_url:
-                    pic_url = pic_url.replace("s-l140", "s-l800")
+                    pic_url = pic_url.replace("s-l140", "s-l400")
                 elif pic_url and "s-l225" in pic_url:
-                    pic_url = pic_url.replace("s-l225", "s-l800")
+                    pic_url = pic_url.replace("s-l225", "s-l400")
 
                 listings.append({
                     "item_id": item_id_el.text if item_id_el is not None else "",
@@ -350,9 +350,13 @@ async def get_my_listings_trading(
                 gallery = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
                 url = gallery.text if gallery is not None else ""
             if url and "s-l140" in url:
-                url = url.replace("s-l140", "s-l800")
+                url = url.replace("s-l140", "s-l400")
             elif url and "s-l225" in url:
-                url = url.replace("s-l225", "s-l800")
+                url = url.replace("s-l225", "s-l400")
+            elif url and "s-l1600" in url:
+                url = url.replace("s-l1600", "s-l400")
+            elif url and "s-l800" in url:
+                url = url.replace("s-l800", "s-l400")
             return url
 
         def parse_active_item(item_el):
@@ -540,11 +544,15 @@ async def get_my_listings_trading(
                                         img = browse_data.get("image", {}).get("imageUrl", "")
                                         if img:
                                             if "s-l140" in img:
-                                                img = img.replace("s-l140", "s-l800")
+                                                img = img.replace("s-l140", "s-l400")
                                             elif "s-l225" in img:
-                                                img = img.replace("s-l225", "s-l800")
+                                                img = img.replace("s-l225", "s-l400")
                                             elif "s-l500" in img:
-                                                img = img.replace("s-l500", "s-l800")
+                                                img = img.replace("s-l500", "s-l400")
+                                            elif "s-l800" in img:
+                                                img = img.replace("s-l800", "s-l400")
+                                            elif "s-l1600" in img:
+                                                img = img.replace("s-l1600", "s-l400")
                                             s_item["image_url"] = img
                                 except Exception:
                                     pass
