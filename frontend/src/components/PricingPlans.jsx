@@ -128,8 +128,8 @@ const PricingPlans = ({ currentPlanId, onPlanChange }) => {
         <p className="text-xs sm:text-sm text-gray-500">Scale your card business with the right tools</p>
       </div>
 
-      {/* Plans Grid — 3 columns */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Plans Grid — 3 columns, centered */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
         {plans.map((plan, i) => {
           const meta = PLAN_META[plan.id] || PLAN_META.rookie;
           const Icon = meta.icon;
