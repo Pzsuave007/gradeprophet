@@ -875,10 +875,11 @@ const ListingsModule = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceRefresh = false) => {
     try {
+      const refreshParam = forceRefresh ? '&force_refresh=true' : '';
       const [ebayRes, invRes] = await Promise.allSettled([
-        axios.get(`${API}/api/ebay/seller/my-listings?sold_days=${soldDays}`),
+        axios.get(`${API}/api/ebay/seller/my-listings?sold_days=${soldDays}${refreshParam}`),
         axios.get(`${API}/api/inventory?limit=500`),
       ]);
       if (ebayRes.status === 'fulfilled') {
@@ -912,11 +913,20 @@ const ListingsModule = () => {
           active_total: raw.active_total ?? activeItems.length,
           sold_total: raw.sold_total ?? soldItems.length,
         });
+        if (raw.cached && forceRefresh) {
+          toast.info('Refreshing from eBay...');
+        }
       }
       if (invRes.status === 'fulfilled') setInventoryItems(invRes.value.data.items || []);
     } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    finally { setLoading(false); setRefreshing(false); }
   }, [soldDays]);
+
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData(true);
+  };
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
@@ -1105,7 +1115,14 @@ const ListingsModule = () => {
               </button>
             ))}
           </div>
-          <ViewToggle view={viewMode} onChange={setViewMode} />
+          <div className="flex items-center gap-2">
+            <button onClick={handleRefresh} disabled={refreshing}
+              className="p-2 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-500 hover:text-white hover:border-[#3b82f6]/50 transition-colors disabled:opacity-50"
+              title="Sync from eBay" data-testid="refresh-listings-btn">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
+            <ViewToggle view={viewMode} onChange={setViewMode} />
+          </div>
         </div>
 
         {/* Search Bar + Sport Filter */}

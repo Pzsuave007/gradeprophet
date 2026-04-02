@@ -329,277 +329,331 @@ async def get_seller_orders(request: Request, limit: int = 20):
 async def get_my_listings_trading(
     request: Request,
     sold_days: int = 60,
+    force_refresh: bool = False,
 ):
-    """Get ALL seller's active and sold listings via Trading API (paginated internally)"""
+    """Get seller's active and sold listings. Uses stale-while-revalidate cache for instant loads."""
     user = await get_current_user(request)
-    token = await get_ebay_user_token(user["user_id"])
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
     sold_days = min(max(sold_days, 1), 60)
 
+    def _cache_age_seconds(cached_at):
+        if cached_at.tzinfo is None:
+            cached_at = cached_at.replace(tzinfo=timezone.utc)
+        return (datetime.now(timezone.utc) - cached_at).total_seconds()
+
+    # Check cache first
+    if not force_refresh:
+        cache = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0})
+        if cache and cache.get("active") is not None:
+            cache_age = _cache_age_seconds(cache["cached_at"])
+            # Stale after 5 minutes → return cache + refresh in background
+            if cache_age > 300:
+                asyncio.create_task(_refresh_listings_cache(user_id, token, sold_days))
+            return {
+                "active": cache["active"],
+                "sold": cache["sold"],
+                "active_total": cache.get("active_total", len(cache["active"])),
+                "sold_total": cache.get("sold_total", len(cache["sold"])),
+                "cached": True,
+                "cache_age": int(cache_age),
+            }
+
+    # No cache or force refresh — fetch from eBay (slow first load)
     try:
-        import xml.etree.ElementTree as ET
-        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        result = await _fetch_listings_from_ebay(user_id, token, sold_days)
+        # Cache in background
+        asyncio.create_task(_save_listings_cache(user_id, result))
+        return result
+    except Exception as e:
+        # If eBay fails but we have stale cache, return it
+        cache = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0})
+        if cache and cache.get("active") is not None:
+            cache_age = _cache_age_seconds(cache["cached_at"])
+            return {
+                "active": cache["active"],
+                "sold": cache["sold"],
+                "active_total": cache.get("active_total", len(cache["active"])),
+                "sold_total": cache.get("sold_total", len(cache["sold"])),
+                "cached": True,
+                "cache_age": int(cache_age),
+            }
+        logger.error(f"My listings failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
-        def get_hires_image(item_el):
-            full_pic = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
-            if full_pic is not None and full_pic.text:
-                url = full_pic.text
-            else:
-                gallery = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
-                url = gallery.text if gallery is not None else ""
-            if url and "s-l140" in url:
-                url = url.replace("s-l140", "s-l400")
-            elif url and "s-l225" in url:
-                url = url.replace("s-l225", "s-l400")
-            elif url and "s-l1600" in url:
-                url = url.replace("s-l1600", "s-l400")
-            elif url and "s-l800" in url:
-                url = url.replace("s-l800", "s-l400")
-            return url
 
-        def parse_active_item(item_el):
-            item_data = {}
-            for field in ["ItemID", "Title"]:
-                el = item_el.find(f"e:{field}", ns)
-                item_data[field.lower()] = el.text if el is not None else ""
-            price_el = item_el.find(".//e:CurrentPrice", ns)
-            item_data["price"] = float(price_el.text) if price_el is not None else 0
-            item_data["image_url"] = get_hires_image(item_el)
-            tl_el = item_el.find("e:TimeLeft", ns)
-            item_data["time_left"] = tl_el.text if tl_el is not None else ""
-            qty_el = item_el.find("e:QuantityAvailable", ns)
-            item_data["quantity"] = int(qty_el.text) if qty_el is not None else 1
-            wc_el = item_el.find("e:WatchCount", ns)
-            item_data["watchers"] = int(wc_el.text) if wc_el is not None else 0
-            bid_el = item_el.find(".//e:BidCount", ns)
-            item_data["bids"] = int(bid_el.text) if bid_el is not None else 0
-            list_type_el = item_el.find("e:ListingType", ns)
-            item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
-            start_el = item_el.find(".//e:ListingDetails/e:StartTime", ns)
-            item_data["start_time"] = start_el.text if start_el is not None else ""
-            item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
-            return item_data
+async def _save_listings_cache(user_id: str, result: dict):
+    """Save listings result to cache."""
+    try:
+        await db.listings_cache.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "user_id": user_id,
+                "active": result["active"],
+                "sold": result["sold"],
+                "active_total": result.get("active_total", 0),
+                "sold_total": result.get("sold_total", 0),
+                "cached_at": datetime.now(timezone.utc),
+            }},
+            upsert=True
+        )
+    except Exception as e:
+        logger.warning(f"Failed to save listings cache: {e}")
 
-        def parse_sold_item(item_el):
-            trans_el = item_el.find("e:Transaction", ns)
-            actual_item = item_el.find(".//e:Item", ns)
-            if actual_item is None:
-                return None
-            item_data = {}
-            item_id_el = actual_item.find("e:ItemID", ns)
-            item_data["itemid"] = item_id_el.text if item_id_el is not None else ""
-            title_el = actual_item.find("e:Title", ns)
-            item_data["title"] = title_el.text if title_el is not None else ""
-            sold_price = 0
-            if trans_el is not None:
-                tp_el = trans_el.find("e:TotalPrice", ns)
-                if tp_el is None:
-                    tp_el = trans_el.find("e:TransactionPrice", ns)
-                if tp_el is not None:
-                    sold_price = float(tp_el.text)
-            if sold_price == 0:
-                price_el = actual_item.find(".//e:CurrentPrice", ns)
-                if price_el is not None:
-                    sold_price = float(price_el.text)
-            item_data["price"] = sold_price
-            item_data["image_url"] = get_hires_image(actual_item)
-            buyer = ""
-            if trans_el is not None:
-                buyer_el = trans_el.find("e:Buyer/e:UserID", ns)
-                if buyer_el is not None:
-                    buyer = buyer_el.text
-            item_data["buyer"] = buyer
-            if trans_el is not None:
-                date_el = trans_el.find("e:CreatedDate", ns)
-                if date_el is not None:
-                    item_data["sold_date"] = date_el.text
-            qty_el = None
-            if trans_el is not None:
-                qty_el = trans_el.find("e:QuantityPurchased", ns)
-            item_data["quantity_sold"] = int(qty_el.text) if qty_el is not None else 1
-            item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
-            return item_data
 
-        # Fetch ALL active listings (paginate through all eBay pages)
-        all_active = []
-        active_total = 0
-        active_page = 1
-        async with httpx.AsyncClient(timeout=25.0) as http_client:
-            while True:
-                xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+async def _refresh_listings_cache(user_id: str, token: str, sold_days: int):
+    """Background task: refresh listings cache from eBay."""
+    try:
+        result = await _fetch_listings_from_ebay(user_id, token, sold_days)
+        await _save_listings_cache(user_id, result)
+        logger.info(f"Listings cache refreshed for user {user_id}: {result['active_total']} active, {result['sold_total']} sold")
+    except Exception as e:
+        logger.warning(f"Background listings refresh failed for {user_id}: {e}")
+
+
+async def _fetch_listings_from_ebay(user_id: str, token: str, sold_days: int) -> dict:
+    """Heavy fetch from eBay Trading API — all active + sold listings."""
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    def get_listing_image(item_el):
+        full_pic = item_el.find(".//e:PictureDetails/e:PictureURL", ns)
+        if full_pic is not None and full_pic.text:
+            url = full_pic.text
+        else:
+            gallery = item_el.find(".//e:PictureDetails/e:GalleryURL", ns)
+            url = gallery.text if gallery is not None else ""
+        if url and "s-l140" in url:
+            url = url.replace("s-l140", "s-l400")
+        elif url and "s-l225" in url:
+            url = url.replace("s-l225", "s-l400")
+        elif url and "s-l1600" in url:
+            url = url.replace("s-l1600", "s-l400")
+        elif url and "s-l800" in url:
+            url = url.replace("s-l800", "s-l400")
+        return url
+
+    def parse_active_item(item_el):
+        item_data = {}
+        for field in ["ItemID", "Title"]:
+            el = item_el.find(f"e:{field}", ns)
+            item_data[field.lower()] = el.text if el is not None else ""
+        price_el = item_el.find(".//e:CurrentPrice", ns)
+        item_data["price"] = float(price_el.text) if price_el is not None else 0
+        item_data["image_url"] = get_listing_image(item_el)
+        tl_el = item_el.find("e:TimeLeft", ns)
+        item_data["time_left"] = tl_el.text if tl_el is not None else ""
+        qty_el = item_el.find("e:QuantityAvailable", ns)
+        item_data["quantity"] = int(qty_el.text) if qty_el is not None else 1
+        wc_el = item_el.find("e:WatchCount", ns)
+        item_data["watchers"] = int(wc_el.text) if wc_el is not None else 0
+        bid_el = item_el.find(".//e:BidCount", ns)
+        item_data["bids"] = int(bid_el.text) if bid_el is not None else 0
+        list_type_el = item_el.find("e:ListingType", ns)
+        item_data["listing_type"] = list_type_el.text if list_type_el is not None else "FixedPriceItem"
+        start_el = item_el.find(".//e:ListingDetails/e:StartTime", ns)
+        item_data["start_time"] = start_el.text if start_el is not None else ""
+        item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
+        return item_data
+
+    def parse_sold_item(item_el):
+        trans_el = item_el.find("e:Transaction", ns)
+        actual_item = item_el.find(".//e:Item", ns)
+        if actual_item is None:
+            return None
+        item_data = {}
+        item_id_el = actual_item.find("e:ItemID", ns)
+        item_data["itemid"] = item_id_el.text if item_id_el is not None else ""
+        title_el = actual_item.find("e:Title", ns)
+        item_data["title"] = title_el.text if title_el is not None else ""
+        sold_price = 0
+        if trans_el is not None:
+            tp_el = trans_el.find("e:TotalPrice", ns)
+            if tp_el is None:
+                tp_el = trans_el.find("e:TransactionPrice", ns)
+            if tp_el is not None:
+                sold_price = float(tp_el.text)
+        if sold_price == 0:
+            price_el = actual_item.find(".//e:CurrentPrice", ns)
+            if price_el is not None:
+                sold_price = float(price_el.text)
+        item_data["price"] = sold_price
+        item_data["image_url"] = get_listing_image(actual_item)
+        buyer = ""
+        if trans_el is not None:
+            buyer_el = trans_el.find("e:Buyer/e:UserID", ns)
+            if buyer_el is not None:
+                buyer = buyer_el.text
+        item_data["buyer"] = buyer
+        if trans_el is not None:
+            date_el = trans_el.find("e:CreatedDate", ns)
+            if date_el is not None:
+                item_data["sold_date"] = date_el.text
+        qty_el = None
+        if trans_el is not None:
+            qty_el = trans_el.find("e:QuantityPurchased", ns)
+        item_data["quantity_sold"] = int(qty_el.text) if qty_el is not None else 1
+        item_data["url"] = f"https://www.ebay.com/itm/{item_data['itemid']}"
+        return item_data
+
+    # Fetch ALL active listings (paginate through all eBay pages)
+    all_active = []
+    active_total = 0
+    active_page = 1
+    async with httpx.AsyncClient(timeout=25.0) as http_client:
+        while True:
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <DetailLevel>ReturnAll</DetailLevel>
-  <ActiveList>
-    <Sort>TimeLeft</Sort>
-    <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{active_page}</PageNumber></Pagination>
-  </ActiveList>
-  {f'<SoldList><DurationInDays>{sold_days}</DurationInDays><Sort>EndTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination></SoldList>' if active_page == 1 else ''}
+<RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+<DetailLevel>ReturnAll</DetailLevel>
+<ActiveList>
+<Sort>TimeLeft</Sort>
+<Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>{active_page}</PageNumber></Pagination>
+</ActiveList>
+{f'<SoldList><DurationInDays>{sold_days}</DurationInDays><Sort>EndTime</Sort><Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination></SoldList>' if active_page == 1 else ''}
 </GetMyeBaySellingRequest>'''
-                resp = await http_client.post(
-                    "https://api.ebay.com/ws/api.dll",
-                    headers={
-                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                        "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
-                        "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
-                    },
-                    content=xml_body
-                )
-                root = ET.fromstring(resp.text)
-                active_node = root.find(".//e:ActiveList", ns)
-                if active_node:
-                    if active_page == 1:
-                        count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
-                        active_total = int(count_el.text) if count_el is not None else 0
-                    for item_el in active_node.findall(".//e:Item", ns):
-                        all_active.append(parse_active_item(item_el))
-                    total_pages_el = active_node.find("e:PaginationResult/e:TotalNumberOfPages", ns)
-                    total_pages = int(total_pages_el.text) if total_pages_el is not None else 1
-                    if active_page >= total_pages:
-                        break
-                    active_page += 1
-                else:
-                    break
-
-                # Parse sold only from first page request
-                if active_page == 2:
-                    pass  # sold already parsed below
-
-        # Fetch sold listings separately
-        sold = []
-        sold_total = 0
-        async with httpx.AsyncClient(timeout=25.0) as http_client:
-            sold_xml = f'''<?xml version="1.0" encoding="utf-8"?>
-<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <DetailLevel>ReturnAll</DetailLevel>
-  <SoldList>
-    <DurationInDays>{sold_days}</DurationInDays>
-    <Sort>EndTime</Sort>
-    <Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination>
-  </SoldList>
-</GetMyeBaySellingRequest>'''
-            sold_resp = await http_client.post(
+            resp = await http_client.post(
                 "https://api.ebay.com/ws/api.dll",
                 headers={
                     "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
                     "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
                     "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
                 },
-                content=sold_xml
+                content=xml_body
             )
-        sold_root = ET.fromstring(sold_resp.text)
-        sold_node = sold_root.find(".//e:SoldList", ns)
-        if sold_node:
-            count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
-            sold_total = int(count_el.text) if count_el is not None else 0
-            for item_el in sold_node.findall(".//e:OrderTransaction", ns):
-                item_data = parse_sold_item(item_el)
-                if item_data:
-                    sold.append(item_data)
-
-        # Fetch images for sold items that are missing them
-        sold_without_images = [s for s in sold if not s.get("image_url")]
-        if sold_without_images:
-            # First: try to get images from our inventory (ebay_picture saved during listing sync)
-            sold_ids_missing = [s.get("itemid") for s in sold_without_images if s.get("itemid")]
-            if sold_ids_missing:
-                inv_items = await db.inventory.find(
-                    {"user_id": user["user_id"], "ebay_item_id": {"$in": sold_ids_missing}, "ebay_picture": {"$exists": True, "$ne": ""}},
-                    {"_id": 0, "ebay_item_id": 1, "ebay_picture": 1}
-                ).to_list(500)
-                inv_pic_map = {it["ebay_item_id"]: it["ebay_picture"] for it in inv_items}
-                still_missing = []
-                for s_item in sold_without_images:
-                    pic = inv_pic_map.get(s_item.get("itemid"))
-                    if pic:
-                        s_item["image_url"] = pic
-                    else:
-                        still_missing.append(s_item)
+            root = ET.fromstring(resp.text)
+            active_node = root.find(".//e:ActiveList", ns)
+            if active_node:
+                if active_page == 1:
+                    count_el = active_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+                    active_total = int(count_el.text) if count_el is not None else 0
+                for item_el in active_node.findall(".//e:Item", ns):
+                    all_active.append(parse_active_item(item_el))
+                total_pages_el = active_node.find("e:PaginationResult/e:TotalNumberOfPages", ns)
+                total_pages = int(total_pages_el.text) if total_pages_el is not None else 1
+                if active_page >= total_pages:
+                    break
+                active_page += 1
             else:
-                still_missing = sold_without_images
+                break
 
-            # Second: fallback to Browse API for any remaining items without images
-            if still_missing:
-                try:
-                    app_token = await get_ebay_app_token()
-                    if app_token:
-                        async with httpx.AsyncClient(timeout=15.0) as http_client:
-                            for s_item in still_missing:
-                                item_id = s_item.get("itemid", "")
-                                if not item_id:
-                                    continue
-                                try:
-                                    browse_resp = await http_client.get(
-                                        f"https://api.ebay.com/buy/browse/v1/item/v1|{item_id}|0",
-                                        headers={
-                                            "Authorization": f"Bearer {app_token}",
-                                            "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
-                                        }
-                                    )
-                                    if browse_resp.status_code == 200:
-                                        browse_data = browse_resp.json()
-                                        img = browse_data.get("image", {}).get("imageUrl", "")
-                                        if img:
-                                            if "s-l140" in img:
-                                                img = img.replace("s-l140", "s-l400")
-                                            elif "s-l225" in img:
-                                                img = img.replace("s-l225", "s-l400")
-                                            elif "s-l500" in img:
-                                                img = img.replace("s-l500", "s-l400")
-                                            elif "s-l800" in img:
-                                                img = img.replace("s-l800", "s-l400")
-                                            elif "s-l1600" in img:
-                                                img = img.replace("s-l1600", "s-l400")
-                                            s_item["image_url"] = img
-                                except Exception:
-                                    pass
-                except Exception as e:
-                    logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
+    # Fetch sold listings separately
+    sold = []
+    sold_total = 0
+    async with httpx.AsyncClient(timeout=25.0) as http_client:
+        sold_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+<RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+<DetailLevel>ReturnAll</DetailLevel>
+<SoldList>
+<DurationInDays>{sold_days}</DurationInDays>
+<Sort>EndTime</Sort>
+<Pagination><EntriesPerPage>200</EntriesPerPage><PageNumber>1</PageNumber></Pagination>
+</SoldList>
+</GetMyeBaySellingRequest>'''
+        sold_resp = await http_client.post(
+            "https://api.ebay.com/ws/api.dll",
+            headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml"
+            },
+            content=sold_xml
+        )
+    sold_root = ET.fromstring(sold_resp.text)
+    sold_node = sold_root.find(".//e:SoldList", ns)
+    if sold_node:
+        count_el = sold_node.find("e:PaginationResult/e:TotalNumberOfEntries", ns)
+        sold_total = int(count_el.text) if count_el is not None else 0
+        for item_el in sold_node.findall(".//e:OrderTransaction", ns):
+            item_data = parse_sold_item(item_el)
+            if item_data:
+                sold.append(item_data)
 
-        # Auto-mark inventory items as sold ONLY if confirmed in eBay SoldList
-        # Never mark as sold based solely on absence from ActiveList (pagination limits cause false positives)
+    # Enrich images: use local inventory ebay_picture for items missing eBay images
+    all_ebay_ids = [a.get("itemid") for a in all_active + sold if a.get("itemid")]
+    if all_ebay_ids:
+        inv_pics = await db.inventory.find(
+            {"user_id": user_id, "ebay_item_id": {"$in": all_ebay_ids}, "ebay_picture": {"$exists": True, "$ne": ""}},
+            {"_id": 0, "ebay_item_id": 1, "ebay_picture": 1}
+        ).to_list(1000)
+        pic_map = {it["ebay_item_id"]: it["ebay_picture"] for it in inv_pics}
 
-        # Cross-reference: ONLY mark items as sold if confirmed in eBay's SoldList
-        # Do NOT mark items as sold just because they're missing from ActiveList
-        # (pagination limits, API delays, or ended listings can cause false positives)
-        sold_ebay_id_set = set(s.get("itemid") for s in sold if s.get("itemid"))
-        if sold_ebay_id_set:
-            confirmed_sold = await db.inventory.update_many(
-                {"user_id": user["user_id"], "ebay_item_id": {"$in": list(sold_ebay_id_set)}, "category": {"$ne": "sold"}},
-                {"$set": {"category": "sold", "listed": False}}
-            )
-            if confirmed_sold.modified_count > 0:
-                logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold (confirmed in SoldList) for user {user['user_id']}")
+        # Fill missing images from inventory
+        for item in all_active + sold:
+            if not item.get("image_url"):
+                pic = pic_map.get(item.get("itemid"))
+                if pic:
+                    item["image_url"] = pic
 
-        # Sync eBay listing photos to inventory items in background
-        # (non-blocking so it can't break the response)
-        async def _sync_ebay_photos(uid, listings):
-            try:
-                for listing in listings:
-                    ebay_id = listing.get("itemid")
-                    img_url = listing.get("image_url")
-                    if ebay_id and img_url:
-                        await db.inventory.update_one(
-                            {"user_id": uid, "ebay_item_id": ebay_id, "ebay_picture": {"$ne": img_url}},
-                            {"$set": {"ebay_picture": img_url}}
-                        )
-            except Exception as ex:
-                logger.warning(f"Background eBay photo sync error: {ex}")
+    # Browse API fallback for sold items still missing images
+    still_missing = [s for s in sold if not s.get("image_url")]
+    if still_missing:
+        try:
+            app_token = await get_ebay_app_token()
+            if app_token:
+                async with httpx.AsyncClient(timeout=15.0) as http_client:
+                    for s_item in still_missing:
+                        item_id = s_item.get("itemid", "")
+                        if not item_id:
+                            continue
+                        try:
+                            browse_resp = await http_client.get(
+                                f"https://api.ebay.com/buy/browse/v1/item/v1|{item_id}|0",
+                                headers={
+                                    "Authorization": f"Bearer {app_token}",
+                                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"
+                                }
+                            )
+                            if browse_resp.status_code == 200:
+                                browse_data = browse_resp.json()
+                                img = browse_data.get("image", {}).get("imageUrl", "")
+                                if img:
+                                    for old, new in [("s-l140", "s-l400"), ("s-l225", "s-l400"), ("s-l500", "s-l400"), ("s-l800", "s-l400"), ("s-l1600", "s-l400")]:
+                                        if old in img:
+                                            img = img.replace(old, new)
+                                            break
+                                    s_item["image_url"] = img
+                        except Exception:
+                            pass
+        except Exception as e:
+            logger.warning(f"Failed to fetch sold item images via Browse API: {e}")
 
-        asyncio.create_task(_sync_ebay_photos(user["user_id"], all_active))
+    # Auto-mark sold items and sync photos in background
+    sold_ebay_id_set = set(s.get("itemid") for s in sold if s.get("itemid"))
+    if sold_ebay_id_set:
+        confirmed_sold = await db.inventory.update_many(
+            {"user_id": user_id, "ebay_item_id": {"$in": list(sold_ebay_id_set)}, "category": {"$ne": "sold"}},
+            {"$set": {"category": "sold", "listed": False}}
+        )
+        if confirmed_sold.modified_count > 0:
+            logger.info(f"Auto-marked {confirmed_sold.modified_count} items as sold for user {user_id}")
 
-        return {
-            "active": all_active,
-            "sold": sold,
-            "active_total": active_total,
-            "sold_total": sold_total,
-        }
-    except Exception as e:
-        logger.error(f"My listings failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+    # Sync eBay photos to inventory in background
+    async def _sync_photos():
+        try:
+            for listing in all_active:
+                ebay_id = listing.get("itemid")
+                img_url = listing.get("image_url")
+                if ebay_id and img_url:
+                    await db.inventory.update_one(
+                        {"user_id": user_id, "ebay_item_id": ebay_id, "ebay_picture": {"$ne": img_url}},
+                        {"$set": {"ebay_picture": img_url}}
+                    )
+        except Exception as ex:
+            logger.warning(f"Background eBay photo sync error: {ex}")
+
+    asyncio.create_task(_sync_photos())
+
+    return {
+        "active": all_active,
+        "sold": sold,
+        "active_total": active_total,
+        "sold_total": sold_total,
+    }
 
 
 

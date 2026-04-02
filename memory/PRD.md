@@ -77,6 +77,8 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 
 ## Recent Changes (Feb 2026 - Payload Optimization)
 - **Inventory Lazy Image Loading (DONE)** — Backend `GET /api/inventory` now excludes heavy `image` and `back_image` base64 fields (100KB+ each) via MongoDB projection. Returns only lightweight `thumbnail` (~20KB) and `store_thumbnail` (~47KB WebP). Full images are lazy-loaded from `GET /api/inventory/{item_id}` when CardDetailModal opens.
+- **Listings Cache (DONE)** — Stale-while-revalidate cache for eBay listings. First load fetches from eBay (~15s), subsequent loads serve cached data instantly (~0.5s). Background refresh after 5 min. Fallback to stale cache if eBay API fails.
+- **Listings Image Optimization (DONE)** — eBay images reduced from s-l800 to s-l400 (~4x smaller). Sold item images cross-referenced with local inventory `ebay_picture` before calling Browse API. Manual refresh button added.
 - **Auto-Backfill Thumbnails (DONE)** — When GET /api/inventory detects items missing thumbnails, automatically triggers a background task to generate them. First load may show placeholders, subsequent loads show thumbnails. Prevents the "no images" issue on existing production data.
 - **Thumbnail Backfill Endpoint Enhanced (DONE)** — `POST /api/inventory/generate-store-thumbnails` now backfills all missing thumbnail types (thumbnail, store_thumbnail, back_thumbnail) for existing items.
 - **ListingsModule & InventoryModule Updated (DONE)** — All frontend references to `item.image`/`item.back_image` in list/grid views updated to use `item.thumbnail`/`item.store_thumbnail`. CardDetailModal lazy-loads full images. Edit form shows thumbnail preview.
