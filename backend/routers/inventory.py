@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import uuid
 import re
 import logging
+import asyncio
 from database import db
 from utils.auth import get_current_user
 from utils.image import process_card_image, create_store_thumbnail, create_thumbnail
@@ -12,6 +13,9 @@ from utils.plan_limits import check_inventory_limit, check_scan_limit, increment
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/inventory", tags=["inventory"])
+
+# Track users with active backfill tasks to avoid duplicates
+_backfill_active = set()
 
 
 class InventoryItem(BaseModel):
@@ -305,10 +309,61 @@ async def get_inventory(
         projection = {"_id": 0, "image": 0, "back_image": 0}
         items = await db.inventory.find(query, projection).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
 
+        # Auto-backfill: if any items are missing thumbnails, generate them in background
+        if user_id not in _backfill_active:
+            missing = await db.inventory.count_documents({
+                "user_id": user_id,
+                "image": {"$exists": True, "$ne": None},
+                "$or": [{"store_thumbnail": {"$exists": False}}, {"thumbnail": {"$exists": False}}]
+            })
+            if missing > 0:
+                _backfill_active.add(user_id)
+                asyncio.create_task(_auto_backfill_thumbnails(user_id))
+
         return {"items": items, "total": total}
     except Exception as e:
         logger.error(f"Get inventory failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+async def _auto_backfill_thumbnails(user_id: str):
+    """Background task: generate missing thumbnails for a user's inventory items."""
+    import gc
+    try:
+        items = await db.inventory.find(
+            {"user_id": user_id, "image": {"$exists": True, "$ne": None}, "$or": [
+                {"store_thumbnail": {"$exists": False}},
+                {"thumbnail": {"$exists": False}},
+            ]},
+            {"_id": 0, "id": 1, "image": 1, "back_image": 1, "store_thumbnail": 1, "thumbnail": 1, "back_thumbnail": 1}
+        ).to_list(1000)
+
+        updated = 0
+        for item in items:
+            try:
+                updates = {}
+                if not item.get("store_thumbnail"):
+                    updates["store_thumbnail"] = create_store_thumbnail(item["image"])
+                if not item.get("thumbnail"):
+                    updates["thumbnail"] = create_thumbnail(item["image"], max_size=200)
+                if item.get("back_image") and not item.get("back_thumbnail"):
+                    updates["back_thumbnail"] = create_thumbnail(item["back_image"], max_size=200)
+                if updates:
+                    await db.inventory.update_one({"id": item["id"]}, {"$set": updates})
+                    updated += 1
+            except Exception as e:
+                logger.warning(f"Auto-backfill thumbnail failed for {item['id']}: {e}")
+            if updated % 20 == 0:
+                gc.collect()
+                await asyncio.sleep(0.1)  # Yield to event loop
+
+        gc.collect()
+        logger.info(f"Auto-backfill complete for user {user_id}: {updated}/{len(items)} thumbnails generated")
+    except Exception as e:
+        logger.error(f"Auto-backfill failed for user {user_id}: {e}")
+    finally:
+        _backfill_active.discard(user_id)
+
 
 
 @router.get("/stats")
