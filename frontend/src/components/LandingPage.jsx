@@ -54,7 +54,7 @@ const PLANS = [
     id: 'mvp',
     name: 'MVP',
     icon: Trophy,
-    price: '$9.99',
+    price: '$14.99',
     period: '/mo',
     tagline: 'Most Valuable Player',
     color: 'from-amber-500 to-orange-600',

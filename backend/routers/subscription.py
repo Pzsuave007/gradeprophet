@@ -46,7 +46,7 @@ PLANS = {
     "mvp": {
         "id": "mvp",
         "name": "MVP",
-        "price": 9.99,
+        "price": 14.99,
         "interval": "month",
         "popular": True,
         "limits": {
