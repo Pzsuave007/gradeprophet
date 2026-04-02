@@ -1189,6 +1189,56 @@ async def bulk_revise_condition(data: BulkReviseConditionRequest, request: Reque
 
 
 
+
+class BulkBestOfferRequest(BaseModel):
+    item_ids: List[str]  # eBay item IDs
+    enable: bool  # True to enable, False to disable
+
+
+@router.post("/sell/bulk-revise-best-offer")
+async def bulk_revise_best_offer(data: BulkBestOfferRequest, request: Request):
+    """Bulk enable/disable Best Offer on multiple active eBay listings"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    best_offer_xml = f"<BestOfferDetails><BestOfferEnabled>{'true' if data.enable else 'false'}</BestOfferEnabled></BestOfferDetails>"
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{best_offer_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True})
+                else:
+                    err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                    results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ok = sum(1 for r in results if r["success"])
+    action = "enabled" if data.enable else "disabled"
+    return {"success": ok > 0, "total": len(data.item_ids), "updated": ok, "results": results,
+            "note": f"Best Offer {action} on {ok}/{len(data.item_ids)} listings"}
+
+
+
 @router.post("/sell/update-photos")
 async def update_listing_photos(request: Request):
     """Update photos on an existing eBay listing from inventory images"""

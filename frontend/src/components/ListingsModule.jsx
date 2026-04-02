@@ -796,6 +796,7 @@ const ListingsModule = () => {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showBulkCondition, setShowBulkCondition] = useState(false);
   const [bulkConditionValue, setBulkConditionValue] = useState('');
+  const [showBulkOffer, setShowBulkOffer] = useState(false);
 
   const toggleSelect = (itemId) => {
     setSelected(prev => {
@@ -804,7 +805,7 @@ const ListingsModule = () => {
       return next;
     });
   };
-  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); setShowBulkOffer(false); };
 
   const CARD_CONDITIONS = ['Near Mint or Better', 'Excellent', 'Very Good', 'Poor'];
 
@@ -827,6 +828,26 @@ const ListingsModule = () => {
       setBulkUpdating(false);
     }
   };
+
+  const bulkToggleBestOffer = async (enable) => {
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-revise-best-offer`, {
+        item_ids: selectedIds,
+        enable,
+      });
+      toast.success(res.data.note || `Best Offer ${enable ? 'enabled' : 'disabled'} on ${res.data.updated} listings`);
+      setShowBulkOffer(false);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update best offer');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
 
   const bulkUpdateShipping = async (items) => {
     if (!bulkShippingOption) { toast.error('Select a shipping option'); return; }
@@ -1037,6 +1058,10 @@ const ListingsModule = () => {
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-condition-btn">
                 Condition {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
+              <button onClick={() => setShowBulkOffer(true)} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-offer-btn">
+                Best Offer {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
             </>
           )}
           {!selectMode && (
@@ -1217,6 +1242,36 @@ const ListingsModule = () => {
                 <button onClick={() => setShowBulkCondition(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-cond-cancel-btn">Cancel</button>
               </div>
               <p className="text-[10px] text-gray-600 mt-3">Updates inventory + tries to revise on eBay (eBay may restrict condition changes on some listings)</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Best Offer Panel */}
+      <AnimatePresence>
+        {showBulkOffer && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-emerald-500/30 rounded-xl p-4" data-testid="listings-bulk-offer-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Bulk Best Offer</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">{selected.size} listings</span>
+                </div>
+                <button onClick={() => setShowBulkOffer(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <div className="flex items-center gap-3">
+                <button onClick={() => bulkToggleBestOffer(true)} disabled={bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-offer-enable-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Enable Best Offer</>}
+                </button>
+                <button onClick={() => bulkToggleBestOffer(false)} disabled={bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600/80 text-white text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-offer-disable-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Disable Best Offer</>}
+                </button>
+                <button onClick={() => setShowBulkOffer(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-offer-cancel-btn">Cancel</button>
+              </div>
             </div>
           </motion.div>
         )}

@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink, Download, QrCode } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import { QRCodeCanvas } from 'qrcode.react';
 import PricingPlans from './PricingPlans';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -272,17 +273,47 @@ const AccountModule = () => {
             </div>
           </div>
           {shopSlug && (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button onClick={() => { navigator.clipboard.writeText(shopUrl); toast.success('Shop URL copied!'); }}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-colors"
-                data-testid="copy-shop-url-btn">
-                <Copy className="w-3.5 h-3.5" /> Copy Link
-              </button>
-              <a href={`/shop/${shopSlug}`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors"
-                data-testid="view-shop-btn">
-                <ExternalLink className="w-3.5 h-3.5" /> View My Shop
-              </a>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <button onClick={() => { navigator.clipboard.writeText(shopUrl); toast.success('Shop URL copied!'); }}
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-xs font-bold hover:bg-white/10 transition-colors"
+                  data-testid="copy-shop-url-btn">
+                  <Copy className="w-3.5 h-3.5" /> Copy Link
+                </button>
+                <a href={`/shop/${shopSlug}`} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/20 transition-colors"
+                  data-testid="view-shop-btn">
+                  <ExternalLink className="w-3.5 h-3.5" /> View My Shop
+                </a>
+              </div>
+              {/* Store QR Code */}
+              <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl p-4" data-testid="shop-qr-section">
+                <div className="flex items-center gap-2 mb-3">
+                  <QrCode className="w-4 h-4 text-[#3b82f6]" />
+                  <p className="text-xs font-bold text-white">Store QR Code</p>
+                  <span className="text-[10px] text-gray-600">For labels & packaging</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <div className="bg-white p-2 rounded-lg" data-testid="shop-qr-code">
+                    <QRCodeCanvas value={shopUrl} size={120} level="H" includeMargin={false} />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <p className="text-[10px] text-gray-500 max-w-[180px]">Scan to visit your store. Download and add to your labels.</p>
+                    <button onClick={() => {
+                      const canvas = document.querySelector('[data-testid="shop-qr-code"] canvas');
+                      if (!canvas) return;
+                      const link = document.createElement('a');
+                      link.download = `flipslab-store-${shopSlug}-qr.png`;
+                      link.href = canvas.toDataURL('image/png');
+                      link.click();
+                      toast.success('QR Code downloaded!');
+                    }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#3b82f6] text-xs font-bold hover:bg-[#3b82f6]/20 transition-colors"
+                      data-testid="download-qr-btn">
+                      <Download className="w-3.5 h-3.5" /> Download PNG
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
