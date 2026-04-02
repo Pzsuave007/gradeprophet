@@ -501,10 +501,32 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       .catch(() => {});
   }, []);
 
+  const [fullImages, setFullImages] = useState({ front: null, back: null, loaded: false });
+
+  // Load full-res images when detail opens
+  useEffect(() => {
+    if (!item?.id) return;
+    setFullImages({ front: null, back: null, loaded: false });
+    axios.get(`${API}/api/inventory/${item.id}`, { withCredentials: true })
+      .then(r => {
+        const d = r.data;
+        setFullImages({
+          front: d.image || null,
+          back: d.back_image || null,
+          loaded: true,
+        });
+      })
+      .catch(() => setFullImages(prev => ({ ...prev, loaded: true })));
+  }, [item?.id]);
+
   if (!item) return null;
-  const hasBack = !!item.back_image;
-  const frontSrc = item.image ? `data:image/jpeg;base64,${item.image}` : null;
-  const backSrc = item.back_image ? `data:image/jpeg;base64,${item.back_image}` : null;
+  const hasBack = !!fullImages.back || !!item.back_thumbnail;
+  const frontSrc = fullImages.front ? `data:image/jpeg;base64,${fullImages.front}`
+    : item.store_thumbnail ? `data:image/webp;base64,${item.store_thumbnail}`
+    : item.thumbnail ? `data:image/jpeg;base64,${item.thumbnail}`
+    : item.ebay_picture || null;
+  const backSrc = fullImages.back ? `data:image/jpeg;base64,${fullImages.back}`
+    : item.back_thumbnail ? `data:image/jpeg;base64,${item.back_thumbnail}` : null;
 
   // Check if active preset is a custom one
   const isCustomPreset = activePreset.startsWith('custom_');
@@ -1625,13 +1647,14 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 >
                   {/* FRONT */}
                   <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden' }}>
-                    {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                    {(item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
+                      : item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300" loading="lazy" />
                       : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
                   </div>
                   {/* BACK */}
-                  {item.back_image && (
+                  {item.back_thumbnail && (
                     <div className="absolute inset-0" style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
-                      <img src={`data:image/jpeg;base64,${item.back_image}`} alt={`${item.card_name} back`} className="w-full h-full object-contain" />
+                      <img src={`data:image/jpeg;base64,${item.back_thumbnail}`} alt={`${item.card_name} back`} className="w-full h-full object-contain" loading="lazy" />
                     </div>
                   )}
                 </div>
@@ -1639,7 +1662,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
                 {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}
-                {item.back_image && (
+                {item.back_thumbnail && (
                   <button
                     onClick={(e) => toggleFlip(e, item.id)}
                     className="absolute bottom-1.5 right-1.5 flex items-center gap-1 px-2 py-1 rounded-md bg-emerald-500/90 hover:bg-emerald-400 text-white text-[10px] font-bold uppercase transition-colors shadow-lg backdrop-blur-sm"
@@ -1726,14 +1749,16 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 </div>
               )}
               <div className="w-12 h-16 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a] overflow-hidden flex-shrink-0">
-                {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt={item.card_name} className="w-full h-full object-contain" /> : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
+                {(item.store_thumbnail || item.thumbnail) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail}`} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
+                  : item.ebay_picture ? <img src={item.ebay_picture} alt={item.card_name} className="w-full h-full object-contain" loading="lazy" />
+                  : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2"><p className="text-sm font-semibold text-white leading-tight">{item.card_name}</p>
                   {item.listed ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 flex-shrink-0 uppercase font-medium flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />Listed</span>
                     : item.category === 'for_sale' ? <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">Inventory</span>
                     : <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#3b82f6]/10 text-[#3b82f6] flex-shrink-0 uppercase font-medium">Collection</span>}
-                  {item.back_image && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">F+B</span>}</div>
+                  {item.back_thumbnail && <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 flex-shrink-0 uppercase font-medium">F+B</span>}</div>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {item.player && <span className="text-[11px] text-gray-400">{item.player}</span>}
                   {item.year && <span className="text-[11px] text-gray-600">{item.year}</span>}

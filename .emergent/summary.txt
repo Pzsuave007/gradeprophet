@@ -1,80 +1,41 @@
-<analysis>**original_problem_statement**: The user requested a bash script to optimize their production server memory (SpamAssassin, Apache, MongoDB) to prevent OOM crashes. Following this, the user reported a bug where items published to eBay were incorrectly being marked as sold in the system instead of active. The user also requested Load More functionality in the Listings section to handle >200 items efficiently. Finally, the user reported that the Batch Upload AI identification feature was failing, specifically when uploading large images directly from a mobile device.
+<analysis>**original_problem_statement**: The user initially requested fixes for the mobile Batch Upload feature halting after processing just one card. Following this, the user made a series of rapid iterative requests: converting the upload to a background queue, fixing EXIF rotation for mobile images, renaming UI elements, syncing Shop/Marketplace data with live eBay data, fixing eBay condition mappings for raw cards (adding bulk condition updates), adding a Shop QR Code, adding Bulk Best Offer functionality, optimizing the public Store load time (caching/WebP thumbnails), restructuring subscription pricing to 3 tiers (Rookie, MVP, Hall of Famer), and finally optimizing  and  load times by stripping heavy base64 images from the list payload.
 
-**User's preferred language**: Spanish (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only)
+**User's preferred language**: Spanish (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. All interactions with the user must be in Spanish).
 
-**what currently exists?**: A mature card management system with eBay integration and AI card identification. The server infrastructure has been optimized to maintain stable RAM. The eBay listings logic now fetches all active listings and correctly syncs sold statuses. The Batch Upload feature has been fundamentally refactored to bypass mobile browser memory limitations by uploading and processing images pair-by-pair directly on the backend.
+**what currently exists?**: A mature card management system with eBay integration, AI card identification, and background image processing. The app now has a background queue for mobile uploads, properly rotated images, a high-performance public Shop page using stale-while-revalidate caching and WebP thumbnails, bulk listing features (shipping, condition, best offer), and a simplified 3-tier subscription model.
 
 **Last working item**: 
-    - Last item agent was working: Fixing the Batch Upload loop. When uploading multiple images from a mobile phone, the process was stopping after successfully processing only the first card due to unhandled errors/timeouts in the loop. The agent modified the backend endpoint  to use  for better compression and enhanced the error handling in the frontend loop to ensure it continues even if one card fails.
-    - Status: USER VERIFICATION PENDING
-    - Agent Testing Done: Y (Locally compiled and validated endpoint logic)
-    - Which testing method agent to use? manual testing by curl/ python -c / screenshot tool (Backend logic tested, but true verification requires the user's mobile device camera files).
-    - User Testing Done: N (Waiting for the user to pull the latest changes and test the batch upload again).
+    - Last item agent was working: Optimizing load times for the  and  pages. The agent successfully modified the backend  endpoint to exclude the heavy  and  base64 fields, sending only the lightweight  and . The agent was mid-way through updating the frontend ( and specifically ) to lazily fetch the full images only when a user clicks on a specific card.
+    - Status: IN PROGRESS / TESTING PENDING
+    - Agent Testing Done: N (The agent executed the file edit but ran out of context before verifying if it compiles, linting it, or running the frontend build).
+    - Which testing method agent to use? Screenshot tool / Manual testing (Verify that clicking a card in the Inventory grid successfully opens the modal and loads the high-res image without breaking).
+    - User Testing Done: N
 
 **All Pending/In progress Issue list**:
-  Issue 1: Batch Upload Loop Halting on Mobile (P0)
-     - Attempted fixes: Refactored the frontend to upload each card pair (front/back) individually to the backend. The backend endpoint  was just updated to use  to safely compress 4MB+ mobile images before sending them to OpenAI to prevent timeouts.
-     - Next debug checklist: Ask the user if the batch upload now successfully loops through all selected cards. If it fails, check the backend logs for  to see if  is timing out or throwing a payload size error.
-     - Why fix this issue and what will be achieved with the fix? The user relies on Batch Upload from their phone to add inventory. Failing after 1 card renders the feature unusable for bulk scanning.
-     - Status: USER VERIFICATION PENDING
-     - Is recurring issue? Y
-     - Should Test frontend/backend/both after fix? both
-     - Blocked on other issue: None
-
-**In progress Task List**:
-  *None. Current focus is bug fixing the Batch Upload.*
-
-**Upcoming and Future Tasks**:
-    Upcoming Tasks:
-    - P0: Stripe Production Integration. (Next major phase)
-    - P1: Whatnot & Shopify Integration. (Legend tier premium feature)
-    - P2: Direct Purchase on FlipSlab (Allow direct buys using Stripe).
-    
-    Future Tasks:
-    - P3: New User Onboarding (Setup wizard).
-    - P4: Flip Finder Core Logic Enhancements.
-    - P5: Windows Scanner App.
-    - P6: Team Access.
-    - P7: Refactor  &  (High priority tech debt, files are over 1300 lines).
-
-**Completed work in this session**:
-  -  and  scripts created for server memory management (DONE).
-  - eBay >200 listings false sold bug fixed in  (DONE).
-  - Paged Load More functionality implemented in  (DONE).
-  - Batch Upload frontend memory leak (File objects being revoked on mobile) fixed by moving logic server-side (DONE).
-  - New  backend endpoint created (DONE).
-  - PRD updated with critical deployment rules (DONE).
-
-**Earlier issues found/mentioned but not fixed**:
-   - None
-
-**Known issue recurrence from previous fork**:
-  - Recurrence count: 1
-  - Status: RESOLVED
-  - Note: The agent accidentally attempted to replace the user's working  setup with the  Universal Key. **DO NOT DO THIS.** The user uses their own OpenAI API Key for card scanning, and it works perfectly. Leave  and the OpenAI logic intact unless instructed otherwise.
-  - Note 2: **CRITICAL DEPLOYMENT ISSUE:** The agent instructed the user to compile the frontend (yarn run v1.22.22
-info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.) on the live production server. **NEVER DO THIS.** It crashes the user's VPS due to memory limits. You MUST build the frontend locally in the sandbox (yarn run v1.22.22
+  Issue 1: Finish & Test Inventory Lazy Image Loading (P0)
+     - Attempted fixes: The backend query was stripped of /. The  was updated to fetch the full image upon opening.
+     - Next debug checklist: Check  and  for any remaining references to  or  that might cause crashes in the list/grid views. Ensure  successfully fetches and displays the image. Lint the frontend code. Run yarn run v1.22.22
 $ craco build
 Creating an optimized production build...
 Compiled with warnings.
 
 [eslint] 
 src/components/AccountModule.jsx
-  Line 66:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 67:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/AuctionSniper.jsx
   Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
   Line 258:6:  React Hook useEffect has a missing dependency: 'handleCheckItem'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
 
 src/components/BatchUploadView.jsx
-  Line 32:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+  Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
 
 src/components/HistoryPanel.jsx
   Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/InventoryModule.jsx
-  Line 1275:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 1277:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  Line 1304:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1306:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
 
 src/components/ListingsModule.jsx
   Line 95:6:   React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
@@ -83,13 +44,16 @@ src/components/ListingsModule.jsx
 src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
+src/pages/ShopPage.jsx
+  Line 390:6:  React Hook useEffect has a missing dependency: 'item.store_thumbnail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  387.08 kB (+208 B)  build/static/js/main.32d3a090.js
-  17.82 kB            build/static/css/main.7db5c90f.css
+  395.64 kB (+359 B)  build/static/js/main.3929f3ad.js
+  17.9 kB             build/static/css/main.1f0d02be.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -104,74 +68,166 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 28.34s.), and commit the  folder to Git. The user's  script simply copies the pre-built files.
+Done in 29.50s. to compile.
+     - Why fix this issue and what will be achieved with the fix? The user has 200+ cards and the payload was 100MB+, crashing/slowing the browser. This fix drastically reduces payload size.
+     - Status: TESTING PENDING
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? both
+     - Blocked on other issue: None
+
+**In progress Task List**:
+  Task 1: Optimize ListingsModule.jsx Image Loading
+     - Where to resume:  was mostly updated, but  also displays cards. You must verify if  grid/list views need to be updated to use  or  instead of , and ensure it handles the new backend payload gracefully.
+     - What will be achieved with this? Complete the memory/bandwidth optimization across both main inventory views.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? frontend
+     - Blocked on something: None
+
+**Upcoming and Future Tasks**:
+    Upcoming Tasks:
+    - P0: Stripe Production Integration (Update Stripe Dashboard products to match the new Rookie, MVP 4.99, and Hall of Famer 9.99 plans).
+    - P1: Whatnot & Shopify Integration.
+    
+    Future Tasks:
+    - P2: Direct Purchase on FlipSlab (Stripe direct buys).
+    - P3: New User Onboarding (Setup wizard).
+    - P4: Flip Finder Core Logic Enhancements.
+    - P5: Windows Scanner App.
+    - P6: Team Access.
+    - P7: Refactor  &  (High priority tech debt, files are over 1300+ lines).
+
+**Completed work in this session**:
+  - Batch Upload converted to a background queue for fast mobile uploads (DONE).
+  - EXIF image rotation () fixed for mobile photos (DONE).
+  - UI labels for For Sale renamed to Inventory globally (DONE).
+  - Shop/Marketplace updated to show live eBay titles/prices instead of AI inventory data (DONE).
+  - eBay Condition mapping completely fixed (Raw sports cards now correctly use ConditionID 4000 + Descriptor IDs) (DONE).
+  - Bulk Condition update & Bulk Best Offer update added to  and  (DONE).
+  - Shop QR Code generation added to  using  (DONE).
+  - Shop endpoint rewritten to use  for instant (<1s) loads (DONE).
+  - WebP 400px  generation added to drastically improve Shop performance (DONE).
+  - Subscription tiers simplified from 4 to 3 (Rookie, MVP, Hall of Famer) and UI centered (DONE).
+
+**Earlier issues found/mentioned but not fixed**:
+   - None. The agent handled an impressive amount of rolling user requests successfully.
+
+**Known issue recurrence from previous fork**:
+  - Recurrence count: 1
+  - Status: RESOLVED
+  - Note: **CRITICAL DEPLOYMENT ISSUE:** You MUST build the frontend locally in the sandbox (yarn run v1.22.22
+$ craco build
+Creating an optimized production build...
+Compiled with warnings.
+
+[eslint] 
+src/components/AccountModule.jsx
+  Line 67:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src/components/AuctionSniper.jsx
+  Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 258:6:  React Hook useEffect has a missing dependency: 'handleCheckItem'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
+
+src/components/BatchUploadView.jsx
+  Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+src/components/HistoryPanel.jsx
+  Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src/components/InventoryModule.jsx
+  Line 1304:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1306:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+
+src/components/ListingsModule.jsx
+  Line 95:6:   React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  Line 116:6:  React Hook useEffect has missing dependencies: 'listing.item_id' and 'listing.title'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+src/components/PriceHistoryChart.jsx
+  Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src/pages/ShopPage.jsx
+  Line 390:6:  React Hook useEffect has a missing dependency: 'item.store_thumbnail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  395.64 kB  build/static/js/main.3929f3ad.js
+  17.9 kB    build/static/css/main.1f0d02be.css
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  yarn global add serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+
+Done in 17.13s.), and commit the  folder to Git. The user's  script on their production server simply copies the pre-built files from git. NEVER tell the user to run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. on their server, it will crash due to OOM.
+  - Note 2: Do not attempt to replace the user's  setup in  with the Emergent Universal Key. The user uses their own API Key.
 
 **Code Architecture**:
 
 
 **Key Technical Concepts**:
-- **Batch Upload Refactor**: Mobile browsers drop  object references when DOM elements change. To fix this, the app now sends the raw files directly to the server one pair at a time (), and the backend handles the Base64 conversion, OpenAI identification, and DB saving.
-- **eBay Pagination**: The backend now internally loops through all eBay XML API pages and returns a single unified array of all active listings to the frontend. The frontend paginates this array client-side.
+- **Background Upload Queue**: Mobile uploads return immediately while the AI runs in a background thread.
+- **eBay Sports Card Conditions**: Ungraded sports cards MUST use  alongside a  (e.g., 400010 for Near Mint). 
+- **Stale-while-revalidate**: The Shop page serves cached data immediately and triggers a background refresh if the cache is older than 5 minutes.
 
 **key DB schema**:
-  - : standard inventory tracking.
+  - :  (WebP),  added. Heavy  and  exist but are omitted from list queries.
+  - : Tracking  (rookie, mvp, hall_of_famer).
 
 **changes in tech stack**:
-  - None
+  -  added to .
 
 **All files of reference**:
-  -  (Heavily modified for server-side upload flow)
-  -  (Added  endpoint)
-  -  (Modified for Load More pagination)
-  -  (Modified eBay pagination logic)
-  - ============================================
-  FlipSlab Engine - Update (No Build)
-============================================
-
-[1/4] Backend dependencies...
-  OK
-[2/4] Backend files...
-  OK
-[3/4] Frontend (pre-built, NO compile)...
-  OK
-[4/4] Reiniciando backend...
-  API: OK
-
-============================================
-  LISTO! Abre flipslabengine.com con Ctrl+Shift+R
-============================================ (User's deployment script - ONLY copies files, does not build)
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
 
 **Areas that need refactoring**:
-  -  and  remain extremely large and should be broken down into smaller components in future tasks.
+  -  and  are extremely bloated.
 
 **key api endpoints**:
-  - : Receives a front image, back image, and category, processes them, identifies via AI, and saves directly to inventory.
-  - : Fetches all eBay listings.
+  -  (Now returns lightweight payloads).
+  -  (Used to fetch full base64 images lazily).
+  -  (Background processing).
 
 **Critical Info for New Agent**:
 - **LANGUAGE**: You MUST communicate in **Spanish**.
-- **FRONTEND BUILDS**: You MUST run yarn run v1.22.22
+- **FRONTEND BUILDS**: Always run yarn run v1.22.22
 $ craco build
 Creating an optimized production build...
 Compiled with warnings.
 
 [eslint] 
 src/components/AccountModule.jsx
-  Line 66:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 67:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/AuctionSniper.jsx
   Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
   Line 258:6:  React Hook useEffect has a missing dependency: 'handleCheckItem'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
 
 src/components/BatchUploadView.jsx
-  Line 32:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+  Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
 
 src/components/HistoryPanel.jsx
   Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/InventoryModule.jsx
-  Line 1275:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 1277:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  Line 1304:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1306:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
 
 src/components/ListingsModule.jsx
   Line 95:6:   React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
@@ -180,13 +236,16 @@ src/components/ListingsModule.jsx
 src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
+src/pages/ShopPage.jsx
+  Line 390:6:  React Hook useEffect has a missing dependency: 'item.store_thumbnail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  387.08 kB  build/static/js/main.32d3a090.js
-  17.82 kB   build/static/css/main.7db5c90f.css
+  395.64 kB  build/static/js/main.3929f3ad.js
+  17.9 kB    build/static/css/main.1f0d02be.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -201,42 +260,41 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 16.59s. in the agent sandbox and commit the results. The user's  script expects the  folder to already exist in the repository. Do not ask the user to build the frontend on their server.
-- **OPENAI INTEGRATION**: Do not switch the user's  to the Emergent LLM key. Their current setup in  uses their own key and works correctly for their specific use cases.
+Done in 16.66s. in the agent sandbox when frontend changes are made.
+- The user is extremely active and drops multiple feature requests in single prompts. Prioritize stability and test thoroughly before delivering.
 
 **documents and test reports created in this job**:
-  - 
-  - 
-  - 
+  -  (Updated)
 
 **Last 10 User Messages and any pending HUMAN messages**:
- 1. (LATEST) User reported that mobile images are 4.3MB, and the batch upload loop only processed one card, sent it to inventory, and stopped processing the remaining cards.
- 2. User reported a Upload Failed Try again error.
- 3. User requested a simplified flow: tap batch upload, view preview, click Upload, and the server does the rest of the heavy lifting instead of relying on the phone's memory.
- 4. User noted the Save to Inventory button was redundant and cards should save automatically after AI identification.
- 5. User mentioned they only have 11 credits left and asked to confirm if the issue was fixed.
- 6. User showed frustration that images weren't loading at the AI identification step (due to the mobile File object reference bug).
- 7. User pointed out the back picture of the card wasn't loading in the preview, and it is needed for AI context.
- 8. User asked the agent not to change the format/compression algorithms used elsewhere in the app.
- 9. User panicked and told the agent NOT to touch the OpenAI API configuration because it was working perfectly everywhere else.
- 10. User provided screenshots showing broken image thumbnails in the Batch Upload review step.
+ 1. (LATEST) User requested optimizing Inventory and Listings load times because loading 200+ cards is extremely slow, suggesting a WebP thumbnail approach.
+ 2. User reported that the newly added pricing plans are not centered and the MVP price needs to be 4.99, and the Shop QR code is low resolution.
+ 3. User wanted to simplify subscription tiers from 4 to 3 (Rookie, MVP, Hall of Famer).
+ 4. User noted the Shop loads much faster but requested higher quality WebP images for the shop thumbnails.
+ 5. User requested fixing the slow load times on the public Shop page.
+ 6. User requested adding a Shop QR Code for labels, and a bulk Best Offer option in the Listings page.
+ 7. User reported the bulk condition update didn't work on live eBay listings (eBay was ignoring the ID).
+ 8. User wanted the bulk condition update feature added to the Listings page as well.
+ 9. User reported that raw cards are still defaulting to Good condition and requested a bulk condition change option in Inventory.
+ 10. User noted Shop and Marketplace are showing AI inventory names/prices instead of live eBay titles/prices.
 
 **Project Health Check**:
-- Broken: Batch Upload looping for >1 card from mobile (Fix pushed, pending user verification).
+- Broken: InventoryModule lazy loading is mid-implementation and untested.
 - Mocked: None
 
 **3rd Party Integrations**:
-- OpenAI GPT-4o — requires User API Key (Configured in , DO NOT CHANGE).
+- OpenAI GPT-4o — requires User API Key.
 - eBay API — requires User API Key.
+- Stripe (Payments) — requires User API Key.
 
 **Testing status**:
-  - Testing agent used after significant changes: NO (Required mobile device file uploads to accurately test, so user is testing manually).
+  - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: None
   - Known regressions: None
 
 **Credentials to test flow**:
-  - User handles authentication directly in their environment. Endpoint testing can use standard auth mocking if needed locally.
+  - Use existing mock auth or user credentials if stored in .
 
 **What agent forgot to execute**:
-  - The agent addressed all immediate user requests. The next step is strictly waiting for the user to test the latest commit containing the loop fix for the Batch Upload on their phone.</analysis>
+  - The agent edited  for the lazy loading feature but ran out of tokens before checking if the code compiles or building the frontend. This needs to be completed immediately.</analysis>

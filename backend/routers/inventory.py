@@ -289,7 +289,9 @@ async def get_inventory(
             sort_by = "created_at"
 
         total = await db.inventory.count_documents(query)
-        items = await db.inventory.find(query, {"_id": 0}).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
+        # Exclude heavy base64 images from list view — use thumbnail/store_thumbnail instead
+        projection = {"_id": 0, "image": 0, "back_image": 0}
+        items = await db.inventory.find(query, projection).sort(sort_by, sort_order).skip(skip).limit(limit).to_list(limit)
 
         return {"items": items, "total": total}
     except Exception as e:
