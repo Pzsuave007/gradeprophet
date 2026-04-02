@@ -6,7 +6,7 @@
 - **User's deploy process:** Push to GitHub -> `git pull` on server -> `bash fix.sh`
 - **fix.sh copies `frontend/build/*`** to the web root — **NEVER builds on server**
 - **NEVER run `yarn build` or `npm run build` on the production server** — it crashes due to limited RAM (3.6GB shared with MySQL, Apache, MongoDB, SpamAssassin)
-- **EVERY TIME frontend changes are made:** Build locally in preview with `REACT_APP_BACKEND_URL=https://flipslabengine.com yarn build`, then commit `frontend/build/` to git. Then restore preview URL for local dev.
+- **EVERY TIME frontend changes are made:** Run `bash /app/build_prod.sh` — this script FORCES the production URL automatically. NEVER run `yarn build` directly. The script verifies no preview URL leaks into the build.
 - **The `frontend/build/` folder MUST be committed to git** — the server pulls and copies these pre-built files directly
 - **Server scripts:** `fix.sh` (backend+frontend copy), `deploy.sh` (alias), `fix_false_sold.sh`, `check_memory.sh`, `optimize_server.sh`, `setup_swap.sh`, `server_audit.sh`
 - **Server OS:** AlmaLinux/cPanel VPS on GoDaddy, 3.6GB RAM + 2GB Swap
