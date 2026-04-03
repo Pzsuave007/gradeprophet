@@ -64,8 +64,8 @@ def scanner_auto_process(image_base64: str) -> str:
             y1, y2 = row_block
             x1, x2 = col_block
 
-            # Add safe margin (~6%) so we don't accidentally cut the card
-            margin = int(max(x2 - x1, y2 - y1) * 0.06)
+            # Add safe margin (~4%) so we don't accidentally cut the card
+            margin = int(max(x2 - x1, y2 - y1) * 0.04)
             y1 = max(0, y1 - margin)
             y2 = min(h, y2 + margin)
             x1 = max(0, x1 - margin)
