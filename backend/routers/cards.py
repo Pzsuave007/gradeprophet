@@ -756,9 +756,10 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     contents = await file.read()
     img_base64 = base64.b64encode(contents).decode("utf-8")
 
-    # Scanner images are already cropped and enhanced - just convert to JPEG and keep full quality
-    # Skip auto_crop and enhance (only for scanner uploads)
-    processed = create_thumbnail(img_base64, max_size=1600)
+    # Auto-crop to remove semi-rigid holder edges (Gem Mint label, plastic borders)
+    # then resize to max 1600px
+    cropped = scanner_auto_process(img_base64)
+    processed = create_thumbnail(cropped, max_size=1600)
 
     # Parse filename: card_{timestamp}_{number}_{side}.png
     filename = (file.filename or "").lower()
