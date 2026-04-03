@@ -6,9 +6,36 @@ from PIL import Image, ImageOps, ImageEnhance
 logger = logging.getLogger(__name__)
 
 
+def _find_largest_block(std_arr, threshold, gap_tolerance=5):
+    """Find the largest contiguous block of indices where std > threshold.
+    Allows small gaps (gap_tolerance) to handle card rows that briefly dip below threshold."""
+    mask = std_arr > threshold
+    blocks = []
+    start = None
+    gap_count = 0
+    for i in range(len(mask)):
+        if mask[i]:
+            if start is None:
+                start = i
+            gap_count = 0
+        else:
+            if start is not None:
+                gap_count += 1
+                if gap_count > gap_tolerance:
+                    blocks.append((start, i - gap_count))
+                    start = None
+                    gap_count = 0
+    if start is not None:
+        blocks.append((start, len(mask) - 1 - gap_count))
+    if not blocks:
+        return None
+    return max(blocks, key=lambda b: b[1] - b[0])
+
+
 def scanner_auto_process(image_base64: str) -> str:
     """Auto-crop scanner image to just the card + apply Scanner Fix color preset.
-    Simple approach: find where the card content is using row/column variance, crop to that area.
+    Uses largest contiguous block of high-variance rows/columns to isolate the card
+    from the semi-rigid holder (Gem Mint label, plastic edges, scanner bed).
     """
     try:
         import cv2
@@ -25,17 +52,17 @@ def scanner_auto_process(image_base64: str) -> str:
         logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
-        # Find card edges using row/column variance
-        # Background rows/cols are uniform (low std), card rows/cols have content (high std)
         row_std = np.array([gray[r, :].std() for r in range(h)])
         col_std = np.array([gray[:, c].std() for c in range(w)])
 
-        card_rows = np.where(row_std > 15)[0]
-        card_cols = np.where(col_std > 15)[0]
+        # Find the largest contiguous block of rows/cols with high variance (the card)
+        # This ignores isolated spikes like the "Gem Mint" text on the holder
+        row_block = _find_largest_block(row_std, 15, gap_tolerance=8)
+        col_block = _find_largest_block(col_std, 15, gap_tolerance=8)
 
-        if len(card_rows) > 10 and len(card_cols) > 10:
-            y1, y2 = int(card_rows[0]), int(card_rows[-1])
-            x1, x2 = int(card_cols[0]), int(card_cols[-1])
+        if row_block and col_block:
+            y1, y2 = row_block
+            x1, x2 = col_block
 
             # Add tiny margin (~1%)
             margin = int(max(x2 - x1, y2 - y1) * 0.01)
@@ -44,8 +71,8 @@ def scanner_auto_process(image_base64: str) -> str:
             x1 = max(0, x1 - margin)
             x2 = min(w, x2 + margin)
 
-            # Only crop if it removes something meaningful
-            if (x2 - x1) < w * 0.98 or (y2 - y1) < h * 0.98:
+            # Only crop if it removes something meaningful (>5% on any side)
+            if (x2 - x1) < w * 0.95 or (y2 - y1) < h * 0.95:
                 img = img[y1:y2, x1:x2]
                 logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
             else:
