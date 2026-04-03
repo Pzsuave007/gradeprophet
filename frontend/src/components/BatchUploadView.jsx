@@ -97,6 +97,7 @@ const BatchUploadView = ({ onClose, onComplete }) => {
       try {
         const formData = new FormData();
         formData.append('category', category);
+        formData.append('scanner_mode', 'true');
         formData.append('front', pair.front);
         if (pair.back) formData.append('back', pair.back);
 

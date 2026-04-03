@@ -11,7 +11,7 @@ from config import openai_client
 from utils.auth import get_current_user
 from utils.image import (
     process_card_image, create_thumbnail, create_store_thumbnail, crop_corners_from_image,
-    auto_crop_card
+    auto_crop_card, scanner_auto_process
 )
 from utils.plan_limits import check_scan_limit, increment_scan_count
 from utils.ai import (
@@ -93,6 +93,7 @@ class CardAnalysisCreate(BaseModel):
     corner_top_right: Optional[str] = None
     corner_bottom_left: Optional[str] = None
     corner_bottom_right: Optional[str] = None
+    scanner_mode: Optional[bool] = False
 
 class CardAnalysisResponse(BaseModel):
     id: str
@@ -152,6 +153,10 @@ async def analyze_card(data: CardAnalysisCreate, request: Request):
         front_base64 = data.front_image_base64
         if ',' in front_base64:
             front_base64 = front_base64.split(',')[1]
+
+        # Scanner mode: auto-crop + Scanner Fix before processing
+        if data.scanner_mode:
+            front_base64 = scanner_auto_process(front_base64)
         front_processed = process_card_image(front_base64)
 
         back_processed = None
@@ -159,6 +164,8 @@ async def analyze_card(data: CardAnalysisCreate, request: Request):
             back_base64 = data.back_image_base64
             if ',' in back_base64:
                 back_base64 = back_base64.split(',')[1]
+            if data.scanner_mode:
+                back_base64 = scanner_auto_process(back_base64)
             back_processed = process_card_image(back_base64)
 
         reference_base64 = None
@@ -591,6 +598,7 @@ async def batch_upload_queue(request: Request):
             "category": category,
             "front_raw": front_b64,
             "back_raw": back_b64,
+            "scanner_mode": form.get("scanner_mode", "true") == "true",
             "status": "queued",
             "error": None,
             "created_at": datetime.now(timezone.utc).isoformat(),
@@ -621,6 +629,12 @@ async def _process_queued_card(queue_id: str, user_id: str):
         front_raw = doc["front_raw"]
         back_raw = doc.get("back_raw")
         category = doc.get("category", "collection")
+
+        # Scanner mode: auto-crop + Scanner Fix before processing
+        if doc.get("scanner_mode", False):
+            front_raw = scanner_auto_process(front_raw)
+            if back_raw:
+                back_raw = scanner_auto_process(back_raw)
 
         # Compress images
         front_processed = process_card_image(front_raw, max_size=1200)

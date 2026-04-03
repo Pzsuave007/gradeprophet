@@ -230,7 +230,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
       setScanProgress(prev => { if (prev >= 90) { clearInterval(progressInterval); return 90; } return prev + Math.random() * 10; });
     }, 400);
     try {
-      const requestBody = { front_image_base64: frontImage, back_image_base64: backImage };
+      const requestBody = { front_image_base64: frontImage, back_image_base64: backImage, scanner_mode: true };
       if (cardYear && !isNaN(parseInt(cardYear))) requestBody.card_year = parseInt(cardYear);
       if (selectedReferenceId) requestBody.reference_id = selectedReferenceId;
       if (cornerTopLeft) requestBody.corner_top_left = cornerTopLeft;
