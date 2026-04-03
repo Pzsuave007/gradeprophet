@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "============================================"
-echo "  FlipSlab Engine - Update (No Build)"
+echo "  FlipSlab Engine - Deploy Fix"
 echo "============================================"
 
 REPO="/home/gradeprophet"
@@ -8,14 +8,18 @@ PROD="/opt/gradeprophet/backend"
 WEB="/home/flipcardsuni2/public_html"
 
 echo ""
-echo "[1/4] Backend dependencies..."
+echo "[1/5] Git pull..."
+cd "$REPO" && git pull origin main
+echo "  OK"
+
+echo "[2/5] Backend dependencies..."
 cd "$PROD"
 source "$PROD/venv/bin/activate"
 pip install emergentintegrations --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/ --quiet 2>/dev/null
 pip install -r "$REPO/backend/requirements.txt" --quiet 2>/dev/null
 echo "  OK"
 
-echo "[2/4] Backend files..."
+echo "[3/5] Backend files..."
 mkdir -p "$PROD/routers" "$PROD/utils" "$PROD/models"
 cp -f "$REPO/backend/server.py" "$PROD/"
 cp -f "$REPO/backend/config.py" "$PROD/"
@@ -25,12 +29,12 @@ cp -f "$REPO/backend/utils/"*.py "$PROD/utils/"
 cp -f "$REPO/backend/models/"*.py "$PROD/models/" 2>/dev/null
 echo "  OK"
 
-echo "[3/4] Frontend (pre-built, NO compile)..."
+echo "[4/5] Frontend (pre-built, NO compile)..."
 rm -rf "$WEB/static/js/" "$WEB/static/css/"
 cp -rf "$REPO/frontend/build/"* "$WEB/"
 echo "  OK"
 
-echo "[4/4] Reiniciando backend..."
+echo "[5/5] Reiniciando backend..."
 NEWKEY=$(grep OPENAI_API_KEY /home/flipcardsuni2/public_html/llaves.txt | cut -d'=' -f2)
 sed -i "s|^OPENAI_API_KEY=.*|OPENAI_API_KEY=$NEWKEY|" "$PROD/.env"
 pkill -f "uvicorn.*8001" 2>/dev/null
