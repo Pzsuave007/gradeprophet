@@ -602,78 +602,80 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
 
       {/* Batch actions */}
       {items.length > 1 && !allDone && (
-        <div className="bg-[#111] border border-[#1a1a1a] rounded-xl px-4 py-3">
-          <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-2">Apply to all listings</p>
-          <div className="flex flex-wrap gap-2 items-center">
-            {/* Format */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Format:</span>
+        <div className="bg-gradient-to-r from-[#0a1628] to-[#0a0a0a] border border-[#1e3a5f] rounded-xl p-4 space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#3b82f6]">Bulk Actions — Apply to All Listings</p>
+
+          {/* Row 1: Format + Duration */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-white bg-[#3b82f6]/20 px-2 py-0.5 rounded">FORMAT</span>
               {LISTING_FORMATS.map(lf => (
                 <button key={lf.id} onClick={() => applyToAll('listing_format', lf.id)}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-[#3b82f6]/20 hover:border-[#3b82f6] transition-all"
                   data-testid={`batch-format-${lf.id}`}>
                   {lf.label}
                 </button>
               ))}
             </div>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Shipping */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs text-gray-500">Shipping:</span>
-              {SHIPPING_OPTIONS.map(s => (
-                <button key={s.id} onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' ? { ...fm, shipping_option: s.id, shipping_cost: s.cost } : fm))}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
-                  data-testid={`batch-shipping-${s.id}`}>
-                  {s.label}
-                </button>
-              ))}
-            </div>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Duration */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs text-gray-500">Duration:</span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-white bg-violet-500/20 px-2 py-0.5 rounded">DURATION</span>
               {(DURATIONS[forms[0]?.listing_format] || DURATIONS.FixedPriceItem).map(d => (
                 <button key={d.id} onClick={() => applyToAll('duration', d.id)}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-violet-500/20 hover:border-violet-500 transition-all"
                   data-testid={`batch-duration-${d.id}`}>
                   {d.label}
                 </button>
               ))}
             </div>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Condition */}
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-xs text-gray-500">Condition:</span>
-              {CONDITIONS.map(c => (
-                <button key={c.id} onClick={() => applyToAll('condition_id', c.id)}
-                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
-                  data-testid={`batch-condition-${c.id}`}>
-                  {c.label}
-                </button>
-              ))}
+          </div>
+
+          {/* Row 2: Shipping */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-white bg-amber-500/20 px-2 py-0.5 rounded">SHIPPING</span>
+            {SHIPPING_OPTIONS.map(s => (
+              <button key={s.id} onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' ? { ...fm, shipping_option: s.id, shipping_cost: s.cost } : fm))}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-amber-500/20 hover:border-amber-500 transition-all"
+                data-testid={`batch-shipping-${s.id}`}>
+                {s.label} {s.cost > 0 ? `($${s.cost.toFixed(2)})` : ''}
+              </button>
+            ))}
+          </div>
+
+          {/* Row 3: Condition */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-white bg-emerald-500/20 px-2 py-0.5 rounded">CONDITION</span>
+            {CONDITIONS.map(c => (
+              <button key={c.id} onClick={() => applyToAll('condition_id', c.id)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-emerald-500/20 hover:border-emerald-500 transition-all"
+                data-testid={`batch-condition-${c.id}`}>
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Row 4: Price, Best Offer, Sport */}
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-white bg-green-500/20 px-2 py-0.5 rounded">PRICE</span>
+              <div className="flex items-center bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg overflow-hidden">
+                <span className="text-xs text-gray-500 pl-2">$</span>
+                <input type="number" step="0.01" min="0" placeholder="0.00"
+                  className="w-20 bg-transparent px-2 py-1.5 text-xs text-white focus:outline-none"
+                  onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { applyToAll('price', parseFloat(e.target.value).toFixed(2)); toast.success(`Price set to $${parseFloat(e.target.value).toFixed(2)} for all`); }}}
+                  data-testid="batch-price-input" />
+              </div>
+              <span className="text-[9px] text-gray-500">Press Enter</span>
             </div>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Best Offer */}
+
             <button onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' && fm.listing_format === 'FixedPriceItem' ? { ...fm, best_offer: !fm.best_offer } : fm))}
-              className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-amber-500 transition-colors"
+              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-amber-400 hover:text-white hover:bg-amber-500/20 hover:border-amber-500 transition-all"
               data-testid="batch-best-offer">
               Toggle Best Offer
             </button>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Bulk Price */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Price:</span>
-              <input type="number" step="0.01" min="0" placeholder="$"
-                className="w-20 bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2 py-1 text-[10px] text-white focus:border-[#3b82f6] focus:outline-none"
-                onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { applyToAll('price', parseFloat(e.target.value).toFixed(2)); toast.success(`Price set to $${parseFloat(e.target.value).toFixed(2)} for all`); }}}
-                data-testid="batch-price-input" />
-              <span className="text-[9px] text-gray-600">Enter to apply</span>
-            </div>
-            <div className="w-px h-5 bg-[#1a1a1a]" />
-            {/* Sport */}
-            <div className="flex items-center gap-1">
-              <span className="text-xs text-gray-500">Sport:</span>
-              <select className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2 py-1 text-[10px] text-white focus:border-[#3b82f6] focus:outline-none"
+
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] font-bold text-white bg-cyan-500/20 px-2 py-0.5 rounded">SPORT</span>
+              <select className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg px-3 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
                 onChange={e => { if (e.target.value) applyToAll('sport', e.target.value); }}
                 data-testid="batch-sport-select">
                 <option value="">Select...</option>
@@ -688,6 +690,32 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
       {items.map((item, i) => (
         <CardListingForm key={item.id} item={item} index={i} form={forms[i]} onChange={updateForm} compact={items.length > 3} />
       ))}
+
+      {/* Bottom publish button */}
+      {!allDone && items.length > 1 && (
+        <div className="sticky bottom-0 bg-[#050505]/95 backdrop-blur-sm border-t border-[#1a1a1a] -mx-4 px-4 py-3 flex items-center justify-between">
+          <p className="text-xs text-gray-500">{pendingCount} listing{pendingCount !== 1 ? 's' : ''} ready to publish</p>
+          <button onClick={publishAll} disabled={publishing || pendingCount === 0}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 disabled:opacity-50 transition-colors shadow-lg shadow-emerald-900/30"
+            data-testid="publish-all-bottom-btn">
+            {publishing ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Publishing {publishProgress}/{items.length}</>
+            ) : (
+              <><ShoppingBag className="w-4 h-4" /> Publish {pendingCount > 1 ? `All ${pendingCount}` : ''} to eBay</>
+            )}
+          </button>
+        </div>
+      )}
+
+      {allDone && (
+        <div className="flex justify-center py-4">
+          <button onClick={onSuccess}
+            className="flex items-center gap-2 px-6 py-3 rounded-lg bg-[#3b82f6] text-white text-sm font-bold hover:bg-[#2563eb] transition-colors"
+            data-testid="done-bottom-btn">
+            <CheckCircle2 className="w-4 h-4" /> Done — Back to Inventory
+          </button>
+        </div>
+      )}
     </div>
   );
 };
