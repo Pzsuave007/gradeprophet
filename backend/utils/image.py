@@ -51,7 +51,7 @@ def scanner_auto_process(image_base64: str) -> str:
         h, w = img.shape[:2]
         logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        MARGIN = 40
+        MARGIN = 50
         rect = None
         rect_canny = None
         rect_variance = None
