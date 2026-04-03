@@ -53,6 +53,8 @@ def scanner_auto_process(image_base64: str) -> str:
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         MARGIN = 40
         rect = None
+        rect_canny = None
+        rect_variance = None
 
         # Method 1: Canny edge detection
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -65,18 +67,33 @@ def scanner_auto_process(image_base64: str) -> str:
             if cv2.contourArea(largest) > (h * w * 0.10):
                 bx, by, bw, bh = cv2.boundingRect(largest)
                 if bw < w * 0.93 or bh < h * 0.93:
-                    rect = (bx, by, bx + bw, by + bh)
-                    logger.info(f"Scanner crop [Canny]: card at ({bx},{by})-({bx+bw},{by+bh})")
+                    rect_canny = (bx, by, bx + bw, by + bh)
 
-        # Method 2 fallback: Variance-based
-        if rect is None:
-            row_std = np.array([gray[r, :].std() for r in range(h)])
-            col_std = np.array([gray[:, c].std() for c in range(w)])
-            rb = _find_largest_block(row_std, 15, gap_tolerance=8)
-            cb = _find_largest_block(col_std, 15, gap_tolerance=8)
-            if rb and cb:
-                rect = (cb[0], rb[0], cb[1], rb[1])
-                logger.info(f"Scanner crop [Variance]: content at ({cb[0]},{rb[0]})-({cb[1]},{rb[1]})")
+        # Method 2: Variance-based
+        row_std = np.array([gray[r, :].std() for r in range(h)])
+        col_std = np.array([gray[:, c].std() for c in range(w)])
+        rb = _find_largest_block(row_std, 15, gap_tolerance=8)
+        cb = _find_largest_block(col_std, 15, gap_tolerance=8)
+        if rb and cb:
+            rect_variance = (cb[0], rb[0], cb[1], rb[1])
+
+        # Use the LARGER rectangle (the card border is always bigger than internal content)
+        if rect_canny and rect_variance:
+            area_c = (rect_canny[2] - rect_canny[0]) * (rect_canny[3] - rect_canny[1])
+            area_v = (rect_variance[2] - rect_variance[0]) * (rect_variance[3] - rect_variance[1])
+            rect = rect_canny if area_c >= area_v else rect_variance
+            method = "Canny" if area_c >= area_v else "Variance"
+        elif rect_canny:
+            rect = rect_canny
+            method = "Canny"
+        elif rect_variance:
+            rect = rect_variance
+            method = "Variance"
+        else:
+            method = "None"
+
+        if rect:
+            logger.info(f"Scanner crop [{method}]: card at ({rect[0]},{rect[1]})-({rect[2]},{rect[3]})")
 
         if rect:
             x1, y1, x2, y2 = rect
