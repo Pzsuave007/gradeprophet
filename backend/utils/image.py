@@ -64,7 +64,7 @@ def scanner_auto_process(image_base64: str) -> str:
             largest = max(contours, key=cv2.contourArea)
             if cv2.contourArea(largest) > (h * w * 0.10):
                 bx, by, bw, bh = cv2.boundingRect(largest)
-                if bw < w * 0.85 or bh < h * 0.85:
+                if bw < w * 0.93 or bh < h * 0.93:
                     rect = (bx, by, bx + bw, by + bh)
                     logger.info(f"Scanner crop [Canny]: card at ({bx},{by})-({bx+bw},{by+bh})")
 
@@ -85,7 +85,7 @@ def scanner_auto_process(image_base64: str) -> str:
             x2 = min(w, x2 + MARGIN)
             y2 = min(h, y2 + MARGIN)
 
-            if (x2 - x1) < w * 0.95 or (y2 - y1) < h * 0.95:
+            if (x2 - x1) < w or (y2 - y1) < h:
                 img = img[y1:y2, x1:x2]
                 logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
             else:
