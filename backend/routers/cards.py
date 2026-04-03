@@ -177,7 +177,7 @@ async def analyze_card(data: CardAnalysisCreate, request: Request):
             if ',' in back_base64:
                 back_base64 = back_base64.split(',')[1]
             if data.scanner_mode:
-                back_base64 = scanner_auto_process(back_base64)
+                back_base64 = scanner_auto_process(back_base64, is_back=True)
             back_processed = process_card_image(back_base64)
 
         reference_base64 = None
@@ -646,7 +646,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
         if doc.get("scanner_mode", False):
             front_raw = scanner_auto_process(front_raw)
             if back_raw:
-                back_raw = scanner_auto_process(back_raw)
+                back_raw = scanner_auto_process(back_raw, is_back=True)
 
         # Compress images
         front_processed = process_card_image(front_raw, max_size=1200)
@@ -756,14 +756,14 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
     contents = await file.read()
     img_base64 = base64.b64encode(contents).decode("utf-8")
 
-    # Auto-crop to remove semi-rigid holder edges (Gem Mint label, plastic borders)
-    # then resize to max 1600px
-    cropped = scanner_auto_process(img_base64)
-    processed = create_thumbnail(cropped, max_size=1600)
-
     # Parse filename: card_{timestamp}_{number}_{side}.png
     filename = (file.filename or "").lower()
     is_back = "_back" in filename
+
+    # Auto-crop to remove semi-rigid holder edges (Gem Mint label, plastic borders)
+    # Canny for backs (finds physical card edge), Brightness for fronts (avoids inner photo)
+    cropped = scanner_auto_process(img_base64, is_back=is_back)
+    processed = create_thumbnail(cropped, max_size=1600)
 
     # Extract batch key from filename for front/back matching
     # e.g. "card_1773685587533_2_front.png" -> batch_key = "1773685587533_2"

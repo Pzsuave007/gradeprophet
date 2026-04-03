@@ -32,13 +32,14 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
     return max(blocks, key=lambda b: b[1] - b[0])
 
 
-def scanner_auto_process(image_base64: str) -> str:
+def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
     """Auto-crop scanner image to remove semi-rigid holder edges.
-    Uses brightness profiles at multiple positions to find the card boundary.
-    The transparent holder plastic is always brighter (>190) than any card content.
-    Requires sustained brightness drop (20+ consecutive pixels) to avoid false
-    detections from the embossed Gem Mint label.
-    Uses adaptive margin: 50px max, or half the available holder space if less.
+    Uses two methods and selects the best based on image type:
+    - FRONTS (is_back=False): Pick the LARGEST rect from Canny vs Brightness.
+      Brightness profiles avoid detecting inner card photos as edges.
+    - BACKS (is_back=True): Prefer Canny edge detection which accurately finds
+      the physical card boundary against the holder plastic.
+    Adaptive margin: 50px max, or half the available holder space if less.
     """
     try:
         import cv2
@@ -52,13 +53,30 @@ def scanner_auto_process(image_base64: str) -> str:
             return image_base64
 
         h, w = img.shape[:2]
-        logger.info(f"Scanner auto-process START: {w}x{h}")
+        logger.info(f"Scanner auto-process START: {w}x{h} is_back={is_back}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         MAX_MARGIN = 50
         THRESH = 190
         MIN_RUN = 20
         STRIP_W = 10
 
+        rect_canny = None
+        rect_brightness = None
+
+        # === Method 1: Canny Edge Detection ===
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blurred, 30, 100)
+        kernel = np.ones((3, 3), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=2)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            if cv2.contourArea(largest) > (h * w * 0.05):
+                bx, by, bw, bh = cv2.boundingRect(largest)
+                if bw < w * 0.95 or bh < h * 0.95:
+                    rect_canny = (bx, by, bx + bw, by + bh)
+
+        # === Method 2: Brightness Profiles ===
         def find_edge_start(profile, thresh, min_run):
             count = 0
             for i in range(len(profile)):
@@ -81,7 +99,6 @@ def scanner_auto_process(image_base64: str) -> str:
                     count = 0
             return len(profile) - 1
 
-        # Vertical profiles at 15%, 50%, 85% width to find top/bottom
         top_candidates = []
         bot_candidates = []
         for pct in [0.15, 0.50, 0.85]:
@@ -90,10 +107,6 @@ def scanner_auto_process(image_base64: str) -> str:
             top_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
             bot_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
 
-        card_top = min(top_candidates)
-        card_bot = max(bot_candidates)
-
-        # Horizontal profiles at 40%, 50%, 60% height to find left/right
         left_candidates = []
         right_candidates = []
         for pct in [0.40, 0.50, 0.60]:
@@ -102,29 +115,51 @@ def scanner_auto_process(image_base64: str) -> str:
             left_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
             right_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
 
-        card_left = min(left_candidates)
-        card_right = max(right_candidates)
+        ct, cb = min(top_candidates), max(bot_candidates)
+        cl, cr = min(left_candidates), max(right_candidates)
+        if (cr - cl) > w * 0.3 and (cb - ct) > h * 0.3:
+            rect_brightness = (cl, ct, cr, cb)
 
-        card_w = card_right - card_left
-        card_h = card_bot - card_top
+        # === Selection: Canny for backs, largest for fronts ===
+        rect = None
+        method = 'None'
 
-        if card_w < w * 0.3 or card_h < h * 0.3:
-            logger.info("Scanner crop: detection too small, skipping")
+        if is_back:
+            if rect_canny:
+                rect, method = rect_canny, 'Canny'
+            elif rect_brightness:
+                rect, method = rect_brightness, 'Brightness'
+        else:
+            if rect_canny and rect_brightness:
+                area_c = (rect_canny[2] - rect_canny[0]) * (rect_canny[3] - rect_canny[1])
+                area_b = (rect_brightness[2] - rect_brightness[0]) * (rect_brightness[3] - rect_brightness[1])
+                if area_c >= area_b:
+                    rect, method = rect_canny, 'Canny'
+                else:
+                    rect, method = rect_brightness, 'Brightness'
+            elif rect_canny:
+                rect, method = rect_canny, 'Canny'
+            elif rect_brightness:
+                rect, method = rect_brightness, 'Brightness'
+
+        if not rect:
+            logger.info("Scanner crop: no edges detected, skipping")
             _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
             return base64.b64encode(buffer).decode('utf-8')
 
-        logger.info(f"Scanner crop: card at ({card_left},{card_top})-({card_right},{card_bot})")
+        x1c, y1c, x2c, y2c = rect
+        logger.info(f"Scanner crop [{method}]: card at ({x1c},{y1c})-({x2c},{y2c})")
 
-        # Adaptive margin: min(50px, half of available holder space)
-        margin_top = min(MAX_MARGIN, max(0, card_top // 2))
-        margin_bot = min(MAX_MARGIN, max(0, (h - 1 - card_bot) // 2))
-        margin_left = min(MAX_MARGIN, max(0, card_left // 2))
-        margin_right = min(MAX_MARGIN, max(0, (w - 1 - card_right) // 2))
+        # Adaptive margin: min(50, half of available holder space)
+        margin_top = min(MAX_MARGIN, max(0, y1c // 2))
+        margin_bot = min(MAX_MARGIN, max(0, (h - 1 - y2c) // 2))
+        margin_left = min(MAX_MARGIN, max(0, x1c // 2))
+        margin_right = min(MAX_MARGIN, max(0, (w - 1 - x2c) // 2))
 
-        x1 = card_left - margin_left
-        y1 = card_top - margin_top
-        x2 = card_right + margin_right
-        y2 = card_bot + margin_bot
+        x1 = x1c - margin_left
+        y1 = y1c - margin_top
+        x2 = x2c + margin_right
+        y2 = y2c + margin_bot
 
         if (x2 - x1) < w or (y2 - y1) < h:
             img = img[y1:y2, x1:x2]
