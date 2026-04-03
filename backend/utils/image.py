@@ -33,13 +33,11 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
 
 
 def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
-    """Auto-crop scanner image to remove semi-rigid holder edges.
-    Uses two methods and selects the best based on image type:
-    - FRONTS (is_back=False): Pick the LARGEST rect from Canny vs Brightness.
-      Brightness profiles avoid detecting inner card photos as edges.
-    - BACKS (is_back=True): Prefer Canny edge detection which accurately finds
-      the physical card boundary against the holder plastic.
-    Adaptive margin: 50px max, or half the available holder space if less.
+    """Auto-crop scanner image to remove semi-rigid holder edges and Gem Mint label.
+    Uses adaptive threshold from image corners (which are always holder) and
+    percentage-based row/column analysis. A row is 'holder' if >50% of its pixels
+    are brighter than the adaptive threshold. Works for both fronts and backs.
+    Adaptive margin: 50px max, or half the available holder space.
     """
     try:
         import cv2
@@ -56,110 +54,71 @@ def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
         logger.info(f"Scanner auto-process START: {w}x{h} is_back={is_back}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         MAX_MARGIN = 50
-        THRESH = 190
-        MIN_RUN = 20
-        STRIP_W = 10
 
-        rect_canny = None
-        rect_brightness = None
+        # Adaptive threshold from corner brightness (corners are always holder)
+        cs = min(50, h // 10, w // 10)
+        corners = [
+            gray[0:cs, 0:cs], gray[0:cs, w-cs:w],
+            gray[h-cs:h, 0:cs], gray[h-cs:h, w-cs:w]
+        ]
+        holder_brightness = np.mean([c.mean() for c in corners])
+        thresh = holder_brightness - 30
 
-        # === Method 1: Canny Edge Detection ===
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 30, 100)
-        kernel = np.ones((3, 3), np.uint8)
-        edges = cv2.dilate(edges, kernel, iterations=2)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(largest) > (h * w * 0.05):
-                bx, by, bw, bh = cv2.boundingRect(largest)
-                if bw < w * 0.95 or bh < h * 0.95:
-                    rect_canny = (bx, by, bx + bw, by + bh)
+        # Row analysis: a row is "holder" if >50% of its pixels are bright
+        HOLDER_PCT = 0.50
+        row_bright = np.array([(gray[r, :] > thresh).mean() for r in range(h)])
 
-        # === Method 2: Brightness Profiles ===
-        def find_edge_start(profile, thresh, min_run):
-            count = 0
-            for i in range(len(profile)):
-                if profile[i] < thresh:
-                    count += 1
-                    if count >= min_run:
-                        return i - min_run + 1
-                else:
-                    count = 0
-            return 0
+        # Find card top/bottom
+        card_top = 0
+        for r in range(h):
+            if row_bright[r] < HOLDER_PCT:
+                card_top = r
+                break
 
-        def find_edge_end(profile, thresh, min_run):
-            count = 0
-            for i in range(len(profile) - 1, -1, -1):
-                if profile[i] < thresh:
-                    count += 1
-                    if count >= min_run:
-                        return i + min_run - 1
-                else:
-                    count = 0
-            return len(profile) - 1
+        card_bot = h - 1
+        for r in range(h - 1, -1, -1):
+            if row_bright[r] < HOLDER_PCT:
+                card_bot = r
+                break
 
-        top_candidates = []
-        bot_candidates = []
-        for pct in [0.15, 0.50, 0.85]:
-            px = int(w * pct)
-            strip = gray[:, max(0, px - STRIP_W):px + STRIP_W].mean(axis=1)
-            top_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
-            bot_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
+        # Column analysis: use confirmed card rows only
+        mid_start = min(card_top + 30, h - 1)
+        mid_end = max(card_bot - 30, mid_start + 1)
+        card_region = gray[mid_start:mid_end, :]
+        col_bright = np.array([(card_region[:, c] > thresh).mean() for c in range(w)])
 
-        left_candidates = []
-        right_candidates = []
-        for pct in [0.40, 0.50, 0.60]:
-            py = int(h * pct)
-            strip = gray[max(0, py - STRIP_W):py + STRIP_W, :].mean(axis=0)
-            left_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
-            right_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
+        card_left = 0
+        for c in range(w):
+            if col_bright[c] < HOLDER_PCT:
+                card_left = c
+                break
 
-        ct, cb = min(top_candidates), max(bot_candidates)
-        cl, cr = min(left_candidates), max(right_candidates)
-        if (cr - cl) > w * 0.3 and (cb - ct) > h * 0.3:
-            rect_brightness = (cl, ct, cr, cb)
+        card_right = w - 1
+        for c in range(w - 1, -1, -1):
+            if col_bright[c] < HOLDER_PCT:
+                card_right = c
+                break
 
-        # === Selection: Canny for backs, largest for fronts ===
-        rect = None
-        method = 'None'
+        card_w = card_right - card_left
+        card_h = card_bot - card_top
 
-        if is_back:
-            if rect_canny:
-                rect, method = rect_canny, 'Canny'
-            elif rect_brightness:
-                rect, method = rect_brightness, 'Brightness'
-        else:
-            if rect_canny and rect_brightness:
-                area_c = (rect_canny[2] - rect_canny[0]) * (rect_canny[3] - rect_canny[1])
-                area_b = (rect_brightness[2] - rect_brightness[0]) * (rect_brightness[3] - rect_brightness[1])
-                if area_c >= area_b:
-                    rect, method = rect_canny, 'Canny'
-                else:
-                    rect, method = rect_brightness, 'Brightness'
-            elif rect_canny:
-                rect, method = rect_canny, 'Canny'
-            elif rect_brightness:
-                rect, method = rect_brightness, 'Brightness'
-
-        if not rect:
-            logger.info("Scanner crop: no edges detected, skipping")
+        if card_w < w * 0.3 or card_h < h * 0.3:
+            logger.info("Scanner crop: detection too small, skipping")
             _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
             return base64.b64encode(buffer).decode('utf-8')
 
-        x1c, y1c, x2c, y2c = rect
-        logger.info(f"Scanner crop [{method}]: card at ({x1c},{y1c})-({x2c},{y2c})")
+        logger.info(f"Scanner crop: card at ({card_left},{card_top})-({card_right},{card_bot}) holder_bright={holder_brightness:.0f}")
 
-        # Adaptive margin: min(50, half of available holder space)
-        margin_top = min(MAX_MARGIN, max(0, y1c // 2))
-        margin_bot = min(MAX_MARGIN, max(0, (h - 1 - y2c) // 2))
-        margin_left = min(MAX_MARGIN, max(0, x1c // 2))
-        margin_right = min(MAX_MARGIN, max(0, (w - 1 - x2c) // 2))
+        # Adaptive margin
+        margin_top = min(MAX_MARGIN, max(0, card_top // 2))
+        margin_bot = min(MAX_MARGIN, max(0, (h - 1 - card_bot) // 2))
+        margin_left = min(MAX_MARGIN, max(0, card_left // 2))
+        margin_right = min(MAX_MARGIN, max(0, (w - 1 - card_right) // 2))
 
-        x1 = x1c - margin_left
-        y1 = y1c - margin_top
-        x2 = x2c + margin_right
-        y2 = y2c + margin_bot
+        x1 = card_left - margin_left
+        y1 = card_top - margin_top
+        x2 = card_right + margin_right
+        y2 = card_bot + margin_bot
 
         if (x2 - x1) < w or (y2 - y1) < h:
             img = img[y1:y2, x1:x2]
