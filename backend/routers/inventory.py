@@ -581,17 +581,17 @@ async def update_inventory_item(item_id: str, data: InventoryItemUpdate, request
                 img = value
                 if ',' in img:
                     img = img.split(',')[1]
-                processed = process_card_image(img, max_size=800, skip_crop=True)
+                processed = process_card_image(img, max_size=1200, skip_crop=True)
                 update_fields["image"] = processed
-                update_fields["thumbnail"] = create_thumbnail(processed, max_size=200)
-                update_fields["store_thumbnail"] = create_store_thumbnail(processed, max_size=400)
+                update_fields["thumbnail"] = create_thumbnail(processed, max_size=300)
+                update_fields["store_thumbnail"] = create_store_thumbnail(processed)
             elif field == "back_image_base64" and value is not None:
                 bimg = value
                 if ',' in bimg:
                     bimg = bimg.split(',')[1]
-                back_processed = process_card_image(bimg, max_size=800, skip_crop=True)
+                back_processed = process_card_image(bimg, max_size=1200, skip_crop=True)
                 update_fields["back_image"] = back_processed
-                update_fields["back_thumbnail"] = create_thumbnail(back_processed, max_size=200)
+                update_fields["back_thumbnail"] = create_thumbnail(back_processed, max_size=300)
             elif field not in ("image_base64", "back_image_base64"):
                 update_fields[field] = value
 

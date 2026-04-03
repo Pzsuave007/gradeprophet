@@ -686,6 +686,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
       canvas.height = 0;
       const field = side === 'back' ? 'back_image_base64' : 'image_base64';
       const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: enhanced });
+      // Update fullImages so editor shows the change immediately
+      if (res.data?.image || res.data?.back_image) {
+        setFullImages(prev => ({
+          ...prev,
+          front: res.data.image || prev.front,
+          back: res.data.back_image || prev.back,
+        }));
+      }
       toast.success(`${side === 'front' ? 'Front' : 'Back'} image enhanced!`);
       onImageSaved?.(res.data);
       setActivePreset('original');
@@ -759,6 +767,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
 
       const field = side === 'back' ? 'back_image_base64' : 'image_base64';
       const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: cropped });
+      // Update fullImages so editor shows the crop immediately
+      if (res.data?.image || res.data?.back_image) {
+        setFullImages(prev => ({
+          ...prev,
+          front: res.data.image || prev.front,
+          back: res.data.back_image || prev.back,
+        }));
+      }
       toast.success('Image cropped! Use Undo to revert.');
       onImageSaved?.(res.data);
     } catch (err) {
@@ -775,6 +791,14 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
     try {
       const field = undoData.side === 'back' ? 'back_image_base64' : 'image_base64';
       const res = await axios.put(`${API}/api/inventory/${item.id}`, { [field]: undoData.originalBase64 });
+      // Update fullImages so editor shows the undo immediately
+      if (res.data?.image || res.data?.back_image) {
+        setFullImages(prev => ({
+          ...prev,
+          front: res.data.image || prev.front,
+          back: res.data.back_image || prev.back,
+        }));
+      }
       toast.success('Crop undone! Original image restored.');
       onImageSaved?.(res.data);
       setUndoData(null);

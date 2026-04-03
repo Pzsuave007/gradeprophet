@@ -64,8 +64,8 @@ def scanner_auto_process(image_base64: str) -> str:
             y1, y2 = row_block
             x1, x2 = col_block
 
-            # Add margin (~4%) so we don't accidentally cut the card
-            margin = int(max(x2 - x1, y2 - y1) * 0.04)
+            # Add safe margin (~6%) so we don't accidentally cut the card
+            margin = int(max(x2 - x1, y2 - y1) * 0.06)
             y1 = max(0, y1 - margin)
             y2 = min(h, y2 + margin)
             x1 = max(0, x1 - margin)
@@ -291,7 +291,7 @@ def create_thumbnail(image_base64: str, max_size: int = 800) -> str:
         return image_base64
 
 
-def create_store_thumbnail(image_base64: str, max_size: int = 400) -> str:
+def create_store_thumbnail(image_base64: str, max_size: int = 600) -> str:
     """Create a high-quality WebP store thumbnail for the shop page."""
     try:
         import io
@@ -306,7 +306,7 @@ def create_store_thumbnail(image_base64: str, max_size: int = 400) -> str:
             image = image.convert('RGB')
 
         buffer = io.BytesIO()
-        image.save(buffer, format='WEBP', quality=88)
+        image.save(buffer, format='WEBP', quality=92)
         return base64.b64encode(buffer.getvalue()).decode('utf-8')
     except Exception as e:
         logger.warning(f"Failed to create store thumbnail: {e}")
