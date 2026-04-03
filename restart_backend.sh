@@ -1,20 +1,12 @@
 #!/bin/bash
-echo "=== FlipSlab Engine - Restart Backend ==="
-
-# Install new dependency
-echo "Installing feedparser..."
-/opt/gradeprophet/backend/venv/bin/pip install feedparser
-
-# Kill existing backend processes on port 8001
-echo "Stopping backend..."
-pkill -f "uvicorn server:app.*8001"
-sleep 2
-
-# Start backend
-echo "Starting backend..."
-cd /opt/gradeprophet/backend
-nohup /opt/gradeprophet/backend/venv/bin/uvicorn server:app --host 127.0.0.1 --port 8001 --workers 2 > /tmp/gradeprophet.log 2>&1 &
-
+echo "Matando procesos anteriores..."
+pkill -9 -f "uvicorn.*8001" 2>/dev/null
 sleep 3
-echo "=== Done! Backend PID: $(pgrep -f 'uvicorn server:app.*8001') ==="
-echo "Logs: tail -f /tmp/gradeprophet.log"
+
+echo "Iniciando backend..."
+cd /opt/gradeprophet/backend
+source venv/bin/activate
+nohup venv/bin/uvicorn server:app --host 0.0.0.0 --port 8001 --reload > backend.log 2>&1 &
+sleep 5
+
+curl -s http://localhost:8001/api/ | grep -q "FlipSlab" && echo "API: OK - Prueba el scanner!" || echo "ERROR: tail -20 /opt/gradeprophet/backend/backend.log"
