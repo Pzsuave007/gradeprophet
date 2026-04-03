@@ -798,9 +798,11 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
             )
 
         if matched_item:
-            # Save back image
+            # Save back image + generate back thumbnail for preview
+            back_thumb = create_thumbnail(processed)
             update_fields = {
                 "back_image": processed,
+                "back_thumbnail": back_thumb,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }
 
