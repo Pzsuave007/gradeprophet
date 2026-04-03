@@ -143,6 +143,18 @@ class CornerCropResponse(BaseModel):
 
 # ---- Routes ----
 
+
+@router.post("/cards/test-scanner-crop")
+async def test_scanner_crop(request: Request):
+    """Test endpoint: send an image, get back the auto-cropped version."""
+    body = await request.json()
+    image_b64 = body.get("image_base64", "")
+    if ',' in image_b64:
+        image_b64 = image_b64.split(',')[1]
+    result = scanner_auto_process(image_b64)
+    return {"processed_base64": result[:100] + "...", "input_len": len(image_b64), "output_len": len(result), "changed": len(result) != len(image_b64)}
+
+
 @router.post("/cards/analyze", response_model=CardAnalysisResponse)
 async def analyze_card(data: CardAnalysisCreate, request: Request):
     """Analyze a card image and predict PSA grade"""

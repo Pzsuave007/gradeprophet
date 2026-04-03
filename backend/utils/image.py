@@ -7,12 +7,8 @@ logger = logging.getLogger(__name__)
 
 
 def scanner_auto_process(image_base64: str) -> str:
-    """Auto-crop card from scanner image (uniform background) + apply Scanner Fix preset.
-    
-    Steps:
-    1. Detect card edges using thresholding + contour detection
-    2. Crop tightly to the card
-    3. Apply Scanner Fix: brightness 1.12, contrast 0.95, saturate 1.20, shadow lift
+    """Auto-crop scanner image to just the card + apply Scanner Fix color preset.
+    Simple approach: find where the card content is using row/column variance, crop to that area.
     """
     try:
         import cv2
@@ -22,114 +18,60 @@ def scanner_auto_process(image_base64: str) -> str:
         nparr = np.frombuffer(image_data, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None:
+            logger.warning("Scanner auto-process: failed to decode image")
             return image_base64
 
         h, w = img.shape[:2]
+        logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
 
-        # --- Step 1: Detect card rectangle ---
-        best_contour = None
-        best_score = 0
+        # Find card edges using row/column variance
+        # Background rows/cols are uniform (low std), card rows/cols have content (high std)
+        row_std = np.array([gray[r, :].std() for r in range(h)])
+        col_std = np.array([gray[:, c].std() for c in range(w)])
 
-        for method in ['otsu', 'adaptive', 'canny', 'white_bg']:
-            if method == 'otsu':
-                _, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-            elif method == 'adaptive':
-                thresh = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                               cv2.THRESH_BINARY_INV, 21, 5)
-            elif method == 'white_bg':
-                # Specifically target white/light scanner background
-                _, thresh = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY_INV)
-                kernel = np.ones((5, 5), np.uint8)
-                thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=3)
-            else:  # canny
-                edges = cv2.Canny(blurred, 30, 100)
-                kernel = np.ones((5, 5), np.uint8)
-                thresh = cv2.dilate(edges, kernel, iterations=2)
+        card_rows = np.where(row_std > 15)[0]
+        card_cols = np.where(col_std > 15)[0]
 
-            contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if len(card_rows) > 10 and len(card_cols) > 10:
+            y1, y2 = int(card_rows[0]), int(card_rows[-1])
+            x1, x2 = int(card_cols[0]), int(card_cols[-1])
 
-            for cnt in contours:
-                area = cv2.contourArea(cnt)
-                if area < (w * h * 0.15) or area > (w * h * 0.95):
-                    continue
-                peri = cv2.arcLength(cnt, True)
-                approx = cv2.approxPolyDP(cnt, 0.02 * peri, True)
-                
-                x, y, rw, rh = cv2.boundingRect(cnt)
-                ratio = rh / rw if rw > 0 else 0
-                
-                # Score: prefer card-like aspect ratio (1.3-1.5) and 4 vertices
-                ratio_score = max(0, 1.0 - abs(ratio - 1.4) * 2)
-                vertex_bonus = 1.5 if len(approx) == 4 else 1.0
-                area_score = area / (w * h)
-                score = ratio_score * vertex_bonus * area_score
+            # Add tiny margin (~1%)
+            margin = int(max(x2 - x1, y2 - y1) * 0.01)
+            y1 = max(0, y1 - margin)
+            y2 = min(h, y2 + margin)
+            x1 = max(0, x1 - margin)
+            x2 = min(w, x2 + margin)
 
-                if score > best_score:
-                    if len(approx) == 4:
-                        best_contour = approx
-                    else:
-                        best_contour = np.array([[x, y], [x+rw, y], [x+rw, y+rh], [x, y+rh]],
-                                                dtype=np.int32).reshape(4, 1, 2)
-                    best_score = score
-
-        if best_contour is not None and best_score > 0.1:
-            pts = best_contour.reshape(4, 2).astype(np.float32)
-            rect = _order_points(pts)
-            
-            width_top = np.linalg.norm(rect[1] - rect[0])
-            width_bottom = np.linalg.norm(rect[2] - rect[3])
-            max_width = int(max(width_top, width_bottom))
-            height_left = np.linalg.norm(rect[3] - rect[0])
-            height_right = np.linalg.norm(rect[2] - rect[1])
-            max_height = int(max(height_left, height_right))
-
-            if max_width > 50 and max_height > 50:
-                dst = np.array([
-                    [0, 0], [max_width - 1, 0],
-                    [max_width - 1, max_height - 1], [0, max_height - 1]
-                ], dtype=np.float32)
-                M = cv2.getPerspectiveTransform(rect, dst)
-                warped = cv2.warpPerspective(img, M, (max_width, max_height))
-                
-                # Trim 1-2% inward to remove any sleeve edge remnants
-                trim = max(int(max_width * 0.015), 2)
-                trimv = max(int(max_height * 0.015), 2)
-                warped = warped[trimv:max_height-trimv, trim:max_width-trim]
-                
-                img = warped
-                logger.info(f"Scanner crop: {w}x{h} -> {warped.shape[1]}x{warped.shape[0]}")
+            # Only crop if it removes something meaningful
+            if (x2 - x1) < w * 0.98 or (y2 - y1) < h * 0.98:
+                img = img[y1:y2, x1:x2]
+                logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
+            else:
+                logger.info("Scanner crop: card already fills image, skipping")
         else:
-            # Fallback: center crop removing outer 8%
-            margin_x = int(w * 0.08)
-            margin_y = int(h * 0.08)
-            img = img[margin_y:h-margin_y, margin_x:w-margin_x]
-            logger.info(f"Scanner crop: fallback center crop {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
+            logger.info("Scanner crop: could not detect card edges, skipping")
 
-        # --- Step 2: Apply Scanner Fix preset ---
+        # Apply Scanner Fix color preset
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         pil_img = Image.fromarray(img_rgb)
-
         pil_img = ImageEnhance.Brightness(pil_img).enhance(1.12)
         pil_img = ImageEnhance.Contrast(pil_img).enhance(0.95)
         pil_img = ImageEnhance.Color(pil_img).enhance(1.20)
-        
-        # Shadow lift: raise dark values
+
+        # Shadow lift
         arr = np.array(pil_img, dtype=np.float32) / 255.0
-        shadow_strength = 0.35
-        arr = arr + shadow_strength * (1 - arr) * (1 - arr) * (1 - arr)
+        arr = arr + 0.35 * (1 - arr) * (1 - arr) * (1 - arr)
         arr = np.clip(arr * 255, 0, 255).astype(np.uint8)
         pil_img = Image.fromarray(arr)
 
         buf = BytesIO()
         pil_img.save(buf, format='JPEG', quality=95)
-        result = base64.b64encode(buf.getvalue()).decode('utf-8')
-        logger.info("Scanner auto-process complete: crop + Scanner Fix applied")
-        return result
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
 
     except Exception as e:
-        logger.warning(f"Scanner auto-process failed: {e}", exc_info=True)
+        logger.error(f"Scanner auto-process FAILED: {e}", exc_info=True)
         return image_base64
 
 
