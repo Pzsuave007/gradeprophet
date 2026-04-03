@@ -33,9 +33,10 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
 
 
 def scanner_auto_process(image_base64: str) -> str:
-    """Auto-crop scanner image to just the card + apply Scanner Fix color preset.
-    Uses largest contiguous block of high-variance rows/columns to isolate the card
-    from the semi-rigid holder (Gem Mint label, plastic edges, scanner bed).
+    """Auto-crop scanner image to just the card.
+    Two-phase approach:
+    1. Find card content using high threshold (15) - detects colorful/textured areas
+    2. Expand outward to include card borders (lower threshold 8) - catches silver/gray borders
     """
     try:
         import cv2
@@ -55,8 +56,7 @@ def scanner_auto_process(image_base64: str) -> str:
         row_std = np.array([gray[r, :].std() for r in range(h)])
         col_std = np.array([gray[:, c].std() for c in range(w)])
 
-        # Find the largest contiguous block of rows/cols with high variance (the card)
-        # This ignores isolated spikes like the "Gem Mint" text on the holder
+        # Phase 1: Find card content block (high variance = colorful content)
         row_block = _find_largest_block(row_std, 15, gap_tolerance=8)
         col_block = _find_largest_block(col_std, 15, gap_tolerance=8)
 
@@ -64,12 +64,35 @@ def scanner_auto_process(image_base64: str) -> str:
             y1, y2 = row_block
             x1, x2 = col_block
 
-            # Add safe margin (~4%) so we don't accidentally cut the card
-            margin = int(max(x2 - x1, y2 - y1) * 0.04)
-            y1 = max(0, y1 - margin)
-            y2 = min(h, y2 + margin)
-            x1 = max(0, x1 - margin)
-            x2 = min(w, x2 + margin)
+            # Save Phase 1 boundaries
+            p1_y1, p1_y2, p1_x1, p1_x2 = y1, y2, x1, x2
+
+            # Phase 2: Expand to include card borders (silver/gray borders have std 10-14)
+            border_thresh = 12
+            ey1, ey2, ex1, ex2 = y1, y2, x1, x2
+            while ey1 > 0 and row_std[ey1 - 1] > border_thresh:
+                ey1 -= 1
+            while ey2 < h - 1 and row_std[ey2 + 1] > border_thresh:
+                ey2 += 1
+            while ex1 > 0 and col_std[ex1 - 1] > border_thresh:
+                ex1 -= 1
+            while ex2 < w - 1 and col_std[ex2 + 1] > border_thresh:
+                ex2 += 1
+
+            # Check if expanded version removes > 5% on at least one axis
+            em = int(max(ex2 - ex1, ey2 - ey1) * 0.02)
+            ex1m, ey1m = max(0, ex1 - em), max(0, ey1 - em)
+            ex2m, ey2m = min(w, ex2 + em), min(h, ey2 + em)
+
+            if (ex2m - ex1m) < w * 0.95 or (ey2m - ey1m) < h * 0.95:
+                y1, y2, x1, x2 = ey1m, ey2m, ex1m, ex2m
+            else:
+                # Expansion too aggressive - fall back to Phase 1 + 4% margin
+                margin = int(max(p1_x2 - p1_x1, p1_y2 - p1_y1) * 0.04)
+                y1 = max(0, p1_y1 - margin)
+                y2 = min(h, p1_y2 + margin)
+                x1 = max(0, p1_x1 - margin)
+                x2 = min(w, p1_x2 + margin)
 
             # Only crop if it removes something meaningful (>5% on any side)
             if (x2 - x1) < w * 0.95 or (y2 - y1) < h * 0.95:
