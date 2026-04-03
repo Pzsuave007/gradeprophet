@@ -60,7 +60,7 @@ const CardListingForm = ({ item, preview, index, form, onChange, compact }) => {
       {/* Card header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-[#1a1a1a]">
         <div className="w-10 h-14 rounded-lg bg-[#0a0a0a] overflow-hidden flex-shrink-0">
-          {item.image ? <img src={`data:image/jpeg;base64,${item.image}`} alt="" className="w-full h-full object-cover" />
+          {(item.store_thumbnail || item.thumbnail || item.image) ? <img src={`data:image/${item.store_thumbnail ? 'webp' : 'jpeg'};base64,${item.store_thumbnail || item.thumbnail || item.image}`} alt="" className="w-full h-full object-cover" />
             : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-4 h-4 text-gray-700" /></div>}
         </div>
         <div className="flex-1 min-w-0">
