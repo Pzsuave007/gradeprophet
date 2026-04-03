@@ -412,6 +412,123 @@ class BulkConditionUpdate(BaseModel):
     card_condition: str
 
 
+class BulkPresetApply(BaseModel):
+    item_ids: List[str]
+    brightness: float = 100
+    contrast: float = 100
+    saturate: float = 100
+    shadows: float = 0
+    sharpness: float = 0
+    highlights: float = 0
+    temperature: float = 0
+
+
+def _apply_preset_to_image(image_base64: str, preset: BulkPresetApply) -> str:
+    """Apply preset filters to a base64 image using PIL (mirrors frontend canvas logic)."""
+    import base64 as b64
+    from PIL import Image, ImageEnhance, ImageFilter
+    from io import BytesIO
+    import numpy as np
+
+    data = b64.b64decode(image_base64)
+    img = Image.open(BytesIO(data))
+    if img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    # Brightness, Contrast, Saturation (values are percentages, 100 = no change)
+    if preset.brightness != 100:
+        img = ImageEnhance.Brightness(img).enhance(preset.brightness / 100)
+    if preset.contrast != 100:
+        img = ImageEnhance.Contrast(img).enhance(preset.contrast / 100)
+    if preset.saturate != 100:
+        img = ImageEnhance.Color(img).enhance(preset.saturate / 100)
+
+    # Shadows, Highlights, Temperature via pixel manipulation (mirrors frontend LUT logic)
+    if preset.shadows > 0 or preset.highlights != 0 or preset.temperature != 0:
+        arr = np.array(img, dtype=np.float64) / 255.0
+
+        # Shadows: gamma curve
+        if preset.shadows > 0:
+            s_gamma = max(0.4, 1 - (preset.shadows / 100) * 0.55)
+            arr = np.power(arr, s_gamma)
+
+        # Highlights: adjust upper range
+        if preset.highlights != 0:
+            h_gamma = max(0.5, min(1.5, 1 - (preset.highlights / 100) * 0.4))
+            t = np.maximum(0, (arr - 0.5) * 2)
+            adj = t * (1 - np.power(arr, h_gamma))
+            arr = np.minimum(1, arr + adj * 0.3)
+
+        # Temperature: warm adds R/Y, cool adds B
+        if preset.temperature != 0:
+            t_shift = preset.temperature / 100
+            r, g, b = arr[:,:,0], arr[:,:,1], arr[:,:,2]
+            r = r * (1 + t_shift * 0.15) + t_shift * 8/255
+            g = g * (1 + t_shift * 0.05)
+            b = b * (1 - t_shift * 0.15) - t_shift * 8/255
+            arr = np.stack([r, g, b], axis=2)
+
+        arr = np.clip(arr * 255, 0, 255).astype(np.uint8)
+        img = Image.fromarray(arr)
+
+    # Sharpness via unsharp mask
+    if preset.sharpness > 0:
+        factor = 1 + (preset.sharpness / 100) * 4
+        img = ImageEnhance.Sharpness(img).enhance(factor)
+
+    buf = BytesIO()
+    img.save(buf, format='JPEG', quality=92)
+    return b64.b64encode(buf.getvalue()).decode('utf-8')
+
+
+@router.put("/bulk-apply-preset")
+async def bulk_apply_preset(data: BulkPresetApply, request: Request):
+    """Apply a photo preset to front+back images of multiple inventory items."""
+    try:
+        user = await get_current_user(request)
+        user_id = user["user_id"]
+
+        processed = 0
+        errors = 0
+
+        for item_id in data.item_ids:
+            try:
+                item = await db.inventory.find_one(
+                    {"id": item_id, "user_id": user_id},
+                    {"_id": 0, "image": 1, "back_image": 1}
+                )
+                if not item:
+                    continue
+
+                update_fields = {"updated_at": datetime.now(timezone.utc).isoformat()}
+
+                # Apply to front image
+                if item.get("image"):
+                    enhanced_front = _apply_preset_to_image(item["image"], data)
+                    update_fields["image"] = enhanced_front
+                    update_fields["thumbnail"] = create_thumbnail(enhanced_front)
+                    update_fields["store_thumbnail"] = create_store_thumbnail(enhanced_front)
+
+                # Apply to back image
+                if item.get("back_image"):
+                    enhanced_back = _apply_preset_to_image(item["back_image"], data)
+                    update_fields["back_image"] = enhanced_back
+                    update_fields["back_thumbnail"] = create_thumbnail(enhanced_back)
+
+                await db.inventory.update_one({"id": item_id}, {"$set": update_fields})
+                processed += 1
+            except Exception as e:
+                logger.warning(f"Bulk preset failed for {item_id}: {e}")
+                errors += 1
+
+        return {"processed": processed, "errors": errors, "total": len(data.item_ids)}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Bulk preset apply failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.put("/bulk-update-condition")
 async def bulk_update_condition(data: BulkConditionUpdate, request: Request):
     """Bulk update card_condition for multiple inventory items"""

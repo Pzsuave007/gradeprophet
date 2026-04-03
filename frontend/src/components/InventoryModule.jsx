@@ -1264,6 +1264,9 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [showBulkCondition, setShowBulkCondition] = useState(false);
   const [bulkConditionValue, setBulkConditionValue] = useState('');
+  const [showBulkPreset, setShowBulkPreset] = useState(false);
+  const [bulkPresetId, setBulkPresetId] = useState('');
+  const [bulkPresets, setBulkPresets] = useState([]);
 
   // Add/Edit inline view state
   const [showForm, setShowForm] = useState(false);
@@ -1425,6 +1428,69 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     }
   };
 
+  // Fetch presets for bulk apply
+  useEffect(() => {
+    axios.get(`${API}/api/settings/photo-presets`, { withCredentials: true })
+      .then(r => setBulkPresets(r.data.presets || []))
+      .catch(() => {});
+  }, []);
+
+  const BULK_PRESET_OPTIONS = [
+    { id: 'scanner', label: 'Scanner Fix', brightness: 112, contrast: 95, saturate: 120, sharpness: 0, shadows: 65 },
+    { id: 'bright', label: 'Bright', brightness: 118, contrast: 97, saturate: 105, sharpness: 0, shadows: 40 },
+    { id: 'clean', label: 'Clean', brightness: 106, contrast: 105, saturate: 90, sharpness: 0, shadows: 15 },
+    { id: 'sharp', label: 'Sharp', brightness: 104, contrast: 106, saturate: 98, sharpness: 30, shadows: 0 },
+    { id: 'ebay', label: 'eBay Ready', brightness: 115, contrast: 102, saturate: 110, sharpness: 0, shadows: 50 },
+    { id: 'pop', label: 'Pop', brightness: 110, contrast: 108, saturate: 135, sharpness: 0, shadows: 55 },
+  ];
+
+  const bulkApplyPreset = async () => {
+    if (!bulkPresetId) { toast.error('Select a preset'); return; }
+    const selectedIds = items.filter(i => selected.has(i.id)).map(i => i.id);
+    if (selectedIds.length === 0) { toast.error('No cards selected'); return; }
+
+    // Get preset settings
+    let preset = BULK_PRESET_OPTIONS.find(p => p.id === bulkPresetId);
+    if (!preset) {
+      const custom = bulkPresets.find(p => p.id === bulkPresetId);
+      if (custom) {
+        preset = {
+          brightness: 100 + (custom.brightness || 0),
+          contrast: 100 + (custom.contrast || 0),
+          saturate: 100 + (custom.saturation || 0),
+          shadows: custom.shadows || 0,
+          sharpness: custom.sharpness || 0,
+          highlights: custom.highlights || 0,
+          temperature: custom.temperature || 0,
+        };
+      }
+    }
+    if (!preset) { toast.error('Preset not found'); return; }
+
+    setBulkUpdating(true);
+    try {
+      const res = await axios.put(`${API}/api/inventory/bulk-apply-preset`, {
+        item_ids: selectedIds,
+        brightness: preset.brightness,
+        contrast: preset.contrast,
+        saturate: preset.saturate,
+        shadows: preset.shadows || 0,
+        sharpness: preset.sharpness || 0,
+        highlights: preset.highlights || 0,
+        temperature: preset.temperature || 0,
+      }, { withCredentials: true });
+      toast.success(`Preset applied to ${res.data.processed} cards`);
+      setShowBulkPreset(false);
+      setBulkPresetId('');
+      exitSelectMode();
+      fetchInventory(search);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to apply preset');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
 
   const [flippedCards, setFlippedCards] = useState(new Set());
   const toggleFlip = (e, itemId) => {
@@ -1524,6 +1590,10 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               </button>
             ) : (
               <>
+                <button onClick={() => setShowBulkPreset(true)} disabled={selected.size === 0}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 transition-colors" data-testid="bulk-preset-btn">
+                  <Sparkles className="w-4 h-4" /> Preset {selected.size > 0 ? `(${selected.size})` : ''}
+                </button>
                 <button onClick={() => setShowBulkCondition(true)} disabled={selected.size === 0}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="bulk-condition-btn">
                   Condition {selected.size > 0 ? `(${selected.size})` : ''}
@@ -1618,6 +1688,56 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Apply to {selected.size} Cards</>}
                 </button>
                 <button onClick={() => setShowBulkCondition(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-cond-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Preset Apply Panel */}
+      <AnimatePresence>
+        {showBulkPreset && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-4">
+            <div className="bg-[#111] border border-orange-500/30 rounded-xl p-4" data-testid="bulk-preset-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-orange-400" />
+                  <p className="text-sm font-bold text-white">Apply Preset to Images</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400">{selected.size} cards (front + back)</span>
+                </div>
+                <button onClick={() => setShowBulkPreset(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-3">This permanently applies the preset to both front and back images and regenerates thumbnails.</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+                {BULK_PRESET_OPTIONS.map(p => (
+                  <button key={p.id} onClick={() => setBulkPresetId(p.id)}
+                    className={`px-3 py-2.5 rounded-lg text-center transition-all ${bulkPresetId === p.id ? 'bg-orange-500/15 border-2 border-orange-500/50 ring-1 ring-orange-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                    data-testid={`bulk-preset-opt-${p.id}`}>
+                    <p className={`text-xs font-bold ${bulkPresetId === p.id ? 'text-orange-400' : 'text-gray-400'}`}>{p.label}</p>
+                  </button>
+                ))}
+              </div>
+              {bulkPresets.length > 0 && (
+                <>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-600 mb-2">Custom Presets</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 mb-3">
+                    {bulkPresets.map(cp => (
+                      <button key={cp.id} onClick={() => setBulkPresetId(cp.id)}
+                        className={`px-3 py-2.5 rounded-lg text-center transition-all ${bulkPresetId === cp.id ? 'bg-orange-500/15 border-2 border-orange-500/50 ring-1 ring-orange-500/20' : 'bg-[#0a0a0a] border border-[#1a1a1a] hover:border-[#2a2a2a]'}`}
+                        data-testid={`bulk-preset-opt-${cp.id}`}>
+                        <p className={`text-xs font-bold ${bulkPresetId === cp.id ? 'text-orange-400' : 'text-gray-400'}`}>{cp.name}</p>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+              <div className="flex items-center gap-3">
+                <button onClick={bulkApplyPreset} disabled={!bulkPresetId || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-500 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-preset-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Applying...</> : <><Sparkles className="w-4 h-4" /> Apply to {selected.size} Cards</>}
+                </button>
+                <button onClick={() => { setShowBulkPreset(false); setBulkPresetId(''); }} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-preset-cancel-btn">Cancel</button>
               </div>
             </div>
           </motion.div>
