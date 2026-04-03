@@ -604,7 +604,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
       {items.length > 1 && !allDone && (
         <div className="bg-[#111] border border-[#1a1a1a] rounded-xl px-4 py-3">
           <p className="text-[10px] uppercase tracking-widest text-gray-600 mb-2">Apply to all listings</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-center">
+            {/* Format */}
             <div className="flex items-center gap-1">
               <span className="text-xs text-gray-500">Format:</span>
               {LISTING_FORMATS.map(lf => (
@@ -615,7 +616,8 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
                 </button>
               ))}
             </div>
-            <div className="w-px bg-[#1a1a1a]" />
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Shipping */}
             <div className="flex items-center gap-1 flex-wrap">
               <span className="text-xs text-gray-500">Shipping:</span>
               {SHIPPING_OPTIONS.map(s => (
@@ -625,6 +627,58 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
                   {s.label}
                 </button>
               ))}
+            </div>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Duration */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-xs text-gray-500">Duration:</span>
+              {(DURATIONS[forms[0]?.listing_format] || DURATIONS.FixedPriceItem).map(d => (
+                <button key={d.id} onClick={() => applyToAll('duration', d.id)}
+                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
+                  data-testid={`batch-duration-${d.id}`}>
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Condition */}
+            <div className="flex items-center gap-1 flex-wrap">
+              <span className="text-xs text-gray-500">Condition:</span>
+              {CONDITIONS.map(c => (
+                <button key={c.id} onClick={() => applyToAll('condition_id', c.id)}
+                  className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-[#3b82f6] transition-colors"
+                  data-testid={`batch-condition-${c.id}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Best Offer */}
+            <button onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' && fm.listing_format === 'FixedPriceItem' ? { ...fm, best_offer: !fm.best_offer } : fm))}
+              className="px-2 py-1 rounded text-[10px] font-bold bg-[#0a0a0a] border border-[#1a1a1a] text-gray-400 hover:text-white hover:border-amber-500 transition-colors"
+              data-testid="batch-best-offer">
+              Toggle Best Offer
+            </button>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Bulk Price */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Price:</span>
+              <input type="number" step="0.01" min="0" placeholder="$"
+                className="w-20 bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2 py-1 text-[10px] text-white focus:border-[#3b82f6] focus:outline-none"
+                onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { applyToAll('price', parseFloat(e.target.value).toFixed(2)); toast.success(`Price set to $${parseFloat(e.target.value).toFixed(2)} for all`); }}}
+                data-testid="batch-price-input" />
+              <span className="text-[9px] text-gray-600">Enter to apply</span>
+            </div>
+            <div className="w-px h-5 bg-[#1a1a1a]" />
+            {/* Sport */}
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-gray-500">Sport:</span>
+              <select className="bg-[#0a0a0a] border border-[#1a1a1a] rounded px-2 py-1 text-[10px] text-white focus:border-[#3b82f6] focus:outline-none"
+                onChange={e => { if (e.target.value) applyToAll('sport', e.target.value); }}
+                data-testid="batch-sport-select">
+                <option value="">Select...</option>
+                {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
             </div>
           </div>
         </div>
