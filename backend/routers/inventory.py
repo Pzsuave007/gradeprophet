@@ -221,11 +221,17 @@ async def batch_save_inventory(data: BatchSaveRequest, request: Request):
                     image_thumb = process_card_image(img, max_size=800)
 
                 back_image_thumb = None
+                back_thumbnail = None
                 if card.back_image_base64:
                     bimg = card.back_image_base64
                     if ',' in bimg:
                         bimg = bimg.split(',')[1]
                     back_image_thumb = process_card_image(bimg, max_size=800)
+                    back_thumbnail = create_thumbnail(back_image_thumb, max_size=200)
+
+                image_thumb_for_thumbs = image_thumb
+                thumbnail = create_thumbnail(image_thumb_for_thumbs, max_size=200) if image_thumb_for_thumbs else None
+                store_thumb = create_store_thumbnail(image_thumb_for_thumbs) if image_thumb_for_thumbs else None
 
                 item = InventoryItem(
                     card_name=card.card_name, player=card.player, year=card.year,
@@ -241,6 +247,12 @@ async def batch_save_inventory(data: BatchSaveRequest, request: Request):
                 doc['created_at'] = doc['created_at'].isoformat()
                 doc['updated_at'] = doc['updated_at'].isoformat()
                 doc['user_id'] = user_id
+                if thumbnail:
+                    doc['thumbnail'] = thumbnail
+                if store_thumb:
+                    doc['store_thumbnail'] = store_thumb
+                if back_thumbnail:
+                    doc['back_thumbnail'] = back_thumbnail
                 await db.inventory.insert_one(doc)
                 doc.pop('_id', None)
                 saved += 1

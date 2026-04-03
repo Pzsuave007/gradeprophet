@@ -703,6 +703,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
             "back_image": back_processed,
             "thumbnail": create_thumbnail(front_processed, max_size=300),
             "store_thumbnail": create_store_thumbnail(front_processed),
+            "back_thumbnail": create_thumbnail(back_processed, max_size=300) if back_processed else None,
             "category": category,
             "source": "batch_upload",
             "listed": False,
