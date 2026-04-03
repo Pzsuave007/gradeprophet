@@ -24,19 +24,16 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - Inventory with Sold Tab, Bulk Shipping, Price Lookup, Cert Number
 - Custom Global Presets (Admin), Photo Editor Mixer (7 sliders)
 - Batch Upload Queue (background processing)
-
-## Recent Changes (This Session - Feb/Mar 2026)
-- **Scanner Auto-Crop (DONE)** — Variance-based "largest contiguous block" algorithm crops semi-rigid holder edges. 4% margin to avoid cutting card. No color preset applied (user requested removal).
-- **Back Image Thumbnail Fix (DONE)** — Scanner `/cards/scan-upload` now generates `back_thumbnail` when uploading back images.
-- **Bulk Apply Preset (DONE)** — New feature: Select multiple cards → "Preset" button → choose preset (built-in or custom) → applies to front+back images → regenerates all thumbnails. Backend: `PUT /api/inventory/bulk-apply-preset`. Frontend: Orange "Preset" button in select mode toolbar with expandable panel.
-- **OpenCV Production Fix (DONE)** — Created `instalar_opencv.sh` to install opencv-python-headless on production server.
+- Scanner Auto-Crop (Hybrid Canny/Variance with 40px margin)
+- Bulk Apply Preset (multi-select in Inventory)
+- High-resolution thumbnails (store_thumbnail 600px, thumbnail 300px, image 1200px)
 
 ## Architecture
 ```
 /app/
 ├── backend/
 │   ├── routers/ (cards.py, ebay.py, inventory.py, shop.py, auth.py, etc.)
-│   ├── utils/image.py  # scanner_auto_process, _find_largest_block, _apply_preset_to_image
+│   ├── utils/image.py  # scanner_auto_process (Canny/Variance hybrid), auto_crop_card, presets
 │   └── utils/ai.py
 ├── frontend/src/
 │   ├── components/ (InventoryModule, ListingsModule, CardScanner, etc.)
@@ -48,10 +45,18 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - `POST /api/cards/analyze` — AI card analysis (supports scanner_mode)
 - `POST /api/cards/scan-upload` — Scanner upload with auto-crop
 - `POST /api/cards/batch-upload-queue` — Fast upload with background processing
-- `PUT /api/inventory/bulk-apply-preset` — Apply preset to multiple items (front+back+thumbnails)
+- `PUT /api/inventory/bulk-apply-preset` — Apply preset to multiple items
 - `PUT /api/inventory/bulk-update-condition` — Bulk update card condition
 - `GET /api/ebay/seller/my-listings` — Stale-while-revalidate cached listings
 - `GET /api/inventory` — Lightweight, thumbnails only
+
+## Completed (Feb/Mar 2026)
+- Scanner Auto-Crop hybrid (Canny/Variance + 40px margin) - VERIFIED via backend tests
+- Back Image Thumbnail Fix for scanner uploads
+- Bulk Apply Preset functionality
+- Photo Editor manual crop fix (skip_crop flag)
+- High-resolution thumbnails
+- OpenCV production install scripts
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
