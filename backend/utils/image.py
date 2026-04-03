@@ -32,59 +32,10 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
     return max(blocks, key=lambda b: b[1] - b[0])
 
 
-def _find_shadow_edge(avg_brightness, content_edge, direction):
-    """Scan from image edge toward card content. Find where brightness drops
-    below the plastic holder baseline (the shadow = card physical edge).
-    Returns the edge position, or None if no shadow detected."""
-    import numpy as np
-    n = len(avg_brightness)
-    smooth = np.convolve(avg_brightness, np.ones(11) / 11, mode='same')
-
-    if direction == 'top':
-        plastic = smooth[5:content_edge]
-        if len(plastic) < 20:
-            return None
-        baseline = np.percentile(plastic, 60)
-        thresh = baseline - 15
-        for r in range(5, content_edge):
-            if smooth[r] < thresh:
-                return r
-    elif direction == 'bottom':
-        plastic = smooth[content_edge:n - 5]
-        if len(plastic) < 20:
-            return None
-        baseline = np.percentile(plastic, 60)
-        thresh = baseline - 15
-        for r in range(n - 6, content_edge, -1):
-            if smooth[r] < thresh:
-                return r
-    elif direction == 'left':
-        plastic = smooth[5:content_edge]
-        if len(plastic) < 20:
-            return None
-        baseline = np.percentile(plastic, 60)
-        thresh = baseline - 15
-        for c in range(5, content_edge):
-            if smooth[c] < thresh:
-                return c
-    elif direction == 'right':
-        plastic = smooth[content_edge:n - 5]
-        if len(plastic) < 20:
-            return None
-        baseline = np.percentile(plastic, 60)
-        thresh = baseline - 15
-        for c in range(n - 6, content_edge, -1):
-            if smooth[c] < thresh:
-                return c
-    return None
-
-
 def scanner_auto_process(image_base64: str) -> str:
-    """Auto-crop scanner image to just the card.
-    1. Find card content using variance (std > 15)
-    2. For each side, detect the shadow cast by the card on the holder
-       (brightness drops below plastic baseline). If shadow found, use it
-       as the card edge. Otherwise fall back to 4% margin from content.
+    """Auto-crop scanner image to just the card + 40px margin.
+    Primary: Canny edge detection to find the card rectangle.
+    Fallback: Variance-based content block + 4% margin.
     """
     try:
         import cv2
@@ -100,45 +51,39 @@ def scanner_auto_process(image_base64: str) -> str:
         h, w = img.shape[:2]
         logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        MARGIN = 40
+        rect = None
 
-        row_std = np.array([gray[r, :].std() for r in range(h)])
-        col_std = np.array([gray[:, c].std() for c in range(w)])
-        row_avg = np.array([gray[r, :].mean() for r in range(h)])
-        col_avg = np.array([gray[:, c].mean() for c in range(w)])
+        # Method 1: Canny edge detection
+        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+        edges = cv2.Canny(blurred, 30, 100)
+        kernel = np.ones((3, 3), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=2)
+        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        if contours:
+            largest = max(contours, key=cv2.contourArea)
+            if cv2.contourArea(largest) > (h * w * 0.10):
+                bx, by, bw, bh = cv2.boundingRect(largest)
+                if bw < w * 0.85 or bh < h * 0.85:
+                    rect = (bx, by, bx + bw, by + bh)
+                    logger.info(f"Scanner crop [Canny]: card at ({bx},{by})-({bx+bw},{by+bh})")
 
-        row_block = _find_largest_block(row_std, 15, gap_tolerance=8)
-        col_block = _find_largest_block(col_std, 15, gap_tolerance=8)
+        # Method 2 fallback: Variance-based
+        if rect is None:
+            row_std = np.array([gray[r, :].std() for r in range(h)])
+            col_std = np.array([gray[:, c].std() for c in range(w)])
+            rb = _find_largest_block(row_std, 15, gap_tolerance=8)
+            cb = _find_largest_block(col_std, 15, gap_tolerance=8)
+            if rb and cb:
+                rect = (cb[0], rb[0], cb[1], rb[1])
+                logger.info(f"Scanner crop [Variance]: content at ({cb[0]},{rb[0]})-({cb[1]},{rb[1]})")
 
-        if row_block and col_block:
-            cy1, cy2 = row_block
-            cx1, cx2 = col_block
-            block_size = max(cy2 - cy1, cx2 - cx1)
-            fallback = int(block_size * 0.04)
-
-            # Shadow detection for each side (falls back to 4% margin)
-            st = _find_shadow_edge(row_avg, cy1, 'top')
-            sb = _find_shadow_edge(row_avg, cy2, 'bottom')
-            sl = _find_shadow_edge(col_avg, cx1, 'left')
-            sr = _find_shadow_edge(col_avg, cx2, 'right')
-
-            y1 = st if st is not None else (cy1 - fallback)
-            y2 = sb if sb is not None else (cy2 + fallback)
-            x1 = sl if sl is not None else (cx1 - fallback)
-            x2 = sr if sr is not None else (cx2 + fallback)
-
-            # Small safety margin (1%)
-            sm = int(block_size * 0.01)
-            y1 = max(0, y1 - sm)
-            y2 = min(h, y2 + sm)
-            x1 = max(0, x1 - sm)
-            x2 = min(w, x2 + sm)
-
-            # Safety: if crop covers > 95% of image, use content + 4% margin
-            if (x2 - x1) >= w * 0.95 and (y2 - y1) >= h * 0.95:
-                y1 = max(0, cy1 - fallback)
-                y2 = min(h, cy2 + fallback)
-                x1 = max(0, cx1 - fallback)
-                x2 = min(w, cx2 + fallback)
+        if rect:
+            x1, y1, x2, y2 = rect
+            x1 = max(0, x1 - MARGIN)
+            y1 = max(0, y1 - MARGIN)
+            x2 = min(w, x2 + MARGIN)
+            y2 = min(h, y2 + MARGIN)
 
             if (x2 - x1) < w * 0.95 or (y2 - y1) < h * 0.95:
                 img = img[y1:y2, x1:x2]
