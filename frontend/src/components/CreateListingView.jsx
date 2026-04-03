@@ -600,89 +600,60 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
         </div>
       )}
 
-      {/* Batch actions */}
+      {/* Bulk actions - compact dropdowns */}
       {items.length > 1 && !allDone && (
-        <div className="bg-gradient-to-r from-[#0a1628] to-[#0a0a0a] border border-[#1e3a5f] rounded-xl p-4 space-y-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#3b82f6]">Bulk Actions — Apply to All Listings</p>
+        <div className="bg-[#0a0a0a] border border-[#1a1a1a] rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">Bulk:</span>
 
-          {/* Row 1: Format + Duration */}
-          <div className="flex flex-wrap gap-3">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-white bg-[#3b82f6]/20 px-2 py-0.5 rounded">FORMAT</span>
-              {LISTING_FORMATS.map(lf => (
-                <button key={lf.id} onClick={() => applyToAll('listing_format', lf.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-[#3b82f6]/20 hover:border-[#3b82f6] transition-all"
-                  data-testid={`batch-format-${lf.id}`}>
-                  {lf.label}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-white bg-violet-500/20 px-2 py-0.5 rounded">DURATION</span>
-              {(DURATIONS[forms[0]?.listing_format] || DURATIONS.FixedPriceItem).map(d => (
-                <button key={d.id} onClick={() => applyToAll('duration', d.id)}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-violet-500/20 hover:border-violet-500 transition-all"
-                  data-testid={`batch-duration-${d.id}`}>
-                  {d.label}
-                </button>
-              ))}
-            </div>
+          <select value={forms.find(f => f.status !== 'success')?.listing_format || 'FixedPriceItem'}
+            onChange={e => applyToAll('listing_format', e.target.value)}
+            className="bg-[#111] border border-[#222] rounded-md px-2 py-1 text-xs text-white focus:border-[#3b82f6] focus:outline-none cursor-pointer"
+            data-testid="batch-format-select">
+            {LISTING_FORMATS.map(lf => <option key={lf.id} value={lf.id}>{lf.label}</option>)}
+          </select>
+
+          <select value={forms.find(f => f.status !== 'success')?.duration || 'GTC'}
+            onChange={e => applyToAll('duration', e.target.value)}
+            className="bg-[#111] border border-[#222] rounded-md px-2 py-1 text-xs text-white focus:border-violet-500 focus:outline-none cursor-pointer"
+            data-testid="batch-duration-select">
+            {(DURATIONS[forms[0]?.listing_format] || DURATIONS.FixedPriceItem).map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+          </select>
+
+          <select value={forms.find(f => f.status !== 'success')?.shipping_option || 'USPSFirstClass'}
+            onChange={e => { const s = SHIPPING_OPTIONS.find(x => x.id === e.target.value); if (s) setForms(prev => prev.map(fm => fm.status !== 'success' ? { ...fm, shipping_option: s.id, shipping_cost: s.cost } : fm)); }}
+            className="bg-[#111] border border-[#222] rounded-md px-2 py-1 text-xs text-white focus:border-amber-500 focus:outline-none cursor-pointer"
+            data-testid="batch-shipping-select">
+            {SHIPPING_OPTIONS.map(s => <option key={s.id} value={s.id}>{s.label}{s.cost > 0 ? ` ($${s.cost.toFixed(2)})` : ''}</option>)}
+          </select>
+
+          <select value={forms.find(f => f.status !== 'success')?.condition_id || '4000'}
+            onChange={e => applyToAll('condition_id', e.target.value)}
+            className="bg-[#111] border border-[#222] rounded-md px-2 py-1 text-xs text-white focus:border-emerald-500 focus:outline-none cursor-pointer"
+            data-testid="batch-condition-select">
+            {CONDITIONS.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+
+          <select value={forms.find(f => f.status !== 'success')?.sport || ''}
+            onChange={e => { if (e.target.value) applyToAll('sport', e.target.value); }}
+            className="bg-[#111] border border-[#222] rounded-md px-2 py-1 text-xs text-white focus:border-cyan-500 focus:outline-none cursor-pointer"
+            data-testid="batch-sport-select">
+            <option value="">Sport...</option>
+            {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+
+          <div className="flex items-center bg-[#111] border border-[#222] rounded-md overflow-hidden">
+            <span className="text-[10px] text-gray-500 pl-2">$</span>
+            <input type="number" step="0.01" min="0" placeholder="Price"
+              className="w-16 bg-transparent px-1 py-1 text-xs text-white focus:outline-none"
+              onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { applyToAll('price', parseFloat(e.target.value).toFixed(2)); toast.success(`$${parseFloat(e.target.value).toFixed(2)} applied`); }}}
+              data-testid="batch-price-input" />
           </div>
 
-          {/* Row 2: Shipping */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-bold text-white bg-amber-500/20 px-2 py-0.5 rounded">SHIPPING</span>
-            {SHIPPING_OPTIONS.map(s => (
-              <button key={s.id} onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' ? { ...fm, shipping_option: s.id, shipping_cost: s.cost } : fm))}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-amber-500/20 hover:border-amber-500 transition-all"
-                data-testid={`batch-shipping-${s.id}`}>
-                {s.label} {s.cost > 0 ? `($${s.cost.toFixed(2)})` : ''}
-              </button>
-            ))}
-          </div>
-
-          {/* Row 3: Condition */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] font-bold text-white bg-emerald-500/20 px-2 py-0.5 rounded">CONDITION</span>
-            {CONDITIONS.map(c => (
-              <button key={c.id} onClick={() => applyToAll('condition_id', c.id)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-gray-300 hover:text-white hover:bg-emerald-500/20 hover:border-emerald-500 transition-all"
-                data-testid={`batch-condition-${c.id}`}>
-                {c.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Row 4: Price, Best Offer, Sport */}
-          <div className="flex flex-wrap gap-3 items-center">
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-white bg-green-500/20 px-2 py-0.5 rounded">PRICE</span>
-              <div className="flex items-center bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg overflow-hidden">
-                <span className="text-xs text-gray-500 pl-2">$</span>
-                <input type="number" step="0.01" min="0" placeholder="0.00"
-                  className="w-20 bg-transparent px-2 py-1.5 text-xs text-white focus:outline-none"
-                  onKeyDown={e => { if (e.key === 'Enter' && e.target.value) { applyToAll('price', parseFloat(e.target.value).toFixed(2)); toast.success(`Price set to $${parseFloat(e.target.value).toFixed(2)} for all`); }}}
-                  data-testid="batch-price-input" />
-              </div>
-              <span className="text-[9px] text-gray-500">Press Enter</span>
-            </div>
-
-            <button onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' && fm.listing_format === 'FixedPriceItem' ? { ...fm, best_offer: !fm.best_offer } : fm))}
-              className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#1a1a2e] border border-[#2a2a4a] text-amber-400 hover:text-white hover:bg-amber-500/20 hover:border-amber-500 transition-all"
-              data-testid="batch-best-offer">
-              Toggle Best Offer
-            </button>
-
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-bold text-white bg-cyan-500/20 px-2 py-0.5 rounded">SPORT</span>
-              <select className="bg-[#1a1a2e] border border-[#2a2a4a] rounded-lg px-3 py-1.5 text-xs text-white focus:border-cyan-500 focus:outline-none"
-                onChange={e => { if (e.target.value) applyToAll('sport', e.target.value); }}
-                data-testid="batch-sport-select">
-                <option value="">Select...</option>
-                {SPORTS.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
+          <button onClick={() => setForms(prev => prev.map(fm => fm.status !== 'success' && fm.listing_format === 'FixedPriceItem' ? { ...fm, best_offer: !fm.best_offer } : fm))}
+            className={`px-2 py-1 rounded-md text-xs font-bold border transition-colors cursor-pointer ${forms.some(f => f.best_offer && f.status !== 'success') ? 'bg-amber-500/20 border-amber-500 text-amber-400' : 'bg-[#111] border-[#222] text-gray-400 hover:text-amber-400 hover:border-amber-500'}`}
+            data-testid="batch-best-offer">
+            Best Offer {forms.some(f => f.best_offer && f.status !== 'success') ? 'ON' : 'OFF'}
+          </button>
         </div>
       )}
 
