@@ -32,21 +32,36 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - **Listings Search + Sport Filter**: Search + auto-detect sport dropdown
 - **Shipping Selection Fix**: React state race condition fixed
 - **Cert Number Feature**: AI extracts cert # from graded card slabs, stored in inventory, displayed in detail views, passed to eBay as Item Specific
-- **Custom Global Presets (Admin)**: Admin can create, edit, delete photo presets from Admin Panel. These presets appear for ALL users in the Photo Editor alongside default presets.
-- **Photo Editor Mixer**: Full manual control panel with 7 individual sliders (Brightness, Contrast, Shadows, Highlights, Saturation, Temperature, Sharpness)
-- **Auth Bug Fix**: Fixed `ValueError: day is out of range for month` in session expiry calculation (replaced `.replace(day=)` with `timedelta`)
+- **Custom Global Presets (Admin)**: Admin can create, edit, delete photo presets from Admin Panel
+- **Photo Editor Mixer**: Full manual control panel with 7 sliders
+- **Auth Bug Fix**: Fixed ValueError in session expiry calculation
 - **Test Login**: Added password hash to Google Auth user for email/password login testing
+
+## Payload Optimization (Feb 2026)
+- **Inventory Lazy Image Loading (DONE)** — Backend excludes heavy base64 fields, returns only thumbnails. Full images lazy-loaded in modals.
+- **Scanner Auto-Crop + Scanner Fix (DONE, VERIFIED Feb 2026)** — Variance-based crop using row/column standard deviation to detect card edges in scanner images. Removes scanner bed and top-loader borders. Applies Scanner Fix preset (brightness 1.12, contrast 0.95, saturation 1.20, shadow lift). Tested: 1435x715 -> 416x515 (79% area removed). Integrated in `/cards/analyze` and `/cards/batch-upload-queue` via `scanner_mode: true`.
+- **Listings Cache (DONE)** — Stale-while-revalidate cache for eBay listings. Background refresh after 5 min.
+- **Listings Image Optimization (DONE)** — eBay images reduced from s-l800 to s-l400.
+- **Auto-Backfill Thumbnails (DONE)** — Background task generates missing thumbnails.
+- **Thumbnail Backfill Endpoint Enhanced (DONE)** — Backfills all missing thumbnail types.
+- **ListingsModule & InventoryModule Updated (DONE)** — All frontend views use thumbnails.
+
+## Batch Upload Architecture (Feb 2026)
+- Phone ONLY uploads raw images (fast). Server processes in background via `batch_queue` collection.
+- `POST /api/cards/batch-upload-queue` — stores raw images, returns immediately
+- `GET /api/cards/batch-queue-status` — shows status of queued cards
+- Background: `_process_queued_card()` — compresses, AI identifies, saves to inventory
 
 ## Architecture
 ```
 /app/
 ├── backend/routers/
 │   ├── marketplace.py     # Public marketplace API
-│   ├── ebay.py            # eBay listing/revise/bulk shipping + cert_number support
-│   ├── inventory.py       # Inventory CRUD with cert_number field
-│   ├── cards.py           # AI card analysis/identify/scan with cert_number extraction
+│   ├── ebay.py            # eBay listing/revise/bulk shipping + cert_number + stale-while-revalidate cache
+│   ├── inventory.py       # Inventory CRUD with cert_number, auto-backfill thumbnails
+│   ├── cards.py           # AI card analysis/identify/scan with scanner_auto_process
 │   ├── shop.py, auth.py, settings.py, admin.py, etc.
-│   └── utils/ai.py        # AI prompts including cert_number in CARD_IDENTIFY_PROMPT
+│   └── utils/image.py     # Thumbnails, EXIF, scanner_auto_process (variance-based crop)
 ├── frontend/src/
 │   ├── pages/
 │   │   ├── MarketplacePage.jsx
@@ -55,57 +70,42 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 │   │   ├── InventoryModule.jsx  # Edit form with cert_number, detail display
 │   │   ├── ListingsModule.jsx   # Listing detail with cert_number display
 │   │   ├── CreateListingView.jsx # Passes cert_number to eBay create
+│   │   ├── CardScanner.jsx       # Sends scanner_mode: true
 │   │   ├── LandingPage.jsx
 │   └── App.js
+├── build_prod.sh           # CRITICAL: Always use for frontend builds
 ```
 
 ## Key API Endpoints
 - `GET /api/marketplace` - Public: all listed cards
 - `POST /api/ebay/sell/create` - Create eBay listing (accepts cert_number)
 - `POST /api/ebay/sell/bulk-revise-shipping` - Bulk update shipping
-- `GET /api/inventory` - Get inventory items (includes cert_number)
-- `POST /api/inventory` - Create inventory item (accepts cert_number)
-- `PUT /api/inventory/{id}` - Update inventory item (accepts cert_number)
-- `POST /api/cards/identify` - AI card identification (returns cert_number for graded)
-- `POST /api/cards/scan-upload` - Scanner upload (saves cert_number)
-- `POST /api/cards/batch-upload-queue` - Fast upload: stores raw images, AI processes in background
+- `GET /api/inventory` - Get inventory items (lightweight, thumbnails only)
+- `GET /api/inventory/{id}` - Get full item with heavy images
+- `POST /api/inventory` - Create inventory item
+- `PUT /api/inventory/{id}` - Update inventory item
+- `POST /api/cards/analyze` - AI card analysis (supports scanner_mode)
+- `POST /api/cards/scan-upload` - Scanner upload
+- `POST /api/cards/batch-upload-queue` - Fast upload with background processing
 - `GET /api/cards/batch-queue-status` - Status of queued batch cards
+- `POST /api/cards/test-scanner-crop` - Test scanner crop endpoint
+- `GET /api/ebay/seller/my-listings` - Stale-while-revalidate cached listings
 
 ## Key DB Schema
-- **inventory**: `cert_number: Optional[str]`, `card_value: float`, standard card fields
-- **card_analyses**: `psa_cert_number: Optional[str]`
-
-## Recent Changes (Feb 2026 - Payload Optimization)
-- **Inventory Lazy Image Loading (DONE)** — Backend `GET /api/inventory` now excludes heavy `image` and `back_image` base64 fields (100KB+ each) via MongoDB projection. Returns only lightweight `thumbnail` (~20KB) and `store_thumbnail` (~47KB WebP). Full images are lazy-loaded from `GET /api/inventory/{item_id}` when CardDetailModal opens.
-- **Scanner Auto-Crop + Scanner Fix (DONE)** — When images are uploaded via CardScanner or BatchUpload, the system automatically: (1) detects card edges using OpenCV contour detection, (2) perspective-corrects and crops tightly to the card, (3) applies "Scanner Fix" preset (brightness 1.12, contrast 0.95, saturation 1.20, shadow lift). Enabled via `scanner_mode: true` flag sent from frontend.
-- **Listings Cache (DONE)** — Stale-while-revalidate cache for eBay listings. First load fetches from eBay (~15s), subsequent loads serve cached data instantly (~0.5s). Background refresh after 5 min. Fallback to stale cache if eBay API fails.
-- **Listings Image Optimization (DONE)** — eBay images reduced from s-l800 to s-l400 (~4x smaller). Sold item images cross-referenced with local inventory `ebay_picture` before calling Browse API. Manual refresh button added.
-- **Auto-Backfill Thumbnails (DONE)** — When GET /api/inventory detects items missing thumbnails, automatically triggers a background task to generate them. First load may show placeholders, subsequent loads show thumbnails. Prevents the "no images" issue on existing production data.
-- **Thumbnail Backfill Endpoint Enhanced (DONE)** — `POST /api/inventory/generate-store-thumbnails` now backfills all missing thumbnail types (thumbnail, store_thumbnail, back_thumbnail) for existing items.
-- **ListingsModule & InventoryModule Updated (DONE)** — All frontend references to `item.image`/`item.back_image` in list/grid views updated to use `item.thumbnail`/`item.store_thumbnail`. CardDetailModal lazy-loads full images. Edit form shows thumbnail preview.
+- **inventory**: `cert_number`, `card_value`, `store_thumbnail`, `thumbnail`, `ebay_picture`, `image`, `back_image`
+- **card_analyses**: `psa_cert_number`
+- **listings_cache**: Cached eBay listings for instant loading
+- **batch_queue**: Queued cards for background processing
 
 ## Next Priority
-- **P0:** Stripe Production Integration
+- **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration (Legend tier)
 
-## Recent Changes (This Session)
-- **Batch Upload → Queue Architecture (Feb 2026)** — Complete rewrite of the batch upload flow:
-  - **Before**: Phone waited for each card to be processed (compress + AI identify + save) = 30-60s per card. Phone had to stay awake the entire time.
-  - **After**: Phone ONLY uploads raw images (fast, seconds per card). Server stores images in `batch_queue` collection and processes them in background (`asyncio.create_task`). Phone can sleep after upload.
-  - **New endpoint**: `POST /api/cards/batch-upload-queue` — stores raw images, returns immediately, kicks off background AI processing
-  - **New endpoint**: `GET /api/cards/batch-queue-status` — shows status of queued cards
-  - **Background task**: `_process_queued_card()` — compresses, AI identifies, saves to inventory, cleans up raw data from queue
-  - **Frontend**: Files buffered into JS heap on selection. Upload shows only file transfer progress. "Upload Complete" screen tells user cards are being processed in background.
-  - Status: PENDING USER MOBILE VERIFICATION
-- **Bug Fix: False Sold Items** — Items were incorrectly marked as "sold" in inventory when eBay's `GetMyeBaySelling` API returned paginated results (only first 200). Items beyond page 1 were flagged as "sold" by aggressive cross-reference logic. **Fix:** Now ONLY marks items as sold if confirmed in eBay's `SoldList`. Never marks items sold just because they're absent from `ActiveList`.
-- **Listings Pagination ("Load More")** — Changed from loading 200 items at once to loading 50 at a time with a "Load More" button. Both Active and Sold tabs support incremental loading. Shows "X of Y listings" counter.
-- **New endpoint `POST /api/ebay/fix-false-sold`** — Queries ALL pages of eBay active listings and restores inventory items that were incorrectly marked as sold. Has a "Fix Sold" button in Listings UI.
-- **Server Memory Optimization** — Created scripts: `setup_swap.sh` (2GB swap), `optimize_server.sh` (SpamAssassin 5→2, Apache 6→3), `check_memory.sh` (health monitor). Result: RAM usage dropped from 2.4GB to 1.7GB, available went from 306MB to 1.8GB.
-
 ## Backlog
-- **P2:** Direct purchase on FlipSlab
-- **P3:** New User Onboarding wizard
-- **P4:** Flip Finder Core Logic Enhancements
-- **P5:** Windows Scanner App
-- **P6:** Team Access (Legend tier)
-- **P7:** Refactor InventoryModule.jsx (~1530 lines) & ListingsModule.jsx (~1330 lines)
+- **P2:** Seller Hub (Dashboard de Ventas, Order Management, Best Offer Manager)
+- **P3:** Direct purchase on FlipSlab (Stripe)
+- **P4:** New User Onboarding wizard
+- **P5:** Flip Finder Core Logic Enhancements
+- **P6:** Windows Scanner App
+- **P7:** Team Access (Legend tier)
+- **P8:** Refactor InventoryModule.jsx (~1530 lines) & ListingsModule.jsx (~1330 lines)
