@@ -64,8 +64,8 @@ def scanner_auto_process(image_base64: str) -> str:
             y1, y2 = row_block
             x1, x2 = col_block
 
-            # Add tiny margin (~1%)
-            margin = int(max(x2 - x1, y2 - y1) * 0.01)
+            # Add margin (~4%) so we don't accidentally cut the card
+            margin = int(max(x2 - x1, y2 - y1) * 0.04)
             y1 = max(0, y1 - margin)
             y2 = min(h, y2 + margin)
             x1 = max(0, x1 - margin)
@@ -80,22 +80,9 @@ def scanner_auto_process(image_base64: str) -> str:
         else:
             logger.info("Scanner crop: could not detect card edges, skipping")
 
-        # Apply Scanner Fix color preset
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        pil_img = Image.fromarray(img_rgb)
-        pil_img = ImageEnhance.Brightness(pil_img).enhance(1.12)
-        pil_img = ImageEnhance.Contrast(pil_img).enhance(0.95)
-        pil_img = ImageEnhance.Color(pil_img).enhance(1.20)
-
-        # Shadow lift
-        arr = np.array(pil_img, dtype=np.float32) / 255.0
-        arr = arr + 0.35 * (1 - arr) * (1 - arr) * (1 - arr)
-        arr = np.clip(arr * 255, 0, 255).astype(np.uint8)
-        pil_img = Image.fromarray(arr)
-
-        buf = BytesIO()
-        pil_img.save(buf, format='JPEG', quality=95)
-        return base64.b64encode(buf.getvalue()).decode('utf-8')
+        # No color preset - keep original scanner colors
+        _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
+        return base64.b64encode(buffer).decode('utf-8')
 
     except Exception as e:
         logger.error(f"Scanner auto-process FAILED: {e}", exc_info=True)
