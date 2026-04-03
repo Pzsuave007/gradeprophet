@@ -33,9 +33,10 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
 
 
 def scanner_auto_process(image_base64: str) -> str:
-    """Auto-crop scanner image to just the card + 40px margin.
-    Primary: Canny edge detection to find the card rectangle.
-    Fallback: Variance-based content block + 4% margin.
+    """Auto-crop scanner image to remove semi-rigid holder edges.
+    Uses brightness-based detection: the transparent holder plastic is always
+    brighter (>190) than any opaque card content (front or back).
+    Scans inward from each edge to find where the card starts, then adds a 50px margin.
     """
     try:
         import cv2
@@ -52,65 +53,56 @@ def scanner_auto_process(image_base64: str) -> str:
         logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         MARGIN = 50
-        rect = None
-        rect_canny = None
-        rect_variance = None
+        HOLDER_BRIGHTNESS = 190  # holder plastic is always brighter than this
 
-        # Method 1: Canny edge detection
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 30, 100)
-        kernel = np.ones((3, 3), np.uint8)
-        edges = cv2.dilate(edges, kernel, iterations=2)
-        contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        if contours:
-            largest = max(contours, key=cv2.contourArea)
-            if cv2.contourArea(largest) > (h * w * 0.10):
-                bx, by, bw, bh = cv2.boundingRect(largest)
-                if bw < w * 0.93 or bh < h * 0.93:
-                    rect_canny = (bx, by, bx + bw, by + bh)
+        # Compute per-row and per-column median brightness
+        row_medians = np.array([np.median(gray[r, :]) for r in range(h)])
+        col_medians = np.array([np.median(gray[:, c]) for c in range(w)])
 
-        # Method 2: Variance-based
-        row_std = np.array([gray[r, :].std() for r in range(h)])
-        col_std = np.array([gray[:, c].std() for c in range(w)])
-        rb = _find_largest_block(row_std, 15, gap_tolerance=8)
-        cb = _find_largest_block(col_std, 15, gap_tolerance=8)
-        if rb and cb:
-            rect_variance = (cb[0], rb[0], cb[1], rb[1])
+        # Scan inward from each edge to find where card content starts
+        # Card content = median brightness drops below HOLDER_BRIGHTNESS
+        card_top = 0
+        for r in range(h):
+            if row_medians[r] < HOLDER_BRIGHTNESS:
+                card_top = r
+                break
 
-        # Use the LARGER rectangle (the card border is always bigger than internal content)
-        if rect_canny and rect_variance:
-            area_c = (rect_canny[2] - rect_canny[0]) * (rect_canny[3] - rect_canny[1])
-            area_v = (rect_variance[2] - rect_variance[0]) * (rect_variance[3] - rect_variance[1])
-            rect = rect_canny if area_c >= area_v else rect_variance
-            method = "Canny" if area_c >= area_v else "Variance"
-        elif rect_canny:
-            rect = rect_canny
-            method = "Canny"
-        elif rect_variance:
-            rect = rect_variance
-            method = "Variance"
-        else:
-            method = "None"
+        card_bot = h - 1
+        for r in range(h - 1, -1, -1):
+            if row_medians[r] < HOLDER_BRIGHTNESS:
+                card_bot = r
+                break
 
-        if rect:
-            logger.info(f"Scanner crop [{method}]: card at ({rect[0]},{rect[1]})-({rect[2]},{rect[3]})")
+        card_left = 0
+        for c in range(w):
+            if col_medians[c] < HOLDER_BRIGHTNESS:
+                card_left = c
+                break
 
-        if rect:
-            x1, y1, x2, y2 = rect
-            x1 = max(0, x1 - MARGIN)
-            y1 = max(0, y1 - MARGIN)
-            x2 = min(w, x2 + MARGIN)
-            y2 = min(h, y2 + MARGIN)
+        card_right = w - 1
+        for c in range(w - 1, -1, -1):
+            if col_medians[c] < HOLDER_BRIGHTNESS:
+                card_right = c
+                break
+
+        card_w = card_right - card_left
+        card_h = card_bot - card_top
+
+        if card_w > w * 0.3 and card_h > h * 0.3:
+            x1 = max(0, card_left - MARGIN)
+            y1 = max(0, card_top - MARGIN)
+            x2 = min(w, card_right + MARGIN)
+            y2 = min(h, card_bot + MARGIN)
 
             if (x2 - x1) < w or (y2 - y1) < h:
+                logger.info(f"Scanner crop [Brightness]: card at ({card_left},{card_top})-({card_right},{card_bot})")
                 img = img[y1:y2, x1:x2]
                 logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
             else:
                 logger.info("Scanner crop: card already fills image, skipping")
         else:
-            logger.info("Scanner crop: could not detect card edges, skipping")
+            logger.info(f"Scanner crop: brightness detection found small area ({card_w}x{card_h}), skipping")
 
-        # No color preset - keep original scanner colors
         _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
         return base64.b64encode(buffer).decode('utf-8')
 
