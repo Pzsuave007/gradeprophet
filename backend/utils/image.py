@@ -32,11 +32,59 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
     return max(blocks, key=lambda b: b[1] - b[0])
 
 
+def _find_shadow_edge(avg_brightness, content_edge, direction):
+    """Scan from image edge toward card content. Find where brightness drops
+    below the plastic holder baseline (the shadow = card physical edge).
+    Returns the edge position, or None if no shadow detected."""
+    import numpy as np
+    n = len(avg_brightness)
+    smooth = np.convolve(avg_brightness, np.ones(11) / 11, mode='same')
+
+    if direction == 'top':
+        plastic = smooth[5:content_edge]
+        if len(plastic) < 20:
+            return None
+        baseline = np.percentile(plastic, 60)
+        thresh = baseline - 15
+        for r in range(5, content_edge):
+            if smooth[r] < thresh:
+                return r
+    elif direction == 'bottom':
+        plastic = smooth[content_edge:n - 5]
+        if len(plastic) < 20:
+            return None
+        baseline = np.percentile(plastic, 60)
+        thresh = baseline - 15
+        for r in range(n - 6, content_edge, -1):
+            if smooth[r] < thresh:
+                return r
+    elif direction == 'left':
+        plastic = smooth[5:content_edge]
+        if len(plastic) < 20:
+            return None
+        baseline = np.percentile(plastic, 60)
+        thresh = baseline - 15
+        for c in range(5, content_edge):
+            if smooth[c] < thresh:
+                return c
+    elif direction == 'right':
+        plastic = smooth[content_edge:n - 5]
+        if len(plastic) < 20:
+            return None
+        baseline = np.percentile(plastic, 60)
+        thresh = baseline - 15
+        for c in range(n - 6, content_edge, -1):
+            if smooth[c] < thresh:
+                return c
+    return None
+
+
 def scanner_auto_process(image_base64: str) -> str:
     """Auto-crop scanner image to just the card.
-    Two-phase approach:
-    1. Find card content using high threshold (15) - detects colorful/textured areas
-    2. Expand outward to include card borders (lower threshold 8) - catches silver/gray borders
+    1. Find card content using variance (std > 15)
+    2. For each side, detect the shadow cast by the card on the holder
+       (brightness drops below plastic baseline). If shadow found, use it
+       as the card edge. Otherwise fall back to 4% margin from content.
     """
     try:
         import cv2
@@ -55,23 +103,43 @@ def scanner_auto_process(image_base64: str) -> str:
 
         row_std = np.array([gray[r, :].std() for r in range(h)])
         col_std = np.array([gray[:, c].std() for c in range(w)])
+        row_avg = np.array([gray[r, :].mean() for r in range(h)])
+        col_avg = np.array([gray[:, c].mean() for c in range(w)])
 
-        # Phase 1: Find card content block (high variance = colorful content)
         row_block = _find_largest_block(row_std, 15, gap_tolerance=8)
         col_block = _find_largest_block(col_std, 15, gap_tolerance=8)
 
         if row_block and col_block:
-            y1, y2 = row_block
-            x1, x2 = col_block
+            cy1, cy2 = row_block
+            cx1, cx2 = col_block
+            block_size = max(cy2 - cy1, cx2 - cx1)
+            fallback = int(block_size * 0.04)
 
-            # Add safe margin (~4%) so we don't accidentally cut the card
-            margin = int(max(x2 - x1, y2 - y1) * 0.04)
-            y1 = max(0, y1 - margin)
-            y2 = min(h, y2 + margin)
-            x1 = max(0, x1 - margin)
-            x2 = min(w, x2 + margin)
+            # Shadow detection for each side (falls back to 4% margin)
+            st = _find_shadow_edge(row_avg, cy1, 'top')
+            sb = _find_shadow_edge(row_avg, cy2, 'bottom')
+            sl = _find_shadow_edge(col_avg, cx1, 'left')
+            sr = _find_shadow_edge(col_avg, cx2, 'right')
 
-            # Only crop if it removes something meaningful (>5% on any side)
+            y1 = st if st is not None else (cy1 - fallback)
+            y2 = sb if sb is not None else (cy2 + fallback)
+            x1 = sl if sl is not None else (cx1 - fallback)
+            x2 = sr if sr is not None else (cx2 + fallback)
+
+            # Small safety margin (1%)
+            sm = int(block_size * 0.01)
+            y1 = max(0, y1 - sm)
+            y2 = min(h, y2 + sm)
+            x1 = max(0, x1 - sm)
+            x2 = min(w, x2 + sm)
+
+            # Safety: if crop covers > 95% of image, use content + 4% margin
+            if (x2 - x1) >= w * 0.95 and (y2 - y1) >= h * 0.95:
+                y1 = max(0, cy1 - fallback)
+                y2 = min(h, cy2 + fallback)
+                x1 = max(0, cx1 - fallback)
+                x2 = min(w, cx2 + fallback)
+
             if (x2 - x1) < w * 0.95 or (y2 - y1) < h * 0.95:
                 img = img[y1:y2, x1:x2]
                 logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
