@@ -34,9 +34,11 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
 
 def scanner_auto_process(image_base64: str) -> str:
     """Auto-crop scanner image to remove semi-rigid holder edges.
-    Uses brightness-based detection: the transparent holder plastic is always
-    brighter (>190) than any opaque card content (front or back).
-    Scans inward from each edge to find where the card starts, then adds a 50px margin.
+    Uses brightness profiles at multiple positions to find the card boundary.
+    The transparent holder plastic is always brighter (>190) than any card content.
+    Requires sustained brightness drop (20+ consecutive pixels) to avoid false
+    detections from the embossed Gem Mint label.
+    Uses adaptive margin: 50px max, or half the available holder space if less.
     """
     try:
         import cv2
@@ -52,56 +54,83 @@ def scanner_auto_process(image_base64: str) -> str:
         h, w = img.shape[:2]
         logger.info(f"Scanner auto-process START: {w}x{h}")
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        MARGIN = 50
-        HOLDER_BRIGHTNESS = 190  # holder plastic is always brighter than this
+        MAX_MARGIN = 50
+        THRESH = 190
+        MIN_RUN = 20
+        STRIP_W = 10
 
-        # Compute per-row and per-column median brightness
-        row_medians = np.array([np.median(gray[r, :]) for r in range(h)])
-        col_medians = np.array([np.median(gray[:, c]) for c in range(w)])
+        def find_edge_start(profile, thresh, min_run):
+            count = 0
+            for i in range(len(profile)):
+                if profile[i] < thresh:
+                    count += 1
+                    if count >= min_run:
+                        return i - min_run + 1
+                else:
+                    count = 0
+            return 0
 
-        # Scan inward from each edge to find where card content starts
-        # Card content = median brightness drops below HOLDER_BRIGHTNESS
-        card_top = 0
-        for r in range(h):
-            if row_medians[r] < HOLDER_BRIGHTNESS:
-                card_top = r
-                break
+        def find_edge_end(profile, thresh, min_run):
+            count = 0
+            for i in range(len(profile) - 1, -1, -1):
+                if profile[i] < thresh:
+                    count += 1
+                    if count >= min_run:
+                        return i + min_run - 1
+                else:
+                    count = 0
+            return len(profile) - 1
 
-        card_bot = h - 1
-        for r in range(h - 1, -1, -1):
-            if row_medians[r] < HOLDER_BRIGHTNESS:
-                card_bot = r
-                break
+        # Vertical profiles at 15%, 50%, 85% width to find top/bottom
+        top_candidates = []
+        bot_candidates = []
+        for pct in [0.15, 0.50, 0.85]:
+            px = int(w * pct)
+            strip = gray[:, max(0, px - STRIP_W):px + STRIP_W].mean(axis=1)
+            top_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
+            bot_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
 
-        card_left = 0
-        for c in range(w):
-            if col_medians[c] < HOLDER_BRIGHTNESS:
-                card_left = c
-                break
+        card_top = min(top_candidates)
+        card_bot = max(bot_candidates)
 
-        card_right = w - 1
-        for c in range(w - 1, -1, -1):
-            if col_medians[c] < HOLDER_BRIGHTNESS:
-                card_right = c
-                break
+        # Horizontal profiles at 40%, 50%, 60% height to find left/right
+        left_candidates = []
+        right_candidates = []
+        for pct in [0.40, 0.50, 0.60]:
+            py = int(h * pct)
+            strip = gray[max(0, py - STRIP_W):py + STRIP_W, :].mean(axis=0)
+            left_candidates.append(find_edge_start(strip, THRESH, MIN_RUN))
+            right_candidates.append(find_edge_end(strip, THRESH, MIN_RUN))
+
+        card_left = min(left_candidates)
+        card_right = max(right_candidates)
 
         card_w = card_right - card_left
         card_h = card_bot - card_top
 
-        if card_w > w * 0.3 and card_h > h * 0.3:
-            x1 = max(0, card_left - MARGIN)
-            y1 = max(0, card_top - MARGIN)
-            x2 = min(w, card_right + MARGIN)
-            y2 = min(h, card_bot + MARGIN)
+        if card_w < w * 0.3 or card_h < h * 0.3:
+            logger.info("Scanner crop: detection too small, skipping")
+            _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
+            return base64.b64encode(buffer).decode('utf-8')
 
-            if (x2 - x1) < w or (y2 - y1) < h:
-                logger.info(f"Scanner crop [Brightness]: card at ({card_left},{card_top})-({card_right},{card_bot})")
-                img = img[y1:y2, x1:x2]
-                logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
-            else:
-                logger.info("Scanner crop: card already fills image, skipping")
+        logger.info(f"Scanner crop: card at ({card_left},{card_top})-({card_right},{card_bot})")
+
+        # Adaptive margin: min(50px, half of available holder space)
+        margin_top = min(MAX_MARGIN, max(0, card_top // 2))
+        margin_bot = min(MAX_MARGIN, max(0, (h - 1 - card_bot) // 2))
+        margin_left = min(MAX_MARGIN, max(0, card_left // 2))
+        margin_right = min(MAX_MARGIN, max(0, (w - 1 - card_right) // 2))
+
+        x1 = card_left - margin_left
+        y1 = card_top - margin_top
+        x2 = card_right + margin_right
+        y2 = card_bot + margin_bot
+
+        if (x2 - x1) < w or (y2 - y1) < h:
+            img = img[y1:y2, x1:x2]
+            logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
         else:
-            logger.info(f"Scanner crop: brightness detection found small area ({card_w}x{card_h}), skipping")
+            logger.info("Scanner crop: card fills image, skipping")
 
         _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
         return base64.b64encode(buffer).decode('utf-8')
