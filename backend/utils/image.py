@@ -313,13 +313,14 @@ def create_store_thumbnail(image_base64: str, max_size: int = 400) -> str:
         return create_thumbnail(image_base64, max_size=max_size)
 
 
-def process_card_image(image_base64: str, max_size: int = 800) -> str:
+def process_card_image(image_base64: str, max_size: int = 800, skip_crop: bool = False) -> str:
     """Full image processing pipeline: EXIF rotate -> crop -> resize"""
     processed = fix_exif_rotation(image_base64)
-    try:
-        processed = auto_crop_card(processed)
-    except Exception as e:
-        logger.warning(f"Auto-crop step failed, using original: {e}")
+    if not skip_crop:
+        try:
+            processed = auto_crop_card(processed)
+        except Exception as e:
+            logger.warning(f"Auto-crop step failed, using original: {e}")
     processed = create_thumbnail(processed, max_size=max_size)
     return processed
 
