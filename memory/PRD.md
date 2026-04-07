@@ -65,6 +65,14 @@ Build a multi-tiered subscription model for the "FlipSlab Engine" sports card tr
 - Tested with real scanner images (Hoops, Upper Deck, Fleer Metal)
 - Build deployed to production
 
+## Completed (Feb 2026 - eBay Cassini SEO)
+- Expanded Item Specifics for new eBay listings: Type, Year Manufactured, Card Size, Country, Language, Original/Reprint, Vintage, Autographed, Card Name, League, Manufacturer, Parallel/Variety, Features, Custom Bundle, Material (20 total specifics)
+- Created `build_item_specifics()` helper in ebay.py for reusable specifics generation
+- Created `extract_manufacturer()` to parse brand from set_name (Topps, Panini, Upper Deck, etc.)
+- Added `POST /api/ebay/sell/bulk-revise-specifics` endpoint for bulk updating existing listings
+- Added "Specifics" bulk action button + confirmation panel in ListingsModule.jsx
+- All tests passed (12/12 backend, 100% frontend Playwright)
+
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration (Legend tier)
