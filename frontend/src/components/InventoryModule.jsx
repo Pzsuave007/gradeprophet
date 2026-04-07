@@ -1333,6 +1333,12 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 
   useEffect(() => { if (syncDone.current) fetchInventory(search); }, [fetchInventory]);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => { fetchInventory(search); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchInventory, search]);
+
   // Handle pending detail card from Quick Scan or external navigation
   useEffect(() => {
     if (pendingDetailCard) {

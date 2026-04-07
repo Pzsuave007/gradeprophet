@@ -1125,6 +1125,12 @@ const ListingsModule = () => {
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => { fetchData(); }, 30000);
+    return () => clearInterval(interval);
+  }, [fetchData]);
+
   const loadMoreActive = () => setActiveShowCount(prev => prev + LOAD_BATCH);
   const loadMoreSold = () => setSoldShowCount(prev => prev + LOAD_BATCH);
 
