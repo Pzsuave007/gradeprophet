@@ -1166,51 +1166,50 @@ const ListingsModule = () => {
             {fixingFalseSold ? <RefreshCw className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
             <span className="hidden sm:inline">{fixingFalseSold ? 'Fixing...' : 'Fix Sold'}</span>
           </button>
-          {activeTab === 'active' && !selectMode && (
-            <button onClick={() => setSelectMode(true)}
-              className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors"
+          {activeTab === 'active' && (
+            <button onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+              className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm transition-colors ${selectMode ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#111] border-[#1a1a1a] text-gray-400 hover:text-white'}`}
               data-testid="listings-select-mode-btn">
-              <Check className="w-4 h-4" /> Select
+              <Check className="w-4 h-4" /> {selectMode ? 'Cancel' : 'Select'}
             </button>
           )}
           {selectMode && (
+            <button onClick={() => {
+              if (selected.size === allSortedActive.length) setSelected(new Set());
+              else setSelected(new Set(allSortedActive.map(i => i.item_id)));
+            }} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="listings-select-all-btn">
+              {selected.size === allSortedActive.length ? 'Deselect All' : 'Select All'}
+            </button>
+          )}
+          {activeTab === 'active' && (
             <>
-              <button onClick={() => {
-                if (selected.size === allSortedActive.length) setSelected(new Set());
-                else setSelected(new Set(allSortedActive.map(i => i.item_id)));
-              }} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="listings-select-all-btn">
-                {selected.size === allSortedActive.length ? 'Deselect All' : 'Select All'}
-              </button>
-              <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="listings-cancel-select-btn">Cancel</button>
-              <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-shipping-btn">
+              <button onClick={() => setShowBulkShipping(true)} disabled={!selectMode || selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-shipping-btn">
                 <Truck className="w-4 h-4" /> Shipping {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
-              <button onClick={() => setShowBulkCondition(true)} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-condition-btn">
+              <button onClick={() => setShowBulkCondition(true)} disabled={!selectMode || selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-condition-btn">
                 Condition {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
-              <button onClick={() => setShowBulkOffer(true)} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-offer-btn">
+              <button onClick={() => setShowBulkOffer(true)} disabled={!selectMode || selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-offer-btn">
                 Best Offer {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
-              <button onClick={() => setShowBulkSpecifics(true)} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-specifics-btn">
+              <button onClick={() => setShowBulkSpecifics(true)} disabled={!selectMode || selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-specifics-btn">
                 <BarChart3 className="w-4 h-4" /> Specifics {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
-              <button onClick={openPromotePanel} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-promote-btn">
+              <button onClick={openPromotePanel} disabled={!selectMode || selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-promote-btn">
                 <TrendingUp className="w-4 h-4" /> Promote {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             </>
           )}
-          {!selectMode && (
-            <button onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
-              data-testid="create-listing-btn">
-              <Plus className="w-4 h-4" />Create Listing
-            </button>
-          )}
+          <button onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
+            data-testid="create-listing-btn">
+            <Plus className="w-4 h-4" />Create Listing
+          </button>
         </div>
       </div>
 

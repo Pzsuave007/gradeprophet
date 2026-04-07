@@ -1596,40 +1596,40 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
           <Filter className="w-4 h-4" />
         </button>
         <ViewToggle view={viewMode} onChange={setViewMode} />
-        {!selectMode ? (
-          <>
-            {activeCategory !== 'sold' && <button onClick={() => setSelectMode(true)} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-mode-btn"><Check className="w-4 h-4" /> Select</button>}
-            {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
-          </>
-        ) : (
-          <>
-            <button onClick={selectAll} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-all-btn">
-              {selected.size === items.length ? 'Deselect All' : 'Select All'}
-            </button>
-            <button onClick={exitSelectMode} className="px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm" data-testid="cancel-select-btn">Cancel</button>
-            {activeCategory === 'listed' ? (
-              <button onClick={() => setShowBulkShipping(true)} disabled={selected.size === 0}
-                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-50 transition-colors" data-testid="bulk-shipping-btn">
-                <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
-              </button>
-            ) : (
-              <>
-                <button onClick={() => setShowBulkPreset(true)} disabled={selected.size === 0}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 transition-colors" data-testid="bulk-preset-btn">
-                  <Sparkles className="w-4 h-4" /> Preset {selected.size > 0 ? `(${selected.size})` : ''}
-                </button>
-                <button onClick={() => setShowBulkCondition(true)} disabled={selected.size === 0}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-50 transition-colors" data-testid="bulk-condition-btn">
-                  Condition {selected.size > 0 ? `(${selected.size})` : ''}
-                </button>
-                <button onClick={startListOnEbay} disabled={selected.size === 0}
-                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="list-on-ebay-btn">
-                  <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
-                </button>
-              </>
-            )}
-          </>
+        {activeCategory !== 'sold' && (
+          <button onClick={() => selectMode ? exitSelectMode() : setSelectMode(true)}
+            className={`flex items-center gap-1.5 px-3 py-2.5 rounded-lg border text-sm transition-colors ${selectMode ? 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]' : 'bg-[#111] border-[#1a1a1a] text-gray-400 hover:text-white'}`}
+            data-testid="select-mode-btn">
+            <Check className="w-4 h-4" /> {selectMode ? 'Cancel' : 'Select'}
+          </button>
         )}
+        {selectMode && (
+          <button onClick={selectAll} className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg bg-[#111] border border-[#1a1a1a] text-gray-400 hover:text-white text-sm transition-colors" data-testid="select-all-btn">
+            {selected.size === items.length ? 'Deselect All' : 'Select All'}
+          </button>
+        )}
+        {activeCategory === 'listed' ? (
+          <button onClick={() => setShowBulkShipping(true)} disabled={!selectMode || selected.size === 0}
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-30 transition-colors" data-testid="bulk-shipping-btn">
+            <Truck className="w-4 h-4" /> Update Shipping {selected.size > 0 ? `(${selected.size})` : ''}
+          </button>
+        ) : activeCategory !== 'sold' ? (
+          <>
+            <button onClick={() => setShowBulkPreset(true)} disabled={!selectMode || selected.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-30 transition-colors" data-testid="bulk-preset-btn">
+              <Sparkles className="w-4 h-4" /> Preset {selected.size > 0 ? `(${selected.size})` : ''}
+            </button>
+            <button onClick={() => setShowBulkCondition(true)} disabled={!selectMode || selected.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-30 transition-colors" data-testid="bulk-condition-btn">
+              Condition {selected.size > 0 ? `(${selected.size})` : ''}
+            </button>
+            <button onClick={startListOnEbay} disabled={!selectMode || selected.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="list-on-ebay-btn">
+              <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
+            </button>
+          </>
+        ) : null}
+        {activeCategory !== 'listed' && activeCategory !== 'sold' && <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] transition-colors" data-testid="add-card-btn"><Plus className="w-4 h-4" /> Add</button>}
       </div>
 
       <AnimatePresence>
