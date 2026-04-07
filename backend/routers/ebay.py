@@ -1777,6 +1777,116 @@ async def get_campaign_ads(campaign_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/promoted/campaign/{campaign_id}/pause")
+async def pause_campaign(campaign_id: str, request: Request):
+    """Pause a RUNNING campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}/pause",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+            )
+            if resp.status_code == 204:
+                return {"success": True, "message": "Campaign paused"}
+            return {"success": False, "error": resp.text[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/promoted/campaign/{campaign_id}/resume")
+async def resume_campaign(campaign_id: str, request: Request):
+    """Resume a PAUSED campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}/resume",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+            )
+            if resp.status_code == 204:
+                return {"success": True, "message": "Campaign resumed"}
+            return {"success": False, "error": resp.text[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/promoted/campaign/{campaign_id}/end")
+async def end_campaign(campaign_id: str, request: Request):
+    """End a RUNNING or PAUSED campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}/end",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+            )
+            if resp.status_code == 204:
+                return {"success": True, "message": "Campaign ended"}
+            return {"success": False, "error": resp.text[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/promoted/campaign/{campaign_id}")
+async def delete_campaign(campaign_id: str, request: Request):
+    """Delete an ENDED campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.delete(
+                f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+            )
+            if resp.status_code == 204:
+                return {"success": True, "message": "Campaign deleted"}
+            return {"success": False, "error": resp.text[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class RemoveAdRequest(BaseModel):
+    listing_ids: List[str]
+
+
+@router.post("/promoted/campaign/{campaign_id}/remove-ads")
+async def remove_ads_from_campaign(campaign_id: str, data: RemoveAdRequest, request: Request):
+    """Remove specific listings from a campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+    ads = [{"listingId": lid} for lid in data.listing_ids[:500]]
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}/bulk_delete_ads_by_listing_id",
+                headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "X-EBAY-C-MARKETPLACE-ID": "EBAY_US"},
+                json={"requests": ads},
+            )
+            if resp.status_code in (200, 204):
+                result = resp.json() if resp.status_code == 200 else {}
+                responses = result.get("responses", [])
+                ok = sum(1 for r in responses if r.get("statusCode") in (200, 204))
+                return {"success": True, "removed": ok, "total": len(data.listing_ids), "note": f"Removed {ok}/{len(data.listing_ids)} ads"}
+            return {"success": False, "error": resp.text[:200]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @router.post("/sell/update-photos")
 async def update_listing_photos(request: Request):

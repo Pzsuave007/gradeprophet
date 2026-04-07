@@ -1032,6 +1032,42 @@ const ListingsModule = () => {
     fetchCampaignAds(campaignId || selectedCampaign);
   };
 
+  const campaignAction = async (campaignId, action) => {
+    try {
+      let res;
+      if (action === 'delete') {
+        res = await axios.delete(`${API}/api/ebay/promoted/campaign/${campaignId}`);
+      } else {
+        res = await axios.post(`${API}/api/ebay/promoted/campaign/${campaignId}/${action}`);
+      }
+      if (res.data.success) {
+        toast.success(res.data.message);
+        fetchCampaigns();
+      } else {
+        toast.error(res.data.error || `Failed to ${action} campaign`);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || `Failed to ${action} campaign`);
+    }
+  };
+
+  const removeAdFromCampaign = async (campaignId, listingId) => {
+    try {
+      const res = await axios.post(`${API}/api/ebay/promoted/campaign/${campaignId}/remove-ads`, {
+        listing_ids: [listingId],
+      });
+      if (res.data.success) {
+        toast.success('Ad removed');
+        setCampaignAds(prev => prev.filter(a => a.listing_id !== listingId));
+        setPromotedListingIds(prev => { const n = new Set(prev); n.delete(listingId); return n; });
+      } else {
+        toast.error(res.data.error || 'Failed to remove ad');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to remove ad');
+    }
+  };
+
 
 
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -1276,50 +1312,91 @@ const ListingsModule = () => {
               ) : (
                 <div className="space-y-2">
                   {promoteCampaigns.map((c) => (
-                    <div key={c.campaign_id} className={`p-3 rounded-lg border transition-colors cursor-pointer ${selectedCampaign === c.campaign_id ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#0a0a0a] border-[#1a1a1a] hover:border-orange-500/20'}`}
-                      onClick={() => { setSelectedCampaign(c.campaign_id); openCampaignView(c.campaign_id); }}
+                    <div key={c.campaign_id} className={`p-3 rounded-lg border transition-colors ${selectedCampaign === c.campaign_id ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#0a0a0a] border-[#1a1a1a]'}`}
                       data-testid={`campaign-${c.campaign_id}`}>
                       <div className="flex items-center justify-between">
-                        <div>
+                        <div className="cursor-pointer flex-1" onClick={() => { setSelectedCampaign(c.campaign_id); fetchCampaignAds(c.campaign_id); }}>
                           <p className="text-sm font-semibold text-white">{c.name}</p>
                           <div className="flex items-center gap-3 mt-1">
                             <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${c.status === 'RUNNING' ? 'bg-green-500/20 text-green-400' : c.status === 'PAUSED' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-500/20 text-gray-400'}`}>{c.status}</span>
                             <span className="text-[10px] text-gray-500">Ad Rate: <span className="text-orange-400 font-bold">{c.bid_percentage}%</span></span>
-                            {c.start_date && <span className="text-[10px] text-gray-600">Started: {new Date(c.start_date).toLocaleDateString()}</span>}
+                            {c.start_date && <span className="text-[10px] text-gray-600">Since {new Date(c.start_date).toLocaleDateString()}</span>}
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                        <div className="flex items-center gap-1.5">
+                          {c.status === 'RUNNING' && (
+                            <button onClick={() => campaignAction(c.campaign_id, 'pause')} className="px-2.5 py-1.5 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-[10px] font-bold hover:bg-yellow-500/20 transition-colors" data-testid={`campaign-pause-${c.campaign_id}`}>Pause</button>
+                          )}
+                          {c.status === 'PAUSED' && (
+                            <button onClick={() => campaignAction(c.campaign_id, 'resume')} className="px-2.5 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 text-[10px] font-bold hover:bg-green-500/20 transition-colors" data-testid={`campaign-resume-${c.campaign_id}`}>Resume</button>
+                          )}
+                          {(c.status === 'RUNNING' || c.status === 'PAUSED') && (
+                            <button onClick={() => { if (window.confirm('End this campaign? This cannot be undone.')) campaignAction(c.campaign_id, 'end'); }} className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/20 transition-colors" data-testid={`campaign-end-${c.campaign_id}`}>End</button>
+                          )}
+                          {c.status === 'ENDED' && (
+                            <button onClick={() => { if (window.confirm('Delete this campaign permanently?')) campaignAction(c.campaign_id, 'delete'); }} className="px-2.5 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/20 transition-colors" data-testid={`campaign-delete-${c.campaign_id}`}>Delete</button>
+                          )}
+                          <button onClick={() => { setSelectedCampaign(c.campaign_id); fetchCampaignAds(c.campaign_id); }} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-gray-600" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
 
-              {/* Campaign Ads Detail */}
-              {selectedCampaign && campaignAds.length > 0 && (
+              {/* Campaign Ads - Card Grid */}
+              {selectedCampaign && (
                 <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
                   <div className="flex items-center justify-between mb-3">
                     <p className="text-xs font-bold text-white">Promoted Listings ({campaignAds.length})</p>
-                    {loadingAds && <RefreshCw className="w-3.5 h-3.5 text-gray-500 animate-spin" />}
+                    {loadingAds ? <RefreshCw className="w-3.5 h-3.5 text-gray-500 animate-spin" /> : (
+                      <button onClick={() => fetchCampaignAds(selectedCampaign)} className="text-[10px] text-gray-500 hover:text-white transition-colors flex items-center gap-1"><RefreshCw className="w-3 h-3" />Refresh</button>
+                    )}
                   </div>
-                  <div className="max-h-64 overflow-y-auto space-y-1.5">
-                    {campaignAds.map((ad) => {
-                      const listing = allSortedActive.find(l => l.item_id === ad.listing_id);
-                      return (
-                        <div key={ad.ad_id || ad.listing_id} className="flex items-center gap-3 p-2 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a]">
-                          {listing?.image_url && <img src={listing.image_url} alt="" className="w-10 h-10 rounded object-cover" />}
-                          <div className="flex-1 min-w-0">
-                            <p className="text-xs text-white truncate">{listing?.title || ad.listing_id}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="text-[10px] text-orange-400 font-semibold">{ad.bid_percentage}%</span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${ad.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>{ad.status}</span>
-                              {listing?.price && <span className="text-[10px] text-gray-500">${listing.price}</span>}
+                  {campaignAds.length === 0 && !loadingAds ? (
+                    <p className="text-xs text-gray-600 text-center py-6">No promoted listings in this campaign yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+                      {campaignAds.map((ad) => {
+                        const listing = allSortedActive.find(l => l.item_id === ad.listing_id);
+                        return (
+                          <div key={ad.ad_id || ad.listing_id} className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl overflow-hidden group relative" data-testid={`campaign-ad-${ad.listing_id}`}>
+                            <div className="aspect-square bg-[#111] overflow-hidden relative">
+                              {listing?.image_url ? (
+                                <img src={listing.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                              ) : <div className="w-full h-full flex items-center justify-center"><ImageIcon className="w-8 h-8 text-gray-800" /></div>}
+                              {/* Price badge */}
+                              <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent pt-8 pb-2 px-2.5">
+                                <span className="text-lg font-black text-white drop-shadow-lg">${listing?.price || '—'}</span>
+                              </div>
+                              {/* Ad rate badge */}
+                              <span className="absolute top-2 right-2 text-[9px] px-2 py-0.5 rounded bg-orange-500/90 text-white uppercase font-bold flex items-center gap-0.5">
+                                <TrendingUp className="w-2.5 h-2.5" />{ad.bid_percentage}%
+                              </span>
+                              {/* Status badge */}
+                              <span className={`absolute top-2 left-2 text-[9px] px-2 py-0.5 rounded font-bold ${ad.status === 'ACTIVE' ? 'bg-green-500/90 text-white' : 'bg-gray-500/90 text-white'}`}>{ad.status}</span>
+                              {/* Remove overlay on hover */}
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                                <button onClick={() => { if (window.confirm('Remove this listing from the campaign?')) removeAdFromCampaign(selectedCampaign, ad.listing_id); }}
+                                  className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-bold flex items-center gap-1.5 shadow-lg hover:bg-red-500 transition-colors"
+                                  data-testid={`remove-ad-${ad.listing_id}`}>
+                                  <X className="w-3.5 h-3.5" />Remove
+                                </button>
+                              </div>
+                            </div>
+                            <div className="p-2.5">
+                              <p className="text-xs font-semibold text-white line-clamp-2 leading-relaxed">{listing?.title || ad.listing_id}</p>
+                              {listing?.watch_count > 0 && (
+                                <span className="text-[10px] text-gray-500 flex items-center gap-0.5 mt-1"><Eye className="w-3 h-3" />{listing.watch_count}</span>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
