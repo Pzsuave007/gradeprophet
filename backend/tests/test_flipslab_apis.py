@@ -20,7 +20,7 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://card-scanner-crop.preview.emergentagent.com"
+    BASE_URL = "https://bulk-listing-update.preview.emergentagent.com"
 
 
 class TestRootAPI:
