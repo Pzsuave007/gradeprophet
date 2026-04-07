@@ -1522,6 +1522,208 @@ async def bulk_revise_specifics(data: BulkReviseSpecificsRequest, request: Reque
 
 
 
+# ---- Promoted Listings Standard (PLS) ----
+
+EBAY_MARKETING_API = "https://api.ebay.com/sell/marketing/v1"
+
+
+@router.get("/promoted/campaigns")
+async def get_promoted_campaigns(request: Request):
+    """Get user's Promoted Listings Standard campaigns"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.get(
+                f"{EBAY_MARKETING_API}/ad_campaign?campaign_status=RUNNING,PAUSED&limit=50",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                },
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                campaigns = []
+                for c in data.get("campaigns", []):
+                    fs = c.get("fundingStrategy", {})
+                    if fs.get("fundingModel") == "COST_PER_SALE":
+                        campaigns.append({
+                            "campaign_id": c.get("campaignId"),
+                            "name": c.get("campaignName"),
+                            "status": c.get("campaignStatus"),
+                            "bid_percentage": fs.get("bidPercentage"),
+                            "start_date": c.get("startDate"),
+                        })
+                return {"success": True, "campaigns": campaigns}
+            else:
+                logger.warning(f"Get campaigns failed: {resp.status_code} {resp.text[:300]}")
+                return {"success": False, "campaigns": [], "error": resp.text[:200]}
+    except Exception as e:
+        logger.error(f"Get promoted campaigns error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class CreatePromotedCampaignRequest(BaseModel):
+    campaign_name: str = "FlipSlab Promoted Listings"
+    bid_percentage: float = 5.0  # 1-100
+
+
+@router.post("/promoted/create-campaign")
+async def create_promoted_campaign(data: CreatePromotedCampaignRequest, request: Request):
+    """Create a new Promoted Listings Standard (CPS) campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    if data.bid_percentage < 1 or data.bid_percentage > 100:
+        raise HTTPException(status_code=400, detail="Bid percentage must be between 1 and 100")
+
+    payload = {
+        "campaignName": data.campaign_name,
+        "marketplaceId": "EBAY_US",
+        "fundingStrategy": {
+            "fundingModel": "COST_PER_SALE",
+            "bidPercentage": str(data.bid_percentage),
+        },
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                },
+                json=payload,
+            )
+            if resp.status_code in (200, 201):
+                # Campaign ID is in the Location header
+                location = resp.headers.get("location", "")
+                campaign_id = location.split("/")[-1] if location else ""
+                return {"success": True, "campaign_id": campaign_id, "message": f"Campaign '{data.campaign_name}' created"}
+            else:
+                logger.warning(f"Create campaign failed: {resp.status_code} {resp.text[:300]}")
+                error_msg = "Failed to create campaign"
+                try:
+                    err_data = resp.json()
+                    if "errors" in err_data:
+                        error_msg = err_data["errors"][0].get("message", error_msg)
+                except Exception:
+                    pass
+                return {"success": False, "error": error_msg}
+    except Exception as e:
+        logger.error(f"Create promoted campaign error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BulkPromoteListingsRequest(BaseModel):
+    campaign_id: str
+    item_ids: List[str]  # eBay listing IDs
+    bid_percentage: float = 5.0
+
+
+@router.post("/promoted/bulk-add")
+async def bulk_add_promoted_listings(data: BulkPromoteListingsRequest, request: Request):
+    """Add multiple listings to a Promoted Listings Standard campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    # Build bulk request (max 500 per call)
+    ads = [{"listingId": lid, "bidPercentage": str(data.bid_percentage)} for lid in data.item_ids[:500]]
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{data.campaign_id}/bulk_create_ads_by_listing_id",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                },
+                json={"requests": ads},
+            )
+            if resp.status_code in (200, 201):
+                result = resp.json()
+                responses = result.get("responses", [])
+                ok = sum(1 for r in responses if r.get("statusCode") in (200, 201))
+                errors = [r for r in responses if r.get("statusCode") not in (200, 201)]
+                return {
+                    "success": ok > 0,
+                    "total": len(data.item_ids),
+                    "promoted": ok,
+                    "errors": len(errors),
+                    "note": f"Promoted {ok}/{len(data.item_ids)} listings at {data.bid_percentage}% ad rate",
+                    "error_details": [e.get("errors", [{}])[0].get("message", "") for e in errors[:5]] if errors else [],
+                }
+            else:
+                logger.warning(f"Bulk promote failed: {resp.status_code} {resp.text[:300]}")
+                error_msg = "Failed to promote listings"
+                try:
+                    err_data = resp.json()
+                    if "errors" in err_data:
+                        error_msg = err_data["errors"][0].get("message", error_msg)
+                except Exception:
+                    pass
+                return {"success": False, "error": error_msg}
+    except Exception as e:
+        logger.error(f"Bulk promote error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class BulkRemovePromotedRequest(BaseModel):
+    campaign_id: str
+    item_ids: List[str]
+
+
+@router.post("/promoted/bulk-remove")
+async def bulk_remove_promoted_listings(data: BulkRemovePromotedRequest, request: Request):
+    """Remove multiple listings from a Promoted Listings campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    ads = [{"listingId": lid} for lid in data.item_ids[:500]]
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                f"{EBAY_MARKETING_API}/ad_campaign/{data.campaign_id}/bulk_delete_ads_by_listing_id",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                },
+                json={"requests": ads},
+            )
+            if resp.status_code in (200, 204):
+                result = resp.json() if resp.status_code == 200 else {}
+                responses = result.get("responses", [])
+                ok = sum(1 for r in responses if r.get("statusCode") in (200, 204))
+                return {
+                    "success": True,
+                    "total": len(data.item_ids),
+                    "removed": ok,
+                    "note": f"Removed promotion from {ok}/{len(data.item_ids)} listings",
+                }
+            else:
+                logger.warning(f"Bulk remove promoted failed: {resp.status_code} {resp.text[:300]}")
+                return {"success": False, "error": "Failed to remove promotions"}
+    except Exception as e:
+        logger.error(f"Bulk remove promoted error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.post("/sell/update-photos")
 async def update_listing_photos(request: Request):
     """Update photos on an existing eBay listing from inventory images"""

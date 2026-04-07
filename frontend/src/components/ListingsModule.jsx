@@ -798,6 +798,13 @@ const ListingsModule = () => {
   const [bulkConditionValue, setBulkConditionValue] = useState('');
   const [showBulkOffer, setShowBulkOffer] = useState(false);
   const [showBulkSpecifics, setShowBulkSpecifics] = useState(false);
+  const [showBulkPromote, setShowBulkPromote] = useState(false);
+  const [promoteCampaigns, setPromoteCampaigns] = useState([]);
+  const [selectedCampaign, setSelectedCampaign] = useState('');
+  const [promoteAdRate, setPromoteAdRate] = useState(5);
+  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
+  const [newCampaignName, setNewCampaignName] = useState('');
+  const [creatingCampaign, setCreatingCampaign] = useState(false);
 
   const toggleSelect = (itemId) => {
     setSelected(prev => {
@@ -806,7 +813,7 @@ const ListingsModule = () => {
       return next;
     });
   };
-  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); setShowBulkOffer(false); setShowBulkSpecifics(false); };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); setShowBulkOffer(false); setShowBulkSpecifics(false); setShowBulkPromote(false); };
 
   const CARD_CONDITIONS = ['Near Mint or Better', 'Excellent', 'Very Good', 'Poor'];
 
@@ -893,6 +900,101 @@ const ListingsModule = () => {
       setBulkUpdating(false);
     }
   };
+
+
+  const fetchCampaigns = async () => {
+    setLoadingCampaigns(true);
+    try {
+      const res = await axios.get(`${API}/api/ebay/promoted/campaigns`);
+      if (res.data.success) {
+        setPromoteCampaigns(res.data.campaigns || []);
+        if (res.data.campaigns.length > 0 && !selectedCampaign) {
+          setSelectedCampaign(res.data.campaigns[0].campaign_id);
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to load campaigns');
+    } finally {
+      setLoadingCampaigns(false);
+    }
+  };
+
+  const createCampaign = async () => {
+    const name = newCampaignName.trim() || 'FlipSlab Promoted Listings';
+    setCreatingCampaign(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/promoted/create-campaign`, {
+        campaign_name: name,
+        bid_percentage: promoteAdRate,
+      });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        setNewCampaignName('');
+        await fetchCampaigns();
+        if (res.data.campaign_id) setSelectedCampaign(res.data.campaign_id);
+      } else {
+        toast.error(res.data.error || 'Failed to create campaign');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to create campaign');
+    } finally {
+      setCreatingCampaign(false);
+    }
+  };
+
+  const bulkPromoteListings = async () => {
+    if (!selectedCampaign) { toast.error('Select a campaign first'); return; }
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/promoted/bulk-add`, {
+        campaign_id: selectedCampaign,
+        item_ids: selectedIds,
+        bid_percentage: promoteAdRate,
+      });
+      if (res.data.success) {
+        toast.success(res.data.note || `Promoted ${res.data.promoted} listings`);
+        if (res.data.error_details?.length > 0) {
+          toast.warning(`${res.data.errors} listings had issues: ${res.data.error_details[0]}`);
+        }
+        setShowBulkPromote(false);
+        exitSelectMode();
+      } else {
+        toast.error(res.data.error || 'Failed to promote listings');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to promote listings');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const bulkRemovePromotions = async () => {
+    if (!selectedCampaign) { toast.error('Select a campaign first'); return; }
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/promoted/bulk-remove`, {
+        campaign_id: selectedCampaign,
+        item_ids: selectedIds,
+      });
+      toast.success(res.data.note || 'Promotions removed');
+      setShowBulkPromote(false);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to remove promotions');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
+  const openPromotePanel = () => {
+    setShowBulkPromote(true);
+    fetchCampaigns();
+  };
+
 
 
   const fetchData = useCallback(async (forceRefresh = false) => {
@@ -1095,6 +1197,10 @@ const ListingsModule = () => {
               <button onClick={() => setShowBulkSpecifics(true)} disabled={selected.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-specifics-btn">
                 <BarChart3 className="w-4 h-4" /> Specifics {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+              <button onClick={openPromotePanel} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-promote-btn">
+                <TrendingUp className="w-4 h-4" /> Promote {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             </>
           )}
@@ -1338,6 +1444,80 @@ const ListingsModule = () => {
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><BarChart3 className="w-4 h-4" /> Update {selected.size} Listings</>}
                 </button>
                 <button onClick={() => setShowBulkSpecifics(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-specifics-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Promote Panel */}
+      <AnimatePresence>
+        {showBulkPromote && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-orange-500/30 rounded-xl p-4" data-testid="listings-bulk-promote-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Promoted Listings Standard</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400">{selected.size} listings</span>
+                </div>
+                <button onClick={() => setShowBulkPromote(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+
+              {/* Campaign selector */}
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 mb-1.5">Campaign</label>
+                {loadingCampaigns ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading campaigns...</div>
+                ) : promoteCampaigns.length > 0 ? (
+                  <select value={selectedCampaign} onChange={e => setSelectedCampaign(e.target.value)}
+                    className="w-full bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-3 py-2.5 text-sm text-white focus:border-orange-500/50 outline-none"
+                    data-testid="promote-campaign-select">
+                    {promoteCampaigns.map(c => (
+                      <option key={c.campaign_id} value={c.campaign_id}>{c.name} ({c.status}) - {c.bid_percentage}%</option>
+                    ))}
+                  </select>
+                ) : (
+                  <p className="text-xs text-gray-500 mb-2">No campaigns found. Create one below.</p>
+                )}
+              </div>
+
+              {/* Create campaign */}
+              <div className="flex items-center gap-2 mb-4">
+                <input type="text" placeholder="New campaign name..." value={newCampaignName} onChange={e => setNewCampaignName(e.target.value)}
+                  className="flex-1 bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-orange-500/50 outline-none"
+                  data-testid="promote-new-campaign-name" />
+                <button onClick={createCampaign} disabled={creatingCampaign}
+                  className="px-3 py-2 rounded-lg bg-orange-600/20 border border-orange-500/30 text-orange-400 text-xs font-bold hover:bg-orange-600/30 disabled:opacity-50 transition-colors whitespace-nowrap"
+                  data-testid="promote-create-campaign-btn">
+                  {creatingCampaign ? 'Creating...' : '+ New Campaign'}
+                </button>
+              </div>
+
+              {/* Ad Rate slider */}
+              <div className="mb-4">
+                <label className="block text-xs text-gray-400 mb-1.5">Ad Rate: <span className="text-orange-400 font-bold">{promoteAdRate}%</span></label>
+                <input type="range" min="1" max="20" step="0.5" value={promoteAdRate} onChange={e => setPromoteAdRate(parseFloat(e.target.value))}
+                  className="w-full accent-orange-500" data-testid="promote-ad-rate-slider" />
+                <div className="flex justify-between text-[10px] text-gray-600 mt-1">
+                  <span>1%</span><span>5%</span><span>10%</span><span>15%</span><span>20%</span>
+                </div>
+              </div>
+
+              <p className="text-[10px] text-gray-500 mb-3">You only pay when a buyer clicks your promoted ad AND purchases. Fee = {promoteAdRate}% of sale price.</p>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <button onClick={bulkPromoteListings} disabled={!selectedCampaign || bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-bold hover:bg-orange-500 disabled:opacity-50 transition-colors"
+                  data-testid="promote-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Promoting...</> : <><TrendingUp className="w-4 h-4" /> Promote {selected.size} Listings</>}
+                </button>
+                <button onClick={bulkRemovePromotions} disabled={!selectedCampaign || bulkUpdating}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-red-600/80 text-white text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-colors"
+                  data-testid="promote-remove-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Removing...</> : <>Remove Promotion</>}
+                </button>
+                <button onClick={() => setShowBulkPromote(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="promote-cancel-btn">Cancel</button>
               </div>
             </div>
           </motion.div>
