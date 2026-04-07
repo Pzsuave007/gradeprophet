@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search,
-  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
+  Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, ChevronRight, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
   ArrowDownUp, Calendar, ChevronDown, Check
 } from 'lucide-react';
 import axios from 'axios';
@@ -805,6 +805,10 @@ const ListingsModule = () => {
   const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [newCampaignName, setNewCampaignName] = useState('');
   const [creatingCampaign, setCreatingCampaign] = useState(false);
+  const [promotedListingIds, setPromotedListingIds] = useState(new Set());
+  const [showCampaignView, setShowCampaignView] = useState(false);
+  const [campaignAds, setCampaignAds] = useState([]);
+  const [loadingAds, setLoadingAds] = useState(false);
 
   const toggleSelect = (itemId) => {
     setSelected(prev => {
@@ -907,15 +911,42 @@ const ListingsModule = () => {
     try {
       const res = await axios.get(`${API}/api/ebay/promoted/campaigns`);
       if (res.data.success) {
-        setPromoteCampaigns(res.data.campaigns || []);
-        if (res.data.campaigns.length > 0 && !selectedCampaign) {
-          setSelectedCampaign(res.data.campaigns[0].campaign_id);
+        const camps = res.data.campaigns || [];
+        setPromoteCampaigns(camps);
+        if (camps.length > 0) {
+          const firstId = selectedCampaign || camps[0].campaign_id;
+          if (!selectedCampaign) setSelectedCampaign(firstId);
+          // Load promoted listing IDs from all running campaigns
+          const allPromoted = new Set();
+          for (const c of camps.filter(cc => cc.status === 'RUNNING')) {
+            try {
+              const adsRes = await axios.get(`${API}/api/ebay/promoted/campaign/${c.campaign_id}/ads`);
+              if (adsRes.data.success) {
+                adsRes.data.promoted_listing_ids.forEach(id => allPromoted.add(id));
+              }
+            } catch (_) {}
+          }
+          setPromotedListingIds(allPromoted);
         }
       }
     } catch (err) {
       toast.error('Failed to load campaigns');
     } finally {
       setLoadingCampaigns(false);
+    }
+  };
+
+  const fetchCampaignAds = async (campaignId) => {
+    setLoadingAds(true);
+    try {
+      const res = await axios.get(`${API}/api/ebay/promoted/campaign/${campaignId}/ads`);
+      if (res.data.success) {
+        setCampaignAds(res.data.ads || []);
+      }
+    } catch (err) {
+      toast.error('Failed to load campaign ads');
+    } finally {
+      setLoadingAds(false);
     }
   };
 
@@ -992,7 +1023,13 @@ const ListingsModule = () => {
 
   const openPromotePanel = () => {
     setShowBulkPromote(true);
+    setShowCampaignView(false);
     fetchCampaigns();
+  };
+
+  const openCampaignView = (campaignId) => {
+    setShowCampaignView(true);
+    fetchCampaignAds(campaignId || selectedCampaign);
   };
 
 
@@ -1205,6 +1242,11 @@ const ListingsModule = () => {
               </button>
             </>
           )}
+          <button onClick={() => { setShowCampaignView(!showCampaignView); if (!showCampaignView) fetchCampaigns(); }}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${showCampaignView ? 'bg-orange-600/10 border-orange-500/30 text-orange-400' : 'bg-[#111] border-[#1a1a1a] text-gray-400 hover:text-white'}`}
+            data-testid="campaigns-view-btn">
+            <TrendingUp className="w-4 h-4" /> Campaigns
+          </button>
           <button onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-[#22c55e] text-white text-sm font-bold hover:bg-[#16a34a] transition-colors"
             data-testid="create-listing-btn">
@@ -1212,6 +1254,79 @@ const ListingsModule = () => {
           </button>
         </div>
       </div>
+
+      {/* Campaign View Panel */}
+      <AnimatePresence>
+        {showCampaignView && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-orange-500/20 rounded-xl p-4" data-testid="campaigns-panel">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-orange-400" />
+                  <p className="text-sm font-bold text-white">Promoted Listings Campaigns</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-400">{promoteCampaigns.length} campaigns</span>
+                </div>
+                <button onClick={() => setShowCampaignView(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+
+              {loadingCampaigns ? (
+                <div className="flex items-center gap-2 py-4 justify-center text-xs text-gray-500"><RefreshCw className="w-4 h-4 animate-spin" /> Loading campaigns...</div>
+              ) : promoteCampaigns.length === 0 ? (
+                <p className="text-xs text-gray-500 text-center py-4">No campaigns yet. Use the Promote button to create one.</p>
+              ) : (
+                <div className="space-y-2">
+                  {promoteCampaigns.map((c) => (
+                    <div key={c.campaign_id} className={`p-3 rounded-lg border transition-colors cursor-pointer ${selectedCampaign === c.campaign_id ? 'bg-orange-500/5 border-orange-500/30' : 'bg-[#0a0a0a] border-[#1a1a1a] hover:border-orange-500/20'}`}
+                      onClick={() => { setSelectedCampaign(c.campaign_id); openCampaignView(c.campaign_id); }}
+                      data-testid={`campaign-${c.campaign_id}`}>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">{c.name}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${c.status === 'RUNNING' ? 'bg-green-500/20 text-green-400' : c.status === 'PAUSED' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-gray-500/20 text-gray-400'}`}>{c.status}</span>
+                            <span className="text-[10px] text-gray-500">Ad Rate: <span className="text-orange-400 font-bold">{c.bid_percentage}%</span></span>
+                            {c.start_date && <span className="text-[10px] text-gray-600">Started: {new Date(c.start_date).toLocaleDateString()}</span>}
+                          </div>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-600" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Campaign Ads Detail */}
+              {selectedCampaign && campaignAds.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-[#1a1a1a]">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-xs font-bold text-white">Promoted Listings ({campaignAds.length})</p>
+                    {loadingAds && <RefreshCw className="w-3.5 h-3.5 text-gray-500 animate-spin" />}
+                  </div>
+                  <div className="max-h-64 overflow-y-auto space-y-1.5">
+                    {campaignAds.map((ad) => {
+                      const listing = allSortedActive.find(l => l.item_id === ad.listing_id);
+                      return (
+                        <div key={ad.ad_id || ad.listing_id} className="flex items-center gap-3 p-2 rounded-lg bg-[#0a0a0a] border border-[#1a1a1a]">
+                          {listing?.image_url && <img src={listing.image_url} alt="" className="w-10 h-10 rounded object-cover" />}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs text-white truncate">{listing?.title || ad.listing_id}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-orange-400 font-semibold">{ad.bid_percentage}%</span>
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded ${ad.status === 'ACTIVE' ? 'bg-green-500/20 text-green-400' : 'bg-gray-500/20 text-gray-400'}`}>{ad.status}</span>
+                              {listing?.price && <span className="text-[10px] text-gray-500">${listing.price}</span>}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
 
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1558,6 +1673,11 @@ const ListingsModule = () => {
                   <span className="absolute top-2 right-2 text-[9px] px-2 py-0.5 rounded bg-black/70 text-gray-200 uppercase font-bold">
                     {item.listing_type === 'FixedPriceItem' ? 'BIN' : 'Auction'}
                   </span>
+                  {promotedListingIds.has(item.item_id) && (
+                    <span className="absolute top-2 right-16 text-[9px] px-2 py-0.5 rounded bg-orange-500/90 text-white uppercase font-bold flex items-center gap-0.5">
+                      <TrendingUp className="w-2.5 h-2.5" />AD
+                    </span>
+                  )}
                   {/* Action overlay on hover - only when not in select mode */}
                   {!selectMode && (
                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100">

@@ -1529,16 +1529,16 @@ EBAY_MARKETING_API = "https://api.ebay.com/sell/marketing/v1"
 
 @router.get("/promoted/campaigns")
 async def get_promoted_campaigns(request: Request):
-    """Get user's Promoted Listings Standard campaigns"""
+    """Get user's Promoted Listings Standard campaigns with ad counts"""
     user = await get_current_user(request)
     token = await get_ebay_user_token(user["user_id"])
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as http_client:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
             resp = await http_client.get(
-                f"{EBAY_MARKETING_API}/ad_campaign?campaign_status=RUNNING,PAUSED&limit=50",
+                f"{EBAY_MARKETING_API}/ad_campaign?campaign_status=RUNNING,PAUSED,ENDED&limit=50",
                 headers={
                     "Authorization": f"Bearer {token}",
                     "Content-Type": "application/json",
@@ -1557,6 +1557,7 @@ async def get_promoted_campaigns(request: Request):
                             "status": c.get("campaignStatus"),
                             "bid_percentage": fs.get("bidPercentage"),
                             "start_date": c.get("startDate"),
+                            "end_date": c.get("endDate"),
                         })
                 return {"success": True, "campaigns": campaigns}
             else:
@@ -1721,6 +1722,58 @@ async def bulk_remove_promoted_listings(data: BulkRemovePromotedRequest, request
                 return {"success": False, "error": "Failed to remove promotions"}
     except Exception as e:
         logger.error(f"Bulk remove promoted error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+@router.get("/promoted/campaign/{campaign_id}/ads")
+async def get_campaign_ads(campaign_id: str, request: Request):
+    """Get all promoted listing IDs in a campaign"""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    all_ads = []
+    offset = 0
+    limit = 500
+
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            while True:
+                resp = await http_client.get(
+                    f"{EBAY_MARKETING_API}/ad_campaign/{campaign_id}/ad?limit={limit}&offset={offset}",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                        "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+                    },
+                )
+                if resp.status_code != 200:
+                    break
+                data = resp.json()
+                ads = data.get("ads", [])
+                for ad in ads:
+                    all_ads.append({
+                        "listing_id": ad.get("listingId"),
+                        "ad_id": ad.get("adId"),
+                        "bid_percentage": ad.get("bidPercentage"),
+                        "status": ad.get("adStatus"),
+                    })
+                total = data.get("total", 0)
+                if offset + limit >= total:
+                    break
+                offset += limit
+
+        return {
+            "success": True,
+            "campaign_id": campaign_id,
+            "total_ads": len(all_ads),
+            "ads": all_ads,
+            "promoted_listing_ids": [a["listing_id"] for a in all_ads],
+        }
+    except Exception as e:
+        logger.error(f"Get campaign ads error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
