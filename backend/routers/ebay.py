@@ -153,9 +153,18 @@ def build_item_specifics(item: dict, data=None) -> list:
     league = SPORT_LEAGUE_MAP.get(sport, "")
     add("League", league)
 
+    # Team: from inventory field
+    team = item.get("team") or ""
+    add("Team", team)
+
     variation = item.get("variation") or ""
     if variation:
         add("Parallel/Variety", variation)
+
+    # Print Run: extract /XX pattern from variation (e.g. "Gold Refractor /50" -> "/50")
+    print_run_match = re.search(r'/(\d+)', variation) if variation else None
+    if print_run_match:
+        add("Print Run", f"/{print_run_match.group(1)}")
 
     # Features: build from card attributes
     features = []
@@ -175,9 +184,11 @@ def build_item_specifics(item: dict, data=None) -> list:
     except (ValueError, TypeError):
         add("Vintage", "No")
 
-    # Autographed: check variation for "auto" keyword
+    # Autographed & Signed By: check variation for "auto" keyword
     is_auto = variation and "auto" in variation.lower()
     add("Autographed", "Yes" if is_auto else "No")
+    if is_auto and player:
+        add("Signed By", player)
 
     # Static defaults
     add("Card Size", "Standard")
