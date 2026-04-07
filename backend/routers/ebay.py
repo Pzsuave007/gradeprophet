@@ -1586,6 +1586,7 @@ async def create_promoted_campaign(data: CreatePromotedCampaignRequest, request:
     payload = {
         "campaignName": data.campaign_name,
         "marketplaceId": "EBAY_US",
+        "startDate": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
         "fundingStrategy": {
             "fundingModel": "COST_PER_SALE",
             "bidPercentage": str(data.bid_percentage),
