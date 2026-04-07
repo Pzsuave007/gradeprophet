@@ -42,6 +42,7 @@ class InventoryItem(BaseModel):
     listed: bool = False
     category: str = "collection"
     sport: Optional[str] = None
+    team: Optional[str] = None
     source_analysis_id: Optional[str] = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -67,6 +68,7 @@ class InventoryItemCreate(BaseModel):
     back_image_base64: Optional[str] = None
     category: str = "collection"
     sport: Optional[str] = None
+    team: Optional[str] = None
 
 
 class InventoryItemUpdate(BaseModel):
@@ -90,6 +92,7 @@ class InventoryItemUpdate(BaseModel):
     listed: Optional[bool] = None
     category: Optional[str] = None
     sport: Optional[str] = None
+    team: Optional[str] = None
 
 
 class BatchCardItem(BaseModel):

@@ -329,6 +329,7 @@ Return ONLY valid JSON with these fields (use null for anything you can't determ
   "grade": <numeric grade if graded, e.g. 9, 9.5, 10, or null if raw>,
   "cert_number": "<certification number printed on the grading slab label, usually 8-10 digits, or null if raw/not visible>",
   "sport": "<Basketball, Baseball, Football, Soccer, Hockey, or Other>",
+  "team": "<Team name if identifiable, e.g. 'Los Angeles Lakers', 'New York Yankees', null if unknown>",
   "estimated_condition": "<Mint, Near Mint, Excellent, Good, Fair - your visual assessment>"
 }
 

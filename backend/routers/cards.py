@@ -699,6 +699,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
             "grade": card_info.get("grade"),
             "cert_number": card_info.get("cert_number"),
             "sport": card_info.get("sport"),
+            "team": card_info.get("team"),
             "image": front_processed,
             "back_image": back_processed,
             "thumbnail": create_thumbnail(front_processed, max_size=300),
@@ -850,6 +851,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
                     if variation: update_fields["variation"] = variation
                     update_fields["card_name"] = card_name
                     if card_info.get("sport"): update_fields["sport"] = card_info["sport"]
+                    if card_info.get("team"): update_fields["team"] = card_info["team"]
                     if card_info.get("cert_number"): update_fields["cert_number"] = card_info["cert_number"]
 
                     logger.info(f"Re-identified with front+back: {card_name}")
@@ -939,6 +941,7 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
         "listed": False,
         "category": "for_sale",
         "sport": card_info.get("sport", ""),
+        "team": card_info.get("team", ""),
         "source": "scanner",
         "scan_batch_key": batch_key,
         "created_at": now,

@@ -184,11 +184,12 @@ def build_item_specifics(item: dict, data=None) -> list:
     except (ValueError, TypeError):
         add("Vintage", "No")
 
-    # Autographed & Signed By: check variation for "auto" keyword
+    # Autographed: check variation for "auto" keyword
     is_auto = variation and "auto" in variation.lower()
     add("Autographed", "Yes" if is_auto else "No")
-    if is_auto and player:
-        add("Signed By", player)
+
+    # Signed By: always populate with player name for eBay search visibility
+    add("Signed By", player)
 
     # Static defaults
     add("Card Size", "Standard")
