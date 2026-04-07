@@ -1,11 +1,12 @@
 # Test Credentials
 
-## Admin User (with inventory data)
+## IMPORTANT: DO NOT MODIFY GOOGLE AUTH. DO NOT CHANGE AUTH SYSTEM.
+
+## Admin User (primary account)
 - Email: pzsuave007@gmail.com
-- Password: FlipTest123!
-- User ID: user_b67ade950db8
+- Password: MXmedia007
 - Auth Provider: google (also has password login)
-- Notes: Has 11 inventory items, all thumbnails backfilled
+- Notes: Main user with eBay connected, 300+ active listings, inventory items
 
 ## Test User (empty)
 - Email: test@flipslab.com
@@ -13,3 +14,8 @@
 - User ID: user_cffca5aaf534
 - Auth Provider: email
 - Notes: New user, no inventory data
+
+## Login Method
+- Use POST /api/auth/login with email + password
+- DO NOT modify Google Auth integration
+- DO NOT change any auth code
