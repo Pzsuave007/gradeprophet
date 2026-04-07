@@ -1333,10 +1333,11 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 
   useEffect(() => { if (syncDone.current) fetchInventory(search); }, [fetchInventory]);
 
-  // Auto-refresh every 30 seconds
+  // Refresh data when user returns to this browser tab
   useEffect(() => {
-    const interval = setInterval(() => { fetchInventory(search); }, 30000);
-    return () => clearInterval(interval);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchInventory(search); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchInventory, search]);
 
   // Handle pending detail card from Quick Scan or external navigation

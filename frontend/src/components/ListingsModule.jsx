@@ -1125,10 +1125,11 @@ const ListingsModule = () => {
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
 
-  // Auto-refresh every 30 seconds
+  // Refresh data when user returns to this browser tab
   useEffect(() => {
-    const interval = setInterval(() => { fetchData(); }, 30000);
-    return () => clearInterval(interval);
+    const handleVisibility = () => { if (document.visibilityState === 'visible') fetchData(); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchData]);
 
   const loadMoreActive = () => setActiveShowCount(prev => prev + LOAD_BATCH);

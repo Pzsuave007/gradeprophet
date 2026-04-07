@@ -536,8 +536,10 @@ const CreateListingView = ({ items, onBack, onSuccess }) => {
     setPublishing(false);
     if (successCount === items.length) {
       toast.success(`${successCount} listing${successCount > 1 ? 's' : ''} created!`);
+      if (onSuccess) onSuccess();
     } else if (successCount > 0) {
       toast.success(`${successCount}/${items.length} listings created`);
+      if (onSuccess) onSuccess();
     } else {
       toast.error('Failed to create listings');
     }
