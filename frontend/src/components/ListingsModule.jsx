@@ -797,6 +797,7 @@ const ListingsModule = () => {
   const [showBulkCondition, setShowBulkCondition] = useState(false);
   const [bulkConditionValue, setBulkConditionValue] = useState('');
   const [showBulkOffer, setShowBulkOffer] = useState(false);
+  const [showBulkSpecifics, setShowBulkSpecifics] = useState(false);
 
   const toggleSelect = (itemId) => {
     setSelected(prev => {
@@ -805,7 +806,7 @@ const ListingsModule = () => {
       return next;
     });
   };
-  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); setShowBulkOffer(false); };
+  const exitSelectMode = () => { setSelectMode(false); setSelected(new Set()); setShowBulkShipping(false); setShowBulkCondition(false); setShowBulkOffer(false); setShowBulkSpecifics(false); };
 
   const CARD_CONDITIONS = ['Near Mint or Better', 'Excellent', 'Very Good', 'Poor'];
 
@@ -874,6 +875,25 @@ const ListingsModule = () => {
       setBulkUpdating(false);
     }
   };
+
+  const bulkUpdateSpecifics = async () => {
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-revise-specifics`, {
+        item_ids: selectedIds,
+      });
+      toast.success(res.data.note || `Specifics updated on ${res.data.updated} listings`);
+      setShowBulkSpecifics(false);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update specifics');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
 
   const fetchData = useCallback(async (forceRefresh = false) => {
     try {
@@ -1071,6 +1091,10 @@ const ListingsModule = () => {
               <button onClick={() => setShowBulkOffer(true)} disabled={selected.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-offer-btn">
                 Best Offer {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+              <button onClick={() => setShowBulkSpecifics(true)} disabled={selected.size === 0}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-cyan-600 text-white text-sm font-semibold hover:bg-cyan-500 disabled:opacity-50 transition-colors" data-testid="listings-bulk-specifics-btn">
+                <BarChart3 className="w-4 h-4" /> Specifics {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
             </>
           )}
@@ -1288,6 +1312,32 @@ const ListingsModule = () => {
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Disable Best Offer</>}
                 </button>
                 <button onClick={() => setShowBulkOffer(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-offer-cancel-btn">Cancel</button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Bulk Item Specifics Panel */}
+      <AnimatePresence>
+        {showBulkSpecifics && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-cyan-500/30 rounded-xl p-4" data-testid="listings-bulk-specifics-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-bold text-white">Bulk Update Item Specifics</p>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-400">{selected.size} listings</span>
+                </div>
+                <button onClick={() => setShowBulkSpecifics(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <p className="text-xs text-gray-400 mb-4">This will add expanded Item Specifics (Type, Manufacturer, League, Material, Year, etc.) to improve eBay Cassini search ranking. Data is pulled from your inventory.</p>
+              <div className="flex items-center gap-3">
+                <button onClick={bulkUpdateSpecifics} disabled={bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-cyan-600 text-white text-sm font-bold hover:bg-cyan-500 disabled:opacity-50 transition-colors"
+                  data-testid="listings-bulk-specifics-apply-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <><BarChart3 className="w-4 h-4" /> Update {selected.size} Listings</>}
+                </button>
+                <button onClick={() => setShowBulkSpecifics(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="listings-bulk-specifics-cancel-btn">Cancel</button>
               </div>
             </div>
           </motion.div>

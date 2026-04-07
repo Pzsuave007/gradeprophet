@@ -81,6 +81,115 @@ class ListingAIRequest(BaseModel):
     sport: Optional[str] = None
 
 
+
+# Known card manufacturers for extraction from set_name
+KNOWN_MANUFACTURERS = [
+    "Upper Deck", "Panini", "Topps", "Bowman", "Donruss", "Fleer",
+    "Skybox", "Score", "Prizm", "Select", "Mosaic", "Hoops",
+    "Leaf", "Sage", "Press Pass", "Playoff", "SP Authentic",
+    "Stadium Club", "Pinnacle", "Pacific", "Classic", "Wild Card",
+    "O-Pee-Chee", "Pro Set", "Action Packed", "Collector's Edge"
+]
+
+SPORT_LEAGUE_MAP = {
+    "Basketball": "NBA", "Baseball": "MLB", "Football": "NFL",
+    "Soccer": "MLS", "Hockey": "NHL", "Wrestling": "WWE",
+    "Golf": "PGA", "Tennis": "ATP", "MMA": "UFC",
+}
+
+
+def extract_manufacturer(set_name: str) -> str:
+    """Extract manufacturer/brand from set_name like '2023 Topps Chrome' -> 'Topps'"""
+    if not set_name:
+        return ""
+    sn_lower = set_name.lower()
+    for mfr in KNOWN_MANUFACTURERS:
+        if mfr.lower() in sn_lower:
+            return mfr
+    # Fallback: use first word after year (if present)
+    parts = set_name.strip().split()
+    if len(parts) >= 2 and parts[0].isdigit():
+        return parts[1]
+    if parts:
+        return parts[0]
+    return ""
+
+
+def build_item_specifics(item: dict, data=None) -> list:
+    """Build expanded eBay Item Specifics list for Cassini SEO optimization.
+    Returns list of NameValueList XML strings."""
+    specifics = []
+
+    def add(name, value):
+        if value:
+            specifics.append(f'<NameValueList><Name>{html.escape(name)}</Name><Value>{html.escape(str(value))}</Value></NameValueList>')
+
+    # -- Required / Always present --
+    add("Type", "Sports Trading Card")
+
+    sport = (data.sport if data and hasattr(data, 'sport') and data.sport else None) or item.get("sport") or "Basketball"
+    add("Sport", sport)
+
+    player = (data.player if data and hasattr(data, 'player') and data.player else None) or item.get("player")
+    add("Player/Athlete", player)
+
+    year = (data.season if data and hasattr(data, 'season') and data.season else None) or (str(item.get("year")) if item.get("year") else None)
+    add("Season", year)
+    if year:
+        add("Year Manufactured", str(year).split("-")[0])  # Handle "2021-22" -> "2021"
+
+    set_n = (data.set_name if data and hasattr(data, 'set_name') and data.set_name else None) or item.get("set_name")
+    add("Set", set_n)
+
+    card_num = (data.card_number if data and hasattr(data, 'card_number') and data.card_number else None) or item.get("card_number")
+    add("Card Number", card_num)
+
+    # -- Expanded specifics for SEO --
+    add("Card Name", player or item.get("card_name"))
+
+    manufacturer = extract_manufacturer(set_n or "")
+    add("Manufacturer", manufacturer)
+
+    league = SPORT_LEAGUE_MAP.get(sport, "")
+    add("League", league)
+
+    variation = item.get("variation") or ""
+    if variation:
+        add("Parallel/Variety", variation)
+
+    # Features: build from card attributes
+    features = []
+    if item.get("condition") == "Graded" or item.get("grading_company"):
+        features.append("Graded")
+    if variation and any(kw in variation.lower() for kw in ["refractor", "holo", "chrome", "shimmer", "prizm"]):
+        features.append("Refractor")
+    if variation and "rc" in variation.lower():
+        features.append("Rookie Card (RC)")
+    if features:
+        add("Features", ", ".join(features))
+
+    # Vintage: Yes if year < 1980
+    try:
+        yr_int = int(str(year).split("-")[0]) if year else 0
+        add("Vintage", "Yes" if yr_int > 0 and yr_int < 1980 else "No")
+    except (ValueError, TypeError):
+        add("Vintage", "No")
+
+    # Autographed: check variation for "auto" keyword
+    is_auto = variation and "auto" in variation.lower()
+    add("Autographed", "Yes" if is_auto else "No")
+
+    # Static defaults
+    add("Card Size", "Standard")
+    add("Country/Region of Manufacture", "United States")
+    add("Language", "English")
+    add("Original/Reprint", "Original")
+    add("Custom Bundle", "No")
+    add("Material", "Card Stock")
+
+    return specifics
+
+
 # ---- Helpers ----
 
 def generate_listing_title(item: dict) -> str:
@@ -901,20 +1010,8 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
         urls_xml = "\n".join(f"<PictureURL>{u}</PictureURL>" for u in picture_urls)
         picture_xml = f"<PictureDetails>{urls_xml}</PictureDetails>"
 
-    # Item specifics
-    specifics = []
-    sport = data.sport or item.get("sport") or "Basketball"
-    specifics.append(f'<NameValueList><Name>Sport</Name><Value>{html.escape(sport)}</Value></NameValueList>')
-    player = data.player or item.get("player")
-    if player: specifics.append(f'<NameValueList><Name>Player/Athlete</Name><Value>{html.escape(player)}</Value></NameValueList>')
-    season = data.season or (str(item.get("year")) if item.get("year") else None)
-    if season: specifics.append(f'<NameValueList><Name>Season</Name><Value>{html.escape(str(season))}</Value></NameValueList>')
-    set_n = data.set_name or item.get("set_name")
-    if set_n: specifics.append(f'<NameValueList><Name>Set</Name><Value>{html.escape(set_n)}</Value></NameValueList>')
-    card_num = data.card_number or item.get("card_number")
-    if card_num: specifics.append(f'<NameValueList><Name>Card Number</Name><Value>{html.escape(str(card_num))}</Value></NameValueList>')
-
-    # Certification number for graded cards
+    # Item specifics - expanded for better eBay Cassini SEO
+    specifics = build_item_specifics(item, data)
     cert_num = data.cert_number or item.get("cert_number")
     if cert_num: specifics.append(f'<NameValueList><Name>Certification Number</Name><Value>{html.escape(str(cert_num))}</Value></NameValueList>')
 
@@ -1336,6 +1433,80 @@ async def bulk_revise_best_offer(data: BulkBestOfferRequest, request: Request):
     action = "enabled" if data.enable else "disabled"
     return {"success": ok > 0, "total": len(data.item_ids), "updated": ok, "results": results,
             "note": f"Best Offer {action} on {ok}/{len(data.item_ids)} listings"}
+
+
+
+class BulkReviseSpecificsRequest(BaseModel):
+    item_ids: List[str]  # eBay item IDs
+
+
+@router.post("/sell/bulk-revise-specifics")
+async def bulk_revise_specifics(data: BulkReviseSpecificsRequest, request: Request):
+    """Bulk update Item Specifics on active eBay listings for better Cassini SEO"""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            # Find inventory item by ebay_item_id to get card data
+            inv_item = await db.inventory.find_one(
+                {"ebay_item_id": item_id, "user_id": user_id}, {"_id": 0}
+            )
+
+            specifics = build_item_specifics(inv_item or {})
+            # Add cert number if available
+            cert_num = (inv_item or {}).get("cert_number")
+            if cert_num:
+                specifics.append(f'<NameValueList><Name>Certification Number</Name><Value>{html.escape(str(cert_num))}</Value></NameValueList>')
+
+            item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
+
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{item_specifics_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True})
+                else:
+                    # Fallback to ReviseItem for auction-type listings
+                    xml_body2 = xml_body.replace("ReviseFixedPriceItemRequest", "ReviseItemRequest")
+                    resp2 = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "ReviseItem",
+                        "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                    }, content=xml_body2)
+                    root2 = ET.fromstring(resp2.text)
+                    ack2 = root2.find("e:Ack", ns)
+                    if ack2 is not None and ack2.text in ("Success", "Warning"):
+                        results.append({"item_id": item_id, "success": True})
+                    else:
+                        err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                        results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ok = sum(1 for r in results if r["success"])
+    return {
+        "success": ok > 0, "total": len(data.item_ids), "updated": ok,
+        "results": results,
+        "note": f"Item Specifics updated on {ok}/{len(data.item_ids)} listings"
+    }
 
 
 
