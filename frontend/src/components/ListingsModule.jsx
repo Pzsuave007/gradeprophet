@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
-  DollarSign, ShoppingBag, Plus, Search,
+  DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, ChevronRight, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
   ArrowDownUp, Calendar, ChevronDown, Check
 } from 'lucide-react';
@@ -66,7 +66,33 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
   const [marketData, setMarketData] = useState(null);
   const [loadingMarket, setLoadingMarket] = useState(true);
   const [cardData, setCardData] = useState(initialCardData || null);
+  const [lotInfo, setLotInfo] = useState(null);
+  const [regenLoading, setRegenLoading] = useState(false);
   const listingId = listing?.item_id;
+
+  // Check if this listing is a lot
+  useEffect(() => {
+    if (!listingId) return;
+    axios.get(`${API}/api/ebay/sell/lot-check/${listingId}`).then(res => {
+      if (res.data.is_lot) setLotInfo(res.data);
+    }).catch(() => {});
+  }, [listingId]);
+
+  const handleRegenImages = async () => {
+    setRegenLoading(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/lot-regenerate-images`, { ebay_item_id: listingId });
+      if (res.data.success) {
+        toast.success(res.data.message);
+      } else {
+        toast.error(res.data.error || 'Failed to regenerate images');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to regenerate images');
+    } finally {
+      setRegenLoading(false);
+    }
+  };
 
   // Fetch card data from inventory if not passed
   useEffect(() => {
@@ -225,6 +251,25 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
                 </button>
               )}
             </div>
+
+            {/* Lot: Regenerate Images */}
+            {lotInfo && (
+              <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 space-y-2">
+                <div className="flex items-center gap-2">
+                  <Layers className="w-4 h-4 text-amber-400" />
+                  <span className="text-xs font-bold text-amber-400">Bundle ({lotInfo.card_count} cards)</span>
+                </div>
+                <button onClick={handleRegenImages} disabled={regenLoading}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-xs font-bold text-amber-400 hover:bg-amber-500/20 disabled:opacity-50 transition-colors"
+                  data-testid="regen-images-btn">
+                  {regenLoading ? (
+                    <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Regenerating Images...</>
+                  ) : (
+                    <><RefreshCw className="w-3.5 h-3.5" /> Regenerate & Upload Images</>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Price Lookup Links */}
             <div className="space-y-1.5 mt-2">

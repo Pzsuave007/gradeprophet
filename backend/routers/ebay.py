@@ -1534,6 +1534,161 @@ async def lot_preview(request: Request):
 
 
 
+@router.post("/sell/lot-regenerate-images")
+async def lot_regenerate_images(request: Request):
+    """Regenerate and re-upload images for an existing lot listing on eBay."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    body = await request.json()
+    ebay_item_id = body.get("ebay_item_id")
+    if not ebay_item_id:
+        raise HTTPException(status_code=400, detail="ebay_item_id required")
+
+    # Find the lot record
+    lot = await db.lots.find_one({"ebay_item_id": ebay_item_id, "user_id": user_id}, {"_id": 0})
+    if not lot:
+        raise HTTPException(status_code=404, detail="Lot not found")
+
+    # Fetch all cards from inventory
+    cards = []
+    for cid in lot.get("card_ids", []):
+        card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if not card:
+            card = await db.inventory.find_one({"_id_str": cid, "user_id": user_id}, {"_id": 0})
+        if card:
+            cards.append(card)
+
+    if not cards:
+        raise HTTPException(status_code=400, detail="No cards found for this lot")
+
+    # Generate new images
+    from utils.image import create_lot_collage, create_front_back_combined
+
+    front_images = [c["image"] for c in cards if c.get("image")]
+    collage_b64_list = []
+    for chunk_start in range(0, len(front_images), 4):
+        chunk = front_images[chunk_start:chunk_start + 4]
+        c = create_lot_collage(chunk, cards_per_row=2)
+        if c:
+            collage_b64_list.append(c)
+
+    combined_images = []
+    cards_front_only = []
+    for card in cards:
+        if card.get("image") and card.get("back_image"):
+            combined = create_front_back_combined(card["image"], card["back_image"])
+            if combined:
+                combined_images.append(combined)
+            else:
+                cards_front_only.append(card.get("image"))
+        elif card.get("image"):
+            cards_front_only.append(card["image"])
+
+    # Upload all images to eBay
+    picture_urls = []
+
+    async def upload_img(img_b64, label):
+        image_bytes = base64.b64decode(img_b64)
+        try:
+            img_pil = Image.open(BytesIO(image_bytes))
+            w, h = img_pil.size
+            if max(w, h) < 500:
+                scale = 500 / max(w, h)
+                img_pil = img_pil.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                buf = BytesIO()
+                img_pil.save(buf, format='JPEG', quality=90)
+                image_bytes = buf.getvalue()
+        except Exception:
+            pass
+        title_short = lot.get("title", "card")[:40]
+        upload_xml = f'<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials><PictureName>{html.escape(title_short)} {label}</PictureName></UploadSiteHostedPicturesRequest>'
+        boundary = "MIME_boundary_EBAY"
+        body_parts = [f"--{boundary}\r\n", 'Content-Disposition: form-data; name="XML Payload"\r\n', "Content-Type: text/xml\r\n\r\n", upload_xml, f"\r\n--{boundary}\r\n", f'Content-Disposition: form-data; name="image"; filename="{label}.jpg"\r\n', "Content-Type: image/jpeg\r\nContent-Transfer-Encoding: binary\r\n\r\n"]
+        text_part = "".join(body_parts).encode('utf-8')
+        end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+        full_body = text_part + image_bytes + end_part
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            }, content=full_body)
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(resp.text)
+        url_el = root.find(".//{urn:ebay:apis:eBLBaseComponents}FullURL")
+        return url_el.text if url_el is not None else None
+
+    for i, cb in enumerate(collage_b64_list):
+        try:
+            url = await upload_img(cb, f"overview-{i+1}")
+            if url: picture_urls.append(url)
+        except Exception as e:
+            logger.warning(f"Regen collage {i} failed: {e}")
+
+    for i, cb in enumerate(combined_images):
+        if len(picture_urls) < 24:
+            try:
+                url = await upload_img(cb, f"card-{i+1}-both")
+                if url: picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Regen combined {i} failed: {e}")
+
+    for i, fb in enumerate(cards_front_only):
+        if len(picture_urls) < 24:
+            try:
+                url = await upload_img(fb, f"front-{i+1}")
+                if url: picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Regen front {i} failed: {e}")
+
+    if not picture_urls:
+        raise HTTPException(status_code=400, detail="No images could be uploaded")
+
+    # Revise the eBay listing with new pictures
+    picture_xml = "<PictureDetails>" + "".join(f"<PictureURL>{u}</PictureURL>" for u in picture_urls) + "</PictureDetails>"
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{ebay_item_id}</ItemID>{picture_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+            }, content=xml_body)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        ack = root.find("e:Ack", ns)
+        if ack is not None and ack.text in ("Success", "Warning"):
+            await db.lots.update_one({"ebay_item_id": ebay_item_id}, {"$set": {"image_count": len(picture_urls), "images_updated_at": datetime.now(timezone.utc).isoformat()}})
+            return {"success": True, "message": f"Images updated! {len(picture_urls)} photos uploaded.", "images_uploaded": len(picture_urls)}
+        errors = [e.find("e:LongMessage", ns).text for e in root.findall(".//e:Errors", ns) if e.find("e:SeverityCode", ns) is not None and e.find("e:SeverityCode", ns).text == "Error" and e.find("e:LongMessage", ns) is not None]
+        return {"success": False, "error": errors[0] if errors else "Failed to update images"}
+    except Exception as e:
+        logger.error(f"Lot image regen failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sell/lot-check/{ebay_item_id}")
+async def check_if_lot(ebay_item_id: str, request: Request):
+    """Check if an eBay listing is a lot listing."""
+    user = await get_current_user(request)
+    lot = await db.lots.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
+    if lot:
+        return {"is_lot": True, "lot_id": lot.get("lot_id"), "card_count": lot.get("card_count", 0), "card_ids": lot.get("card_ids", [])}
+    return {"is_lot": False}
+
+
+
 @router.delete("/sell/{ebay_item_id}")
 async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "NotAvailable"):
     """End an active eBay listing"""

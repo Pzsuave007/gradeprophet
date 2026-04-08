@@ -49,7 +49,12 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 ### Session - Feb 2026 (Create Lot Feature + Fix)
 - Backend logic for "Create Lot" (Collage generator in `image.py`, new eBay lot endpoint)
 - Frontend `CreateLotView` full-page component (replaced popup modal) with correct eBay CONDITIONS (400010-400013) and SHIPPING_OPTIONS (Free/PWE/FirstClass/Priority)
-- Backend: Fixed ConditionID to use 4000 + ConditionDescriptors (matching single-listing flow), fixed shipping XML (FreeShipping/PWEEnvelope handling)
+- Backend: Fixed ConditionID to use 4000 + ConditionDescriptors (matching single-listing flow), fixed shipping XML
+- Fixed "improper words" eBay error by removing "Lot" from title/description (blocked in Singles category 261328)
+- Combined front+back images side by side (left=front, right=back) instead of separate uploads
+- Collages: max 4 cards per collage, 2 per row
+- Max cards per lot increased from 10 to 15
+- Regenerate Images feature: in Listings tab, lot listings show "Regenerate & Upload Images" button to re-create and push updated images to eBay via ReviseFixedPriceItem
 - **Fixed P0 crash**: `CreateLotModal` was rendered in wrong scope. Converted to full-page `CreateLotView`.
 
 ### Session - Feb 2026 (eBay Cassini SEO)
