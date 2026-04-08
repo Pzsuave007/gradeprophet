@@ -1158,12 +1158,11 @@ def generate_lot_title(cards: list) -> str:
 
 
 def generate_lot_description(cards: list) -> str:
-    """Generate HTML description with bullet points for each card."""
-    lines = ['<div style="font-family:Arial,sans-serif;color:#333;">']
-    lines.append(f'<h2 style="color:#222;">Lot of {len(cards)} Cards</h2>')
-    lines.append('<p>This lot includes the following cards:</p>')
-    lines.append('<ul style="line-height:1.8;">')
-    for c in cards:
+    """Generate plain text description with bullet points for each card."""
+    lines = [f"Lot of {len(cards)} Cards", ""]
+    lines.append("This lot includes the following cards:")
+    lines.append("")
+    for i, c in enumerate(cards, 1):
         name = c.get("card_name", "Unknown Card")
         player = c.get("player", "")
         year = c.get("year", "")
@@ -1173,7 +1172,7 @@ def generate_lot_description(cards: list) -> str:
         grade = c.get("grade", "")
         grading = c.get("grading_company", "")
 
-        detail = f"<b>{name}</b>"
+        detail = f"{i}. {name}"
         extras = []
         if year and set_name:
             extras.append(f"{year} {set_name}")
@@ -1185,11 +1184,10 @@ def generate_lot_description(cards: list) -> str:
             extras.append(condition)
         if extras:
             detail += f" - {', '.join(extras)}"
-        lines.append(f'  <li>{detail}</li>')
+        lines.append(detail)
 
-    lines.append('</ul>')
-    lines.append('<p style="color:#666;font-size:12px;">Ships fast with tracking. All cards shown in photos.</p>')
-    lines.append('</div>')
+    lines.append("")
+    lines.append("All cards shown in photos. Ships fast with tracking.")
     return "\n".join(lines)
 
 
@@ -1359,7 +1357,7 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
     <Title>{html.escape(title)}</Title>
-    <Description><![CDATA[{description}]]></Description>
+    <Description>{html.escape(description)}</Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <Quantity>{lot_quantity}</Quantity>

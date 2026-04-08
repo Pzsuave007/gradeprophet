@@ -238,9 +238,8 @@ const CreateLotView = ({ items, onBack, onSuccess }) => {
           {preview?.description && (
             <div>
               <label className={labelCls}>Description Preview</label>
-              <div className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4 max-h-40 overflow-y-auto text-xs text-gray-300"
-                dangerouslySetInnerHTML={{ __html: preview.description }}
-                data-testid="lot-description-preview" />
+              <pre className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg p-4 max-h-40 overflow-y-auto text-xs text-gray-300 whitespace-pre-wrap font-sans"
+                data-testid="lot-description-preview">{preview.description}</pre>
             </div>
           )}
 
