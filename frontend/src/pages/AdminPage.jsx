@@ -13,6 +13,7 @@ const API = process.env.REACT_APP_BACKEND_URL;
 
 const PLAN_LABELS = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer' };
 const PLAN_COLORS = { rookie: '#6b7280', mvp: '#f59e0b', hall_of_famer: '#a855f7' };
+const PLAN_ICONS = { rookie: Tag, mvp: Star, hall_of_famer: Crown };
 const PLAN_OPTIONS = ['rookie', 'mvp', 'hall_of_famer'];
 
 const fmt = (v) => {
@@ -54,11 +55,12 @@ const PlanDistribution = ({ byPlan, total }) => (
       {PLAN_OPTIONS.map(p => {
         const count = byPlan[p] || 0;
         const pct = total > 0 ? (count / total) * 100 : 0;
+        const PIcon = PLAN_ICONS[p];
         return (
           <div key={p} className="space-y-1">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full" style={{ background: PLAN_COLORS[p] }} />
+                <PIcon className="w-3.5 h-3.5" style={{ color: PLAN_COLORS[p] }} />
                 <span className="text-xs font-semibold text-gray-300">{PLAN_LABELS[p]}</span>
               </div>
               <span className="text-xs font-bold text-white">{count}</span>
@@ -73,81 +75,116 @@ const PlanDistribution = ({ byPlan, total }) => (
   </div>
 );
 
-// ==================== USER ROW ====================
-const UserRow = ({ user, onViewInventory, onChangePlan, onBan, onDelete }) => {
+// ==================== USER CARD ====================
+const UserCard = ({ user, onViewInventory, onChangePlan, onBan, onDelete }) => {
   const [changingPlan, setChangingPlan] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState(user.plan_id);
   const planColor = PLAN_COLORS[user.plan_id] || '#6b7280';
+  const PIcon = PLAN_ICONS[user.plan_id] || Tag;
 
-  const handlePlanChange = async () => {
+  const handlePlanSave = async () => {
     if (selectedPlan === user.plan_id) { setChangingPlan(false); return; }
     await onChangePlan(user.user_id, selectedPlan);
     setChangingPlan(false);
   };
 
   return (
-    <div className={`flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3 border-b border-[#0f0f0f] hover:bg-white/[0.02] transition-colors ${user.banned ? 'opacity-50' : ''}`}
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-[#111] border border-[#1a1a1a] rounded-xl p-5 hover:border-[#2a2a2a] transition-colors ${user.banned ? 'opacity-40 border-red-500/20' : ''}`}
       data-testid={`admin-user-${user.email}`}>
-      {/* User info */}
-      <div className="flex items-center gap-3 flex-1 min-w-0">
-        <div className="w-9 h-9 rounded-full bg-[#1a1a1a] flex items-center justify-center flex-shrink-0 overflow-hidden">
-          {user.picture ? (
-            <img src={user.picture} alt="" className="w-full h-full object-cover" />
-          ) : (
-            <Users className="w-4 h-4 text-gray-600" />
-          )}
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-white truncate">{user.name || 'No name'}</p>
-          <p className="text-[10px] text-gray-500 truncate">{user.email}</p>
-        </div>
-      </div>
 
-      {/* Plan badge */}
-      <div className="flex items-center gap-2 flex-shrink-0">
-        {changingPlan ? (
-          <div className="flex items-center gap-1.5">
+      {/* Top: Avatar + Name + Plan */}
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-xl bg-[#1a1a1a] flex items-center justify-center flex-shrink-0 overflow-hidden">
+            {user.picture ? (
+              <img src={user.picture} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <Users className="w-5 h-5 text-gray-600" />
+            )}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-white">{user.name || 'No name'}</p>
+            <p className="text-xs text-gray-500">{user.email}</p>
+            {user.created_at && (
+              <p className="text-[10px] text-gray-700 mt-0.5">Joined {new Date(user.created_at).toLocaleDateString()}</p>
+            )}
+          </div>
+        </div>
+        {/* Plan Badge */}
+        {!changingPlan ? (
+          <button onClick={() => setChangingPlan(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer hover:brightness-125 transition-all"
+            style={{ background: `${planColor}15`, border: `1px solid ${planColor}30`, color: planColor }}
+            data-testid="plan-badge-btn">
+            <PIcon className="w-3.5 h-3.5" />
+            <span className="text-xs font-bold">{PLAN_LABELS[user.plan_id] || 'Rookie'}</span>
+          </button>
+        ) : (
+          <div className="flex items-center gap-2">
             <select value={selectedPlan} onChange={e => setSelectedPlan(e.target.value)}
-              className="bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg text-[10px] text-white px-2 py-1 outline-none"
+              className="bg-[#0a0a0a] border border-[#2a2a2a] rounded-lg text-xs text-white px-3 py-1.5 outline-none focus:border-blue-500/50"
               data-testid="plan-select">
               {PLAN_OPTIONS.map(p => <option key={p} value={p}>{PLAN_LABELS[p]}</option>)}
             </select>
-            <button onClick={handlePlanChange} className="text-[10px] px-2 py-1 rounded bg-emerald-500/20 text-emerald-400 font-bold hover:bg-emerald-500/30" data-testid="plan-save-btn">Save</button>
-            <button onClick={() => { setChangingPlan(false); setSelectedPlan(user.plan_id); }} className="text-[10px] px-2 py-1 rounded bg-white/5 text-gray-400 font-bold">Cancel</button>
+            <button onClick={handlePlanSave} className="px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/30 border border-emerald-500/20" data-testid="plan-save-btn">Save</button>
+            <button onClick={() => { setChangingPlan(false); setSelectedPlan(user.plan_id); }} className="px-3 py-1.5 rounded-lg bg-white/5 text-gray-400 text-xs font-bold border border-[#2a2a2a]">Cancel</button>
           </div>
-        ) : (
-          <button onClick={() => setChangingPlan(true)}
-            className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full cursor-pointer hover:brightness-125 transition-all"
-            style={{ background: `${planColor}20`, color: planColor }}
-            data-testid="plan-badge-btn">
-            {PLAN_LABELS[user.plan_id] || 'Rookie'}
-          </button>
         )}
       </div>
 
-      {/* Usage */}
-      <div className="flex items-center gap-3 text-[10px] text-gray-500 flex-shrink-0">
-        <span className="flex items-center gap-1"><Package className="w-3 h-3" />{user.usage?.inventory || 0}</span>
-        <span className="flex items-center gap-1"><Zap className="w-3 h-3" />{user.usage?.scans || 0}</span>
-        <span className="flex items-center gap-1"><Tag className="w-3 h-3" />{user.usage?.listings || 0}</span>
+      {/* Middle: Usage Stats */}
+      <div className="grid grid-cols-3 gap-3 mb-4">
+        <div className="bg-[#0a0a0a] rounded-lg p-3 text-center">
+          <Package className="w-4 h-4 text-cyan-400 mx-auto mb-1" />
+          <p className="text-lg font-black text-white">{user.usage?.inventory || 0}</p>
+          <p className="text-[10px] text-gray-600 font-semibold uppercase">Cards</p>
+        </div>
+        <div className="bg-[#0a0a0a] rounded-lg p-3 text-center">
+          <Zap className="w-4 h-4 text-pink-400 mx-auto mb-1" />
+          <p className="text-lg font-black text-white">{user.usage?.scans || 0}</p>
+          <p className="text-[10px] text-gray-600 font-semibold uppercase">Scans</p>
+        </div>
+        <div className="bg-[#0a0a0a] rounded-lg p-3 text-center">
+          <Tag className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+          <p className="text-lg font-black text-white">{user.usage?.listings || 0}</p>
+          <p className="text-[10px] text-gray-600 font-semibold uppercase">Listings</p>
+        </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
-        <button onClick={() => onViewInventory(user)} title="View Inventory"
-          className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-white transition-colors" data-testid="view-inventory-btn">
-          <Eye className="w-3.5 h-3.5" />
+      {/* Bottom: Action Buttons with Labels */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <button onClick={() => onViewInventory(user)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold hover:bg-blue-500/20 transition-colors"
+          data-testid="view-inventory-btn">
+          <Eye className="w-3.5 h-3.5" /> View Cards
         </button>
-        <button onClick={() => onBan(user)} title={user.banned ? 'Unban' : 'Ban'}
-          className={`p-1.5 rounded-lg hover:bg-white/5 transition-colors ${user.banned ? 'text-amber-400' : 'text-gray-500 hover:text-amber-400'}`} data-testid="ban-btn">
-          <Ban className="w-3.5 h-3.5" />
+        <button onClick={() => onBan(user)}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+            user.banned
+              ? 'bg-green-500/10 border border-green-500/20 text-green-400 hover:bg-green-500/20'
+              : 'bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20'
+          }`}
+          data-testid="ban-btn">
+          <Ban className="w-3.5 h-3.5" /> {user.banned ? 'Unban User' : 'Ban User'}
         </button>
-        <button onClick={() => onDelete(user)} title="Delete"
-          className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-500 hover:text-red-400 transition-colors" data-testid="delete-btn">
-          <Trash2 className="w-3.5 h-3.5" />
+        <button onClick={() => onDelete(user)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-semibold hover:bg-red-500/20 transition-colors ml-auto"
+          data-testid="delete-btn">
+          <Trash2 className="w-3.5 h-3.5" /> Delete
         </button>
       </div>
-    </div>
+
+      {/* Banned indicator */}
+      {user.banned && (
+        <div className="mt-3 flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10">
+          <AlertTriangle className="w-3.5 h-3.5 text-red-400" />
+          <span className="text-[10px] text-red-400 font-bold uppercase">Account Banned</span>
+        </div>
+      )}
+    </motion.div>
   );
 };
 
@@ -260,7 +297,7 @@ const TransactionsTab = ({ transactions }) => (
           <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-white">{txn.user_name} <span className="text-gray-500 font-normal">({txn.user_email})</span></p>
             <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `${PLAN_COLORS[txn.plan_id]}20`, color: PLAN_COLORS[txn.plan_id] }}>
+              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded" style={{ background: `${PLAN_COLORS[txn.plan_id] || '#6b7280'}20`, color: PLAN_COLORS[txn.plan_id] || '#6b7280' }}>
                 {PLAN_LABELS[txn.plan_id] || txn.plan_id}
               </span>
               <span className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded ${txn.payment_status === 'paid' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
@@ -292,7 +329,7 @@ const MIXER_FIELDS = [
 const PresetsTab = () => {
   const [presets, setPresets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(null); // null or preset object
+  const [editing, setEditing] = useState(null);
   const [form, setForm] = useState({ name: '', brightness: 0, contrast: 0, shadows: 0, highlights: 0, saturation: 0, temperature: 0, sharpness: 0, featured: false });
 
   const fetchPresets = useCallback(async () => {
@@ -350,7 +387,6 @@ const PresetsTab = () => {
         </button>
       </div>
 
-      {/* Presets List */}
       <div className="grid gap-3">
         {presets.map(p => (
           <div key={p.id} className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 flex items-center gap-4" data-testid={`preset-row-${p.id}`}>
@@ -373,11 +409,11 @@ const PresetsTab = () => {
               </div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <button onClick={() => openEdit(p)} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors" data-testid={`edit-preset-${p.id}`}>
-                <Pencil className="w-3.5 h-3.5" />
+              <button onClick={() => openEdit(p)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-xs font-semibold transition-colors" data-testid={`edit-preset-${p.id}`}>
+                <Pencil className="w-3.5 h-3.5" /> Edit
               </button>
-              <button onClick={() => handleDelete(p.id)} className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors" data-testid={`delete-preset-${p.id}`}>
-                <Trash2 className="w-3.5 h-3.5" />
+              <button onClick={() => handleDelete(p.id)} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 text-xs font-semibold transition-colors" data-testid={`delete-preset-${p.id}`}>
+                <Trash2 className="w-3.5 h-3.5" /> Delete
               </button>
             </div>
           </div>
@@ -566,8 +602,8 @@ const AdminPage = ({ onBack }) => {
               </div>
             </div>
           </div>
-          <button onClick={fetchData} className="p-2 rounded-lg bg-[#111] border border-[#1a1a1a] hover:border-[#3b82f6]/50 transition-colors" data-testid="admin-refresh">
-            <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          <button onClick={fetchData} className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#111] border border-[#1a1a1a] hover:border-[#3b82f6]/50 text-gray-400 hover:text-white text-xs font-semibold transition-colors" data-testid="admin-refresh">
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
           </button>
         </div>
       </div>
@@ -599,7 +635,7 @@ const AdminPage = ({ onBack }) => {
 
             {/* Users Tab */}
             {activeTab === 'users' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {/* Search */}
                 <form onSubmit={handleSearch} className="flex gap-2">
                   <div className="relative flex-1">
@@ -614,42 +650,34 @@ const AdminPage = ({ onBack }) => {
                   </button>
                 </form>
 
-                {/* Users List */}
-                <div className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="users-table">
-                  <div className="flex items-center justify-between px-4 py-3 border-b border-[#1a1a1a]">
-                    <div className="flex items-center gap-2">
-                      <Users className="w-4 h-4 text-[#3b82f6]" />
-                      <h2 className="text-sm font-bold text-white">All Users</h2>
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-white/5 text-gray-400 font-bold">{totalUsers}</span>
-                    </div>
-                  </div>
-                  <div className="divide-y divide-[#0f0f0f]">
-                    {users.map(u => (
-                      <UserRow key={u.user_id} user={u}
-                        onViewInventory={setInventoryUser}
-                        onChangePlan={handleChangePlan}
-                        onBan={handleBan}
-                        onDelete={handleDelete} />
-                    ))}
-                    {users.length === 0 && (
-                      <div className="text-center py-8 text-gray-600 text-xs">No users found</div>
-                    )}
-                  </div>
-                  {/* Pagination */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-between px-4 py-3 border-t border-[#1a1a1a]">
-                      <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
-                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" data-testid="prev-page">
-                        <ChevronLeft className="w-3 h-3" /> Prev
-                      </button>
-                      <span className="text-[10px] text-gray-500">Page {page + 1} of {totalPages}</span>
-                      <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
-                        className="flex items-center gap-1 text-[10px] font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed" data-testid="next-page">
-                        Next <ChevronRight className="w-3 h-3" />
-                      </button>
-                    </div>
+                {/* Users Grid */}
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  {users.map(u => (
+                    <UserCard key={u.user_id} user={u}
+                      onViewInventory={setInventoryUser}
+                      onChangePlan={handleChangePlan}
+                      onBan={handleBan}
+                      onDelete={handleDelete} />
+                  ))}
+                  {users.length === 0 && (
+                    <div className="col-span-2 text-center py-12 bg-[#111] border border-[#1a1a1a] rounded-xl text-gray-600 text-xs">No users found</div>
                   )}
                 </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-between px-2">
+                    <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#111] border border-[#1a1a1a] text-xs font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" data-testid="prev-page">
+                      <ChevronLeft className="w-3.5 h-3.5" /> Previous
+                    </button>
+                    <span className="text-xs text-gray-500 font-semibold">Page {page + 1} of {totalPages}</span>
+                    <button onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#111] border border-[#1a1a1a] text-xs font-bold text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors" data-testid="next-page">
+                      Next <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
