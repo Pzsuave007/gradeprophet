@@ -255,7 +255,7 @@ const CreateLotView = ({ items, onBack, onSuccess }) => {
           <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3">
             <p className="text-[10px] text-amber-400 font-bold uppercase mb-1">Photos (auto-generated)</p>
             <p className="text-[10px] text-gray-500">
-              Collage images + individual front & back photos of each card. Up to 24 photos uploaded to eBay.
+              Collage overview + combined front/back image for each card. Up to 24 photos uploaded to eBay.
             </p>
           </div>
 

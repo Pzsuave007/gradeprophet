@@ -415,3 +415,32 @@ def create_lot_collage(card_images_b64: list, cards_per_row: int = 5, card_heigh
     buf = BytesIO()
     canvas.save(buf, format='JPEG', quality=88)
     return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+
+def create_front_back_combined(front_b64: str, back_b64: str, target_width: int = 800) -> str:
+    """Combine front and back card images vertically (front on top, back on bottom).
+    Returns base64 JPEG string."""
+    try:
+        front = Image.open(BytesIO(base64.b64decode(front_b64))).convert('RGB')
+        back = Image.open(BytesIO(base64.b64decode(back_b64))).convert('RGB')
+
+        # Resize both to same width
+        f_ratio = target_width / front.width
+        front = front.resize((target_width, int(front.height * f_ratio)), Image.LANCZOS)
+
+        b_ratio = target_width / back.width
+        back = back.resize((target_width, int(back.height * b_ratio)), Image.LANCZOS)
+
+        # Stack vertically with small gap
+        gap = 10
+        canvas_h = front.height + gap + back.height
+        canvas = Image.new('RGB', (target_width, canvas_h), (20, 20, 20))
+        canvas.paste(front, (0, 0))
+        canvas.paste(back, (0, front.height + gap))
+
+        buf = BytesIO()
+        canvas.save(buf, format='JPEG', quality=88)
+        return base64.b64encode(buf.getvalue()).decode('utf-8')
+    except Exception as e:
+        logger.warning(f"Front+back combine failed: {e}")
+        return ""

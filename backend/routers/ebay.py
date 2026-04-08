@@ -1200,8 +1200,8 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     if not token:
         raise HTTPException(status_code=401, detail="eBay account not connected")
 
-    if len(data.card_ids) < 2 or len(data.card_ids) > 10:
-        raise HTTPException(status_code=400, detail="Lot must have 2-10 cards")
+    if len(data.card_ids) < 2 or len(data.card_ids) > 15:
+        raise HTTPException(status_code=400, detail="Must select 2-15 cards")
 
     # Fetch all cards from inventory
     cards = []
@@ -1219,14 +1219,13 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     title = data.title or generate_lot_title(cards)
     description = generate_lot_description(cards)
 
-    # Generate collage images
-    from utils.image import create_lot_collage
+    # Generate collage + combined front/back images
+    from utils.image import create_lot_collage, create_front_back_combined
 
     front_images = [c["image"] for c in cards if c.get("image")]
     collage_b64_list = []
 
     if len(front_images) > 5:
-        # Two collages: first half and second half
         mid = len(front_images) // 2
         c1 = create_lot_collage(front_images[:mid], cards_per_row=2)
         c2 = create_lot_collage(front_images[mid:], cards_per_row=2)
@@ -1235,6 +1234,19 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     elif front_images:
         c1 = create_lot_collage(front_images, cards_per_row=2)
         if c1: collage_b64_list.append(c1)
+
+    # Create combined front+back images for each card
+    combined_images = []
+    cards_front_only = []
+    for card in cards:
+        if card.get("image") and card.get("back_image"):
+            combined = create_front_back_combined(card["image"], card["back_image"])
+            if combined:
+                combined_images.append(combined)
+            else:
+                cards_front_only.append(card.get("image"))
+        elif card.get("image"):
+            cards_front_only.append(card["image"])
 
     # Upload all images to eBay: collages first, then individual fronts, then backs
     picture_urls = []
@@ -1285,25 +1297,25 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
         except Exception as e:
             logger.warning(f"Collage upload {i} failed: {e}")
 
-    # 2. Upload individual fronts
-    for i, card in enumerate(cards):
-        if card.get("image") and len(picture_urls) < 24:
+    # 2. Upload combined front+back images (front on top, back on bottom)
+    for i, combined_b64 in enumerate(combined_images):
+        if len(picture_urls) < 24:
             try:
-                url = await upload_image_to_ebay(card["image"], f"card-{i+1}-front")
+                url = await upload_image_to_ebay(combined_b64, f"card-{i+1}-both-sides")
                 if url:
                     picture_urls.append(url)
             except Exception as e:
-                logger.warning(f"Front {i} upload failed: {e}")
+                logger.warning(f"Combined image {i} upload failed: {e}")
 
-    # 3. Upload individual backs
-    for i, card in enumerate(cards):
-        if card.get("back_image") and len(picture_urls) < 24:
+    # 3. Upload front-only for cards without back images
+    for i, front_b64 in enumerate(cards_front_only):
+        if len(picture_urls) < 24:
             try:
-                url = await upload_image_to_ebay(card["back_image"], f"card-{i+1}-back")
+                url = await upload_image_to_ebay(front_b64, f"card-front-{i+1}")
                 if url:
                     picture_urls.append(url)
             except Exception as e:
-                logger.warning(f"Back {i} upload failed: {e}")
+                logger.warning(f"Front-only {i} upload failed: {e}")
 
     if not picture_urls:
         raise HTTPException(status_code=400, detail="No images could be uploaded")

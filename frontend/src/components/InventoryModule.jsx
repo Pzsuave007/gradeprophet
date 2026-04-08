@@ -1648,9 +1648,9 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="list-on-ebay-btn">
               <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
             </button>
-            <button onClick={() => setShowLotModal(true)} disabled={!selectMode || selected.size < 2 || selected.size > 10}
+            <button onClick={() => setShowLotModal(true)} disabled={!selectMode || selected.size < 2 || selected.size > 15}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-30 transition-colors" data-testid="create-lot-btn">
-              <Layers className="w-4 h-4" /> Create Lot {selected.size >= 2 && selected.size <= 10 ? `(${selected.size})` : ''}
+              <Layers className="w-4 h-4" /> Create Lot {selected.size >= 2 && selected.size <= 15 ? `(${selected.size})` : ''}
             </button>
           </>
         ) : null}
