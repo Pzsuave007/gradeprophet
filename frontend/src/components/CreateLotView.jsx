@@ -80,7 +80,15 @@ const CreateLotView = ({ items, onBack, onSuccess }) => {
         toast.success(res.data.message);
         onSuccess?.();
       } else {
-        toast.error(res.data.error || 'Failed to create lot listing');
+        const debugInfo = res.data.debug;
+        let errorMsg = res.data.error || 'Failed to create lot listing';
+        if (debugInfo?.all_errors?.length > 0) {
+          errorMsg = debugInfo.all_errors.join('\n');
+        }
+        toast.error(errorMsg, { duration: 10000 });
+        if (debugInfo) {
+          console.error('eBay Lot Error Debug:', debugInfo);
+        }
       }
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to create lot listing');

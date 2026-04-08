@@ -1144,7 +1144,7 @@ class LotListingRequest(BaseModel):
 
 
 def generate_lot_title(cards: list) -> str:
-    """Auto-generate lot title from cards: 'Lot of 5 Basketball Cards - Kobe, LeBron...'"""
+    """Auto-generate title from cards: '5 Basketball Cards - Kobe, LeBron...'"""
     count = len(cards)
     sports = set(c.get("sport", "Sports") for c in cards if c.get("sport"))
     sport = sports.pop() if len(sports) == 1 else "Sports"
@@ -1153,14 +1153,14 @@ def generate_lot_title(cards: list) -> str:
     player_str = ", ".join(unique_players[:4])
     if len(unique_players) > 4:
         player_str += f" + {len(unique_players) - 4} More"
-    title = f"Lot of {count} {sport} Cards - {player_str}"
+    title = f"{count} {sport} Cards - {player_str}"
     return title[:80]  # eBay 80 char limit
 
 
 def generate_lot_description(cards: list) -> str:
     """Generate plain text description with bullet points for each card."""
-    lines = [f"Lot of {len(cards)} Cards", ""]
-    lines.append("This lot includes the following cards:")
+    lines = [f"{len(cards)} Card Bundle", ""]
+    lines.append("This listing includes the following cards:")
     lines.append("")
     for i, c in enumerate(cards, 1):
         name = c.get("card_name", "Unknown Card")
@@ -1451,8 +1451,18 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
                 if sev == "Error":
                     real_errors.append(msg_text)
             logger.error(f"Lot listing failed. Ack={ack.text if ack is not None else 'None'}. All messages: {all_msgs}")
+            logger.error(f"Lot listing debug - Title: {title}")
+            logger.error(f"Lot listing debug - Description: {description[:200]}")
             error_display = real_errors[0] if real_errors else (all_msgs[0] if all_msgs else "eBay listing failed - check logs")
-            return {"success": False, "error": error_display}
+            return {
+                "success": False,
+                "error": error_display,
+                "debug": {
+                    "all_errors": all_msgs,
+                    "title_sent": title,
+                    "description_sent": description[:300],
+                }
+            }
 
     except Exception as e:
         logger.error(f"Create lot listing failed: {e}")
