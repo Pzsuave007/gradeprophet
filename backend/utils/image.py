@@ -364,3 +364,54 @@ def download_and_create_thumbnail(image_data: bytes) -> tuple:
         base64_data = base64.b64encode(full_buffer.getvalue()).decode('utf-8')
 
     return base64_data, thumbnail
+
+
+def create_lot_collage(card_images_b64: list, cards_per_row: int = 5, card_height: int = 600, bg_color=(20, 20, 20), padding: int = 15) -> str:
+    """Create a collage image from multiple card images (base64).
+    Returns base64 JPEG string."""
+    images = []
+    for b64 in card_images_b64:
+        try:
+            img = Image.open(BytesIO(base64.b64decode(b64)))
+            img = img.convert('RGB')
+            # Resize to uniform height while maintaining aspect ratio
+            ratio = card_height / img.height
+            new_w = int(img.width * ratio)
+            img = img.resize((new_w, card_height), Image.LANCZOS)
+            images.append(img)
+        except Exception as e:
+            logger.warning(f"Collage: skip bad image: {e}")
+
+    if not images:
+        return ""
+
+    # Calculate grid dimensions
+    rows = []
+    for i in range(0, len(images), cards_per_row):
+        rows.append(images[i:i + cards_per_row])
+
+    # Calculate canvas size
+    row_widths = []
+    for row in rows:
+        w = sum(img.width for img in row) + padding * (len(row) + 1)
+        row_widths.append(w)
+
+    canvas_w = max(row_widths)
+    canvas_h = len(rows) * (card_height + padding) + padding
+
+    # Create canvas and paste images
+    canvas = Image.new('RGB', (canvas_w, canvas_h), bg_color)
+    y = padding
+    for row in rows:
+        total_w = sum(img.width for img in row)
+        spacing = padding
+        x = (canvas_w - total_w - spacing * (len(row) - 1)) // 2  # Center row
+        for img in row:
+            canvas.paste(img, (x, y))
+            x += img.width + spacing
+        y += card_height + padding
+
+    # Save as JPEG base64
+    buf = BytesIO()
+    canvas.save(buf, format='JPEG', quality=88)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')

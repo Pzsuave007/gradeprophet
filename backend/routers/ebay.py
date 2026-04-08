@@ -1126,6 +1126,350 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ---- Lot Listing ----
+
+class LotListingRequest(BaseModel):
+    card_ids: List[str]  # inventory card IDs
+    title: Optional[str] = None
+    price: float
+    condition_id: int = 4000  # 4000 = Very Good
+    condition_description: Optional[str] = None
+    listing_format: str = "FixedPriceItem"
+    duration: str = "GTC"
+    shipping_service: str = "USPSFirstClass"
+    shipping_cost: float = 0.0
+    best_offer: bool = True
+    minimum_offer: Optional[float] = None
+    auto_accept: Optional[float] = None
+
+
+def generate_lot_title(cards: list) -> str:
+    """Auto-generate lot title from cards: 'Lot of 5 Basketball Cards - Kobe, LeBron...'"""
+    count = len(cards)
+    sports = set(c.get("sport", "Sports") for c in cards if c.get("sport"))
+    sport = sports.pop() if len(sports) == 1 else "Sports"
+    players = [c.get("player", "") for c in cards if c.get("player")]
+    unique_players = list(dict.fromkeys(players))  # dedup preserving order
+    player_str = ", ".join(unique_players[:4])
+    if len(unique_players) > 4:
+        player_str += f" + {len(unique_players) - 4} More"
+    title = f"Lot of {count} {sport} Cards - {player_str}"
+    return title[:80]  # eBay 80 char limit
+
+
+def generate_lot_description(cards: list) -> str:
+    """Generate HTML description with bullet points for each card."""
+    lines = ['<div style="font-family:Arial,sans-serif;color:#333;">']
+    lines.append(f'<h2 style="color:#222;">Lot of {len(cards)} Cards</h2>')
+    lines.append('<p>This lot includes the following cards:</p>')
+    lines.append('<ul style="line-height:1.8;">')
+    for c in cards:
+        name = c.get("card_name", "Unknown Card")
+        player = c.get("player", "")
+        year = c.get("year", "")
+        set_name = c.get("set_name", "")
+        variation = c.get("variation", "")
+        condition = c.get("condition", "")
+        grade = c.get("grade", "")
+        grading = c.get("grading_company", "")
+
+        detail = f"<b>{name}</b>"
+        extras = []
+        if year and set_name:
+            extras.append(f"{year} {set_name}")
+        if variation:
+            extras.append(variation)
+        if condition == "Graded" and grading and grade:
+            extras.append(f"{grading} {grade}")
+        elif condition:
+            extras.append(condition)
+        if extras:
+            detail += f" - {', '.join(extras)}"
+        lines.append(f'  <li>{detail}</li>')
+
+    lines.append('</ul>')
+    lines.append('<p style="color:#666;font-size:12px;">Ships fast with tracking. All cards shown in photos.</p>')
+    lines.append('</div>')
+    return "\n".join(lines)
+
+
+@router.post("/sell/create-lot")
+async def create_lot_listing(data: LotListingRequest, request: Request):
+    """Create a lot listing on eBay from multiple inventory cards."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay account not connected")
+
+    if len(data.card_ids) < 2 or len(data.card_ids) > 10:
+        raise HTTPException(status_code=400, detail="Lot must have 2-10 cards")
+
+    # Fetch all cards from inventory
+    cards = []
+    for cid in data.card_ids:
+        card = await db.inventory.find_one({"_id_str": cid, "user_id": user_id}, {"_id": 0})
+        if not card:
+            card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if card:
+            cards.append(card)
+
+    if len(cards) < 2:
+        raise HTTPException(status_code=400, detail=f"Only found {len(cards)} valid cards")
+
+    # Generate title and description
+    title = data.title or generate_lot_title(cards)
+    description = generate_lot_description(cards)
+
+    # Generate collage images
+    from utils.image import create_lot_collage
+
+    front_images = [c["image"] for c in cards if c.get("image")]
+    collage_b64_list = []
+
+    if len(front_images) > 5:
+        # Two collages: first half and second half
+        mid = len(front_images) // 2
+        c1 = create_lot_collage(front_images[:mid], cards_per_row=min(mid, 5))
+        c2 = create_lot_collage(front_images[mid:], cards_per_row=min(len(front_images) - mid, 5))
+        if c1: collage_b64_list.append(c1)
+        if c2: collage_b64_list.append(c2)
+    elif front_images:
+        c1 = create_lot_collage(front_images, cards_per_row=min(len(front_images), 5))
+        if c1: collage_b64_list.append(c1)
+
+    # Upload all images to eBay: collages first, then individual fronts, then backs
+    picture_urls = []
+
+    async def upload_image_to_ebay(img_base64, label="card"):
+        image_bytes = base64.b64decode(img_base64)
+        try:
+            img_pil = Image.open(BytesIO(image_bytes))
+            w, h = img_pil.size
+            if max(w, h) < 500:
+                scale = 500 / max(w, h)
+                img_pil = img_pil.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                buf = BytesIO()
+                img_pil.save(buf, format='JPEG', quality=90)
+                image_bytes = buf.getvalue()
+        except Exception:
+            pass
+
+        upload_xml = f'''<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials><PictureName>{html.escape(title[:40])} {label}</PictureName></UploadSiteHostedPicturesRequest>'''
+        boundary = "MIME_boundary_EBAY"
+        body_parts = [f"--{boundary}\r\n", "Content-Disposition: form-data; name=\"XML Payload\"\r\n", "Content-Type: text/xml\r\n\r\n", upload_xml, f"\r\n--{boundary}\r\n", f"Content-Disposition: form-data; name=\"image\"; filename=\"{label}.jpg\"\r\n", "Content-Type: image/jpeg\r\nContent-Transfer-Encoding: binary\r\n\r\n"]
+        text_part = "".join(body_parts).encode('utf-8')
+        end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+        full_body = text_part + image_bytes + end_part
+
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+            }, content=full_body)
+
+        import xml.etree.ElementTree as ET
+        root = ET.fromstring(resp.text)
+        ns_ebay = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        url_el = root.find(".//e:FullURL", ns_ebay)
+        if url_el is not None and url_el.text:
+            return url_el.text
+        return None
+
+    # 1. Upload collage images
+    for i, collage_b64 in enumerate(collage_b64_list):
+        try:
+            url = await upload_image_to_ebay(collage_b64, f"lot-overview-{i+1}")
+            if url:
+                picture_urls.append(url)
+        except Exception as e:
+            logger.warning(f"Collage upload {i} failed: {e}")
+
+    # 2. Upload individual fronts
+    for i, card in enumerate(cards):
+        if card.get("image") and len(picture_urls) < 24:
+            try:
+                url = await upload_image_to_ebay(card["image"], f"card-{i+1}-front")
+                if url:
+                    picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Front {i} upload failed: {e}")
+
+    # 3. Upload individual backs
+    for i, card in enumerate(cards):
+        if card.get("back_image") and len(picture_urls) < 24:
+            try:
+                url = await upload_image_to_ebay(card["back_image"], f"card-{i+1}-back")
+                if url:
+                    picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Back {i} upload failed: {e}")
+
+    if not picture_urls:
+        raise HTTPException(status_code=400, detail="No images could be uploaded")
+
+    picture_xml = "<PictureDetails>" + "\n".join(f"<PictureURL>{u}</PictureURL>" for u in picture_urls) + "</PictureDetails>"
+
+    # Build Item Specifics from the first card (primary)
+    specifics = build_item_specifics(cards[0])
+    # Override Type for lot
+    specifics = [s for s in specifics if "<Name>Type</Name>" not in s]
+    specifics.insert(0, '<NameValueList><Name>Type</Name><Value>Sports Trading Card</Value></NameValueList>')
+    item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
+
+    # Shipping
+    shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType>
+    <ShippingServiceOptions><ShippingService>{html.escape(data.shipping_service)}</ShippingService>
+    <ShippingServiceCost>{data.shipping_cost}</ShippingServiceCost><FreeShipping>{'true' if data.shipping_cost == 0 else 'false'}</FreeShipping>
+    </ShippingServiceOptions></ShippingDetails>"""
+
+    # Best offer
+    best_offer_xml = ""
+    if data.best_offer:
+        best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+        bo_prefs = []
+        if data.auto_accept:
+            bo_prefs.append(f"<BestOfferAutoAcceptPrice>{data.auto_accept}</BestOfferAutoAcceptPrice>")
+        if data.minimum_offer:
+            bo_prefs.append(f"<MinimumBestOfferPrice>{data.minimum_offer}</MinimumBestOfferPrice>")
+        if bo_prefs:
+            best_offer_xml += "<ListingDetails>" + "".join(bo_prefs) + "</ListingDetails>"
+
+    # Create the listing XML
+    lot_quantity = 1
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item>
+    <Title>{html.escape(title)}</Title>
+    <Description><![CDATA[{description}]]></Description>
+    <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
+    <StartPrice>{data.price}</StartPrice>
+    <Quantity>{lot_quantity}</Quantity>
+    <LotSize>{len(cards)}</LotSize>
+    <ListingDuration>{data.duration}</ListingDuration>
+    <ConditionID>{data.condition_id}</ConditionID>
+    {f'<ConditionDescription>{html.escape(data.condition_description)}</ConditionDescription>' if data.condition_description else ''}
+    <Country>US</Country><Currency>USD</Currency>
+    <DispatchTimeMax>3</DispatchTimeMax>
+    <ListingType>FixedPriceItem</ListingType>
+    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
+    {picture_xml}{shipping_xml}{item_specifics_xml}{best_offer_xml}
+  </Item>
+</AddFixedPriceItemRequest>'''
+
+    # Submit to eBay
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": "text/xml",
+            }, content=xml_body)
+
+        root = ET.fromstring(resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        ack = root.find("e:Ack", ns)
+
+        if ack is not None and ack.text in ("Success", "Warning"):
+            item_id_el = root.find("e:ItemID", ns)
+            ebay_item_id = item_id_el.text if item_id_el is not None else ""
+
+            # Generate a lot_id
+            lot_id = f"lot_{uuid.uuid4().hex[:12]}"
+
+            # Move all cards to "lots" category and link to lot
+            for card in cards:
+                card_id = card.get("id") or card.get("_id_str")
+                if card_id:
+                    await db.inventory.update_one(
+                        {"id": card_id, "user_id": user_id},
+                        {"$set": {
+                            "category": "lots",
+                            "lot_id": lot_id,
+                            "ebay_item_id": ebay_item_id,
+                            "listed": True,
+                        }}
+                    )
+
+            # Save lot record
+            await db.lots.insert_one({
+                "lot_id": lot_id,
+                "user_id": user_id,
+                "ebay_item_id": ebay_item_id,
+                "title": title,
+                "price": data.price,
+                "card_ids": [c.get("id") or c.get("_id_str") for c in cards],
+                "card_count": len(cards),
+                "image_count": len(picture_urls),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "active",
+            })
+
+            return {
+                "success": True,
+                "ebay_item_id": ebay_item_id,
+                "lot_id": lot_id,
+                "title": title,
+                "images_uploaded": len(picture_urls),
+                "cards_in_lot": len(cards),
+                "message": f"Lot of {len(cards)} cards listed on eBay!",
+            }
+        else:
+            errors = root.findall(".//e:Errors/e:LongMessage", ns)
+            error_msgs = [e.text for e in errors if e.text]
+            logger.error(f"Lot listing failed: {error_msgs}")
+            return {"success": False, "error": error_msgs[0] if error_msgs else "eBay listing failed"}
+
+    except Exception as e:
+        logger.error(f"Create lot listing failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sell/lot-preview")
+async def lot_preview(request: Request):
+    """Generate lot title and description preview without publishing."""
+    user = await get_current_user(request)
+    body = await request.json()
+    card_ids = body.get("card_ids", [])
+
+    cards = []
+    for cid in card_ids:
+        card = await db.inventory.find_one({"id": cid, "user_id": user["user_id"]}, {"_id": 0, "image": 0, "back_image": 0})
+        if card:
+            cards.append(card)
+
+    if len(cards) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 cards")
+
+    title = generate_lot_title(cards)
+    description = generate_lot_description(cards)
+    total_value = sum(c.get("purchase_price") or c.get("card_value") or 0 for c in cards)
+
+    return {
+        "title": title,
+        "description": description,
+        "card_count": len(cards),
+        "suggested_price": round(total_value, 2),
+        "cards": [{
+            "id": c.get("id"),
+            "card_name": c.get("card_name"),
+            "player": c.get("player"),
+            "year": c.get("year"),
+            "set_name": c.get("set_name"),
+            "condition": c.get("condition"),
+            "grade": c.get("grade"),
+            "grading_company": c.get("grading_company"),
+            "thumbnail": c.get("store_thumbnail") or c.get("thumbnail"),
+        } for c in cards],
+    }
+
+
+
 @router.delete("/sell/{ebay_item_id}")
 async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "NotAvailable"):
     """End an active eBay listing"""

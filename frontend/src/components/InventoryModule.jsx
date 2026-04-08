@@ -13,6 +13,7 @@ import AnalysisResult from './AnalysisResult';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
+import CreateLotModal from './CreateLotModal';
 import SocialPostEditor from './SocialPostEditor';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
@@ -1289,6 +1290,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [showBulkCondition, setShowBulkCondition] = useState(false);
   const [bulkConditionValue, setBulkConditionValue] = useState('');
   const [showBulkPreset, setShowBulkPreset] = useState(false);
+  const [showLotModal, setShowLotModal] = useState(false);
   const [bulkPresetId, setBulkPresetId] = useState('');
   const [bulkPresets, setBulkPresets] = useState([]);
 
@@ -1633,6 +1635,10 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
             <button onClick={startListOnEbay} disabled={!selectMode || selected.size === 0}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="list-on-ebay-btn">
               <ShoppingBag className="w-4 h-4" /> List {selected.size > 0 ? `(${selected.size})` : ''} on eBay
+            </button>
+            <button onClick={() => setShowLotModal(true)} disabled={!selectMode || selected.size < 2 || selected.size > 10}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-30 transition-colors" data-testid="create-lot-btn">
+              <Layers className="w-4 h-4" /> Create Lot {selected.size >= 2 && selected.size <= 10 ? `(${selected.size})` : ''}
             </button>
           </>
         ) : null}
@@ -2026,6 +2032,12 @@ const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCa
           </>)}
         </motion.div>)}
       </AnimatePresence>
+      <CreateLotModal
+        isOpen={showLotModal}
+        onClose={() => setShowLotModal(false)}
+        selectedCards={items.filter(i => selected.has(i.id))}
+        onSuccess={() => { setShowLotModal(false); exitSelectMode(); fetchInventory(search); }}
+      />
     </div>
   );
 };
