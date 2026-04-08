@@ -1351,7 +1351,6 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     location = user_settings.get("location", "")
 
     # Create the listing XML
-    lot_quantity = 1
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
@@ -1360,8 +1359,7 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     <Description>{html.escape(description)}</Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
-    <Quantity>{lot_quantity}</Quantity>
-    <LotSize>{len(cards)}</LotSize>
+    <Quantity>1</Quantity>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
     <ListingDuration>{data.duration}</ListingDuration>
     <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
@@ -1376,9 +1374,43 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
   </Item>
 </AddFixedPriceItemRequest>'''
 
-    # Submit to eBay
+    # Step 1: Verify first to catch errors before actual listing
     try:
         import xml.etree.ElementTree as ET
+        verify_xml = xml_body.replace("AddFixedPriceItemRequest", "VerifyAddFixedPriceItemRequest")
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            verify_resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "VerifyAddFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": "text/xml",
+            }, content=verify_xml)
+
+        v_root = ET.fromstring(verify_resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        v_ack = v_root.find("e:Ack", ns)
+        logger.info(f"Lot verify Ack: {v_ack.text if v_ack is not None else 'None'}")
+
+        if v_ack is not None and v_ack.text == "Failure":
+            real_errors = []
+            for err_el in v_root.findall(".//e:Errors", ns):
+                severity = err_el.find("e:SeverityCode", ns)
+                msg_el = err_el.find("e:LongMessage", ns)
+                short_el = err_el.find("e:ShortMessage", ns)
+                code_el = err_el.find("e:ErrorCode", ns)
+                sev = severity.text if severity is not None else "Error"
+                code = code_el.text if code_el is not None else ""
+                msg_text = msg_el.text if msg_el is not None else (short_el.text if short_el is not None else "Unknown")
+                logger.error(f"Lot verify error [{sev}:{code}]: {msg_text}")
+                if sev == "Error":
+                    real_errors.append(f"[{code}] {msg_text}")
+            if real_errors:
+                return {"success": False, "error": " | ".join(real_errors)}
+    except Exception as e:
+        logger.warning(f"Verify step failed (continuing): {e}")
+
+    # Step 2: Actual listing
+    try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
                 "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
