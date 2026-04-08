@@ -11,8 +11,8 @@ import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
-const PLAN_LABELS = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer', all_star: 'MVP', hall_of_fame: 'MVP', legend: 'Hall of Famer' };
-const PLAN_COLORS = { rookie: '#6b7280', mvp: '#f59e0b', hall_of_famer: '#a855f7', all_star: '#f59e0b', hall_of_fame: '#f59e0b', legend: '#a855f7' };
+const PLAN_LABELS = { rookie: 'Rookie', mvp: 'MVP', hall_of_famer: 'Hall of Famer' };
+const PLAN_COLORS = { rookie: '#6b7280', mvp: '#f59e0b', hall_of_famer: '#a855f7' };
 const PLAN_OPTIONS = ['rookie', 'mvp', 'hall_of_famer'];
 
 const fmt = (v) => {

@@ -33,7 +33,13 @@ async def get_admin_stats(request: Request):
         {"$group": {"_id": {"$ifNull": ["$sub.plan_id", "rookie"]}, "count": {"$sum": 1}}},
     ]
     by_plan_raw = await db.users.aggregate(pipeline).to_list(10)
-    by_plan = {item["_id"]: item["count"] for item in by_plan_raw}
+    # Normalize old plan IDs to new ones
+    plan_aliases = {"all_star": "mvp", "hall_of_fame": "hall_of_famer", "legend": "hall_of_famer"}
+    by_plan = {}
+    for item in by_plan_raw:
+        plan_id = item["_id"]
+        normalized = plan_aliases.get(plan_id, plan_id)
+        by_plan[normalized] = by_plan.get(normalized, 0) + item["count"]
 
     total_inventory = await db.inventory.count_documents({})
     total_scans = await db.card_analyses.count_documents({})
@@ -90,9 +96,13 @@ async def get_admin_users(request: Request, skip: int = 0, limit: int = 50, sear
             scan_count = sub.get("scans_used", 0)
         listing_count = await db.inventory.count_documents({"user_id": uid, "ebay_listing_id": {"$exists": True, "$ne": None}})
 
+        plan_aliases = {"all_star": "mvp", "hall_of_fame": "hall_of_famer", "legend": "hall_of_famer"}
+        raw_plan = sub.get("plan_id", "rookie") if sub else "rookie"
+        normalized_plan = plan_aliases.get(raw_plan, raw_plan)
+
         enriched.append({
             **u,
-            "plan_id": sub.get("plan_id", "rookie") if sub else "rookie",
+            "plan_id": normalized_plan,
             "plan_status": sub.get("status", "active") if sub else "active",
             "usage": {
                 "inventory": inv_count,
@@ -121,7 +131,7 @@ async def change_user_plan(user_id: str, request: Request):
     admin = await require_admin(request)
     body = await request.json()
     new_plan = body.get("plan_id")
-    valid_plans = ["rookie", "all_star", "hall_of_fame", "legend"]
+    valid_plans = ["rookie", "mvp", "hall_of_famer"]
     if new_plan not in valid_plans:
         raise HTTPException(status_code=400, detail=f"Invalid plan. Must be one of: {valid_plans}")
 

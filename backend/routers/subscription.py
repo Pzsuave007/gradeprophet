@@ -105,7 +105,7 @@ PLANS = {
 # Backward compatibility: map old plan IDs to new ones
 PLAN_ALIASES = {
     "all_star": "mvp",
-    "hall_of_fame": "mvp",
+    "hall_of_fame": "hall_of_famer",
     "legend": "hall_of_famer",
 }
 
