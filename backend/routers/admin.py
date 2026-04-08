@@ -59,12 +59,18 @@ async def get_admin_stats(request: Request):
     week_ago = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
     recent_signups = await db.users.count_documents({"created_at": {"$gte": week_ago}})
 
+    # Total active listings from all users' caches
+    listings_pipeline = [{"$group": {"_id": None, "total": {"$sum": "$active_total"}}}]
+    listings_result = await db.listings_cache.aggregate(listings_pipeline).to_list(1)
+    total_listings = listings_result[0]["total"] if listings_result else 0
+
     return {
         "total_users": total_users,
         "banned_users": banned_users,
         "by_plan": by_plan,
         "total_inventory": total_inventory,
         "total_scans": total_scans,
+        "total_listings": total_listings,
         "total_transactions": total_transactions,
         "paid_transactions": paid_transactions,
         "total_revenue": round(total_revenue, 2),
@@ -92,7 +98,9 @@ async def get_admin_users(request: Request, skip: int = 0, limit: int = 50, sear
         sub = await db.subscriptions.find_one({"user_id": uid}, {"_id": 0})
         inv_count = await db.inventory.count_documents({"user_id": uid})
         scan_count = inv_count  # Every card goes through AI scanner
-        listing_count = await db.ebay_listings.count_documents({"user_id": uid})
+        # Listings: use cached count from eBay sync (most accurate)
+        cache = await db.listings_cache.find_one({"user_id": uid}, {"_id": 0, "active_total": 1, "sold_total": 1})
+        listing_count = (cache.get("active_total", 0) if cache else 0)
 
         plan_aliases = {"all_star": "mvp", "hall_of_fame": "hall_of_famer", "legend": "hall_of_famer"}
         raw_plan = sub.get("plan_id", "rookie") if sub else "rookie"

@@ -28,9 +28,9 @@ const StatsGrid = ({ stats }) => {
     { label: 'Total Users', value: stats.total_users, icon: Users, color: '#3b82f6', bg: 'from-blue-600/20 to-blue-900/5', border: 'border-blue-500/20' },
     { label: 'This Week', value: stats.recent_signups, icon: ArrowUpRight, color: '#10b981', bg: 'from-emerald-600/20 to-emerald-900/5', border: 'border-emerald-500/20' },
     { label: 'Revenue', value: fmt(stats.total_revenue), icon: DollarSign, color: '#f59e0b', bg: 'from-amber-600/20 to-amber-900/5', border: 'border-amber-500/20' },
-    { label: 'Paid Txns', value: stats.paid_transactions, icon: Tag, color: '#a855f7', bg: 'from-purple-600/20 to-purple-900/5', border: 'border-purple-500/20' },
     { label: 'Total Cards', value: stats.total_inventory, icon: Package, color: '#06b6d4', bg: 'from-cyan-600/20 to-cyan-900/5', border: 'border-cyan-500/20' },
-    { label: 'Total Scans', value: stats.total_scans, icon: Zap, color: '#ec4899', bg: 'from-pink-600/20 to-pink-900/5', border: 'border-pink-500/20' },
+    { label: 'eBay Listings', value: stats.total_listings || 0, icon: Tag, color: '#a855f7', bg: 'from-purple-600/20 to-purple-900/5', border: 'border-purple-500/20' },
+    { label: 'Paid Txns', value: stats.paid_transactions, icon: Zap, color: '#ec4899', bg: 'from-pink-600/20 to-pink-900/5', border: 'border-pink-500/20' },
   ];
 
   return (
