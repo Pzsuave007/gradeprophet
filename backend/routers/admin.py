@@ -42,7 +42,7 @@ async def get_admin_stats(request: Request):
         by_plan[normalized] = by_plan.get(normalized, 0) + item["count"]
 
     total_inventory = await db.inventory.count_documents({})
-    total_scans = await db.card_analyses.count_documents({})
+    total_scans = total_inventory  # Every card goes through AI scanner
     total_transactions = await db.payment_transactions.count_documents({})
     paid_transactions = await db.payment_transactions.count_documents({"payment_status": "paid"})
 
@@ -91,7 +91,7 @@ async def get_admin_users(request: Request, skip: int = 0, limit: int = 50, sear
         uid = u.get("user_id", "")
         sub = await db.subscriptions.find_one({"user_id": uid}, {"_id": 0})
         inv_count = await db.inventory.count_documents({"user_id": uid})
-        scan_count = await db.card_analyses.count_documents({"user_id": uid})
+        scan_count = inv_count  # Every card goes through AI scanner
         listing_count = await db.ebay_listings.count_documents({"user_id": uid})
 
         plan_aliases = {"all_star": "mvp", "hall_of_fame": "hall_of_famer", "legend": "hall_of_famer"}
