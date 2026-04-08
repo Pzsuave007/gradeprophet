@@ -1225,15 +1225,12 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     front_images = [c["image"] for c in cards if c.get("image")]
     collage_b64_list = []
 
-    if len(front_images) > 5:
-        mid = len(front_images) // 2
-        c1 = create_lot_collage(front_images[:mid], cards_per_row=2)
-        c2 = create_lot_collage(front_images[mid:], cards_per_row=2)
-        if c1: collage_b64_list.append(c1)
-        if c2: collage_b64_list.append(c2)
-    elif front_images:
-        c1 = create_lot_collage(front_images, cards_per_row=2)
-        if c1: collage_b64_list.append(c1)
+    # Max 4 cards per collage, 2 per row
+    for chunk_start in range(0, len(front_images), 4):
+        chunk = front_images[chunk_start:chunk_start + 4]
+        c = create_lot_collage(chunk, cards_per_row=2)
+        if c:
+            collage_b64_list.append(c)
 
     # Create combined front+back images for each card
     combined_images = []
@@ -1501,13 +1498,17 @@ async def lot_preview(request: Request):
     description = generate_lot_description(cards)
     total_value = sum(c.get("purchase_price") or c.get("card_value") or 0 for c in cards)
 
-    # Generate collage preview from thumbnails
-    collage_preview = None
+    # Generate collage preview from thumbnails (max 4 per collage, 2 per row)
+    collage_previews = []
     try:
         from utils.image import create_lot_collage
         thumb_images = [c.get("store_thumbnail") or c.get("thumbnail") for c in cards if c.get("store_thumbnail") or c.get("thumbnail")]
-        if len(thumb_images) >= 2:
-            collage_preview = create_lot_collage(thumb_images, cards_per_row=2, card_height=300)
+        for chunk_start in range(0, len(thumb_images), 4):
+            chunk = thumb_images[chunk_start:chunk_start + 4]
+            if len(chunk) >= 1:
+                c = create_lot_collage(chunk, cards_per_row=2, card_height=300)
+                if c:
+                    collage_previews.append(c)
     except Exception as e:
         logger.warning(f"Collage preview generation failed: {e}")
 
@@ -1516,7 +1517,8 @@ async def lot_preview(request: Request):
         "description": description,
         "card_count": len(cards),
         "suggested_price": round(total_value, 2),
-        "collage_preview": collage_preview,
+        "collage_preview": collage_previews[0] if collage_previews else None,
+        "collage_previews": collage_previews,
         "cards": [{
             "id": c.get("id"),
             "card_name": c.get("card_name"),
