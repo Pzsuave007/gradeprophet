@@ -1990,6 +1990,12 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
           />
         )}
       </AnimatePresence>
+      <CreateLotModal
+        isOpen={showLotModal}
+        onClose={() => setShowLotModal(false)}
+        selectedCards={items.filter(i => selected.has(i.id))}
+        onSuccess={() => { setShowLotModal(false); exitSelectMode(); fetchInventory(search); }}
+      />
     </>
   );
 };
@@ -2032,12 +2038,6 @@ const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCa
           </>)}
         </motion.div>)}
       </AnimatePresence>
-      <CreateLotModal
-        isOpen={showLotModal}
-        onClose={() => setShowLotModal(false)}
-        selectedCards={items.filter(i => selected.has(i.id))}
-        onSuccess={() => { setShowLotModal(false); exitSelectMode(); fetchInventory(search); }}
-      />
     </div>
   );
 };
