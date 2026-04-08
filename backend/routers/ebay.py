@@ -1350,67 +1350,32 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     postal_code = user_settings.get("postal_code", "")
     location = user_settings.get("location", "")
 
-    # Create the listing XML
+    # Create the listing XML - IDENTICAL to single listing format
+    safe_title = html.escape(title[:80])
+    safe_desc = html.escape(description)
+
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
-    <Title>{html.escape(title)}</Title>
-    <Description>{html.escape(description)}</Description>
+    <Title>{safe_title}</Title><Description>{safe_desc}</Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
-    <Quantity>1</Quantity>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
-    <ListingDuration>{data.duration}</ListingDuration>
     <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
-    {f'<ConditionDescription>{html.escape(data.condition_description)}</ConditionDescription>' if data.condition_description else ''}
     <Country>US</Country><Currency>USD</Currency>
-    {f'<PostalCode>{html.escape(postal_code)}</PostalCode>' if postal_code else ''}
-    {f'<Location>{html.escape(location)}</Location>' if location else ''}
+    <PostalCode>{html.escape(postal_code)}</PostalCode>
+    <Location>{html.escape(location)}</Location>
     <DispatchTimeMax>1</DispatchTimeMax>
-    <ListingType>FixedPriceItem</ListingType>
-    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
+    <ListingDuration>GTC</ListingDuration><ListingType>FixedPriceItem</ListingType>
     {picture_xml}{shipping_xml}{item_specifics_xml}{best_offer_xml}
+    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
   </Item>
 </AddFixedPriceItemRequest>'''
 
-    # Step 1: Verify first to catch errors before actual listing
+    # Submit to eBay
     try:
         import xml.etree.ElementTree as ET
-        verify_xml = xml_body.replace("AddFixedPriceItemRequest", "VerifyAddFixedPriceItemRequest")
-        async with httpx.AsyncClient(timeout=30.0) as http_client:
-            verify_resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
-                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                "X-EBAY-API-CALL-NAME": "VerifyAddFixedPriceItem",
-                "X-EBAY-API-IAF-TOKEN": token,
-                "Content-Type": "text/xml",
-            }, content=verify_xml)
-
-        v_root = ET.fromstring(verify_resp.text)
-        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
-        v_ack = v_root.find("e:Ack", ns)
-        logger.info(f"Lot verify Ack: {v_ack.text if v_ack is not None else 'None'}")
-
-        if v_ack is not None and v_ack.text == "Failure":
-            real_errors = []
-            for err_el in v_root.findall(".//e:Errors", ns):
-                severity = err_el.find("e:SeverityCode", ns)
-                msg_el = err_el.find("e:LongMessage", ns)
-                short_el = err_el.find("e:ShortMessage", ns)
-                code_el = err_el.find("e:ErrorCode", ns)
-                sev = severity.text if severity is not None else "Error"
-                code = code_el.text if code_el is not None else ""
-                msg_text = msg_el.text if msg_el is not None else (short_el.text if short_el is not None else "Unknown")
-                logger.error(f"Lot verify error [{sev}:{code}]: {msg_text}")
-                if sev == "Error":
-                    real_errors.append(f"[{code}] {msg_text}")
-            if real_errors:
-                return {"success": False, "error": " | ".join(real_errors)}
-    except Exception as e:
-        logger.warning(f"Verify step failed (continuing): {e}")
-
-    # Step 2: Actual listing
-    try:
         async with httpx.AsyncClient(timeout=30.0) as http_client:
             resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
                 "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
