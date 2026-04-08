@@ -91,10 +91,8 @@ async def get_admin_users(request: Request, skip: int = 0, limit: int = 50, sear
         uid = u.get("user_id", "")
         sub = await db.subscriptions.find_one({"user_id": uid}, {"_id": 0})
         inv_count = await db.inventory.count_documents({"user_id": uid})
-        scan_count = 0
-        if sub:
-            scan_count = sub.get("scans_used", 0)
-        listing_count = await db.inventory.count_documents({"user_id": uid, "ebay_listing_id": {"$exists": True, "$ne": None}})
+        scan_count = await db.card_analyses.count_documents({"user_id": uid})
+        listing_count = await db.inventory.count_documents({"user_id": uid, "ebay_item_id": {"$exists": True, "$ne": None, "$ne": ""}})
 
         plan_aliases = {"all_star": "mvp", "hall_of_fame": "hall_of_famer", "legend": "hall_of_famer"}
         raw_plan = sub.get("plan_id", "rookie") if sub else "rookie"
