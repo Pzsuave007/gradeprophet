@@ -1347,6 +1347,11 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
         if bo_prefs:
             best_offer_xml += "<ListingDetails>" + "".join(bo_prefs) + "</ListingDetails>"
 
+    # Fetch user settings for postal code and location
+    user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    postal_code = user_settings.get("postal_code", "")
+    location = user_settings.get("location", "")
+
     # Create the listing XML
     lot_quantity = 1
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
@@ -1356,16 +1361,19 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     <Title>{html.escape(title)}</Title>
     <Description><![CDATA[{description}]]></Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
-    <StartPrice>{data.price}</StartPrice>
+    <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <Quantity>{lot_quantity}</Quantity>
     <LotSize>{len(cards)}</LotSize>
+    <CategoryMappingAllowed>true</CategoryMappingAllowed>
     <ListingDuration>{data.duration}</ListingDuration>
     <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
     {f'<ConditionDescription>{html.escape(data.condition_description)}</ConditionDescription>' if data.condition_description else ''}
     <Country>US</Country><Currency>USD</Currency>
-    <DispatchTimeMax>3</DispatchTimeMax>
+    {f'<PostalCode>{html.escape(postal_code)}</PostalCode>' if postal_code else ''}
+    {f'<Location>{html.escape(location)}</Location>' if location else ''}
+    <DispatchTimeMax>1</DispatchTimeMax>
     <ListingType>FixedPriceItem</ListingType>
-    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
+    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
     {picture_xml}{shipping_xml}{item_specifics_xml}{best_offer_xml}
   </Item>
 </AddFixedPriceItemRequest>'''
@@ -1384,6 +1392,9 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
         root = ET.fromstring(resp.text)
         ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
         ack = root.find("e:Ack", ns)
+
+        # Log full response for debugging
+        logger.info(f"Lot listing eBay Ack: {ack.text if ack is not None else 'None'}")
 
         if ack is not None and ack.text in ("Success", "Warning"):
             item_id_el = root.find("e:ItemID", ns)
@@ -1430,10 +1441,23 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
                 "message": f"Lot of {len(cards)} cards listed on eBay!",
             }
         else:
-            errors = root.findall(".//e:Errors/e:LongMessage", ns)
-            error_msgs = [e.text for e in errors if e.text]
-            logger.error(f"Lot listing failed: {error_msgs}")
-            return {"success": False, "error": error_msgs[0] if error_msgs else "eBay listing failed"}
+            # Only show Error-severity messages, not Warning-severity
+            real_errors = []
+            all_msgs = []
+            for err_el in root.findall(".//e:Errors", ns):
+                severity = err_el.find("e:SeverityCode", ns)
+                msg_el = err_el.find("e:LongMessage", ns)
+                short_el = err_el.find("e:ShortMessage", ns)
+                code_el = err_el.find("e:ErrorCode", ns)
+                msg_text = msg_el.text if msg_el is not None else (short_el.text if short_el is not None else "Unknown error")
+                sev = severity.text if severity is not None else "Error"
+                code = code_el.text if code_el is not None else ""
+                all_msgs.append(f"[{sev}:{code}] {msg_text}")
+                if sev == "Error":
+                    real_errors.append(msg_text)
+            logger.error(f"Lot listing failed. Ack={ack.text if ack is not None else 'None'}. All messages: {all_msgs}")
+            error_display = real_errors[0] if real_errors else (all_msgs[0] if all_msgs else "eBay listing failed - check logs")
+            return {"success": False, "error": error_display}
 
     except Exception as e:
         logger.error(f"Create lot listing failed: {e}")
