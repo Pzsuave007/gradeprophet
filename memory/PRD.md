@@ -48,8 +48,9 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 
 ### Session - Feb 2026 (Create Lot Feature + Fix)
 - Backend logic for "Create Lot" (Collage generator in `image.py`, new eBay lot endpoint)
-- Frontend `CreateLotModal` component for selecting 2-10 cards and publishing as one eBay lot
-- **Fixed P0 crash**: `CreateLotModal` was rendered in `InventoryModule` scope but referenced variables from `InventoryList` scope. Moved to correct scope.
+- Frontend `CreateLotView` full-page component (replaced popup modal) with correct eBay CONDITIONS (400010-400013) and SHIPPING_OPTIONS (Free/PWE/FirstClass/Priority)
+- Backend: Fixed ConditionID to use 4000 + ConditionDescriptors (matching single-listing flow), fixed shipping XML (FreeShipping/PWEEnvelope handling)
+- **Fixed P0 crash**: `CreateLotModal` was rendered in wrong scope. Converted to full-page `CreateLotView`.
 
 ### Session - Feb 2026 (eBay Cassini SEO)
 - Expanded Item Specifics for new eBay listings (20+ fields): Type, Year Manufactured, Card Size, Country, Language, Original/Reprint, Vintage, Autographed, Card Name, League, Manufacturer, Parallel/Variety, Features, Custom Bundle, Material, Team, Print Run, Signed By

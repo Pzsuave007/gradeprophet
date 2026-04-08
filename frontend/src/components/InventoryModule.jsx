@@ -13,7 +13,7 @@ import AnalysisResult from './AnalysisResult';
 import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
-import CreateLotModal from './CreateLotModal';
+import CreateLotView from './CreateLotView';
 import SocialPostEditor from './SocialPostEditor';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
@@ -1536,6 +1536,18 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     });
   };
 
+  // Show Create Lot view (full page, like CreateListingView)
+  if (showLotModal) {
+    const selectedItems = items.filter(i => selected.has(i.id));
+    return (
+      <CreateLotView
+        items={selectedItems}
+        onBack={() => { setShowLotModal(false); exitSelectMode(); }}
+        onSuccess={() => { setShowLotModal(false); exitSelectMode(); fetchInventory(search); }}
+      />
+    );
+  }
+
   // Show Create Listing view
   if (showCreateListing) {
     const selectedItems = items.filter(i => selected.has(i.id));
@@ -1990,12 +2002,6 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
           />
         )}
       </AnimatePresence>
-      <CreateLotModal
-        isOpen={showLotModal}
-        onClose={() => setShowLotModal(false)}
-        selectedCards={items.filter(i => selected.has(i.id))}
-        onSuccess={() => { setShowLotModal(false); exitSelectMode(); fetchInventory(search); }}
-      />
     </>
   );
 };

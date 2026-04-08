@@ -1319,11 +1319,21 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     specifics.insert(0, '<NameValueList><Name>Type</Name><Value>Sports Trading Card</Value></NameValueList>')
     item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
 
-    # Shipping
-    shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType>
-    <ShippingServiceOptions><ShippingService>{html.escape(data.shipping_service)}</ShippingService>
-    <ShippingServiceCost>{data.shipping_cost}</ShippingServiceCost><FreeShipping>{'true' if data.shipping_cost == 0 else 'false'}</FreeShipping>
-    </ShippingServiceOptions></ShippingDetails>"""
+    # Shipping - match single-listing format
+    ebay_shipping_service = data.shipping_service
+    if data.shipping_service == "PWEEnvelope":
+        ebay_shipping_service = "USPSFirstClass"
+
+    if data.shipping_service == "FreeShipping":
+        shipping_xml = """<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>USPSFirstClass</ShippingService><FreeShipping>true</FreeShipping><ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+    else:
+        s_cost = data.shipping_cost if data.shipping_cost > 0 else (2.50 if data.shipping_service == "PWEEnvelope" else 4.50 if data.shipping_service == "USPSFirstClass" else 8.50)
+        shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{ebay_shipping_service}</ShippingService><ShippingServiceCost currencyID="USD">{s_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+
+    # Condition - use ConditionID 4000 with ConditionDescriptors (same as single listings)
+    actual_condition_id = 4000
+    card_condition_value = str(data.condition_id) if data.condition_id in (400010, 400011, 400012, 400013) else "400010"
+    condition_descriptors_xml = f"<ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{card_condition_value}</Value></ConditionDescriptor></ConditionDescriptors>"
 
     # Best offer
     best_offer_xml = ""
@@ -1350,7 +1360,7 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     <Quantity>{lot_quantity}</Quantity>
     <LotSize>{len(cards)}</LotSize>
     <ListingDuration>{data.duration}</ListingDuration>
-    <ConditionID>{data.condition_id}</ConditionID>
+    <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
     {f'<ConditionDescription>{html.escape(data.condition_description)}</ConditionDescription>' if data.condition_description else ''}
     <Country>US</Country><Currency>USD</Currency>
     <DispatchTimeMax>3</DispatchTimeMax>
