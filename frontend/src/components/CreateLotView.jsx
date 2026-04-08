@@ -117,6 +117,22 @@ const CreateLotView = ({ items, onBack, onSuccess }) => {
         </div>
       ) : (
         <div className="max-w-3xl space-y-5">
+          {/* Collage Preview */}
+          {preview?.collage_preview && (
+            <div>
+              <label className={labelCls}>Lot Photo Preview</label>
+              <div className="bg-[#111] border border-[#2a2a2a] rounded-xl p-3 flex items-center justify-center">
+                <img
+                  src={`data:image/jpeg;base64,${preview.collage_preview}`}
+                  alt="Lot collage preview"
+                  className="max-w-full max-h-[300px] object-contain rounded-lg"
+                  data-testid="lot-collage-preview"
+                />
+              </div>
+              <p className="text-[9px] text-gray-600 mt-1">This collage + individual card photos will be uploaded to eBay</p>
+            </div>
+          )}
+
           {/* Cards in Lot */}
           <div>
             <label className={labelCls}>Cards in Lot ({items.length})</label>

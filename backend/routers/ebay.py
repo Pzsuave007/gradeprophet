@@ -1442,7 +1442,7 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
 
 @router.post("/sell/lot-preview")
 async def lot_preview(request: Request):
-    """Generate lot title and description preview without publishing."""
+    """Generate lot title, description, and collage preview without publishing."""
     user = await get_current_user(request)
     body = await request.json()
     card_ids = body.get("card_ids", [])
@@ -1460,11 +1460,22 @@ async def lot_preview(request: Request):
     description = generate_lot_description(cards)
     total_value = sum(c.get("purchase_price") or c.get("card_value") or 0 for c in cards)
 
+    # Generate collage preview from thumbnails
+    collage_preview = None
+    try:
+        from utils.image import create_lot_collage
+        thumb_images = [c.get("store_thumbnail") or c.get("thumbnail") for c in cards if c.get("store_thumbnail") or c.get("thumbnail")]
+        if len(thumb_images) >= 2:
+            collage_preview = create_lot_collage(thumb_images, cards_per_row=min(len(thumb_images), 5), card_height=300)
+    except Exception as e:
+        logger.warning(f"Collage preview generation failed: {e}")
+
     return {
         "title": title,
         "description": description,
         "card_count": len(cards),
         "suggested_price": round(total_value, 2),
+        "collage_preview": collage_preview,
         "cards": [{
             "id": c.get("id"),
             "card_name": c.get("card_name"),
