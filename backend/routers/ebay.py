@@ -1230,12 +1230,12 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     if len(front_images) > 5:
         # Two collages: first half and second half
         mid = len(front_images) // 2
-        c1 = create_lot_collage(front_images[:mid], cards_per_row=min(mid, 5))
-        c2 = create_lot_collage(front_images[mid:], cards_per_row=min(len(front_images) - mid, 5))
+        c1 = create_lot_collage(front_images[:mid], cards_per_row=2)
+        c2 = create_lot_collage(front_images[mid:], cards_per_row=2)
         if c1: collage_b64_list.append(c1)
         if c2: collage_b64_list.append(c2)
     elif front_images:
-        c1 = create_lot_collage(front_images, cards_per_row=min(len(front_images), 5))
+        c1 = create_lot_collage(front_images, cards_per_row=2)
         if c1: collage_b64_list.append(c1)
 
     # Upload all images to eBay: collages first, then individual fronts, then backs
@@ -1466,7 +1466,7 @@ async def lot_preview(request: Request):
         from utils.image import create_lot_collage
         thumb_images = [c.get("store_thumbnail") or c.get("thumbnail") for c in cards if c.get("store_thumbnail") or c.get("thumbnail")]
         if len(thumb_images) >= 2:
-            collage_preview = create_lot_collage(thumb_images, cards_per_row=min(len(thumb_images), 5), card_height=300)
+            collage_preview = create_lot_collage(thumb_images, cards_per_row=2, card_height=300)
     except Exception as e:
         logger.warning(f"Collage preview generation failed: {e}")
 
