@@ -243,8 +243,47 @@ async def startup_db_client():
     logger.info("FlipSlab Engine API starting up...")
     collections = await db.list_collection_names()
     logger.info(f"Connected to MongoDB. Collections: {collections}")
+
+    # Ensure admin password is always correct (fixes recurring fork issue)
+    await ensure_admin_password()
+
     asyncio.create_task(sniper_background_loop())
     logger.info("Sniper background engine launched")
+
+
+async def ensure_admin_password():
+    """Ensure admin user pzsuave007@gmail.com always has the correct password.
+    This runs on every startup to fix the recurring issue where forks
+    lose the correct password hash."""
+    import bcrypt
+    ADMIN_EMAIL = "pzsuave007@gmail.com"
+    ADMIN_PASSWORD = "MXmedia007"
+
+    try:
+        user = await db.users.find_one({"email": ADMIN_EMAIL})
+        if not user:
+            logger.info(f"Admin user {ADMIN_EMAIL} not found, skipping password ensure")
+            return
+
+        current_hash = user.get("password_hash", "")
+        # Check if password already matches
+        if current_hash:
+            try:
+                if bcrypt.checkpw(ADMIN_PASSWORD.encode(), current_hash.encode()):
+                    logger.info(f"Admin password OK for {ADMIN_EMAIL}")
+                    return
+            except Exception:
+                pass
+
+        # Password doesn't match or is missing — fix it
+        new_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
+        await db.users.update_one(
+            {"email": ADMIN_EMAIL},
+            {"$set": {"password_hash": new_hash}}
+        )
+        logger.info(f"Admin password RESET for {ADMIN_EMAIL} (was incorrect/missing)")
+    except Exception as e:
+        logger.error(f"Error ensuring admin password: {e}")
 
 
 @app.on_event("shutdown")

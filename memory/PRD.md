@@ -98,6 +98,13 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - Fixed Listings count: now uses listings_cache.active_total (synced from eBay)
 - Added Total eBay Listings to global stats
 
+### Session - Feb 2026 (Store Promotions Management + Login Fix)
+- **Store Promotions List**: Fetches active/scheduled/paused ORDER_DISCOUNT promotions from eBay Marketing API (`GET /sell/marketing/v1/promotion`)
+- **Pause/Resume/Delete**: Full lifecycle management of store promotions via eBay Marketing API
+- Backend endpoints: `GET /api/ebay/sell/store-promotions`, `POST .../pause`, `POST .../resume`, `DELETE ...`
+- Frontend: Updated `StorePromotions.jsx` with collapsible create form, active promotions list with status badges, and action buttons
+- **Permanent Login Fix**: Added `ensure_admin_password()` to `server.py` startup that verifies and corrects admin password hash on every boot, preventing recurring fork login issues
+
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration

@@ -2142,6 +2142,146 @@ async def create_volume_discount(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============ STORE PROMOTIONS MANAGEMENT ============
+
+@router.get("/sell/store-promotions")
+async def get_store_promotions(request: Request):
+    """Get all active/scheduled/paused store promotions from eBay."""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    try:
+        promotions = []
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.get(
+                "https://api.ebay.com/sell/marketing/v1/promotion",
+                params={
+                    "marketplace_id": "EBAY_US",
+                    "limit": "200",
+                    "promotion_type": "ORDER_DISCOUNT",
+                },
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                },
+            )
+
+        if resp.status_code == 200:
+            data = resp.json()
+            for p in data.get("promotions", []):
+                promo_id = p.get("promotionId", "")
+                promotions.append({
+                    "promotion_id": promo_id,
+                    "name": p.get("name", ""),
+                    "description": p.get("description", ""),
+                    "status": p.get("promotionStatus", ""),
+                    "type": p.get("promotionType", ""),
+                    "start_date": p.get("startDate", ""),
+                    "end_date": p.get("endDate", ""),
+                    "priority": p.get("priority", ""),
+                    "promotion_href": p.get("promotionHref", ""),
+                })
+            return {"success": True, "promotions": promotions, "total": data.get("total", len(promotions))}
+        else:
+            error_data = resp.json() if resp.text else {}
+            errors = error_data.get("errors", [])
+            msg = errors[0].get("message", f"HTTP {resp.status_code}") if errors else f"HTTP {resp.status_code}"
+            return {"success": False, "error": msg, "promotions": []}
+    except Exception as e:
+        logger.error(f"Get store promotions error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sell/store-promotions/{promotion_id}/pause")
+async def pause_store_promotion(promotion_id: str, request: Request):
+    """Pause a running store promotion."""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                f"https://api.ebay.com/sell/marketing/v1/promotion/{promotion_id}/pause",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+            )
+
+        if resp.status_code == 204:
+            return {"success": True, "message": "Promotion paused"}
+        else:
+            error_data = resp.json() if resp.text else {}
+            errors = error_data.get("errors", [])
+            msg = errors[0].get("message", f"HTTP {resp.status_code}") if errors else f"HTTP {resp.status_code}"
+            return {"success": False, "error": msg}
+    except Exception as e:
+        logger.error(f"Pause promotion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sell/store-promotions/{promotion_id}/resume")
+async def resume_store_promotion(promotion_id: str, request: Request):
+    """Resume a paused store promotion."""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                f"https://api.ebay.com/sell/marketing/v1/promotion/{promotion_id}/resume",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                },
+            )
+
+        if resp.status_code == 204:
+            return {"success": True, "message": "Promotion resumed"}
+        else:
+            error_data = resp.json() if resp.text else {}
+            errors = error_data.get("errors", [])
+            msg = errors[0].get("message", f"HTTP {resp.status_code}") if errors else f"HTTP {resp.status_code}"
+            return {"success": False, "error": msg}
+    except Exception as e:
+        logger.error(f"Resume promotion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/sell/store-promotions/{promotion_id}")
+async def delete_store_promotion(promotion_id: str, request: Request):
+    """Delete a paused/ended store promotion. Must be paused first if running."""
+    user = await get_current_user(request)
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.delete(
+                f"https://api.ebay.com/sell/marketing/v1/item_promotion/{promotion_id}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                },
+            )
+
+        if resp.status_code == 204:
+            return {"success": True, "message": "Promotion deleted"}
+        else:
+            error_data = resp.json() if resp.text else {}
+            errors = error_data.get("errors", [])
+            msg = errors[0].get("message", f"HTTP {resp.status_code}") if errors else f"HTTP {resp.status_code}"
+            return {"success": False, "error": msg}
+    except Exception as e:
+        logger.error(f"Delete promotion error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/sell/{ebay_item_id}")
