@@ -70,11 +70,11 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
   const [regenLoading, setRegenLoading] = useState(false);
   const listingId = listing?.item_id;
 
-  // Check if this listing is a lot
+  // Check if this listing is a lot or pick-your-card
   useEffect(() => {
     if (!listingId) return;
     axios.get(`${API}/api/ebay/sell/lot-check/${listingId}`).then(res => {
-      if (res.data.is_lot) setLotInfo(res.data);
+      if (res.data.listing_type && res.data.listing_type !== 'single') setLotInfo(res.data);
     }).catch(() => {});
   }, [listingId]);
 
@@ -253,7 +253,7 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
             </div>
 
             {/* Lot: Regenerate Images */}
-            {lotInfo && (
+            {lotInfo && lotInfo.listing_type === 'lot' && (
               <div className="bg-amber-500/5 border border-amber-500/20 rounded-lg p-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <Layers className="w-4 h-4 text-amber-400" />
@@ -268,6 +268,16 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
                     <><RefreshCw className="w-3.5 h-3.5" /> Regenerate & Upload Images</>
                   )}
                 </button>
+              </div>
+            )}
+
+            {/* Pick Your Card badge */}
+            {lotInfo && lotInfo.listing_type === 'pick_your_card' && (
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-400">Pick Your Card ({lotInfo.card_count} variations)</span>
+                </div>
               </div>
             )}
 

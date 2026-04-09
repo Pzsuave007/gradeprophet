@@ -1714,12 +1714,15 @@ async def lot_regenerate_images(request: Request):
 
 @router.get("/sell/lot-check/{ebay_item_id}")
 async def check_if_lot(ebay_item_id: str, request: Request):
-    """Check if an eBay listing is a lot listing."""
+    """Check if an eBay listing is a lot or pick-your-card listing."""
     user = await get_current_user(request)
     lot = await db.lots.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
     if lot:
-        return {"is_lot": True, "lot_id": lot.get("lot_id"), "card_count": lot.get("card_count", 0), "card_ids": lot.get("card_ids", [])}
-    return {"is_lot": False}
+        return {"is_lot": True, "listing_type": "lot", "lot_id": lot.get("lot_id"), "card_count": lot.get("card_count", 0), "card_ids": lot.get("card_ids", [])}
+    pick = await db.pick_your_card.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
+    if pick:
+        return {"is_lot": False, "listing_type": "pick_your_card", "pick_id": pick.get("pick_id"), "card_count": pick.get("card_count", 0), "card_ids": pick.get("card_ids", [])}
+    return {"is_lot": False, "listing_type": "single"}
 
 
 
@@ -1985,8 +1988,9 @@ async def create_pick_your_card(request: Request):
             item_id = item_id_el.text if item_id_el is not None else ""
 
             # Save to pick_your_card collection
+            pick_id = f"pick_{uuid.uuid4().hex[:12]}"
             await db.pick_your_card.insert_one({
-                "pick_id": f"pick_{uuid.uuid4().hex[:12]}",
+                "pick_id": pick_id,
                 "user_id": user_id,
                 "ebay_item_id": item_id,
                 "title": title,
@@ -1995,6 +1999,22 @@ async def create_pick_your_card(request: Request):
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "status": "active",
             })
+
+            # Mark all cards as listed with pick_your_card tag
+            for card in cards_full:
+                card_id = card.get("id")
+                if card_id:
+                    await db.inventory.update_one(
+                        {"id": card_id, "user_id": user_id},
+                        {"$set": {
+                            "listed": True,
+                            "ebay_item_id": item_id,
+                            "listing_type": "pick_your_card",
+                            "pick_id": pick_id,
+                            "listed_price": card["_price"],
+                            "listed_at": datetime.now(timezone.utc).isoformat(),
+                        }}
+                    )
 
             return {"success": True, "message": f"Pick Your Card listing created! {len(cards_full)} variations. eBay #{item_id}", "ebay_item_id": item_id}
         else:
@@ -2073,12 +2093,15 @@ async def create_volume_discount(request: Request):
     if ids:
         promo_body["inventoryCriterion"] = {
             "inventoryCriterionType": "INVENTORY_BY_VALUE",
-            "listingIds": ids,
+            "listingIds": [str(lid) for lid in ids],
         }
     else:
         promo_body["inventoryCriterion"] = {
             "inventoryCriterionType": "INVENTORY_ANY",
         }
+
+    # For multi-variation listings, INVENTORY_BY_VALUE with listingIds may fail.
+    # If so, we'll retry with INVENTORY_ANY as fallback.
 
     try:
         import asyncio
@@ -2113,7 +2136,16 @@ async def create_volume_discount(request: Request):
                 error_data = resp.json() if resp.text else {}
                 errors = error_data.get("errors", [])
                 last_error = errors[0].get("message", "Unknown error") if errors else f"HTTP {resp.status_code}"
+                error_id = errors[0].get("errorId", 0) if errors else 0
                 logger.warning(f"Volume discount attempt {attempt+1} failed: {last_error}")
+
+                # If listing ID invalid (38227), try INVENTORY_ANY fallback
+                if error_id in (38227, 38275) and attempt == 0 and ids:
+                    logger.info("Retrying with INVENTORY_ANY fallback for multi-variation listing")
+                    promo_body["inventoryCriterion"] = {"inventoryCriterionType": "INVENTORY_ANY"}
+                    await asyncio.sleep(2)
+                    continue
+
                 if attempt < max_retries:
                     await asyncio.sleep(5)  # Wait before retry
 
