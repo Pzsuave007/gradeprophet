@@ -1887,6 +1887,37 @@ async def create_pick_your_card(request: Request):
     desc_lines = [f"{title}", "", f"Choose from {len(cards_full)} cards available.", "Select your card from the dropdown menu.", "", "All cards shown in photos. Ships fast with tracking."]
     safe_desc = html.escape("\n".join(desc_lines))
 
+    # Item Specifics - use most common values from all cards
+    sports = [c.get("sport", "") for c in cards_full if c.get("sport")]
+    sets = [c.get("set_name", "") for c in cards_full if c.get("set_name")]
+    years = [str(c.get("year", "")) for c in cards_full if c.get("year")]
+    teams = [c.get("team", "") for c in cards_full if c.get("team")]
+
+    common_sport = max(set(sports), key=sports.count) if sports else "Baseball"
+    common_set = max(set(sets), key=sets.count) if sets else ""
+    common_year = max(set(years), key=years.count) if years else ""
+    common_team = max(set(teams), key=teams.count) if teams else ""
+
+    specifics = []
+    specifics.append('<NameValueList><Name>Type</Name><Value>Sports Trading Card</Value></NameValueList>')
+    if common_sport:
+        specifics.append(f'<NameValueList><Name>Sport</Name><Value>{html.escape(common_sport)}</Value></NameValueList>')
+    if common_year:
+        specifics.append(f'<NameValueList><Name>Season</Name><Value>{html.escape(common_year)}</Value></NameValueList>')
+        specifics.append(f'<NameValueList><Name>Year Manufactured</Name><Value>{html.escape(common_year.split("-")[0])}</Value></NameValueList>')
+    if common_set:
+        specifics.append(f'<NameValueList><Name>Set</Name><Value>{html.escape(common_set)}</Value></NameValueList>')
+        manufacturer = extract_manufacturer(common_set)
+        if manufacturer:
+            specifics.append(f'<NameValueList><Name>Manufacturer</Name><Value>{html.escape(manufacturer)}</Value></NameValueList>')
+    league = SPORT_LEAGUE_MAP.get(common_sport, "")
+    if league:
+        specifics.append(f'<NameValueList><Name>League</Name><Value>{html.escape(league)}</Value></NameValueList>')
+    if common_team:
+        specifics.append(f'<NameValueList><Name>Team</Name><Value>{html.escape(common_team)}</Value></NameValueList>')
+
+    item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
+
     # Full XML
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -1917,7 +1948,7 @@ async def create_pick_your_card(request: Request):
         {pictures_xml}
       </Pictures>
     </Variations>
-    {shipping_xml}{best_offer_xml}
+    {shipping_xml}{best_offer_xml}{item_specifics_xml}
     <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
   </Item>
 </AddFixedPriceItemRequest>'''
