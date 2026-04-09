@@ -378,7 +378,7 @@ const CardModal = ({ item, items, onNavigate, onClose, shopSlug, shopName, shopP
 
   // Fetch all eBay images for flip effect (only for eBay-sourced items without back image)
   useEffect(() => {
-    if (baseBack || !item.ebay_item_id || item.store_thumbnail) return;
+    if (baseBack || !item.ebay_item_id) return;
     fetch(`${API}/api/shop/${shopSlug}/item/${item.ebay_item_id}`)
       .then(r => r.json())
       .then(data => {
