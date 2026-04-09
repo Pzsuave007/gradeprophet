@@ -1752,18 +1752,31 @@ async def pick_your_card_preview(request: Request):
 
     title = f"{common_year} {common_set} {common_sport} Cards - You Pick"[:80]
 
-    # Build card list with variation labels
+    # Build card list with variation labels (must be unique!)
     card_list = []
+    seen_labels = {}
     for c in cards:
         card_number = c.get("card_number", "")
         player = c.get("player", "Unknown")
         team = c.get("team", "")
+        variation = c.get("variation", "")
         label = f"#{card_number} {player}" if card_number else player
         if team:
             label += f", {team}"
+        # Ensure uniqueness - append variation or counter if duplicate
+        base_label = label[:60]
+        if base_label in seen_labels:
+            seen_labels[base_label] += 1
+            if variation:
+                label = f"{base_label} ({variation})"[:65]
+            else:
+                label = f"{base_label} ({seen_labels[base_label]})"[:65]
+        else:
+            seen_labels[base_label] = 1
+            label = base_label
         card_list.append({
             "id": c.get("id"),
-            "label": label[:65],  # eBay variation value limit
+            "label": label,
             "player": player,
             "card_number": card_number,
             "team": team,
