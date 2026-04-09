@@ -101,8 +101,10 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
       });
       if (res.data.success) {
         toast.success(res.data.message);
-        // Apply Bulk Savings if enabled
+        // Apply Bulk Savings if enabled (with delay for eBay indexing)
         if (bulkSavings && tiers.length > 0 && res.data.ebay_item_id) {
+          toast.info('Applying Bulk Savings (waiting for eBay to index listing)...');
+          await new Promise(r => setTimeout(r, 8000));
           try {
             const discountRes = await axios.post(`${API}/api/ebay/sell/volume-discount`, {
               ebay_item_id: res.data.ebay_item_id,
@@ -113,10 +115,10 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
             if (discountRes.data.success) {
               toast.success('Bulk Savings applied!');
             } else {
-              toast.error('Listing created but Bulk Savings failed: ' + (discountRes.data.error || ''));
+              toast.error('Bulk Savings failed: ' + (discountRes.data.error || '') + '. You can apply it manually from eBay Seller Hub.');
             }
           } catch (discErr) {
-            toast.error('Listing created but Bulk Savings failed');
+            toast.error('Bulk Savings failed. You can apply it from eBay Seller Hub.');
             console.error('Bulk savings error:', discErr);
           }
         }

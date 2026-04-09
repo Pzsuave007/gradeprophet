@@ -2081,36 +2081,43 @@ async def create_volume_discount(request: Request):
         }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as http_client:
-            resp = await http_client.post(
-                "https://api.ebay.com/sell/marketing/v1/item_promotion",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                },
-                json=promo_body,
-            )
+        import asyncio
+        max_retries = 2
+        last_error = ""
+        for attempt in range(max_retries + 1):
+            async with httpx.AsyncClient(timeout=30.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/sell/marketing/v1/item_promotion",
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    json=promo_body,
+                )
 
-        logger.info(f"Volume discount response: {resp.status_code}")
+            logger.info(f"Volume discount response (attempt {attempt+1}): {resp.status_code}")
 
-        if resp.status_code in (200, 201):
-            promo_id = ""
-            location = resp.headers.get("location", "")
-            if location:
-                promo_id = location.split("/")[-1]
-            result = resp.json() if resp.text else {}
-            return {
-                "success": True,
-                "message": f"Bulk Savings created! {len(tiers)} discount tier(s).",
-                "promotion_id": promo_id or result.get("promotionId", ""),
-            }
-        else:
-            error_data = resp.json() if resp.text else {}
-            errors = error_data.get("errors", [])
-            error_msg = errors[0].get("message", "Unknown error") if errors else f"HTTP {resp.status_code}"
-            logger.error(f"Volume discount failed: {resp.status_code} - {error_data}")
-            return {"success": False, "error": error_msg}
+            if resp.status_code in (200, 201):
+                promo_id = ""
+                location = resp.headers.get("location", "")
+                if location:
+                    promo_id = location.split("/")[-1]
+                result = resp.json() if resp.text else {}
+                return {
+                    "success": True,
+                    "message": f"Bulk Savings created! {len(tiers)} discount tier(s).",
+                    "promotion_id": promo_id or result.get("promotionId", ""),
+                }
+            else:
+                error_data = resp.json() if resp.text else {}
+                errors = error_data.get("errors", [])
+                last_error = errors[0].get("message", "Unknown error") if errors else f"HTTP {resp.status_code}"
+                logger.warning(f"Volume discount attempt {attempt+1} failed: {last_error}")
+                if attempt < max_retries:
+                    await asyncio.sleep(5)  # Wait before retry
+
+        return {"success": False, "error": last_error}
     except Exception as e:
         logger.error(f"Volume discount exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))
