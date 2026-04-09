@@ -1939,6 +1939,106 @@ async def create_pick_your_card(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ============ BULK SAVINGS (Volume Discount) ============
+
+@router.post("/sell/volume-discount")
+async def create_volume_discount(request: Request):
+    """Create a Volume Discount (Bulk Savings) promotion for an eBay listing."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    body = await request.json()
+    listing_ids = body.get("listing_ids", [])
+    ebay_item_id = body.get("ebay_item_id")
+    name = body.get("name", "Bulk Savings")
+    tiers = body.get("tiers", [])  # [{min_qty: 2, percent_off: 10}, {min_qty: 3, percent_off: 20}]
+    end_days = body.get("end_days", 30)
+
+    if not tiers or len(tiers) < 1:
+        raise HTTPException(status_code=400, detail="At least 1 discount tier required")
+
+    # Build listing IDs list
+    ids = listing_ids if listing_ids else ([ebay_item_id] if ebay_item_id else [])
+
+    # Build discount rules - first rule is always min=1, 0% off
+    discount_rules = [{
+        "discountSpecification": {"minQuantity": 1},
+        "discountBenefit": {"percentageOffOrder": "0"},
+        "ruleOrder": 1,
+    }]
+
+    for i, tier in enumerate(tiers[:3]):  # Max 3 additional tiers (total 4 with base)
+        discount_rules.append({
+            "discountSpecification": {"minQuantity": tier["min_qty"]},
+            "discountBenefit": {"percentageOffOrder": str(tier["percent_off"])},
+            "ruleOrder": i + 2,
+        })
+
+    from datetime import timedelta
+    start_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    end_date = (datetime.now(timezone.utc) + timedelta(days=end_days)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+
+    promo_body = {
+        "name": name[:50],
+        "startDate": start_date,
+        "endDate": end_date,
+        "marketplaceId": "EBAY_US",
+        "promotionStatus": "SCHEDULED",
+        "promotionType": "VOLUME_DISCOUNT",
+        "applyDiscountToSingleItemOnly": False,
+        "discountRules": discount_rules,
+    }
+
+    if ids:
+        promo_body["inventoryCriterion"] = {
+            "inventoryCriterionType": "INVENTORY_BY_VALUE",
+            "listingIds": ids,
+        }
+    else:
+        promo_body["inventoryCriterion"] = {
+            "inventoryCriterionType": "INVENTORY_ANY",
+        }
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post(
+                "https://api.ebay.com/sell/marketing/v1/item_promotion",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                },
+                json=promo_body,
+            )
+
+        logger.info(f"Volume discount response: {resp.status_code}")
+
+        if resp.status_code in (200, 201):
+            promo_id = ""
+            location = resp.headers.get("location", "")
+            if location:
+                promo_id = location.split("/")[-1]
+            result = resp.json() if resp.text else {}
+            return {
+                "success": True,
+                "message": f"Bulk Savings created! {len(tiers)} discount tier(s).",
+                "promotion_id": promo_id or result.get("promotionId", ""),
+            }
+        else:
+            error_data = resp.json() if resp.text else {}
+            errors = error_data.get("errors", [])
+            error_msg = errors[0].get("message", "Unknown error") if errors else f"HTTP {resp.status_code}"
+            logger.error(f"Volume discount failed: {resp.status_code} - {error_data}")
+            return {"success": False, "error": error_msg}
+    except Exception as e:
+        logger.error(f"Volume discount exception: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 
 @router.delete("/sell/{ebay_item_id}")
 async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "NotAvailable"):

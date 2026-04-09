@@ -29,6 +29,11 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
   const [shippingOption, setShippingOption] = useState('USPSFirstClass');
   const [shippingCost, setShippingCost] = useState(4.50);
   const [bestOffer, setBestOffer] = useState(false);
+  const [bulkSavings, setBulkSavings] = useState(true);
+  const [tiers, setTiers] = useState([
+    { min_qty: 2, percent_off: 10 },
+    { min_qty: 3, percent_off: 20 },
+  ]);
 
   const fetchPreview = useCallback(async () => {
     setLoading(true);
@@ -67,6 +72,20 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
     if (opt) { setShippingOption(opt.id); setShippingCost(opt.cost); }
   };
 
+  const updateTier = (idx, field, val) => {
+    setTiers(prev => prev.map((t, i) => i === idx ? { ...t, [field]: parseInt(val) || 0 } : t));
+  };
+  const addTier = () => {
+    if (tiers.length < 3) {
+      const lastQty = tiers.length > 0 ? tiers[tiers.length - 1].min_qty + 1 : 2;
+      const lastPct = tiers.length > 0 ? tiers[tiers.length - 1].percent_off + 10 : 10;
+      setTiers([...tiers, { min_qty: lastQty, percent_off: Math.min(lastPct, 50) }]);
+    }
+  };
+  const removeTier = (idx) => {
+    if (tiers.length > 1) setTiers(prev => prev.filter((_, i) => i !== idx));
+  };
+
   const handlePublish = async () => {
     const invalidCards = cards.filter(c => !c.price || parseFloat(c.price) <= 0);
     if (invalidCards.length > 0) { toast.error('All cards must have a price'); return; }
@@ -82,6 +101,25 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
       });
       if (res.data.success) {
         toast.success(res.data.message);
+        // Apply Bulk Savings if enabled
+        if (bulkSavings && tiers.length > 0 && res.data.ebay_item_id) {
+          try {
+            const discountRes = await axios.post(`${API}/api/ebay/sell/volume-discount`, {
+              ebay_item_id: res.data.ebay_item_id,
+              name: `Bulk Savings - ${title.substring(0, 30)}`,
+              tiers: tiers,
+              end_days: 30,
+            });
+            if (discountRes.data.success) {
+              toast.success('Bulk Savings applied!');
+            } else {
+              toast.error('Listing created but Bulk Savings failed: ' + (discountRes.data.error || ''));
+            }
+          } catch (discErr) {
+            toast.error('Listing created but Bulk Savings failed');
+            console.error('Bulk savings error:', discErr);
+          }
+        }
         onSuccess?.();
       } else {
         toast.error(res.data.error || 'Failed to create listing');
@@ -220,6 +258,62 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
               data-testid="pick-best-offer-check" />
             <span className="text-xs font-bold text-gray-300">Accept Best Offer</span>
           </label>
+
+          {/* Bulk Savings */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={bulkSavings} onChange={e => setBulkSavings(e.target.checked)}
+                className="w-4 h-4 rounded bg-[#1a1a1a] border-[#2a2a2a] text-emerald-500 focus:ring-emerald-500"
+                data-testid="pick-bulk-savings-check" />
+              <span className="text-xs font-bold text-gray-300">Enable Bulk Savings</span>
+              <span className="text-[9px] text-gray-600">(Volume discount when buying multiple)</span>
+            </label>
+            {bulkSavings && (
+              <div className="space-y-2 pl-6">
+                {/* Base tier info */}
+                <div className="flex items-center gap-3 px-3 py-2 bg-[#0a0a0a] rounded-lg border border-[#1a1a1a]">
+                  <span className="text-[10px] text-gray-500 w-16">Buy 1</span>
+                  <span className="text-xs text-white font-bold">Full price</span>
+                </div>
+                {/* Discount tiers */}
+                {tiers.map((tier, idx) => (
+                  <div key={idx} className="flex items-center gap-3 px-3 py-2 bg-emerald-500/5 rounded-lg border border-emerald-500/20" data-testid={`bulk-tier-${idx}`}>
+                    <span className="text-[10px] text-emerald-400 w-16 shrink-0">Buy</span>
+                    <input type="number" min="2" max="10" value={tier.min_qty}
+                      onChange={e => updateTier(idx, 'min_qty', e.target.value)}
+                      className="w-14 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+                    <span className="text-[10px] text-gray-500">+</span>
+                    <input type="number" min="1" max="50" value={tier.percent_off}
+                      onChange={e => updateTier(idx, 'percent_off', e.target.value)}
+                      className="w-14 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+                    <span className="text-[10px] text-emerald-400">% off</span>
+                    {tiers.length > 1 && (
+                      <button onClick={() => removeTier(idx)} className="text-red-400 text-[10px] hover:text-red-300 ml-auto">Remove</button>
+                    )}
+                  </div>
+                ))}
+                {tiers.length < 3 && (
+                  <button onClick={addTier}
+                    className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold" data-testid="add-tier-btn">
+                    + Add Tier
+                  </button>
+                )}
+                {/* Preview of final prices */}
+                {bulkPrice && parseFloat(bulkPrice) > 0 && (
+                  <div className="bg-[#0a0a0a] rounded-lg p-2 mt-1">
+                    <p className="text-[9px] text-gray-500 mb-1">Price preview (base ${bulkPrice}):</p>
+                    <div className="flex gap-3">
+                      <span className="text-[10px] text-white">Buy 1: <b>${parseFloat(bulkPrice).toFixed(2)}</b></span>
+                      {tiers.map((t, i) => {
+                        const discounted = (parseFloat(bulkPrice) * (1 - t.percent_off / 100)).toFixed(2);
+                        return <span key={i} className="text-[10px] text-emerald-400">Buy {t.min_qty}+: <b>${discounted}/ea</b></span>;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Info */}
           <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">

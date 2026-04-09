@@ -46,12 +46,15 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 
 ## Completed Features
 
-### Session - Feb 2026 (Pick Your Card Feature)
+### Session - Feb 2026 (Pick Your Card Feature + Bulk Savings)
 - New "Pick Your Card" multi-variation listing: one eBay listing with dropdown where buyers pick which card they want
 - Each card = one variation with its own photo, price, and quantity
-- Backend: `create-pick-your-card` endpoint builds Variations XML for eBay API
-- Frontend: `CreatePickYourCardView.jsx` full-page view with individual card pricing + "Set All Prices" bulk button
-- Integrated into Inventory as green "You Pick" button next to "Create Lot"
+- "Set All Prices" bulk button + individual price editing per card
+- **Bulk Savings (Volume Discount)**: Configurable tiers (Buy 2+ = X% off, Buy 3+ = Y% off) via eBay Marketing API
+- Auto-applied after listing creation via `POST /sell/marketing/v1/item_promotion`
+- Backend: `create-pick-your-card` + `volume-discount` endpoints
+- Frontend: `CreatePickYourCardView.jsx` with tier management UI and price preview
+- Integrated into Inventory as green "You Pick" button
 
 ### Session - Feb 2026 (Create Lot Feature + Fix)
 - Backend logic for "Create Lot" (Collage generator in `image.py`, new eBay lot endpoint)
