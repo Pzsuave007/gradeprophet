@@ -5,6 +5,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { QRCodeCanvas } from 'qrcode.react';
 import PricingPlans from './PricingPlans';
+import StorePromotions from './StorePromotions';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -410,6 +411,13 @@ const AccountModule = () => {
             </button>
           )}
         </div>
+      </motion.div>
+
+      {/* Store Promotions */}
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+        className="bg-[#111] border border-[#1a1a1a] rounded-2xl p-6" data-testid="store-promotions-section">
+        <h2 className="text-base font-black text-white mb-4">Store Promotions</h2>
+        <StorePromotions />
       </motion.div>
     </div>
   );

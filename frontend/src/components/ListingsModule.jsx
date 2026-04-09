@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import StorePromotions from './StorePromotions';
 import { ViewToggle } from './ViewToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -854,6 +855,7 @@ const ListingsModule = () => {
   const [showBulkOffer, setShowBulkOffer] = useState(false);
   const [showBulkSpecifics, setShowBulkSpecifics] = useState(false);
   const [showBulkPromote, setShowBulkPromote] = useState(false);
+  const [showStoreDiscount, setShowStoreDiscount] = useState(false);
   const [promoteCampaigns, setPromoteCampaigns] = useState([]);
   const [selectedCampaign, setSelectedCampaign] = useState('');
   const [promoteAdRate, setPromoteAdRate] = useState(5);
@@ -1340,6 +1342,11 @@ const ListingsModule = () => {
               </button>
             </>
           )}
+          <button onClick={() => setShowStoreDiscount(!showStoreDiscount)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${showStoreDiscount ? 'bg-emerald-600/10 border-emerald-500/30 text-emerald-400' : 'bg-[#111] border-[#1a1a1a] text-gray-400 hover:text-white'}`}
+            data-testid="store-discount-btn">
+            <DollarSign className="w-4 h-4" /> Store Discount
+          </button>
           <button onClick={() => { setShowCampaignView(!showCampaignView); if (!showCampaignView) fetchCampaigns(); }}
             className={`flex items-center gap-1.5 px-4 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${showCampaignView ? 'bg-orange-600/10 border-orange-500/30 text-orange-400' : 'bg-[#111] border-[#1a1a1a] text-gray-400 hover:text-white'}`}
             data-testid="campaigns-view-btn">
@@ -1352,6 +1359,24 @@ const ListingsModule = () => {
           </button>
         </div>
       </div>
+
+      {/* Store Discount Panel */}
+      <AnimatePresence>
+        {showStoreDiscount && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="bg-[#111] border border-emerald-500/20 rounded-xl p-4" data-testid="store-discount-panel">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-5 h-5 text-emerald-400" />
+                  <p className="text-sm font-bold text-white">Store Order Discount</p>
+                </div>
+                <button onClick={() => setShowStoreDiscount(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
+              </div>
+              <StorePromotions compact />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Campaign View Panel */}
       <AnimatePresence>
