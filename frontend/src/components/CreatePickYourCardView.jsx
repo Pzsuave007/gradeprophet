@@ -102,6 +102,24 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
       if (res.data.success) {
         toast.success(res.data.message);
         onSuccess?.();
+        // Apply Order Discount after listing is created
+        if (bulkSavings && tiers.length > 0) {
+          try {
+            const discountRes = await axios.post(`${API}/api/ebay/sell/volume-discount`, {
+              name: `Order Discount - ${title.substring(0, 40)}`,
+              tiers: tiers.map(t => ({ min_qty: t.min_qty, percent_off: Math.max(5, Math.min(80, t.percent_off)) })),
+              apply_all: true,
+              end_days: 30,
+            });
+            if (discountRes.data.success) {
+              toast.success('Order Discount applied to your store!');
+            } else {
+              toast.error('Order Discount failed: ' + (discountRes.data.error || ''));
+            }
+          } catch (discErr) {
+            console.error('Order discount error:', discErr);
+          }
+        }
       } else {
         toast.error(res.data.error || 'Failed to create listing');
         if (res.data.debug) console.error('eBay Pick Error:', res.data.debug);
@@ -240,12 +258,39 @@ const CreatePickYourCardView = ({ items, onBack, onSuccess }) => {
             <span className="text-xs font-bold text-gray-300">Accept Best Offer</span>
           </label>
 
-          {/* Bulk Savings reminder */}
-          <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-lg p-3">
-            <p className="text-[10px] text-emerald-400 font-bold uppercase mb-1">Bulk Savings Tip</p>
-            <p className="text-[10px] text-gray-500">
-              After publishing, go to eBay Seller Hub → Marketing → Promotions to add volume discounts (e.g. Buy 2+ save 10%, Buy 3+ save 20%).
-            </p>
+          {/* Bulk Savings - Order Discount */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-xl p-4 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={bulkSavings} onChange={e => setBulkSavings(e.target.checked)}
+                className="w-4 h-4 rounded bg-[#1a1a1a] border-[#2a2a2a] text-emerald-500 focus:ring-emerald-500"
+                data-testid="pick-bulk-savings-check" />
+              <span className="text-xs font-bold text-gray-300">Enable Order Discount</span>
+              <span className="text-[9px] text-gray-600">(Buy X+ items from your store = % off)</span>
+            </label>
+            {bulkSavings && (
+              <div className="space-y-2 pl-6">
+                {tiers.map((tier, idx) => (
+                  <div key={idx} className="flex items-center gap-3 px-3 py-2 bg-emerald-500/5 rounded-lg border border-emerald-500/20" data-testid={`bulk-tier-${idx}`}>
+                    <span className="text-[10px] text-emerald-400 shrink-0">Buy</span>
+                    <input type="number" min="2" max="10" value={tier.min_qty}
+                      onChange={e => updateTier(idx, 'min_qty', e.target.value)}
+                      className="w-14 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+                    <span className="text-[10px] text-gray-500">+ items →</span>
+                    <input type="number" min="5" max="80" value={tier.percent_off}
+                      onChange={e => updateTier(idx, 'percent_off', e.target.value)}
+                      className="w-14 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+                    <span className="text-[10px] text-emerald-400">% off</span>
+                    {tiers.length > 1 && (
+                      <button onClick={() => removeTier(idx)} className="text-red-400 text-[10px] hover:text-red-300 ml-auto">x</button>
+                    )}
+                  </div>
+                ))}
+                {tiers.length < 4 && (
+                  <button onClick={addTier} className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold" data-testid="add-tier-btn">+ Add Tier</button>
+                )}
+                <p className="text-[9px] text-gray-600">Applies when buyers purchase multiple items from your store (any listing, not just this one).</p>
+              </div>
+            )}
           </div>
 
           {/* Info */}

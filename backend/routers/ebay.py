@@ -2061,18 +2061,14 @@ async def create_volume_discount(request: Request):
     # Build listing IDs list
     ids = listing_ids if listing_ids else ([ebay_item_id] if ebay_item_id else [])
 
-    # Build discount rules - first rule is always min=1, 0% off
-    discount_rules = [{
-        "discountSpecification": {"minQuantity": 1},
-        "discountBenefit": {"percentageOffOrder": "0"},
-        "ruleOrder": 1,
-    }]
-
-    for i, tier in enumerate(tiers[:3]):  # Max 3 additional tiers (total 4 with base)
+    # Build discount rules for ORDER_DISCOUNT
+    discount_rules = []
+    for i, tier in enumerate(tiers[:4]):  # Max 4 tiers
+        pct = max(5, min(80, tier["percent_off"]))  # eBay requires 5-80%
         discount_rules.append({
+            "discountBenefit": {"percentageOffOrder": str(pct)},
             "discountSpecification": {"minQuantity": tier["min_qty"]},
-            "discountBenefit": {"percentageOffOrder": str(tier["percent_off"])},
-            "ruleOrder": i + 2,
+            "ruleOrder": i + 1,
         })
 
     from datetime import timedelta
@@ -2080,28 +2076,26 @@ async def create_volume_discount(request: Request):
     end_date = (datetime.now(timezone.utc) + timedelta(days=end_days)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
     promo_body = {
-        "name": name[:50],
+        "name": name[:90],
         "startDate": start_date,
         "endDate": end_date,
         "marketplaceId": "EBAY_US",
         "promotionStatus": "SCHEDULED",
-        "promotionType": "VOLUME_DISCOUNT",
-        "applyDiscountToSingleItemOnly": False,
+        "promotionType": "ORDER_DISCOUNT",
         "discountRules": discount_rules,
     }
 
-    if ids:
+    # Apply to all store items or specific listings
+    apply_all = body.get("apply_all", True)
+    if apply_all or not ids:
+        promo_body["inventoryCriterion"] = {
+            "inventoryCriterionType": "INVENTORY_ANY",
+        }
+    else:
         promo_body["inventoryCriterion"] = {
             "inventoryCriterionType": "INVENTORY_BY_VALUE",
             "listingIds": [str(lid) for lid in ids],
         }
-    else:
-        promo_body["inventoryCriterion"] = {
-            "inventoryCriterionType": "INVENTORY_ANY",
-        }
-
-    # For multi-variation listings, INVENTORY_BY_VALUE with listingIds may fail.
-    # If so, we'll retry with INVENTORY_ANY as fallback.
 
     try:
         import asyncio
@@ -2137,17 +2131,9 @@ async def create_volume_discount(request: Request):
                 errors = error_data.get("errors", [])
                 last_error = errors[0].get("message", "Unknown error") if errors else f"HTTP {resp.status_code}"
                 error_id = errors[0].get("errorId", 0) if errors else 0
-                logger.warning(f"Volume discount attempt {attempt+1} failed: {last_error}")
-
-                # If listing ID invalid (38227), try INVENTORY_ANY fallback
-                if error_id in (38227, 38275) and attempt == 0 and ids:
-                    logger.info("Retrying with INVENTORY_ANY fallback for multi-variation listing")
-                    promo_body["inventoryCriterion"] = {"inventoryCriterionType": "INVENTORY_ANY"}
-                    await asyncio.sleep(2)
-                    continue
-
+                logger.warning(f"Order discount attempt {attempt+1} failed: {last_error}")
                 if attempt < max_retries:
-                    await asyncio.sleep(5)  # Wait before retry
+                    await asyncio.sleep(5)
 
         return {"success": False, "error": last_error}
     except Exception as e:
