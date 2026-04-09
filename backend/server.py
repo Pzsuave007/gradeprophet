@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, Request
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
+from datetime import datetime, timezone
 import logging
 import os
 import glob
@@ -266,24 +267,57 @@ async def ensure_admin_password():
             return
 
         current_hash = user.get("password_hash", "")
-        # Check if password already matches
         if current_hash:
             try:
                 if bcrypt.checkpw(ADMIN_PASSWORD.encode(), current_hash.encode()):
                     logger.info(f"Admin password OK for {ADMIN_EMAIL}")
+                    await ensure_dev_token(user["user_id"])
                     return
             except Exception:
                 pass
 
-        # Password doesn't match or is missing — fix it
         new_hash = bcrypt.hashpw(ADMIN_PASSWORD.encode(), bcrypt.gensalt()).decode()
         await db.users.update_one(
             {"email": ADMIN_EMAIL},
             {"$set": {"password_hash": new_hash}}
         )
         logger.info(f"Admin password RESET for {ADMIN_EMAIL} (was incorrect/missing)")
+        await ensure_dev_token(user["user_id"])
     except Exception as e:
         logger.error(f"Error ensuring admin password: {e}")
+
+
+async def ensure_dev_token(user_id: str):
+    """Create a persistent dev token for Emergent agents to test without touching auth.
+    Token: 'dev_flipslab_access' — never expires, always valid.
+    Usage: GET /api/auth/dev-login?token=dev_flipslab_access
+    This sets the session cookie so agents can test all authenticated endpoints."""
+    from datetime import timedelta
+    DEV_TOKEN = "dev_flipslab_access"
+
+    try:
+        existing = await db.user_sessions.find_one({"session_token": DEV_TOKEN})
+        if existing:
+            # Refresh expiration
+            await db.user_sessions.update_one(
+                {"session_token": DEV_TOKEN},
+                {"$set": {
+                    "user_id": user_id,
+                    "expires_at": datetime.now(timezone.utc) + timedelta(days=365),
+                }}
+            )
+            logger.info(f"Dev token refreshed for {user_id}")
+        else:
+            await db.user_sessions.insert_one({
+                "user_id": user_id,
+                "session_token": DEV_TOKEN,
+                "dev_token": True,
+                "expires_at": datetime.now(timezone.utc) + timedelta(days=365),
+                "created_at": datetime.now(timezone.utc),
+            })
+            logger.info(f"Dev token CREATED for {user_id}")
+    except Exception as e:
+        logger.error(f"Error ensuring dev token: {e}")
 
 
 @app.on_event("shutdown")
