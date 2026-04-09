@@ -1689,6 +1689,257 @@ async def check_if_lot(ebay_item_id: str, request: Request):
 
 
 
+# ============ PICK YOUR CARD (Multi-Variation Listing) ============
+
+@router.post("/sell/pick-preview")
+async def pick_your_card_preview(request: Request):
+    """Generate preview for a Pick Your Card multi-variation listing."""
+    user = await get_current_user(request)
+    body = await request.json()
+    card_ids = body.get("card_ids", [])
+
+    cards = []
+    for cid in card_ids:
+        card = await db.inventory.find_one({"id": cid, "user_id": user["user_id"]}, {"_id": 0, "image": 0, "back_image": 0})
+        if card:
+            cards.append(card)
+
+    if len(cards) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 cards")
+
+    # Auto-generate title from set info
+    sets = [c.get("set_name", "") for c in cards if c.get("set_name")]
+    sports = [c.get("sport", "") for c in cards if c.get("sport")]
+    years = [c.get("year", "") for c in cards if c.get("year")]
+
+    common_set = max(set(sets), key=sets.count) if sets else "Trading Cards"
+    common_sport = max(set(sports), key=sports.count) if sports else "Sports"
+    common_year = max(set(years), key=years.count) if years else ""
+
+    title = f"{common_year} {common_set} {common_sport} Cards - You Pick"[:80]
+
+    # Build card list with variation labels
+    card_list = []
+    for c in cards:
+        card_number = c.get("card_number", "")
+        player = c.get("player", "Unknown")
+        team = c.get("team", "")
+        label = f"#{card_number} {player}" if card_number else player
+        if team:
+            label += f", {team}"
+        card_list.append({
+            "id": c.get("id"),
+            "label": label[:65],  # eBay variation value limit
+            "player": player,
+            "card_number": card_number,
+            "team": team,
+            "year": c.get("year"),
+            "set_name": c.get("set_name"),
+            "condition": c.get("condition"),
+            "card_value": c.get("card_value") or c.get("purchase_price") or 0,
+            "thumbnail": c.get("store_thumbnail") or c.get("thumbnail"),
+        })
+
+    return {
+        "title": title,
+        "card_count": len(cards),
+        "cards": card_list,
+    }
+
+
+@router.post("/sell/create-pick-your-card")
+async def create_pick_your_card(request: Request):
+    """Create a multi-variation 'Pick Your Card' listing on eBay."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    body = await request.json()
+    cards_data = body.get("cards", [])  # [{id, label, price, quantity}]
+    title = body.get("title", "Trading Cards - You Pick")[:80]
+    condition_id = body.get("condition_id", 400010)
+    shipping_service = body.get("shipping_service", "USPSFirstClass")
+    shipping_cost = body.get("shipping_cost", 4.50)
+    best_offer = body.get("best_offer", False)
+
+    if len(cards_data) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 cards")
+
+    # Fetch full card data for images
+    cards_full = []
+    for cd in cards_data:
+        card = await db.inventory.find_one({"id": cd["id"], "user_id": user_id}, {"_id": 0})
+        if card:
+            card["_price"] = cd.get("price", 0.99)
+            card["_quantity"] = cd.get("quantity", 1)
+            card["_label"] = cd.get("label", card.get("player", "Card"))[:65]
+            cards_full.append(card)
+
+    if len(cards_full) < 2:
+        raise HTTPException(status_code=400, detail="Cards not found in inventory")
+
+    # Upload images for each variation
+    logger.info(f"Pick Your Card: uploading images for {len(cards_full)} variations...")
+    variation_pictures = {}
+    for i, card in enumerate(cards_full):
+        if card.get("image"):
+            try:
+                url = await upload_image_to_ebay(card["image"], f"pick-card-{i+1}")
+                if url:
+                    variation_pictures[card["_label"]] = url
+            except Exception as e:
+                logger.warning(f"Pick card image upload {i} failed: {e}")
+
+    # User settings
+    user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    postal_code = user_settings.get("postal_code", "")
+    location = user_settings.get("location", "")
+
+    # Build Variations XML
+    variation_spec_name = "Pick your card(s)"
+
+    # VariationSpecificsSet - all possible values
+    all_values_xml = ""
+    for card in cards_full:
+        all_values_xml += f"<Value>{html.escape(card['_label'])}</Value>"
+
+    # Individual Variation entries
+    variations_xml = ""
+    for card in cards_full:
+        variations_xml += f"""<Variation>
+            <SKU>{html.escape(card.get('id', ''))}</SKU>
+            <StartPrice currencyID="USD">{card['_price']:.2f}</StartPrice>
+            <Quantity>{card['_quantity']}</Quantity>
+            <VariationSpecifics><NameValueList>
+                <Name>{html.escape(variation_spec_name)}</Name>
+                <Value>{html.escape(card['_label'])}</Value>
+            </NameValueList></VariationSpecifics>
+        </Variation>"""
+
+    # Variation Pictures
+    pictures_xml = ""
+    for label, pic_url in variation_pictures.items():
+        pictures_xml += f"""<VariationSpecificPictureSet>
+            <VariationSpecificValue>{html.escape(label)}</VariationSpecificValue>
+            <PictureURL>{pic_url}</PictureURL>
+        </VariationSpecificPictureSet>"""
+
+    # Main listing picture (first card's image or first uploaded)
+    first_pic_url = list(variation_pictures.values())[0] if variation_pictures else ""
+    main_picture_xml = f"<PictureDetails><PictureURL>{first_pic_url}</PictureURL></PictureDetails>" if first_pic_url else ""
+
+    # Shipping
+    ebay_shipping_service = shipping_service
+    if shipping_service == "PWEEnvelope":
+        ebay_shipping_service = "USPSFirstClass"
+
+    if shipping_service == "FreeShipping":
+        shipping_xml = """<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>USPSFirstClass</ShippingService><FreeShipping>true</FreeShipping><ShippingServiceCost currencyID="USD">0.00</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+    else:
+        s_cost = shipping_cost if shipping_cost > 0 else 4.50
+        shipping_xml = f"""<ShippingDetails><ShippingType>Flat</ShippingType><ShippingServiceOptions><ShippingServicePriority>1</ShippingServicePriority><ShippingService>{ebay_shipping_service}</ShippingService><ShippingServiceCost currencyID="USD">{s_cost:.2f}</ShippingServiceCost></ShippingServiceOptions></ShippingDetails>"""
+
+    # Condition
+    actual_condition_id = 4000
+    card_condition_value = str(condition_id) if condition_id in (400010, 400011, 400012, 400013) else "400010"
+    condition_descriptors_xml = f"<ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>{card_condition_value}</Value></ConditionDescriptor></ConditionDescriptors>"
+
+    # Best offer
+    best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>" if best_offer else ""
+
+    # Build description
+    desc_lines = [f"{title}", "", f"Choose from {len(cards_full)} cards available.", "Select your card from the dropdown menu.", "", "All cards shown in photos. Ships fast with tracking."]
+    safe_desc = html.escape("\n".join(desc_lines))
+
+    # Full XML
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item>
+    <Title>{html.escape(title)}</Title>
+    <Description>{safe_desc}</Description>
+    <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
+    <CategoryMappingAllowed>true</CategoryMappingAllowed>
+    <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
+    <Country>US</Country><Currency>USD</Currency>
+    <PostalCode>{html.escape(postal_code)}</PostalCode>
+    <Location>{html.escape(location)}</Location>
+    <DispatchTimeMax>1</DispatchTimeMax>
+    <ListingDuration>GTC</ListingDuration>
+    <ListingType>FixedPriceItem</ListingType>
+    {main_picture_xml}
+    <Variations>
+      <VariationSpecificsSet>
+        <NameValueList>
+          <Name>{html.escape(variation_spec_name)}</Name>
+          {all_values_xml}
+        </NameValueList>
+      </VariationSpecificsSet>
+      {variations_xml}
+      <Pictures>
+        <VariationSpecificName>{html.escape(variation_spec_name)}</VariationSpecificName>
+        {pictures_xml}
+      </Pictures>
+    </Variations>
+    {shipping_xml}{best_offer_xml}
+    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
+  </Item>
+</AddFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=60.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+            }, content=xml_body)
+
+        root = ET.fromstring(resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        ack = root.find("e:Ack", ns)
+        logger.info(f"Pick Your Card eBay Ack: {ack.text if ack is not None else 'None'}")
+
+        if ack is not None and ack.text in ("Success", "Warning"):
+            item_id_el = root.find("e:ItemID", ns)
+            item_id = item_id_el.text if item_id_el is not None else ""
+
+            # Save to pick_your_card collection
+            await db.pick_your_card.insert_one({
+                "pick_id": f"pick_{uuid.uuid4().hex[:12]}",
+                "user_id": user_id,
+                "ebay_item_id": item_id,
+                "title": title,
+                "card_ids": [c.get("id") for c in cards_full],
+                "card_count": len(cards_full),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "status": "active",
+            })
+
+            return {"success": True, "message": f"Pick Your Card listing created! {len(cards_full)} variations. eBay #{item_id}", "ebay_item_id": item_id}
+        else:
+            real_errors = []
+            all_msgs = []
+            for err_el in root.findall(".//e:Errors", ns):
+                severity = err_el.find("e:SeverityCode", ns)
+                msg_el = err_el.find("e:LongMessage", ns)
+                code_el = err_el.find("e:ErrorCode", ns)
+                sev = severity.text if severity is not None else "Error"
+                code = code_el.text if code_el is not None else ""
+                msg_text = msg_el.text if msg_el is not None else "Unknown"
+                all_msgs.append(f"[{sev}:{code}] {msg_text}")
+                if sev == "Error":
+                    real_errors.append(f"[{code}] {msg_text}")
+            logger.error(f"Pick Your Card failed: {all_msgs}")
+            return {"success": False, "error": real_errors[0] if real_errors else (all_msgs[0] if all_msgs else "eBay listing failed"), "debug": {"all_errors": all_msgs}}
+    except Exception as e:
+        logger.error(f"Pick Your Card exception: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
 @router.delete("/sell/{ebay_item_id}")
 async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "NotAvailable"):
     """End an active eBay listing"""

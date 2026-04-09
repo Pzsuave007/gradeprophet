@@ -14,6 +14,7 @@ import { ViewToggle } from './ViewToggle';
 import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
 import CreateLotView from './CreateLotView';
+import CreatePickYourCardView from './CreatePickYourCardView';
 import SocialPostEditor from './SocialPostEditor';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
@@ -1291,6 +1292,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [bulkConditionValue, setBulkConditionValue] = useState('');
   const [showBulkPreset, setShowBulkPreset] = useState(false);
   const [showLotModal, setShowLotModal] = useState(false);
+  const [showPickYourCard, setShowPickYourCard] = useState(false);
   const [bulkPresetId, setBulkPresetId] = useState('');
   const [bulkPresets, setBulkPresets] = useState([]);
 
@@ -1548,6 +1550,18 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     );
   }
 
+  // Show Pick Your Card view
+  if (showPickYourCard) {
+    const selectedItems = items.filter(i => selected.has(i.id));
+    return (
+      <CreatePickYourCardView
+        items={selectedItems}
+        onBack={() => { setShowPickYourCard(false); exitSelectMode(); }}
+        onSuccess={() => { setShowPickYourCard(false); exitSelectMode(); fetchInventory(search); }}
+      />
+    );
+  }
+
   // Show Create Listing view
   if (showCreateListing) {
     const selectedItems = items.filter(i => selected.has(i.id));
@@ -1651,6 +1665,10 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
             <button onClick={() => setShowLotModal(true)} disabled={!selectMode || selected.size < 2 || selected.size > 15}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-amber-600 text-white text-sm font-semibold hover:bg-amber-500 disabled:opacity-30 transition-colors" data-testid="create-lot-btn">
               <Layers className="w-4 h-4" /> Create Lot {selected.size >= 2 && selected.size <= 15 ? `(${selected.size})` : ''}
+            </button>
+            <button onClick={() => setShowPickYourCard(true)} disabled={!selectMode || selected.size < 2}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="pick-your-card-btn">
+              <Tag className="w-4 h-4" /> You Pick {selected.size >= 2 ? `(${selected.size})` : ''}
             </button>
           </>
         ) : null}
