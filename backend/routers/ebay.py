@@ -81,6 +81,40 @@ class ListingAIRequest(BaseModel):
     sport: Optional[str] = None
 
 
+async def _upload_image_to_ebay(token: str, img_base64: str, label: str = "card", title: str = "card") -> str:
+    """Global helper to upload an image to eBay. Returns hosted URL or None."""
+    image_bytes = base64.b64decode(img_base64)
+    try:
+        img_pil = Image.open(BytesIO(image_bytes))
+        w, h = img_pil.size
+        if max(w, h) < 500:
+            scale = 500 / max(w, h)
+            img_pil = img_pil.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+            buf = BytesIO()
+            img_pil.save(buf, format='JPEG', quality=90)
+            image_bytes = buf.getvalue()
+    except Exception:
+        pass
+    upload_xml = f'<?xml version="1.0" encoding="utf-8"?><UploadSiteHostedPicturesRequest xmlns="urn:ebay:apis:eBLBaseComponents"><RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials><PictureName>{html.escape(title[:40])} {label}</PictureName></UploadSiteHostedPicturesRequest>'
+    boundary = "MIME_boundary_EBAY"
+    body_parts = [f"--{boundary}\r\n", 'Content-Disposition: form-data; name="XML Payload"\r\n', "Content-Type: text/xml\r\n\r\n", upload_xml, f"\r\n--{boundary}\r\n", f'Content-Disposition: form-data; name="image"; filename="{label}.jpg"\r\n', "Content-Type: image/jpeg\r\nContent-Transfer-Encoding: binary\r\n\r\n"]
+    text_part = "".join(body_parts).encode('utf-8')
+    end_part = f"\r\n--{boundary}--\r\n".encode('utf-8')
+    full_body = text_part + image_bytes + end_part
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+            "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+            "X-EBAY-API-IAF-TOKEN": token,
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+        }, content=full_body)
+    import xml.etree.ElementTree as ET
+    root = ET.fromstring(resp.text)
+    url_el = root.find(".//{urn:ebay:apis:eBLBaseComponents}FullURL")
+    return url_el.text if url_el is not None else None
+
+
+
 
 # Known card manufacturers for extraction from set_name
 KNOWN_MANUFACTURERS = [
@@ -1786,7 +1820,7 @@ async def create_pick_your_card(request: Request):
     for i, card in enumerate(cards_full):
         if card.get("image"):
             try:
-                url = await upload_image_to_ebay(card["image"], f"pick-card-{i+1}")
+                url = await _upload_image_to_ebay(token, card["image"], f"pick-{i+1}", title)
                 if url:
                     variation_pictures[card["_label"]] = url
             except Exception as e:
