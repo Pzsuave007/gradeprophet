@@ -44,6 +44,14 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - **Auth**: Google Auth. DO NOT modify auth system.
 - **AI Team Extraction**: CARD_IDENTIFY_PROMPT now includes "team" field.
 
+## CRITICAL BUILD RULES (READ BEFORE EVERY BUILD)
+- **NEVER run `craco build` or `yarn build` directly**. ALWAYS use `bash /app/build_prod.sh`
+- Production URL is `https://flipslabengine.com` — this MUST be baked into the frontend build
+- The `.env` file has the Emergent preview URL for local testing ONLY — it must NEVER leak into production builds
+- `build_prod.sh` overrides REACT_APP_BACKEND_URL to the production URL and verifies no preview URL leaks
+- **DO NOT change auth.py Google OAuth endpoints** — they use Emergent Auth service which is correct
+- `ensure_admin_password()` in server.py fixes admin password on every startup (prevents fork login issues)
+
 ## Completed Features
 
 ### Session - Feb 2026 (Pick Your Card Feature + Bulk Savings)
