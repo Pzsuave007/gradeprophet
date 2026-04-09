@@ -2315,9 +2315,27 @@ async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "N
         root = ET.fromstring(resp.text)
         ack = root.find("e:Ack", ns)
         if ack is not None and ack.text in ("Success", "Warning"):
-            await db.inventory.update_one({"ebay_item_id": ebay_item_id}, {"$set": {"listed": False, "ebay_item_id": None, "listed_price": None, "listed_at": None}})
+            # Return single-card listings back to inventory
+            await db.inventory.update_many(
+                {"ebay_item_id": ebay_item_id},
+                {"$set": {"listed": False, "ebay_item_id": None, "listed_price": None, "listed_at": None, "category": "for_sale"}}
+            )
+
+            # Handle lot/pick-your-card listings: return all cards to inventory
+            lot = await db.lots.find_one({"ebay_item_id": ebay_item_id})
+            if lot:
+                card_ids = lot.get("card_ids", [])
+                if card_ids:
+                    await db.inventory.update_many(
+                        {"id": {"$in": card_ids}},
+                        {"$set": {"listed": False, "ebay_item_id": None, "listed_price": None, "listed_at": None, "category": "for_sale", "lot_id": None}}
+                    )
+                    logger.info(f"Returned {len(card_ids)} lot cards to inventory for {ebay_item_id}")
+                await db.lots.update_one({"ebay_item_id": ebay_item_id}, {"$set": {"status": "ended"}})
+
             await db.created_listings.update_one({"ebay_item_id": ebay_item_id}, {"$set": {"status": "ended"}})
-            return {"success": True, "message": f"Listing {ebay_item_id} ended"}
+            cards_returned = lot.get("card_count", 1) if lot else 1
+            return {"success": True, "message": f"Listing ended. {cards_returned} card(s) returned to inventory."}
         else:
             errors = []
             for err in root.findall(".//e:Errors", ns):
