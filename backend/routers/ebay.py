@@ -4397,12 +4397,13 @@ async def check_all_chase_pack_sales():
                     total_new += len(codes)
                     # Send ONE eBay message with all codes
                     reveal_url = f"{PRODUCTION_URL}/chase/{pack['pack_id']}"
+                    reveal_url = f"https://flipslabengine.com/chase/{pack['pack_id']}"
                     if len(codes) == 1:
                         msg_body = (
                             f"Thanks for purchasing a spot in {pack['title']}!\n\n"
                             f"Your claim code is: {codes[0]}\n\n"
-                            f"To reveal your card, go to flipslabengine.com and navigate to:\n"
-                            f"/chase/{pack['pack_id']}\n\n"
+                            f"To reveal your card, copy and paste this link in your browser:\n"
+                            f"{reveal_url}\n\n"
                             f"Enter your code and see what you got. Good luck - can you pull the CHASE?"
                         )
                     else:
@@ -4410,8 +4411,8 @@ async def check_all_chase_pack_sales():
                         msg_body = (
                             f"Thanks for purchasing {len(codes)} spots in {pack['title']}!\n\n"
                             f"Your claim codes:\n{codes_str}\n\n"
-                            f"To reveal your cards, go to flipslabengine.com and navigate to:\n"
-                            f"/chase/{pack['pack_id']}\n\n"
+                            f"To reveal your cards, copy and paste this link in your browser:\n"
+                            f"{reveal_url}\n\n"
                             f"Enter each code to reveal. Good luck - can you pull the CHASE?"
                         )
 
