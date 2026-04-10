@@ -2590,6 +2590,248 @@ async def get_my_chase_packs(request: Request):
     return {"packs": packs}
 
 
+# ============ CHASE PACK MANAGEMENT ============
+
+@router.patch("/chase/{pack_id}")
+async def edit_chase_pack(pack_id: str, request: Request):
+    """Edit chase pack details (title, price)."""
+    user = await get_current_user(request)
+    body = await request.json()
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    updates = {}
+    if "title" in body and body["title"].strip():
+        updates["title"] = body["title"].strip()[:80]
+    if "price" in body and body["price"] is not None:
+        updates["price"] = round(float(body["price"]), 2)
+
+    if not updates:
+        return {"success": False, "error": "No changes provided"}
+
+    await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": updates})
+    return {"success": True, "message": "Pack updated", "updates": updates}
+
+
+@router.post("/chase/{pack_id}/change-chase")
+async def change_chase_card(pack_id: str, request: Request):
+    """Change which card is designated as the chase card."""
+    user = await get_current_user(request)
+    body = await request.json()
+    new_chase_card_id = body.get("card_id")
+    if not new_chase_card_id:
+        raise HTTPException(status_code=400, detail="card_id required")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    found = False
+    for i, c in enumerate(pack["cards"]):
+        if c["card_id"] == new_chase_card_id:
+            await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {f"cards.{i}.is_chase": True}})
+            found = True
+        elif c["is_chase"]:
+            await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {f"cards.{i}.is_chase": False}})
+
+    if not found:
+        raise HTTPException(status_code=400, detail="Card not found in this pack")
+
+    await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"chase_card_id": new_chase_card_id}})
+    return {"success": True, "message": "Chase card updated"}
+
+
+@router.post("/chase/{pack_id}/pause")
+async def pause_chase_pack(pack_id: str, request: Request):
+    """Pause a chase pack."""
+    user = await get_current_user(request)
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+    if pack["status"] != "active":
+        return {"success": False, "error": "Pack is not active"}
+    await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "paused"}})
+    return {"success": True, "message": "Pack paused"}
+
+
+@router.post("/chase/{pack_id}/resume")
+async def resume_chase_pack(pack_id: str, request: Request):
+    """Resume a paused chase pack."""
+    user = await get_current_user(request)
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+    if pack["status"] != "paused":
+        return {"success": False, "error": "Pack is not paused"}
+    await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "active"}})
+    return {"success": True, "message": "Pack resumed"}
+
+
+@router.post("/chase/{pack_id}/end")
+async def end_chase_pack(pack_id: str, request: Request):
+    """End a chase pack and return unassigned cards to inventory."""
+    user = await get_current_user(request)
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+    if pack["status"] == "ended":
+        return {"success": False, "error": "Pack already ended"}
+
+    # Return unassigned cards to inventory
+    returned = 0
+    for c in pack["cards"]:
+        if not c["assigned_to"]:
+            await db.inventory.update_one(
+                {"id": c["card_id"], "user_id": user["user_id"]},
+                {"$set": {"category": "for_sale", "listed": False}, "$unset": {"chase_pack_id": "", "ebay_item_id": ""}}
+            )
+            returned += 1
+
+    await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "ended"}})
+    return {"success": True, "message": f"Pack ended. {returned} cards returned to inventory."}
+
+
+@router.delete("/chase/{pack_id}")
+async def delete_chase_pack(pack_id: str, request: Request):
+    """Delete a chase pack entirely and return all unassigned cards to inventory."""
+    user = await get_current_user(request)
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # Return unassigned cards to inventory
+    returned = 0
+    for c in pack["cards"]:
+        if not c["assigned_to"]:
+            await db.inventory.update_one(
+                {"id": c["card_id"], "user_id": user["user_id"]},
+                {"$set": {"category": "for_sale", "listed": False}, "$unset": {"chase_pack_id": "", "ebay_item_id": ""}}
+            )
+            returned += 1
+
+    await db.chase_packs.delete_one({"pack_id": pack_id})
+    return {"success": True, "message": f"Pack deleted. {returned} cards returned to inventory."}
+
+
+@router.post("/chase/{pack_id}/unassign")
+async def unassign_chase_spot(pack_id: str, request: Request):
+    """Unassign a buyer from a specific card in the pack."""
+    user = await get_current_user(request)
+    body = await request.json()
+    card_id = body.get("card_id")
+    if not card_id:
+        raise HTTPException(status_code=400, detail="card_id required")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    for i, c in enumerate(pack["cards"]):
+        if c["card_id"] == card_id:
+            if not c["assigned_to"]:
+                return {"success": False, "error": "Card is not assigned"}
+            new_code = uuid.uuid4().hex[:8].upper()
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {
+                    f"cards.{i}.assigned_to": None,
+                    f"cards.{i}.claimed_at": None,
+                    f"cards.{i}.revealed": False,
+                    f"cards.{i}.claim_code": new_code,
+                    "spots_claimed": max(0, pack["spots_claimed"] - 1),
+                }}
+            )
+            # If pack was completed, revert to active
+            if pack["status"] == "completed":
+                await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "active", "all_revealed": False}})
+            return {"success": True, "message": f"Buyer unassigned. New code: {new_code}", "new_code": new_code}
+
+    raise HTTPException(status_code=400, detail="Card not found in pack")
+
+
+@router.post("/chase/{pack_id}/regenerate-code")
+async def regenerate_chase_code(pack_id: str, request: Request):
+    """Regenerate claim code for a specific card."""
+    user = await get_current_user(request)
+    body = await request.json()
+    card_id = body.get("card_id")
+    if not card_id:
+        raise HTTPException(status_code=400, detail="card_id required")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    for i, c in enumerate(pack["cards"]):
+        if c["card_id"] == card_id:
+            new_code = uuid.uuid4().hex[:8].upper()
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {f"cards.{i}.claim_code": new_code, f"cards.{i}.revealed": False}}
+            )
+            return {"success": True, "new_code": new_code, "message": f"New code: {new_code}"}
+
+    raise HTTPException(status_code=400, detail="Card not found in pack")
+
+
+@router.post("/chase/{pack_id}/sync-ebay")
+async def sync_chase_to_ebay(pack_id: str, request: Request):
+    """Push title/price/quantity changes to eBay listing."""
+    user = await get_current_user(request)
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    ebay_item_id = pack.get("ebay_item_id")
+    if not ebay_item_id or ebay_item_id == "DEMO_123456":
+        return {"success": False, "error": "No eBay listing linked to this pack"}
+
+    token = await get_ebay_user_token(user["user_id"])
+    if not token:
+        return {"success": False, "error": "eBay not connected"}
+
+    title = html.escape(pack["title"][:80])
+    price = pack["price"]
+    quantity = pack["total_spots"]
+
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item>
+    <ItemID>{ebay_item_id}</ItemID>
+    <Title>{title}</Title>
+    <StartPrice currencyID="USD">{price:.2f}</StartPrice>
+    <Quantity>{quantity}</Quantity>
+  </Item>
+</ReviseFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+            }, content=xml_body)
+
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        ack = root.find("e:Ack", ns)
+        if ack is not None and ack.text in ("Success", "Warning"):
+            return {"success": True, "message": "eBay listing updated successfully"}
+
+        errors = []
+        for err_el in root.findall(".//e:Errors", ns):
+            msg_el = err_el.find("e:LongMessage", ns)
+            if msg_el is not None:
+                errors.append(msg_el.text)
+        return {"success": False, "error": errors[0] if errors else "eBay revision failed"}
+    except Exception as e:
+        logger.error(f"Chase sync-ebay error: {e}")
+        return {"success": False, "error": str(e)}
+
+
 # ============ BULK SAVINGS (Volume Discount) ============
 
 @router.post("/sell/volume-discount")
