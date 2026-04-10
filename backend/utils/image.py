@@ -520,3 +520,175 @@ def create_chase_collage(chase_image_b64: str, other_images_b64: list, card_heig
     buf = BytesIO()
     canvas.save(buf, format='JPEG', quality=90)
     return base64.b64encode(buf.getvalue()).decode('utf-8')
+
+
+
+def _load_card_img(b64, target_h):
+    """Load a base64 card image and resize to target height."""
+    try:
+        img = Image.open(BytesIO(base64.b64decode(b64))).convert('RGB')
+        ratio = target_h / img.height
+        return img.resize((int(img.width * ratio), target_h), Image.LANCZOS)
+    except Exception:
+        return None
+
+
+def _draw_gradient_bar(draw, x1, y1, x2, y2, color_start, color_end):
+    """Draw a horizontal gradient rectangle."""
+    w = x2 - x1
+    for i in range(w):
+        r = int(color_start[0] + (color_end[0] - color_start[0]) * i / w)
+        g = int(color_start[1] + (color_end[1] - color_start[1]) * i / w)
+        b = int(color_start[2] + (color_end[2] - color_start[2]) * i / w)
+        draw.line([(x1 + i, y1), (x1 + i, y2)], fill=(r, g, b))
+
+
+def create_chase_tier_image(card_images_b64: list, tier: str = "chase", card_height: int = 550) -> str:
+    """Create a visually attractive tier image for Chase Pack eBay listing.
+    tier: 'chase', 'mid', or 'base'
+    Returns base64 JPEG string."""
+    from PIL import ImageDraw, ImageFont
+
+    if not card_images_b64:
+        return ""
+
+    TIER_STYLES = {
+        "chase": {
+            "bg": (10, 8, 5),
+            "accent1": (245, 158, 11),  # amber
+            "accent2": (234, 88, 12),   # orange
+            "label": "CHASE CARD",
+            "subtitle": "Can you pull the chase?",
+            "border_color": (245, 158, 11),
+            "glow": (80, 50, 0),
+        },
+        "mid": {
+            "bg": (5, 8, 18),
+            "accent1": (59, 130, 246),   # blue
+            "accent2": (99, 102, 241),   # indigo
+            "label": "MID TIER",
+            "subtitle": "Great pulls in this tier!",
+            "border_color": (59, 130, 246),
+            "glow": (15, 30, 70),
+        },
+        "base": {
+            "bg": (12, 12, 12),
+            "accent1": (120, 120, 120),  # gray
+            "accent2": (80, 80, 80),
+            "label": "BASE CARDS",
+            "subtitle": "Every spot is a winner!",
+            "border_color": (60, 60, 60),
+            "glow": (25, 25, 25),
+        },
+    }
+    style = TIER_STYLES.get(tier, TIER_STYLES["base"])
+    padding = 20
+
+    # Load card images
+    if tier == "chase":
+        # Single large chaser card
+        ch = int(card_height * 1.8)
+        imgs = [img for b64 in card_images_b64[:2] if (img := _load_card_img(b64, ch))]
+    else:
+        imgs = [img for b64 in card_images_b64 if (img := _load_card_img(b64, card_height))]
+
+    if not imgs:
+        return ""
+
+    # Calculate canvas size
+    banner_h = 80
+    if tier == "chase":
+        # Chase: big card(s) centered
+        total_w = sum(im.width for im in imgs) + padding * (len(imgs) - 1)
+        canvas_w = max(total_w + padding * 4, 800)
+        canvas_h = banner_h + padding + imgs[0].height + padding * 3
+    else:
+        # Grid layout for mid/base
+        cards_per_row = min(5, len(imgs))
+        rows = [imgs[i:i + cards_per_row] for i in range(0, len(imgs), cards_per_row)]
+        max_row_w = max(sum(im.width for im in row) + padding * (len(row) - 1) for row in rows)
+        canvas_w = max(max_row_w + padding * 4, 600)
+        grid_h = len(rows) * (card_height + padding) - padding
+        canvas_h = banner_h + padding + grid_h + padding * 3
+
+    canvas = Image.new('RGB', (canvas_w, canvas_h), style["bg"])
+    draw = ImageDraw.Draw(canvas)
+
+    # Draw top banner with gradient
+    _draw_gradient_bar(draw, 0, 0, canvas_w, banner_h, style["accent1"], style["accent2"])
+
+    # Draw banner text
+    try:
+        font_large = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", 36)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", 16)
+    except Exception:
+        font_large = ImageFont.load_default()
+        font_small = ImageFont.load_default()
+
+    label_bbox = draw.textbbox((0, 0), style["label"], font=font_large)
+    label_w = label_bbox[2] - label_bbox[0]
+    draw.text(((canvas_w - label_w) // 2, 14), style["label"], fill=(255, 255, 255), font=font_large)
+
+    sub_bbox = draw.textbbox((0, 0), style["subtitle"], font=font_small)
+    sub_w = sub_bbox[2] - sub_bbox[0]
+    draw.text(((canvas_w - sub_w) // 2, 54), style["subtitle"], fill=(255, 255, 255, 180), font=font_small)
+
+    # Draw decorative border lines under banner
+    line_y = banner_h + 2
+    draw.rectangle([(padding, line_y), (canvas_w - padding, line_y + 3)], fill=style["accent1"])
+
+    if tier == "chase":
+        # Glow effect behind chase cards
+        glow_pad = 30
+        total_w = sum(im.width for im in imgs) + padding * (len(imgs) - 1)
+        gx = (canvas_w - total_w) // 2 - glow_pad
+        gy = banner_h + padding - glow_pad // 2
+        draw.rectangle(
+            [(gx, gy), (gx + total_w + glow_pad * 2, gy + imgs[0].height + glow_pad)],
+            fill=style["glow"]
+        )
+        # Paste chase cards centered
+        x = (canvas_w - total_w) // 2
+        y = banner_h + padding
+        for im in imgs:
+            # Draw gold border around card
+            border = 4
+            draw.rectangle(
+                [(x - border, y - border), (x + im.width + border, y + im.height + border)],
+                outline=style["border_color"], width=border
+            )
+            canvas.paste(im, (x, y))
+            x += im.width + padding
+    else:
+        # Grid layout
+        y = banner_h + padding + 8
+        cards_per_row = min(5, len(imgs))
+        rows = [imgs[i:i + cards_per_row] for i in range(0, len(imgs), cards_per_row)]
+        for row in rows:
+            total_w = sum(im.width for im in row) + padding * (len(row) - 1)
+            x = (canvas_w - total_w) // 2
+            for im in row:
+                border = 3
+                draw.rectangle(
+                    [(x - border, y - border), (x + im.width + border, y + im.height + border)],
+                    outline=style["border_color"], width=border
+                )
+                canvas.paste(im, (x, y))
+                x += im.width + padding
+            y += card_height + padding
+
+    # Draw bottom accent line
+    draw.rectangle([(padding, canvas_h - 8), (canvas_w - padding, canvas_h - 5)], fill=style["accent1"])
+
+    # Card count badge in bottom-right
+    count_text = f"{len(card_images_b64)} CARD{'S' if len(card_images_b64) != 1 else ''}"
+    ct_bbox = draw.textbbox((0, 0), count_text, font=font_small)
+    ct_w = ct_bbox[2] - ct_bbox[0]
+    badge_x = canvas_w - ct_w - padding * 2
+    badge_y = canvas_h - 32
+    draw.rectangle([(badge_x - 8, badge_y - 4), (badge_x + ct_w + 8, badge_y + 20)], fill=style["accent1"])
+    draw.text((badge_x, badge_y), count_text, fill=(255, 255, 255), font=font_small)
+
+    buf = BytesIO()
+    canvas.save(buf, format='JPEG', quality=92)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')

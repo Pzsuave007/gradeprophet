@@ -716,6 +716,7 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
       const res = await axios.post(`${API}/api/ebay/chase/preview-collage`, {
         card_ids: selected.map(c => c.id),
         chase_card_id: chaseCardId,
+        tiers: tiers,
       }, { withCredentials: true });
       if (res.data.success) setPreview(res.data);
     } catch { toast.error('Could not generate preview'); }
@@ -918,20 +919,18 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
                 <RefreshCw className="w-5 h-5 animate-spin text-[#f59e0b] mr-2" />
                 <span className="text-xs text-gray-400">Generating collage preview...</span>
               </div>
-            ) : preview ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="wizard-preview-images">
-                {preview.collage && (
-                  <div className="rounded-xl overflow-hidden border border-[#f59e0b]/20 bg-[#0a0a0a]">
-                    <img src={`data:image/jpeg;base64,${preview.collage}`} alt="Chase collage" className="w-full" />
-                    <p className="text-[9px] text-gray-500 text-center py-1.5">Main Image (Chase + Cards)</p>
-                  </div>
-                )}
-                {preview.grid && (
-                  <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-[#0a0a0a]">
-                    <img src={`data:image/jpeg;base64,${preview.grid}`} alt="All cards grid" className="w-full" />
-                    <p className="text-[9px] text-gray-500 text-center py-1.5">All Cards Grid</p>
-                  </div>
-                )}
+            ) : preview && preview.images?.length > 0 ? (
+              <div className={`grid gap-3 ${preview.images.length === 3 ? 'grid-cols-1 sm:grid-cols-3' : preview.images.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`} data-testid="wizard-preview-images">
+                {preview.images.map((img, idx) => {
+                  const tierLabel = img.tier === 'chase' ? 'Chaser' : img.tier === 'mid' ? 'Mid Tier' : 'Base';
+                  const tierBorder = img.tier === 'chase' ? 'border-[#f59e0b]/30' : img.tier === 'mid' ? 'border-[#3b82f6]/30' : 'border-white/[0.08]';
+                  return (
+                    <div key={idx} className={`rounded-xl overflow-hidden border ${tierBorder} bg-[#0a0a0a]`}>
+                      <img src={`data:image/jpeg;base64,${img.image}`} alt={tierLabel} className="w-full" />
+                      <p className="text-[9px] text-gray-500 text-center py-1.5">{tierLabel} ({img.count} cards)</p>
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
           </div>

@@ -2156,44 +2156,58 @@ async def chase_pack_preview(request: Request):
 
 @router.post("/chase/preview-collage")
 async def preview_chase_collage(request: Request):
-    """Generate collage preview for Chase Pack without posting to eBay."""
+    """Generate 3 tier-based collage previews for Chase Pack listing."""
     user = await get_current_user(request)
     user_id = user["user_id"]
     body = await request.json()
     card_ids = body.get("card_ids", [])
     chase_card_id = body.get("chase_card_id", "")
+    tiers_map = body.get("tiers", {})  # {card_id: 'chase'|'mid'|'low'}
 
-    if len(card_ids) < 10:
-        raise HTTPException(status_code=400, detail="Need at least 10 cards")
+    if len(card_ids) < 2:
+        raise HTTPException(status_code=400, detail="Need at least 2 cards")
 
     # Fetch card data
     cards = []
     for cid in card_ids:
         c = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
         if c:
+            c["_tier"] = tiers_map.get(cid, "low")
             cards.append(c)
 
-    if len(cards) < 10:
+    if len(cards) < 2:
         raise HTTPException(status_code=400, detail="Not enough valid cards found")
 
-    from utils.image import create_chase_collage, create_lot_collage
-    chase_card = next((c for c in cards if c["id"] == chase_card_id), cards[0])
-    other_cards = [c for c in cards if c["id"] != chase_card_id]
+    from utils.image import create_chase_tier_image
 
-    chase_img = chase_card.get("image") or chase_card.get("thumbnail", "")
-    other_imgs = [c.get("image") or c.get("thumbnail", "") for c in other_cards if c.get("image") or c.get("thumbnail")]
+    # Separate cards by tier
+    chase_cards = [c for c in cards if c["_tier"] == "chase"]
+    mid_cards = [c for c in cards if c["_tier"] == "mid"]
+    base_cards = [c for c in cards if c["_tier"] == "low"]
 
-    collage_b64 = create_chase_collage(chase_img, other_imgs) if chase_img and other_imgs else ""
-    all_imgs = [c.get("image") or c.get("thumbnail", "") for c in cards if c.get("image") or c.get("thumbnail")]
-    grid_collage_b64 = create_lot_collage(all_imgs, cards_per_row=5, card_height=500) if all_imgs else ""
+    # Generate tier images
+    chase_imgs = [c.get("image") or c.get("thumbnail", "") for c in chase_cards if c.get("image") or c.get("thumbnail")]
+    mid_imgs = [c.get("image") or c.get("thumbnail", "") for c in mid_cards if c.get("image") or c.get("thumbnail")]
+    base_imgs = [c.get("image") or c.get("thumbnail", "") for c in base_cards if c.get("image") or c.get("thumbnail")]
 
-    return {
-        "success": True,
-        "collage": collage_b64,
-        "grid": grid_collage_b64,
-        "chase_image": chase_card.get("thumbnail") or chase_card.get("store_thumbnail", ""),
-        "card_count": len(cards),
-    }
+    result = {"success": True, "images": []}
+
+    if chase_imgs:
+        img = create_chase_tier_image(chase_imgs, tier="chase")
+        if img:
+            result["images"].append({"tier": "chase", "image": img, "count": len(chase_cards)})
+
+    if mid_imgs:
+        img = create_chase_tier_image(mid_imgs, tier="mid")
+        if img:
+            result["images"].append({"tier": "mid", "image": img, "count": len(mid_cards)})
+
+    if base_imgs:
+        img = create_chase_tier_image(base_imgs, tier="base")
+        if img:
+            result["images"].append({"tier": "base", "image": img, "count": len(base_cards)})
+
+    return result
 
 
 @router.post("/sell/create-chase-pack")
