@@ -2939,6 +2939,58 @@ async def create_volume_discount(request: Request):
         "discountRules": discount_rules,
     }
 
+    # eBay requires promotionImageUrl for ORDER_DISCOUNT — fetch from user's active listings
+    promo_image_url = ""
+    try:
+        cache = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0, "active": {"$slice": 1}})
+        if cache and cache.get("active"):
+            promo_image_url = cache["active"][0].get("image_url", "")
+    except Exception:
+        pass
+
+    if not promo_image_url:
+        # Fallback: quick eBay call to get one listing image
+        try:
+            ebay_creds = await db.ebay_tokens.find_one({"user_id": user_id}, {"_id": 0})
+            if ebay_creds:
+                import xml.etree.ElementTree as ET
+                xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetMyeBaySellingRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ActiveList><Sort>TimeLeft</Sort><Pagination><EntriesPerPage>1</EntriesPerPage><PageNumber>1</PageNumber></Pagination></ActiveList>
+  <DetailLevel>ReturnAll</DetailLevel>
+</GetMyeBaySellingRequest>"""
+                async with httpx.AsyncClient(timeout=15.0) as hc:
+                    r = await hc.post(
+                        "https://api.ebay.com/ws/api.dll",
+                        content=xml_body,
+                        headers={
+                            "X-EBAY-API-SITEID": "0",
+                            "X-EBAY-API-COMPATIBILITY-LEVEL": "1155",
+                            "X-EBAY-API-CALL-NAME": "GetMyeBaySelling",
+                            "Content-Type": "text/xml",
+                        },
+                    )
+                if r.status_code == 200:
+                    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+                    tree = ET.fromstring(r.text)
+                    pic = tree.find(".//e:PictureDetails/e:PictureURL", ns)
+                    if pic is not None and pic.text:
+                        promo_image_url = pic.text
+                    else:
+                        gal = tree.find(".//e:PictureDetails/e:GalleryURL", ns)
+                        if gal is not None and gal.text:
+                            promo_image_url = gal.text
+        except Exception as img_err:
+            logger.warning(f"Could not fetch listing image for promotion: {img_err}")
+
+    if promo_image_url:
+        if "s-l140" in promo_image_url:
+            promo_image_url = promo_image_url.replace("s-l140", "s-l500")
+        elif "s-l225" in promo_image_url:
+            promo_image_url = promo_image_url.replace("s-l225", "s-l500")
+        promo_body["promotionImageUrl"] = promo_image_url
+
     # Apply to all store items or specific listings
     apply_all = body.get("apply_all", True)
     if apply_all or not ids:
