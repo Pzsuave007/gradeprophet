@@ -290,7 +290,7 @@ const ChaseRevealPage = () => {
             {/* Pulsing ring for chase */}
             {tier === 'chase' && (
               <motion.div
-                className="absolute -inset-4 rounded-3xl border-2 border-amber-500/40"
+                className="absolute -inset-4 rounded-3xl border-2 border-amber-500/40 pointer-events-none"
                 animate={{ scale: [1, 1.06, 1], opacity: [0.4, 0.8, 0.4] }}
                 transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
               />
