@@ -191,3 +191,57 @@ async def get_marketplace(
     except Exception as e:
         logger.error(f"Marketplace error: {e}")
         return {"items": [], "total": 0, "sports": [], "sellers": []}
+
+
+
+@router.get("/chase-packs")
+async def get_marketplace_chase_packs():
+    """Public endpoint — returns all active chase packs from all sellers."""
+    try:
+        packs = await db.chase_packs.find(
+            {"status": "active"},
+            {"_id": 0}
+        ).to_list(50)
+
+        # Get seller info for each pack
+        user_ids = list(set(p.get("user_id", "") for p in packs if p.get("user_id")))
+        settings_list = await db.user_settings.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "shop_name": 1, "display_name": 1, "shop_slug": 1, "shop_logo": 1}
+        ).to_list(100)
+        settings_map = {s["user_id"]: s for s in settings_list}
+
+        users_list = await db.users.find(
+            {"user_id": {"$in": user_ids}},
+            {"_id": 0, "user_id": 1, "name": 1, "picture": 1}
+        ).to_list(100)
+        users_map = {u["user_id"]: u for u in users_list}
+
+        result = []
+        for p in packs:
+            uid = p.get("user_id", "")
+            s_info = settings_map.get(uid, {})
+            u_info = users_map.get(uid, {})
+            chase_card = next((c for c in p.get("cards", []) if c.get("is_chase") or c.get("tier") == "chase"), None)
+            claimed = sum(1 for c in p.get("cards", []) if c.get("assigned_to"))
+            total = p.get("total_spots", len(p.get("cards", [])))
+            result.append({
+                "pack_id": p["pack_id"],
+                "title": p.get("title", "Chase Pack"),
+                "price": p.get("price", 0),
+                "total_spots": total,
+                "spots_claimed": claimed,
+                "spots_remaining": total - claimed,
+                "chase_card_image": chase_card.get("image", "") if chase_card else "",
+                "chase_card_player": chase_card.get("player", "") if chase_card else "",
+                "ebay_item_id": p.get("ebay_item_id", ""),
+                "seller_name": s_info.get("shop_name") or s_info.get("display_name") or u_info.get("name", ""),
+                "seller_slug": s_info.get("shop_slug", ""),
+                "seller_logo": s_info.get("shop_logo") or u_info.get("picture", ""),
+                "created_at": p.get("created_at", ""),
+            })
+
+        return {"chase_packs": result}
+    except Exception as e:
+        logger.error(f"Marketplace chase packs error: {e}")
+        return {"chase_packs": []}

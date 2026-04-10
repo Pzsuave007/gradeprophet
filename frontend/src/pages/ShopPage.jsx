@@ -1,19 +1,98 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Store, MapPin, ExternalLink, Search, Filter, X,
   Package, ShoppingCart, Tag, ChevronDown, RotateCcw,
-  Crown, Star, Shield, Award, Share2, ChevronLeft, ChevronRight
+  Crown, Star, Shield, Award, Share2, ChevronLeft, ChevronRight, Flame, Zap
 } from 'lucide-react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
+// =========== CHASE PACK BANNER ===========
+const ChasePackBanner = ({ packs, slug }) => {
+  const navigate = useNavigate();
+  if (!packs || packs.length === 0) return null;
+  const pack = packs[0]; // Featured = first active pack
+  const progress = pack.total_spots > 0 ? ((pack.spots_claimed / pack.total_spots) * 100) : 0;
+  const imgSrc = pack.chase_card_image ? `data:image/jpeg;base64,${pack.chase_card_image}` : null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="relative overflow-hidden border-b border-amber-500/20"
+      data-testid="chase-pack-banner"
+    >
+      {/* Background effects */}
+      <div className="absolute inset-0 bg-gradient-to-r from-amber-900/20 via-orange-900/10 to-red-900/20" />
+      <div className="absolute top-0 right-0 w-1/2 h-full bg-gradient-to-l from-amber-500/[0.05] to-transparent" />
+
+      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 py-5 sm:py-6">
+        <div className="flex items-center gap-4 sm:gap-6">
+          {/* Chase card image */}
+          {imgSrc && (
+            <motion.div
+              whileHover={{ scale: 1.05, rotateY: 5 }}
+              className="shrink-0 w-20 h-28 sm:w-28 sm:h-40 rounded-xl overflow-hidden border-2 border-amber-500/40 shadow-lg shadow-amber-500/20"
+              style={{ perspective: 800 }}
+            >
+              <img src={imgSrc} alt={pack.chase_card_player} className="w-full h-full object-cover" />
+            </motion.div>
+          )}
+
+          {/* Pack info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <Flame className="w-4 h-4 text-amber-400" />
+              <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-amber-400">Chase Pack Live</span>
+            </div>
+            <h3 className="text-base sm:text-xl font-black text-white leading-tight truncate">{pack.title}</h3>
+            {pack.chase_card_player && (
+              <p className="text-xs text-gray-400 mt-0.5">Chase: <span className="text-amber-300 font-bold">{pack.chase_card_player}</span></p>
+            )}
+
+            {/* Progress bar */}
+            <div className="mt-2.5 max-w-xs">
+              <div className="flex justify-between text-[10px] mb-1">
+                <span className="text-gray-500">{pack.spots_claimed}/{pack.total_spots} spots claimed</span>
+                <span className="text-amber-400 font-bold">${parseFloat(pack.price).toFixed(2)}/spot</span>
+              </div>
+              <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${progress}%` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                  className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* CTA */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate(`/chase/${pack.pack_id}`)}
+            className="shrink-0 flex items-center gap-2 px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black text-xs sm:text-sm font-black shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 transition-shadow"
+            data-testid="chase-pack-banner-cta"
+          >
+            <Zap className="w-4 h-4" />
+            <span className="hidden sm:inline">View Pack</span>
+          </motion.button>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+
 const ShopPage = () => {
   const { slug } = useParams();
   const [shop, setShop] = useState(null);
   const [items, setItems] = useState([]);
+  const [chasePacks, setChasePacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState('');
@@ -25,9 +104,13 @@ const ShopPage = () => {
   useEffect(() => {
     const fetchShop = async () => {
       try {
-        const res = await axios.get(`${API}/api/shop/${slug}`);
-        setShop(res.data.shop);
-        setItems(res.data.items || []);
+        const [shopRes, chaseRes] = await Promise.all([
+          axios.get(`${API}/api/shop/${slug}`),
+          axios.get(`${API}/api/shop/${slug}/chase-packs`).catch(() => ({ data: { chase_packs: [] } })),
+        ]);
+        setShop(shopRes.data.shop);
+        setItems(shopRes.data.items || []);
+        setChasePacks(chaseRes.data.chase_packs || []);
       } catch (err) {
         setError(err.response?.status === 404 ? 'Shop not found' : 'Error loading shop');
       } finally {
@@ -152,6 +235,9 @@ const ShopPage = () => {
           })()}
         </div>
       </header>
+
+      {/* Chase Pack Banner */}
+      <ChasePackBanner packs={chasePacks} slug={slug} />
 
       {/* Search/Filter Bar */}
       <div className="sticky top-0 z-20 border-b border-white/[0.04] bg-[#050505]/80 backdrop-blur-xl">

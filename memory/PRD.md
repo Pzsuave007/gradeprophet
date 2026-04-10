@@ -14,7 +14,8 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 │   │   ├── admin.py           # Admin panel APIs
 │   │   ├── subscription.py    # Plans & billing
 │   │   ├── settings.py        # User settings
-│   │   ├── shop.py            # Shop/storefront
+│   │   ├── shop.py            # Shop/storefront + public chase packs endpoint
+│   │   ├── marketplace.py     # Marketplace + public chase packs endpoint
 │   │   └── flipfinder.py      # Flip finder/sniper
 │   ├── utils/
 │   │   ├── image.py           # scanner_auto_process, collage generators (2 cards per row)
@@ -26,11 +27,13 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 │   │   │   ├── CreateListingView.jsx  # Bulk eBay listing publisher
 │   │   │   ├── InventoryModule.jsx    # Card inventory management
 │   │   │   ├── ListingsModule.jsx     # eBay listings + campaigns
-│   │   │   ├── ChasePacksModule.jsx   # Chase Pack management (inline editing, tier selectors, buyer grid)
+│   │   │   ├── ChasePacksModule.jsx   # Chase Pack management (wizard, inline editing, tier selectors)
 │   │   ├── pages/
 │   │   │   ├── AdminPage.jsx          # Admin panel (redesigned)
 │   │   │   ├── ChaseRevealPage.jsx    # Public chase pack reveal page
 │   │   │   ├── Dashboard.jsx          # Main dashboard with Chase Packs routing
+│   │   │   ├── ShopPage.jsx           # Public store with Chase Pack banner
+│   │   │   ├── MarketplacePage.jsx    # Marketplace with Chase Packs section
 ├── build_prod.sh              # Frontend build script (ALWAYS use this)
 ├── fix.sh                     # User's deploy script
 ├── AGENT_RULES.md             # Critical rules for agents
@@ -48,6 +51,7 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - **Auth**: Google Auth. DO NOT modify auth system.
 - **AI Team Extraction**: CARD_IDENTIFY_PROMPT now includes "team" field.
 - **Collage Grid**: All collage functions use 2 cards per row for eBay images.
+- **Chase Pack eBay Listing**: Uses multipart upload helper, CDATA description, ConditionDescriptor Name/Value format, PostalCode/Location.
 
 ## CRITICAL BUILD RULES (READ BEFORE EVERY BUILD)
 - **NEVER run `craco build` or `yarn build` directly**. ALWAYS use `bash /app/build_prod.sh`
@@ -67,59 +71,41 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 ### Session - Feb 2026 (Create Lot Feature + Fix)
 - Backend logic for "Create Lot" (Collage generator, new eBay lot endpoint)
 - Frontend `CreateLotView` with correct eBay CONDITIONS and SHIPPING_OPTIONS
-- Combined front+back images side by side, max 4 cards per collage, max 15 cards per lot
 
 ### Session - Feb 2026 (eBay Cassini SEO)
 - Expanded Item Specifics for new eBay listings (20+ fields)
-- `build_item_specifics()` helper, `extract_manufacturer()`, bulk revise specifics
 
 ### Session - Feb 2026 (Promoted Listings Standard)
 - Campaign Management: Create, pause, resume, end, delete PLS campaigns
-- Bulk Promote/Remove, Campaign View, AD Badge
 
-### Session - Feb 2026 (UI/UX Improvements)
-- Bulk action buttons always visible, auto-refresh on tab visibility
-- Admin Panel redesigned: large user cards, text labels, clickable plan badges
-
-### Session - Feb 2026 (Admin Fixes)
-- Fixed valid_plans, PLAN_ALIASES, migrated DB subscriptions, fixed stats
+### Session - Feb 2026 (UI/UX Improvements + Admin Fixes)
+- Bulk action buttons always visible, auto-refresh
+- Admin Panel redesigned, subscription migration
 
 ### Session - Feb 2026 (Store Promotions Management + Login Fix)
 - Store Promotions lifecycle management via eBay Marketing API
 - Permanent Login Fix with `ensure_admin_password()` on startup
 
-### Session - Feb 2026 (Chase Card Pack Feature)
+### Session - Apr 2026 (Chase Card Pack Feature - Full)
 - Chase Card Pack listing type with smart pricing, collage generation
-- Buyer Reveal Page at `/chase/{packId}` with animated card reveal
-- Seller Management: assign buyers, generate claim codes, track progress
-- End Listing Fix: cards return to inventory
+- Buyer Reveal Page at `/chase/{packId}` with animated card reveal + 3-tier celebrations
+- ChasePacksModule wired into Dashboard: inline editing, tier selectors, buyer grid
+- 3-Step Creation Wizard: Select Cards → Set Tiers → Details & Create
+- Background Sales Monitor: polls eBay every 60s, auto-assigns buyers, sends eBay messages
+- Auto-Pricing: card_value + 30% profit + 13% eBay fees
 
-### Session - Apr 2026 (Chase Packs Management Tab) - COMPLETE
-- **ChasePacksModule wired into Dashboard** as new sidebar tab
-- Pack list view with stats (Active Packs, Spots Sold, Revenue, Completed)
-- **Full Management Controls**: Edit title/price, Pause/Resume/End/Delete pack, Unassign buyers, Regenerate claim codes, Change chase card, Sync to eBay
-- **Inline Editing**: Click-to-edit Title and Price (Save/Cancel buttons, Enter/Escape keyboard shortcuts)
-- **2-Column Buyer Grid**: Thumbnails, buyer names, codes, status, action buttons
-- **Tier Management**: Manual Chaser/Mid/Base tier assignment per card
-- **Spot Tracker (Mini Slabs)**: Visual mini-slab cards on public page with Framer Motion 3D flip
-
-### Session - Apr 2026 (Chase Reveal Page Redesign)
-- **Responsive Layout**: Redesigned ChaseRevealPage for desktop/tablet
-- **3-Tier Celebration System**: CelebrationEffect component with confetti particles
-- **Mobile Fixes**: Stacked buttons, 3D flip card fix, appropriate sizing per breakpoint
-
-### Session - Apr 2026 (Chase Pack Auto-Sales Monitor + Buyer Messaging)
-- **Background Sales Monitor**: Polls eBay every 60 seconds for new Chase Pack transactions
-- **eBay Buyer Messaging**: Uses `AddMemberMessageAAQToPartner` Trading API
-- **"Check Sales" button** + **"Auto-monitor active" indicator**
-
-### Session - Apr 2026 (Chase Pack Creation Wizard)
-- **3-Step Wizard**: Select Cards → Set Tiers → Details & Create
-- Auto-pricing calculation logic prioritizing `card_value` + 30% profit + 13% eBay fees
-
-### Session - Apr 2026 (Collage Grid Fix)
-- **All collage functions updated to 2 cards per row** for cleaner eBay preview images
-- Updated: `create_chase_tier_image()`, `create_chase_collage()` in `image.py`
+### Session - Apr 2026 (Chase Pack eBay Fixes + Store/Marketplace Feature)
+- **Fixed eBay image upload**: Switched from raw binary to multipart/form-data helper
+- **3 tier collages uploaded**: Chase, Mid, Base tier images + individual card photos (up to 12)
+- **Rich HTML description**: Detailed explanation of how Chase Pack works, wrapped in CDATA
+- **Fixed ConditionDescriptors**: Correct Name/Value XML format (was using wrong tags)
+- **Added missing eBay fields**: CategoryMappingAllowed, PostalCode, Location, currencyID
+- **Collage grid**: 2 cards per row in all collage functions
+- **Buyer message updated**: Full reveal URL for easy copy-paste
+- **Frontend sends tiers** to backend at creation time
+- **Store Chase Pack Banner**: Hero banner in ShopPage showing featured active pack with progress bar
+- **Marketplace Chase Packs Section**: Horizontal scroll of chase pack cards with images, prices, spots remaining
+- **Public API endpoints**: `GET /api/shop/{slug}/chase-packs` and `GET /api/marketplace/chase-packs`
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
@@ -143,5 +129,13 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - `inventory`: image, thumbnail, store_thumbnail, back_image, back_thumbnail, year, set_name, variation, player, sport, team, grading_company, ebay_item_id
 - `listings_cache`: user_id, active (array), sold (array), active_total, sold_total, cached_at
 - `subscriptions`: user_id, plan_id (rookie|mvp|hall_of_famer), status
-- `chase_packs`: pack_id, user_id, ebay_item_id, title, price, total_spots, cards (array with claim_code, assigned_to, revealed, tier), status, created_at
+- `chase_packs`: pack_id, user_id, ebay_item_id, title, price, total_spots, cards (array with claim_code, assigned_to, revealed, tier, is_chase), status, created_at
 - `card_analyses`: user_id, card_name, created_at (AI analysis records)
+
+## Key API Endpoints
+- `POST /api/ebay/sell/create-chase-pack` — Create and list chase pack on eBay
+- `POST /api/ebay/sell/chase-preview` — Generate 3 tier collage previews
+- `POST /api/ebay/chase/{pack_id}/assign` — Manually assign buyer to spot
+- `POST /api/ebay/chase/{pack_id}/reveal` — Public: buyer reveals card with code
+- `GET /api/shop/{slug}/chase-packs` — Public: active chase packs for a store
+- `GET /api/marketplace/chase-packs` — Public: all active chase packs

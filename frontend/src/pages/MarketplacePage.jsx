@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   Store, Search, Filter, X, Package, ShoppingCart, Tag,
   ChevronDown, RotateCcw, Crown, Star, Shield, Award,
-  ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Users, Sparkles
+  ChevronLeft, ChevronRight, ExternalLink, TrendingUp, Users, Sparkles, Flame, Zap
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -284,9 +285,76 @@ const MarketCardModal = ({ item, items, onNavigate, onClose }) => {
 };
 
 
+// =========== CHASE PACK CARD (Marketplace) ===========
+const ChasePackCard = ({ pack, index }) => {
+  const navigate = useNavigate();
+  const imgSrc = pack.chase_card_image ? `data:image/jpeg;base64,${pack.chase_card_image}` : null;
+  const progress = pack.total_spots > 0 ? ((pack.spots_claimed / pack.total_spots) * 100) : 0;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: index * 0.1 }}
+      onClick={() => navigate(`/chase/${pack.pack_id}`)}
+      className="group relative shrink-0 w-64 sm:w-72 bg-gradient-to-b from-amber-950/30 to-[#0a0a0a] rounded-2xl overflow-hidden cursor-pointer border border-amber-500/20 hover:border-amber-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-amber-500/10"
+      data-testid={`marketplace-chase-pack-${index}`}
+    >
+      {/* Card image */}
+      <div className="relative aspect-[3/4] overflow-hidden bg-[#080808]">
+        {imgSrc ? (
+          <img src={imgSrc} alt={pack.chase_card_player} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <Flame className="w-12 h-12 text-amber-800" />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+
+        {/* Badge */}
+        <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/90 backdrop-blur-sm">
+          <Flame className="w-3 h-3 text-black" />
+          <span className="text-[9px] font-black text-black uppercase tracking-wider">Chase Pack</span>
+        </div>
+
+        {/* Price badge */}
+        <div className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-full bg-black/70 backdrop-blur-sm border border-white/10">
+          <span className="text-xs font-black text-white">${parseFloat(pack.price).toFixed(2)}</span>
+          <span className="text-[9px] text-gray-400">/spot</span>
+        </div>
+
+        {/* Bottom info overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-3">
+          <p className="text-sm font-black text-white leading-tight truncate">{pack.title}</p>
+          {pack.chase_card_player && (
+            <p className="text-[10px] text-amber-300 mt-0.5">Chase: {pack.chase_card_player}</p>
+          )}
+          {pack.seller_name && (
+            <p className="text-[10px] text-gray-500 mt-0.5">by {pack.seller_name}</p>
+          )}
+
+          {/* Progress */}
+          <div className="mt-2">
+            <div className="flex justify-between text-[9px] mb-0.5">
+              <span className="text-gray-500">{pack.spots_remaining} spots left</span>
+              <span className="text-amber-400 font-bold">{Math.round(progress)}%</span>
+            </div>
+            <div className="h-1 bg-white/[0.06] rounded-full overflow-hidden">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-500"
+                style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+
 // =========== MAIN MARKETPLACE PAGE ===========
 const MarketplacePage = () => {
   const [items, setItems] = useState([]);
+  const [chasePacks, setChasePacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [sportFilter, setSportFilter] = useState('all');
@@ -309,11 +377,15 @@ const MarketplacePage = () => {
       if (search) params.set('search', search);
       params.set('sort', sortBy);
 
-      const res = await axios.get(`${API}/api/marketplace?${params.toString()}`);
+      const [res, chaseRes] = await Promise.all([
+        axios.get(`${API}/api/marketplace?${params.toString()}`),
+        axios.get(`${API}/api/marketplace/chase-packs`).catch(() => ({ data: { chase_packs: [] } })),
+      ]);
       setItems(res.data.items || []);
       setTotal(res.data.total || 0);
       if (res.data.sports) setAvailableSports(res.data.sports);
       if (res.data.sellers) setAvailableSellers(res.data.sellers);
+      setChasePacks(chaseRes.data.chase_packs || []);
     } catch (err) {
       console.error('Marketplace fetch error:', err);
     } finally {
@@ -371,6 +443,24 @@ const MarketplacePage = () => {
           </motion.div>
         </div>
       </header>
+
+      {/* Chase Packs Featured Section */}
+      {chasePacks.length > 0 && (
+        <div className="border-b border-amber-500/10 bg-gradient-to-b from-amber-950/10 to-transparent" data-testid="marketplace-chase-section">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Flame className="w-4 h-4 text-amber-400" />
+              <h2 className="text-sm font-black text-white uppercase tracking-wider">Chase Packs</h2>
+              <span className="text-[10px] text-amber-400/60 font-bold ml-1">{chasePacks.length} active</span>
+            </div>
+            <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+              {chasePacks.map((pack, idx) => (
+                <ChasePackCard key={pack.pack_id} pack={pack} index={idx} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Search + Filters Bar */}
       <div className="sticky top-0 z-20 border-b border-white/[0.04] bg-[#050505]/80 backdrop-blur-xl">

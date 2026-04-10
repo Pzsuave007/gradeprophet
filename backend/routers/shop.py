@@ -301,3 +301,38 @@ async def get_public_shop(slug: str):
         },
         "items": items,
     }
+
+
+
+@router.get("/{slug}/chase-packs")
+async def get_shop_chase_packs(slug: str):
+    """Public endpoint — returns active chase packs for a store."""
+    settings = await db.user_settings.find_one({"shop_slug": slug.lower()}, {"_id": 0})
+    if not settings:
+        raise HTTPException(status_code=404, detail="Shop not found")
+
+    user_id = settings.get("user_id")
+    packs = await db.chase_packs.find(
+        {"user_id": user_id, "status": "active"},
+        {"_id": 0, "user_id": 0}
+    ).to_list(20)
+
+    result = []
+    for p in packs:
+        chase_card = next((c for c in p.get("cards", []) if c.get("is_chase") or c.get("tier") == "chase"), None)
+        claimed = sum(1 for c in p.get("cards", []) if c.get("assigned_to"))
+        total = p.get("total_spots", len(p.get("cards", [])))
+        result.append({
+            "pack_id": p["pack_id"],
+            "title": p.get("title", "Chase Pack"),
+            "price": p.get("price", 0),
+            "total_spots": total,
+            "spots_claimed": claimed,
+            "spots_remaining": total - claimed,
+            "chase_card_image": chase_card.get("image", "") if chase_card else "",
+            "chase_card_player": chase_card.get("player", "") if chase_card else "",
+            "ebay_item_id": p.get("ebay_item_id", ""),
+            "created_at": p.get("created_at", ""),
+        })
+
+    return {"chase_packs": result}
