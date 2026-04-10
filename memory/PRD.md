@@ -118,6 +118,16 @@ FlipSlab Engine is a card management and selling platform for sports card collec
   - Compact spacing on mobile (smaller padding, smaller spot tracker slots)
 - Frontend compiled with `build_prod.sh`
 
+### Session - Apr 2026 (Chase Pack Creation Wizard)
+- **"New Pack" button** added to Chase Packs module header
+- **3-Step Wizard**: Select Cards → Set Tiers → Details & Create
+  - Step 1: Grid of unlisted inventory cards with search, click to select/deselect, minimum 10 cards
+  - Step 2: Tap cards to cycle tier (Base → Mid → Chaser), shows tier summary counts
+  - Step 3: Auto-generated title, price/spot, shipping options, summary box, "Create & List on eBay" button
+- Auto-assigns first card as Chaser, rest as Base by default
+- Calls existing `/sell/create-chase-pack` + `/update-tiers` endpoints
+- Frontend compiled with `build_prod.sh`
+
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration

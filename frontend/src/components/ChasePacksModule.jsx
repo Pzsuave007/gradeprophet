@@ -619,11 +619,328 @@ const PackDetailView = ({ packId, onBack }) => {
   );
 };
 
+// ===== CREATE PACK WIZARD =====
+const CreatePackWizard = ({ onBack, onCreated }) => {
+  const [step, setStep] = useState(1);
+  const [inventory, setInventory] = useState([]);
+  const [loadingInv, setLoadingInv] = useState(true);
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState([]); // array of card objects
+  const [tiers, setTiers] = useState({}); // { card_id: 'chase'|'mid'|'low' }
+  const [title, setTitle] = useState('');
+  const [price, setPrice] = useState('5.00');
+  const [shipping, setShipping] = useState('USPSFirstClass');
+  const [shippingCost, setShippingCost] = useState('4.50');
+  const [creating, setCreating] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/api/inventory?listed=false&limit=500`, { withCredentials: true });
+        setInventory(res.data.items || []);
+      } catch { toast.error('Failed to load inventory'); }
+      finally { setLoadingInv(false); }
+    })();
+  }, []);
+
+  const toggleCard = (card) => {
+    setSelected(prev => {
+      const exists = prev.find(c => c.id === card.id);
+      if (exists) return prev.filter(c => c.id !== card.id);
+      return [...prev, card];
+    });
+  };
+
+  const isSelected = (cardId) => selected.some(c => c.id === cardId);
+  const chaseCount = Object.values(tiers).filter(t => t === 'chase').length;
+  const filtered = inventory.filter(c => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (c.player || '').toLowerCase().includes(q) || (c.card_name || '').toLowerCase().includes(q) || (c.set_name || '').toLowerCase().includes(q);
+  });
+
+  const setTier = (cardId, tier) => setTiers(prev => ({ ...prev, [cardId]: tier }));
+
+  const goStep2 = () => {
+    if (selected.length < 10) { toast.error('Select at least 10 cards'); return; }
+    // Auto-assign default tiers
+    const defaultTiers = {};
+    selected.forEach((c, i) => { defaultTiers[c.id] = i === 0 ? 'chase' : 'low'; });
+    setTiers(defaultTiers);
+    // Auto-generate title from first chase card
+    if (!title) setTitle(`${selected[0]?.player || 'Mystery'} Chase Pack`);
+    setStep(2);
+  };
+
+  const goStep3 = () => {
+    if (chaseCount < 1) { toast.error('Pick at least 1 Chaser card'); return; }
+    setStep(3);
+  };
+
+  const handleCreate = async () => {
+    if (!title.trim()) { toast.error('Title is required'); return; }
+    if (parseFloat(price) < 1) { toast.error('Price must be at least $1'); return; }
+    setCreating(true);
+    try {
+      const chaseCardId = Object.entries(tiers).find(([, t]) => t === 'chase')?.[0] || selected[0].id;
+      // Update tiers on each card before sending
+      const cardIds = selected.map(c => c.id);
+      const res = await axios.post(`${API}/api/ebay/sell/create-chase-pack`, {
+        card_ids: cardIds,
+        chase_card_id: chaseCardId,
+        title: title.trim(),
+        price: parseFloat(price),
+        shipping_option: shipping,
+        shipping_cost: parseFloat(shippingCost),
+        description: `Chase Card Pack! ${selected.length} spots available. Each spot reveals a random card. Can you pull the CHASER?`,
+      }, { withCredentials: true });
+      if (res.data.success) {
+        toast.success(`Pack created! Listed on eBay`);
+        // Save tiers to the new pack
+        if (res.data.pack_id) {
+          await axios.post(`${API}/api/ebay/chase/${res.data.pack_id}/update-tiers`, {
+            tiers: Object.entries(tiers).map(([card_id, tier]) => ({ card_id, tier })),
+          }, { withCredentials: true }).catch(() => {});
+        }
+        onCreated();
+      } else {
+        toast.error(res.data.error || 'Failed to create pack');
+      }
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to create pack'); }
+    finally { setCreating(false); }
+  };
+
+  const tierCycle = ['low', 'mid', 'chase'];
+  const cycleTier = (cardId) => {
+    const cur = tiers[cardId] || 'low';
+    const next = tierCycle[(tierCycle.indexOf(cur) + 1) % 3];
+    setTier(cardId, next);
+  };
+
+  return (
+    <div className="p-4 sm:p-6" data-testid="create-pack-wizard">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-5">
+        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-[#111] transition-colors" data-testid="wizard-back">
+          <ChevronLeft className="w-5 h-5 text-gray-400" />
+        </button>
+        <div className="flex-1">
+          <h1 className="text-lg font-black text-white">New Chase Pack</h1>
+          <p className="text-[10px] text-gray-500">Step {step} of 3</p>
+        </div>
+      </div>
+
+      {/* Step indicators */}
+      <div className="flex gap-2 mb-6">
+        {['Select Cards', 'Set Tiers', 'Details'].map((label, i) => (
+          <div key={i} className={`flex-1 text-center py-2 rounded-lg text-[10px] font-bold transition-all ${
+            step === i + 1 ? 'bg-[#f59e0b]/10 text-[#f59e0b] border border-[#f59e0b]/30' :
+            step > i + 1 ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+            'bg-[#111] text-gray-600 border border-white/[0.04]'
+          }`}>
+            {step > i + 1 ? <Check className="w-3 h-3 inline mr-1" /> : null}{label}
+          </div>
+        ))}
+      </div>
+
+      {/* STEP 1: Select Cards */}
+      {step === 1 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3">
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search cards..."
+              className="flex-1 bg-[#111] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#f59e0b]/40"
+              data-testid="wizard-search" />
+            <span className={`text-sm font-bold shrink-0 ${selected.length >= 10 ? 'text-emerald-400' : 'text-gray-500'}`}>
+              {selected.length} selected
+            </span>
+          </div>
+
+          {loadingInv ? (
+            <div className="flex justify-center py-16"><RefreshCw className="w-6 h-6 animate-spin text-[#f59e0b]" /></div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center py-16 text-gray-500 text-sm">No unlisted cards found in inventory</p>
+          ) : (
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2" data-testid="wizard-card-grid">
+              {filtered.map(card => {
+                const thumb = card.store_thumbnail || card.thumbnail || '';
+                const sel = isSelected(card.id);
+                return (
+                  <button key={card.id} onClick={() => toggleCard(card)}
+                    className={`relative rounded-xl overflow-hidden border-2 transition-all ${
+                      sel ? 'border-[#f59e0b] ring-2 ring-[#f59e0b]/30 scale-[0.97]' : 'border-transparent hover:border-white/[0.15]'
+                    }`} data-testid={`wizard-card-${card.id}`}>
+                    {thumb ? (
+                      <img src={`data:image/jpeg;base64,${thumb}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
+                    ) : (
+                      <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
+                        <Package className="w-6 h-6 text-gray-700" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-1.5 pt-6">
+                      <p className="text-[9px] font-bold text-white truncate">{card.player || card.card_name}</p>
+                      <p className="text-[8px] text-gray-400 truncate">{card.year} {card.set_name}</p>
+                    </div>
+                    {sel && (
+                      <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#f59e0b] flex items-center justify-center">
+                        <Check className="w-3 h-3 text-black" />
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="sticky bottom-0 pt-4 bg-[#0a0a0a]">
+            <button onClick={goStep2} disabled={selected.length < 10}
+              className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm disabled:opacity-40 transition-all"
+              data-testid="wizard-next-step2">
+              Continue with {selected.length} Cards {selected.length < 10 ? `(need ${10 - selected.length} more)` : ''}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 2: Set Tiers */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <p className="text-xs text-gray-400">Tap a card to cycle its tier. You need at least <span className="text-[#f59e0b] font-bold">1 Chaser</span>.</p>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3" data-testid="wizard-tier-grid">
+            {selected.map(card => {
+              const tier = tiers[card.id] || 'low';
+              const t = TIER_OPTS.find(o => o.value === tier) || TIER_OPTS[2];
+              const TIcon = t.icon;
+              const thumb = card.store_thumbnail || card.thumbnail || '';
+              return (
+                <button key={card.id} onClick={() => cycleTier(card.id)}
+                  className={`relative rounded-xl overflow-hidden border-2 ${t.border} transition-all hover:scale-[0.97]`}
+                  data-testid={`wizard-tier-${card.id}`}>
+                  {thumb ? (
+                    <img src={`data:image/jpeg;base64,${thumb}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
+                  ) : (
+                    <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
+                      <Package className="w-6 h-6 text-gray-700" />
+                    </div>
+                  )}
+                  <div className="absolute top-2 left-2">
+                    <span className={`inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full text-white ${t.badge}`}>
+                      <TIcon className="w-2.5 h-2.5" /> {t.label.toUpperCase()}
+                    </span>
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent p-2 pt-6">
+                    <p className="text-[10px] font-bold text-white truncate">{card.player || card.card_name}</p>
+                    <p className="text-[8px] text-gray-500">Tap to change tier</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tier summary */}
+          <div className="flex gap-3 text-xs">
+            {TIER_OPTS.map(t => {
+              const count = Object.values(tiers).filter(v => v === t.value).length;
+              return (
+                <span key={t.value} className={`${t.color} font-bold`}>
+                  {count} {t.label}
+                </span>
+              );
+            })}
+          </div>
+
+          <div className="flex gap-3 sticky bottom-0 pt-4 bg-[#0a0a0a]">
+            <button onClick={() => setStep(1)} className="px-6 py-3 rounded-xl bg-[#111] border border-white/[0.08] text-gray-400 text-sm font-bold">
+              Back
+            </button>
+            <button onClick={goStep3} disabled={chaseCount < 1}
+              className="flex-1 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm disabled:opacity-40 transition-all"
+              data-testid="wizard-next-step3">
+              Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 3: Details & Create */}
+      {step === 3 && (
+        <div className="space-y-5 max-w-lg">
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1.5">Pack Title</label>
+            <input value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Kobe Bryant Chase Pack"
+              className="w-full bg-[#111] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white font-bold outline-none focus:border-[#f59e0b]/40"
+              data-testid="wizard-title" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1.5">Price per Spot</label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">$</span>
+                <input type="number" value={price} onChange={e => setPrice(e.target.value)} min="1" step="0.01"
+                  className="w-full bg-[#111] border border-white/[0.08] rounded-xl pl-8 pr-4 py-3 text-sm text-white font-bold outline-none focus:border-[#f59e0b]/40"
+                  data-testid="wizard-price" />
+              </div>
+            </div>
+            <div>
+              <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1.5">Shipping</label>
+              <select value={shipping} onChange={e => setShipping(e.target.value)}
+                className="w-full bg-[#111] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-[#f59e0b]/40"
+                data-testid="wizard-shipping">
+                <option value="FreeShipping">Free Shipping</option>
+                <option value="PWEEnvelope">PWE Envelope</option>
+                <option value="USPSFirstClass">USPS First Class</option>
+                <option value="USPSPriority">USPS Priority</option>
+              </select>
+            </div>
+          </div>
+          {shipping !== 'FreeShipping' && (
+            <div>
+              <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1.5">Shipping Cost</label>
+              <div className="relative">
+                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-bold">$</span>
+                <input type="number" value={shippingCost} onChange={e => setShippingCost(e.target.value)} min="0" step="0.50"
+                  className="w-full bg-[#111] border border-white/[0.08] rounded-xl pl-8 pr-4 py-3 text-sm text-white font-bold outline-none focus:border-[#f59e0b]/40"
+                  data-testid="wizard-shipping-cost" />
+              </div>
+            </div>
+          )}
+
+          {/* Summary */}
+          <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4 space-y-2">
+            <p className="text-xs font-bold text-white">Summary</p>
+            <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
+              <span className="text-gray-500">Cards</span><span className="text-white font-bold text-right">{selected.length}</span>
+              <span className="text-gray-500">Spots</span><span className="text-white font-bold text-right">{selected.length}</span>
+              <span className="text-gray-500">Price/spot</span><span className="text-white font-bold text-right">${parseFloat(price || 0).toFixed(2)}</span>
+              <span className="text-gray-500">Total if sold out</span><span className="text-emerald-400 font-bold text-right">${(selected.length * parseFloat(price || 0)).toFixed(2)}</span>
+              <span className="text-gray-500">Chasers</span><span className="text-[#f59e0b] font-bold text-right">{chaseCount}</span>
+              <span className="text-gray-500">Mid</span><span className="text-[#3b82f6] font-bold text-right">{Object.values(tiers).filter(t => t === 'mid').length}</span>
+              <span className="text-gray-500">Base</span><span className="text-gray-400 font-bold text-right">{Object.values(tiers).filter(t => t === 'low').length}</span>
+            </div>
+          </div>
+
+          <div className="flex gap-3 sticky bottom-0 pt-4 bg-[#0a0a0a]">
+            <button onClick={() => setStep(2)} className="px-6 py-3.5 rounded-xl bg-[#111] border border-white/[0.08] text-gray-400 text-sm font-bold">
+              Back
+            </button>
+            <button onClick={handleCreate} disabled={creating || !title.trim()}
+              className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm disabled:opacity-50 transition-all flex items-center justify-center gap-2"
+              data-testid="wizard-create-btn">
+              {creating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Creating...</> : <><Flame className="w-4 h-4" /> Create & List on eBay</>}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ===== MAIN MODULE =====
 const ChasePacksModule = () => {
   const [packs, setPacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPackId, setSelectedPackId] = useState(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const fetchPacks = useCallback(async () => {
     setLoading(true);
@@ -639,6 +956,10 @@ const ChasePacksModule = () => {
 
   useEffect(() => { fetchPacks(); }, [fetchPacks]);
 
+  if (showCreate) {
+    return <CreatePackWizard onBack={() => setShowCreate(false)} onCreated={() => { setShowCreate(false); fetchPacks(); }} />;
+  }
+
   if (selectedPackId) {
     return <PackDetailView packId={selectedPackId} onBack={() => { setSelectedPackId(null); fetchPacks(); }} />;
   }
@@ -652,10 +973,17 @@ const ChasePacksModule = () => {
           </h1>
           <p className="text-xs text-gray-500 mt-0.5">Manage your Chase Card Pack listings</p>
         </div>
-        <button onClick={fetchPacks} disabled={loading}
-          className="p-2 rounded-lg hover:bg-[#111] transition-colors" data-testid="refresh-packs">
-          <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setShowCreate(true)}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-black hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
+            data-testid="new-pack-btn">
+            <Flame className="w-3.5 h-3.5" /> New Pack
+          </button>
+          <button onClick={fetchPacks} disabled={loading}
+            className="p-2 rounded-lg hover:bg-[#111] transition-colors" data-testid="refresh-packs">
+            <RefreshCw className={`w-4 h-4 text-gray-400 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
