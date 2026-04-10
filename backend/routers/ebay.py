@@ -2417,23 +2417,55 @@ async def get_chase_pack(pack_id: str):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
-    # Return cards but hide claim codes and assignment details
-    # IMPORTANT: Don't reveal which cards are claimed until ALL spots are sold
+    # Calculate tiers by value: Chase 10%, Mid 30%, Low 60%
+    cards_list = pack.get("cards", [])
+    n = len(cards_list)
+
+    # Get card values from inventory
+    card_values = {}
+    for c in cards_list:
+        inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1, "purchase_price": 1})
+        val = 0
+        if inv:
+            val = float(inv.get("card_value") or inv.get("listed_price") or inv.get("purchase_price") or 0)
+        card_values[c["card_id"]] = val
+
+    # Sort by value descending
+    sorted_cards = sorted(cards_list, key=lambda x: card_values.get(x["card_id"], 0), reverse=True)
+    chase_count = max(1, round(n * 0.10))
+    mid_count = max(1, round(n * 0.30))
+    # rest is low
+
+    tier_map = {}
+    for i, c in enumerate(sorted_cards):
+        if i < chase_count:
+            tier_map[c["card_id"]] = "chase"
+        elif i < chase_count + mid_count:
+            tier_map[c["card_id"]] = "mid"
+        else:
+            tier_map[c["card_id"]] = "low"
+
+    # Build public cards - ALWAYS show images (they're on the eBay listing anyway)
+    # NEVER show who has which card until all spots are sold
     public_cards = []
-    for c in pack.get("cards", []):
+    for c in cards_list:
         card_info = {
             "player": c["player"],
             "year": c["year"],
             "set_name": c["set_name"],
             "variation": c["variation"],
             "is_chase": c["is_chase"],
+            "image": c.get("image", ""),
+            "tier": tier_map.get(c["card_id"], "low"),
+            "value": card_values.get(c["card_id"], 0),
         }
-        # Only show assigned_to and images when ALL spots are sold
         if pack.get("all_revealed"):
             card_info["assigned_to"] = c.get("assigned_to", "")
-            card_info["image"] = c.get("image", "")
-            card_info["revealed"] = True
         public_cards.append(card_info)
+
+    # Sort for display: chase first, then mid, then low
+    tier_order = {"chase": 0, "mid": 1, "low": 2}
+    public_cards.sort(key=lambda x: (tier_order.get(x["tier"], 2), -x["value"]))
 
     return {
         "pack_id": pack["pack_id"],
@@ -2444,6 +2476,7 @@ async def get_chase_pack(pack_id: str):
         "all_revealed": pack.get("all_revealed", False),
         "cards": public_cards,
         "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
+        "tiers": {"chase": chase_count, "mid": mid_count, "low": n - chase_count - mid_count},
     }
 
 
