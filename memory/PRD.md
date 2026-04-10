@@ -134,10 +134,15 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - Production URL is `https://flipslabengine.com`
 - Read `/app/AGENT_RULES.md` before making any changes
 
+### Session - Apr 2026 (Chase Packs Management Tab)
+- **ChasePacksModule wired into Dashboard**: Added as new sidebar tab with Flame icon
+- Pack list view with stats (Active Packs, Spots Sold, Revenue, Completed)
+- Pack detail view with progress bar, buyer assignment, claim code management
+- Full integration with backend endpoints (`GET /api/ebay/chase-packs`, `POST /api/ebay/chase/{pack_id}/assign`)
+
 ## Next Priority
-- **P0:** Chase Pack testing in production (user to test with real eBay listing)
-- **P1:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
-- **P2:** Whatnot & Shopify Integration
+- **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
+- **P1:** Whatnot & Shopify Integration
 
 ## Future/Backlog
 - P2: Seller Hub Features (Sales Dashboard, Order Management, Best Offer Manager)

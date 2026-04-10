@@ -1,12 +1,105 @@
 <analysis>**original_problem_statement**: 
-The user wanted to optimize  and  load times by stripping heavy base64 images and using thumbnails, and caching eBay listings. Additionally, the user requested an auto-crop feature for images uploaded via their physical Card Scanner () to automatically remove the edges of semi-rigid card holders. The auto-crop should *only* trim edges, without removing backgrounds or adding colored frames. During the session, the user also requested a Bulk Apply Preset feature for inventory items, better thumbnail resolutions, and fixes for the manual photo editor.
+The user wanted to optimize eBay listings for Cassini SEO, manage eBay Promoted Listings Standard, and requested an Admin Panel fix. Following that, they requested a new Create Lot feature, a Pick Your Card (Multi-variation listing) feature, and a Store Promotions / Bulk Savings feature.
+NEW REQUIREMENT: The user requested a Chase Card Pack feature (similar to Arena Club's digital packs but compliant with eBay's chance listing rules). The seller selects 10+ cards, lists them as a Chase Pack on eBay, and buyers use a claim code on FlipSlab to reveal their specific card via an animated, 3-tier visual experience (Chaser, Mid Tier, Base). The user also requested a dedicated Dashboard tab to manage these Chase Packs.
 
 PRODUCT REQUIREMENTS:
-- Fast loading Inventory/Listings using thumbnails and .
-- Auto-crop scanner uploads using edge detection (no background removal) with a ~40px margin.
-- Bulk preset application in the Inventory page.
-- High-resolution thumbnails in the grid.
-- **CRITICAL**: Frontend must ALWAYS be built using Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
+- Populate eBay Item Specifics for better Cassini SEO ranking.
+- Manage eBay Promoted Listings Standard & Store Promotions.
+- Create Lot and Pick Your Card Features.
+- Chase Card Pack Feature: Select 10+ cards, auto-generate a pricing suggestion and a collage, and list on eBay. 
+- Chase Reveal Page: A public page where buyers input a claim code to reveal their card with an animated 3-tier layout (Chaser, Mid Tier, Base).
+- Chase Packs Module: A dedicated tab in the main Dashboard to manage active Chase Packs, view spots claimed, and assign buyers.
+- Permanent fix for Admin Login breaking across forks.
+
+**User's preferred language**: Spanish (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. The user primarily speaks Spanish).
+
+**what currently exists?** 
+A mature React + FastAPI + MongoDB card management and eBay listing application. It features automated AI cropping, bulk listing actions, expanded Item Specifics SEO, Promoted Listings, Create Lot, Pick Your Card, and Store Promotions. It now also includes a complete Chase Card Pack creation and public reveal flow with high-quality animations and 3-tier visual hierarchy. The admin login issues have been permanently fixed via a startup validation script.
+
+**Last working item**:
+    - Last item agent was working: Creating the Chase Packs management tab. The agent successfully created  but hasn't yet wired it into the main  sidebar and routing.
+    - Status: IN PROGRESS
+    - Agent Testing Done: N (File just created, not yet rendered)
+    - Which testing method agent to use? Frontend testing agent or screenshot tool.
+    - User Testing Done: N
+
+**All Pending/In progress Issue list**:  
+  Issue 1: Wire  into the Dashboard
+     - Attempted fixes: The agent just created .
+     - Next debug checklist: Edit  to import , add it to the  array (with an icon like  or ), and add it to the  switch statement. 
+     - Why fix this issue and what will be achieved with the fix? The user requested a dedicated tab to manage all details of their Chase Digital Packs.
+     - Status: IN PROGRESS
+     - Is recurring issue? N
+     - Should Test frontend/backend/both after fix? Frontend.
+
+**In progress Task List**:
+  Task 1: Complete Chase Packs Management UI
+     - Where to resume: Integrate  into . Ensure the module correctly fetches from the backend, displays active/ended packs, and allows the seller to assign buyers and retrieve claim codes.
+     - What will be achieved with this? Gives the seller full control over their Chase Packs in one centralized view.
+     - Status: IN PROGRESS
+     - Should Test frontend/backend/both after fix? Both (verify API endpoints load correctly in the new UI).
+
+**Upcoming and Future Tasks**
+    Upcoming Tasks:
+    - P0: Stripe Production Integration (Update Stripe Dashboard products to match the new plans: Rookie, MVP 4.99, and Hall of Famer 9.99).
+    - P1: Whatnot & Shopify Integration.
+    Future Tasks:
+    - P2: Chase Pack Phase 2 - Direct Purchase on FlipSlab (Stripe direct buys for Chase Packs, bypassing eBay entirely).
+    - P3: Seller Hub Features (Dashboard de Ventas, Order Management, Best Offer Manager).
+    - P4: New User Onboarding (Setup wizard).
+    - P5: Flip Finder Core Logic Enhancements.
+    - P6: Windows Scanner App.
+    - P7: Team Access (Legend tier).
+    - P8: Refactor  &  (High priority tech debt).
+
+**Completed work in this session**
+- Built Store Promotions UI to list, pause, and delete active promotions (DONE)
+- Fixed Admin Login Permanently: Added  in  startup to force-reset the hash if it breaks across forks (DONE)
+- Created  and fixed  to ensure frontend is ALWAYS built with the correct production URL instead of Emergent's preview URL (DONE)
+- Implemented Dev Token () created at server startup to allow backend testing without touching Google Auth (DONE)
+- Fixed eBay End Listing bug: Ending a listing now successfully returns items (both single and lots) to the inventory as  and  using  (DONE)
+- Built Chase Card Pack Feature: Backend collage generator, price suggestion, eBay listing payload (DONE)
+- Built Chase Reveal Page: A visually stunning public page () with 3 tiers (Chaser, Mid, Base), full-quality images, spinning animation, and post-reveal share/purchase actions (DONE)
+
+**Earlier issues found/mentioned but not fixed**
+   None.
+
+**Known issue recurrence from previous fork**
+  - Issue recurrence in previous fork: Admin login hash getting corrupted/outdated in new fork databases.
+  - Recurrence count: 10+
+  - Status: RESOLVED (A startup script now checks and corrects the admin hash automatically on every boot. A dev token was also added for agent testing).
+
+**Code Architecture**
+/app/
+├── backend/
+│   ├── routers/
+│   │   ├── ebay.py             // Contains standard listings, Lots, Pick Your Card, Store Promotions, and new CHASE PACK endpoints
+│   │   ├── shop.py             // Public shop routes
+│   ├── utils/
+│   │   └── image.py            // Collage generators (updated for Chase Packs)
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── InventoryModule.jsx         // Added Create Chase Pack button
+│   │   │   ├── CreateChasePackView.jsx     // Full page view for Chase Pack creation
+│   │   │   ├── ChasePacksModule.jsx        // NEW: Management tab for Chase Packs (Needs wiring)
+│   │   ├── pages/
+│   │   │   ├── Dashboard.jsx               // Main wrapper (Needs update for ChasePacksModule)
+│   │   │   ├── ChaseRevealPage.jsx         // Public animated reveal page
+
+**Key Technical Concepts**
+- React frontend, FastAPI backend, MongoDB.
+- **Chase Pack Architecture**: To comply with eBay policies, Chase Packs are listed on eBay showing *all* cards. The buyer purchases a spot, the seller assigns them in FlipSlab (generating a ), and the buyer visits FlipSlab to reveal their specific card.
+
+**key DB schema**
+  - : Stores .
+
+**changes in tech stack**
+  - None
+
+**All files of reference**
+  -  (CRITICAL: Rules for building and testing)
+  - Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
 yarn run v1.22.22
 $ craco build
 Creating an optimized production build...
@@ -14,7 +107,7 @@ Compiled with warnings.
 
 [eslint] 
 src/components/AccountModule.jsx
-  Line 67:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 68:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/AuctionSniper.jsx
   Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
@@ -27,26 +120,26 @@ src/components/HistoryPanel.jsx
   Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/InventoryModule.jsx
-  Line 1332:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 1334:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  Line 1338:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1340:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
 
 src/components/ListingsModule.jsx
-  Line 95:6:   React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
-  Line 116:6:  React Hook useEffect has missing dependencies: 'listing.item_id' and 'listing.title'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 123:6:  React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  Line 144:6:  React Hook useEffect has missing dependencies: 'listing.item_id' and 'listing.title'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
-src/pages/ShopPage.jsx
-  Line 390:6:  React Hook useEffect has a missing dependency: 'item.store_thumbnail'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+src/pages/ChaseRevealPage.jsx
+  Line 25:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  396.73 kB  build/static/js/main.3dc8bd16.js
-  17.95 kB   build/static/css/main.9d9d3ab3.css
+  413.35 kB         build/static/js/main.cefbc503.js
+  19.14 kB (+40 B)  build/static/css/main.89200ec1.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -61,181 +154,122 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 18.84s.
-Build complete. Ready for deploy. to enforce the production URL. User tests by pulling from Github and running ============================================
-  FlipSlab Engine - Deploy Fix
-============================================
-
-[1/5] Git pull...
-  OK
-[2/5] Backend dependencies...
-  OK
-[3/5] Backend files...
-  OK
-[4/5] Frontend (pre-built, NO compile)...
-  OK
-[5/5] Reiniciando backend...
-  API: OK
-
-============================================
-  LISTO! Abre flipslabengine.com con Ctrl+Shift+R
-============================================ on their VPS.
-
-**User's preferred language**: Spanish (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in Spanish only)
-
-**what currently exists?** 
-A mature card management system with optimized Inventory/Listings. The backend includes a robust  pipeline in  that now uses a hybrid of Canny Edge Detection and Variance analysis to find card boundaries inside semi-rigid holders, applying a 40px margin. The  features multi-select bulk actions, including a new Apply Preset panel. Thumbnails (, ) are generated at high resolutions (600px, 300px) for crisp grid rendering. The manual Photo Editor instantly refreshes the UI after a crop or undo without overriding user edits.
-
-**Last working item**:
-- Last item agent was working: Fixing the auto-crop logic for full-color borderless cards (like Hoops). The previous Canny Edge implementation was mistakenly detecting the inner player photo instead of the card's physical edge. The agent updated  to calculate both a Canny bounding box and a Variance bounding box, and select the *largest* one (since the card edge is always larger than inner art), then apply the 40px margin.
-- Status: USER VERIFICATION PENDING
-- Agent Testing Done: Y
-- Which testing method agent to use? backend manual testing via  to verify bounding boxes.
-- User Testing Done: N (The user needs to test the fix with their physical scanner by pulling the latest code to their server).
-
-**All Pending/In progress Issue list**: 
-None active. Awaiting user verification on the latest auto-crop fix.
-
-**In progress Task List**:
-NONE
-
-**Upcoming and Future Tasks**:
-Upcoming Tasks:
-- P0: Stripe Production Integration (Update Stripe Dashboard products to match the new Rookie, MVP 4.99, and Hall of Famer 9.99 plans).
-- P1: Whatnot & Shopify Integration.
-
-Future Tasks:
-- P2: Seller Hub Features (Dashboard de Ventas, Order Management, Best Offer Manager).
-- P3: Direct Purchase on FlipSlab (Stripe direct buys).
-- P4: New User Onboarding (Setup wizard).
-- P5: Flip Finder Core Logic Enhancements.
-- P6: Windows Scanner App.
-- P7: Team Access.
-- P8: Refactor  & .
-
-**Completed work in this session**:
-- Added  to the physical scanner endpoint  (DONE)
-- Created helper scripts to install  on user's production server (DONE)
-- Removed automatic color preset from scanner uploads to preserve original colors (DONE)
-- Fixed missing back image preview by generating  during scanner uploads (DONE)
-- Added Bulk Apply Preset functionality to  for selected items (DONE)
-- Fixed Photo Editor manual crop bug where  overrode manual edits on save by adding  (DONE)
-- Increased resolution for  (600px),  (300px), and  (1200px) (DONE)
-- Fixed Photo Editor UI to instantly refresh  after a crop, undo, or preset save (DONE)
-- Refined auto-crop to use a Canny/Variance hybrid with a fixed 40px margin (DONE)
-
-**Earlier issues found/mentioned but not fixed**:
-None.
-
-**Known issue recurrence from previous fork**:
-- Recurrence count: 0
-- Status: RESOLVED
-
-**Code Architecture**:
-
-
-**Key Technical Concepts**:
-- **Scanner Auto-Crop (Hybrid)**: The  function avoids OpenCV background removal. Instead, it uses Canny Edge Detection and row/col standard deviation (Variance) to find the card. It calculates bounding boxes for both methods, picks the largest area, and adds a 40px margin.
-- **skip_crop Flag**: The backend PUT  endpoint accepts  so that manual edits in the frontend Photo Editor are not overridden by .
-
-**key DB schema**:
-- : , , , , . Thumbnails are now higher resolution.
-
-**changes in tech stack**:
--  is now actively used and installed on the production server.
-
-**All files of reference**:
--  (Contains complex hybrid auto-crop logic)
--  (Scan upload and thumbnail generation)
--  (Bulk endpoints and PUT edit endpoints)
--  (Bulk actions and Editor UI)
-- ============================================
-  FlipSlab Engine - Deploy Fix
-============================================
-
-[1/5] Git pull...
-  OK
-[2/5] Backend dependencies...
-  OK
-[3/5] Backend files...
-  OK
-[4/5] Frontend (pre-built, NO compile)...
-  OK
-[5/5] Reiniciando backend...
-  API: OK
-
-============================================
-  LISTO! Abre flipslabengine.com con Ctrl+Shift+R
-============================================ (User deployment script)
+Done in 30.89s.
+Build complete. Ready for deploy. (CRITICAL: Always use this to compile the frontend)
+  -  (Added  and Dev Token generation)
+  -  (Added , , , )
+  -  (Created animated public reveal page)
+  -  (Created)
+  -  (Created, needs wiring)
+  -  (Needs wiring for the new module)
 
 **Areas that need refactoring**:
--  and  remain extremely bloated.
+-  and  are extremely large and manage multiple complex full-page views.
 
-**key api endpoints**:
--  (Physical scanner upload endpoint)
--  (New endpoint for bulk applying presets)
--  (Updated to handle )
+**key api endpoints**
+- 
+- 
+- 
+- 
+- 
 
-**Critical Info for New Agent**:
-- **LANGUAGE**: You MUST communicate in **Spanish**.
-- **DEPLOYMENT WORKFLOW**: The user tests features by pulling code to their own VPS. After making changes, you MUST instruct the user to:
-  1. Click Save to Github in the Emergent chat UI.
-  2. Run  on their server.
-- Do NOT rewrite or overly complicate the  logic unless explicitly requested. The hybrid Canny/Variance approach with a 40px margin is exactly what the user wants.
+**Critical Info for New Agent**
+- **LANGUAGE**: The user communicates primarily in Spanish. You **MUST** reply in **Spanish**.
+- **READ  FIRST**: This file contains crucial instructions about not breaking the login and how to build the frontend.
+- **FRONTEND BUILD**: NEVER run  manually. **ALWAYS run Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
+yarn run v1.22.22
+$ craco build
+Creating an optimized production build...
+Compiled with warnings.
 
-**documents and test reports created in this job**:
--  (Updated)
-- , ,  (Scripts created for user to debug their VPS)
+[eslint] 
+src/components/AccountModule.jsx
+  Line 68:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
-**Last 10 User Messages and any pending HUMAN messages**:
-1. (LATEST) User provided the original Hoops front image because the crop didn't leave a margin. (Agent identified Canny was catching the inner photo, fixed it using max(Canny, Variance)).
-2. User reported Canny worked for hard cards, but a full-color card (Hoops) didn't have a margin on the front.
-3. User reported the Canny+40px approach was much better but missed margins on full color cards.
-4. User complained the shadow detection approach was cutting too much from back images and was too complex.
-5. User provided sample images showing no top/bottom margin.
-6. User asked how the crop algorithm works because it was failing on gray-bordered cards. Agent explained variance.
-7. User pointed out that manual crops in the editor weren't refreshing the UI immediately and thumbnails were low res.
-8. User complained that manual crops from the editor weren't saving correctly. (Agent fixed  overriding it).
-9. User requested a Bulk Apply Preset feature in the Inventory view.
-10. User noted that back images uploaded via scanner weren't showing in preview. (Agent fixed  generation).
+src/components/AuctionSniper.jsx
+  Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 258:6:  React Hook useEffect has a missing dependency: 'handleCheckItem'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
 
-**Project Health Check**:
+src/components/BatchUploadView.jsx
+  Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
+
+src/components/HistoryPanel.jsx
+  Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src/components/InventoryModule.jsx
+  Line 1338:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1340:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+
+src/components/ListingsModule.jsx
+  Line 123:6:  React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
+  Line 144:6:  React Hook useEffect has missing dependencies: 'listing.item_id' and 'listing.title'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+
+src/components/PriceHistoryChart.jsx
+  Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+src/pages/ChaseRevealPage.jsx
+  Line 25:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
+Search for the keywords to learn more about each warning.
+To ignore, add // eslint-disable-next-line to the line before.
+
+File sizes after gzip:
+
+  413.35 kB  build/static/js/main.cefbc503.js
+  19.14 kB   build/static/css/main.89200ec1.css
+
+The project was built assuming it is hosted at /.
+You can control this with the homepage field in your package.json.
+
+The build folder is ready to be deployed.
+You may serve it with a static server:
+
+  yarn global add serve
+  serve -s build
+
+Find out more about deployment here:
+
+  https://cra.link/deployment
+
+Done in 17.33s.
+Build complete. Ready for deploy.**. Running it manually injects the Emergent Preview URL into the build, which breaks the user's production site.
+- **TESTING AUTH**: Do not touch Google Auth. A permanent dev token  is generated on backend startup. Use it in cookies to test APIs: .
+- **EBAY POLICY AWARENESS**: Mystery Packs are strictly banned on eBay. The implementation is deliberately called Chase Card Pack and explicitly shows all cards available to maintain compliance. Do not rename variables or UI elements back to Mystery.
+
+**documents and test reports created in this job**
+  -  (Updated)
+  -  (Created)
+  -  (Updated)
+
+**Last 10 User Messages and any pending HUMAN messages** 
+ - (Agent showed final centered design of the Chase Pack Hero section)
+ - ok me gusta mucho pero si creoq ue tenemos que tener un tab para manejar todos los detalles de estas Chaser Digital Packs, donde podemos controlar todos los detalles y tambien si tenemos varios de estos , igualmente ahi podemos ver como van, que tarjetas ya se ganaron etc
+ - (Agent asks whether to add it as a new tab in the main menu or inside Listings)
+ - a. Como un tab nuevo en el menú principal
+ - (Agent creates  but job ends before wiring it to )
+
+**Project Health Check:**
 - Broken: None.
 - Mocked: None.
 
-**3rd Party Integrations**:
+**3rd Party Integrations**
 - OpenAI GPT-4o — requires User API Key.
 - eBay API — requires User API Key.
 - Stripe (Payments) — requires User API Key.
 
-**Testing status**:
-- Testing agent used after significant changes: NO (Tested mostly via curl,  image analysis, and user testing on VPS)
-- Troubleshoot agent used after agent stuck in loop: NO
-- Test files created: None
-- Known regressions: None
+**Testing status**
+  - Testing agent used after significant changes: NO (Manual testing via screenshots & bash scripts due to complex UI requirements).
+  - Troubleshoot agent used after agent stuck in loop: NO
+  - Test files created: None
+  - Known regressions: None currently.
 
-**Credentials to test flow**:
-- Use  for auth testing.
+**Credentials to test flow:**
+Use . A new  token is available for safe backend curl testing.
 
-**What agent forgot to execute**:
-- The agent successfully implemented the  fix for the Hoops card but needs to ask the user if they have run ============================================
-  FlipSlab Engine - Deploy Fix
-============================================
+**What agent forgot to execute**
+The agent created  but failed to update  to actually display the new tab in the sidebar and route to it.
 
-[1/5] Git pull...
-  OK
-[2/5] Backend dependencies...
-  OK
-[3/5] Backend files...
-  OK
-[4/5] Frontend (pre-built, NO compile)...
-  OK
-[5/5] Reiniciando backend...
-  API: OK
-
-============================================
-  LISTO! Abre flipslabengine.com con Ctrl+Shift+R
-============================================ and if the latest fix successfully processes the Hoops card.
-- **Debugging checklist for current issue:**
-  - Issue: Verify hybrid Canny/Variance auto-crop.
-  - Next step: Wait for the user's confirmation. If it fails, check the  output of the bounding boxes in .</analysis>
+**Debugging checklist for current issue**
+    Issue: Chase Packs Module is not visible in the Dashboard.
+    Frontend files to check: 
+    -  -> Import , add  to the  array, and add it to the  switch statement.</analysis>
