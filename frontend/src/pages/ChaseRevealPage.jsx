@@ -350,27 +350,7 @@ const ChaseRevealPage = () => {
               </div>
             </div>
 
-            {/* Claim Code */}
-            <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-5" data-testid="chase-claim-section">
-              <h2 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-                <Lock className="w-4 h-4 text-[#f59e0b]" /> Reveal Your Card
-              </h2>
-              <p className="text-xs text-gray-500 mb-3">Purchased a spot? Enter your claim code below.</p>
-              {error && <p className="text-xs text-red-400 mb-3 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">{error}</p>}
-              <div className="flex gap-2">
-                <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE" maxLength={8}
-                  className="flex-1 bg-[#0a0a0a] border border-white/[0.08] rounded-xl px-4 py-3 text-center text-lg font-mono font-bold text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
-                  data-testid="chase-claim-input" />
-                <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
-                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
-                  data-testid="chase-reveal-btn">
-                  {revealing ? '...' : 'REVEAL'}
-                </button>
-              </div>
-            </div>
-
-            {/* SPOT TRACKER — Right here in the hero section */}
+            {/* SPOT TRACKER */}
             {pack.spots && (
               <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                 <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />
@@ -415,9 +395,29 @@ const ChaseRevealPage = () => {
             </div>
           </motion.div>
 
-          {/* RIGHT COLUMN — Chase Cards stacked vertically */}
+          {/* RIGHT COLUMN — Code input + Chase Cards stacked vertically */}
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
             className="flex flex-col items-center gap-5 lg:sticky lg:top-8">
+
+            {/* Claim Code — Top of right column */}
+            <div className="w-full max-w-[340px] bg-[#111] border border-white/[0.08] rounded-2xl p-4" data-testid="chase-claim-section">
+              <h2 className="text-xs font-bold text-white mb-2 flex items-center gap-2">
+                <Lock className="w-3.5 h-3.5 text-[#f59e0b]" /> Reveal Your Card
+              </h2>
+              {error && <p className="text-[10px] text-red-400 mb-2 bg-red-500/10 px-2.5 py-1.5 rounded-lg border border-red-500/20">{error}</p>}
+              <div className="flex gap-2">
+                <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
+                  placeholder="ENTER CODE" maxLength={8}
+                  className="flex-1 bg-[#0a0a0a] border border-white/[0.08] rounded-xl px-3 py-2.5 text-center text-sm font-mono font-bold text-white tracking-[0.25em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
+                  data-testid="chase-claim-input" />
+                <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
+                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
+                  data-testid="chase-reveal-btn">
+                  {revealing ? '...' : 'REVEAL'}
+                </button>
+              </div>
+            </div>
+
             {mainChase ? (
               <>
                 {/* Primary Chaser — Large */}
