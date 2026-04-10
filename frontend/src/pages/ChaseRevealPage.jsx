@@ -71,31 +71,36 @@ const ChaseRevealPage = () => {
 
   if (!pack) return null;
 
-  // Reveal Animation Screen
+  // Reveal Animation Screen - Card spins slow to fast then reveals
   if (showReveal && !revealedCard) {
     return (
       <div className="min-h-screen bg-[#050505] flex items-center justify-center overflow-hidden">
-        <motion.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: [0.5, 1.2, 1], opacity: 1, rotate: [0, 5, -5, 0] }}
-          transition={{ duration: 2, ease: "easeInOut" }}
-          className="text-center"
-        >
+        <div className="text-center">
           <motion.div
-            animate={{ scale: [1, 1.1, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 0.8, repeat: Infinity }}
-            className="w-40 h-56 mx-auto rounded-xl bg-gradient-to-br from-orange-600 via-red-600 to-yellow-500 flex items-center justify-center shadow-2xl shadow-orange-500/30"
+            initial={{ rotateY: 0 }}
+            animate={{ rotateY: [0, 360, 720, 1080, 1440, 1800, 2160, 2520, 2880, 3240, 3600] }}
+            transition={{
+              duration: 3.5,
+              times: [0, 0.15, 0.28, 0.39, 0.48, 0.56, 0.63, 0.70, 0.78, 0.88, 1],
+              ease: "easeIn",
+            }}
+            style={{ perspective: 800, transformStyle: 'preserve-3d' }}
+            className="w-48 h-64 mx-auto"
           >
-            <Flame className="w-16 h-16 text-white" />
+            <div className="w-full h-full rounded-xl bg-gradient-to-br from-orange-600 via-red-600 to-yellow-500 flex items-center justify-center shadow-2xl shadow-orange-500/40"
+              style={{ backfaceVisibility: 'hidden' }}>
+              <Flame className="w-20 h-20 text-white/90" />
+            </div>
           </motion.div>
           <motion.p
-            animate={{ opacity: [0.3, 1, 0.3] }}
-            transition={{ duration: 1, repeat: Infinity }}
-            className="text-xl font-black text-orange-400 mt-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: [0, 1, 0.5, 1] }}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            className="text-xl font-black text-orange-400 mt-8"
           >
             Revealing your card...
           </motion.p>
-        </motion.div>
+        </div>
       </div>
     );
   }
@@ -172,9 +177,6 @@ const ChaseRevealPage = () => {
   }
 
   // Main Pack View
-  const spotsLeft = pack.total_spots - pack.spots_claimed;
-  const progress = (pack.spots_claimed / pack.total_spots) * 100;
-
   return (
     <div className="min-h-screen bg-[#050505]">
       {/* Hero */}
@@ -186,15 +188,11 @@ const ChaseRevealPage = () => {
           <h1 className="text-2xl sm:text-3xl font-black text-white mb-2">{pack.title}</h1>
           <p className="text-sm text-gray-400">${pack.price?.toFixed(2)} per spot</p>
 
-          {/* Progress */}
-          <div className="mt-6 max-w-sm mx-auto">
-            <div className="flex justify-between text-xs text-gray-500 mb-1">
-              <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {pack.spots_claimed}/{pack.total_spots} claimed</span>
-              <span>{spotsLeft} left</span>
-            </div>
-            <div className="h-2 bg-[#111] rounded-full overflow-hidden">
-              <div className="h-full bg-gradient-to-r from-orange-500 to-red-500 rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
-            </div>
+          {/* Spots info - only show total, not claimed */}
+          <div className="mt-4">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#111] text-xs text-gray-400">
+              <Users className="w-3 h-3" /> {pack.total_spots} spots
+            </span>
           </div>
         </div>
       </div>
@@ -233,10 +231,9 @@ const ChaseRevealPage = () => {
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {pack.cards?.map((card, idx) => {
               const isChase = card.is_chase;
-              const isClaimed = card.claimed;
               return (
                 <div key={idx}
-                  className={`relative rounded-xl border overflow-hidden ${isChase ? 'border-orange-500/50 bg-orange-500/5' : 'border-[#1a1a1a] bg-[#111]'} ${isClaimed ? 'opacity-60' : ''}`}
+                  className={`relative rounded-xl border overflow-hidden ${isChase ? 'border-orange-500/50 bg-orange-500/5' : 'border-[#1a1a1a] bg-[#111]'}`}
                   data-testid={`chase-pack-card-${idx}`}
                 >
                   <div className={`aspect-[3/4] flex items-center justify-center ${isChase ? 'bg-gradient-to-br from-orange-950/50 to-transparent' : 'bg-[#0a0a0a]'}`}>
@@ -253,11 +250,6 @@ const ChaseRevealPage = () => {
                   {isChase && (
                     <div className="absolute top-1 right-1 bg-orange-500 text-black text-[8px] font-black px-1.5 py-0.5 rounded-full">
                       CHASE
-                    </div>
-                  )}
-                  {isClaimed && (
-                    <div className="absolute bottom-1 left-1 bg-emerald-500/80 text-white text-[8px] font-bold px-1.5 py-0.5 rounded-full">
-                      CLAIMED
                     </div>
                   )}
                   {pack.all_revealed && card.assigned_to && (

@@ -2348,7 +2348,7 @@ async def create_chase_pack(request: Request):
                     "year": c.get("year", ""),
                     "set_name": c.get("set_name", ""),
                     "variation": c.get("variation", ""),
-                    "image": c.get("thumbnail") or c.get("store_thumbnail") or "",
+                    "image": c.get("image") or c.get("thumbnail") or c.get("store_thumbnail") or "",
                     "is_chase": c["id"] == chase_card_id,
                     "assigned_to": None,
                     "claim_code": claim_code,
@@ -2417,7 +2417,8 @@ async def get_chase_pack(pack_id: str):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
-    # Return cards but hide claim codes and assignment details for unclaimed
+    # Return cards but hide claim codes and assignment details
+    # IMPORTANT: Don't reveal which cards are claimed until ALL spots are sold
     public_cards = []
     for c in pack.get("cards", []):
         card_info = {
@@ -2426,13 +2427,12 @@ async def get_chase_pack(pack_id: str):
             "set_name": c["set_name"],
             "variation": c["variation"],
             "is_chase": c["is_chase"],
-            "revealed": c["revealed"],
-            "claimed": c["assigned_to"] is not None,
         }
-        # Only show assigned_to if all are revealed
+        # Only show assigned_to and images when ALL spots are sold
         if pack.get("all_revealed"):
             card_info["assigned_to"] = c.get("assigned_to", "")
             card_info["image"] = c.get("image", "")
+            card_info["revealed"] = True
         public_cards.append(card_info)
 
     return {
@@ -2440,7 +2440,6 @@ async def get_chase_pack(pack_id: str):
         "title": pack["title"],
         "price": pack["price"],
         "total_spots": pack["total_spots"],
-        "spots_claimed": pack["spots_claimed"],
         "status": pack["status"],
         "all_revealed": pack.get("all_revealed", False),
         "cards": public_cards,
