@@ -110,6 +110,12 @@ FlipSlab Engine is a card management and selling platform for sports card collec
   - Chase: 110 gold/orange/red confetti storm + golden screen flash + pulsing ring
 - **Backend Fix**: Added `tier` field to reveal endpoint response so celebration tier is correctly detected
 - **Better Spacing**: More padding on desktop/tablet, bigger card grids, better visual hierarchy
+- **Mobile Fixes (Apr 2026)**: 
+  - Claim code input + REVEAL button stack vertically on mobile (no overflow)
+  - Spinning card now has front + back face (always visible during rotation, never disappears)
+  - Spin card sized appropriately per breakpoint (48x272 mobile, 56x320 sm, 64x360 md)
+  - Chaser cards use 85vw on mobile for better visual impact
+  - Compact spacing on mobile (smaller padding, smaller spot tracker slots)
 - Frontend compiled with `build_prod.sh`
 
 ## Next Priority

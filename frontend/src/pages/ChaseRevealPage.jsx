@@ -134,9 +134,9 @@ const SpotTracker = ({ spots, totalSpots }) => {
           <span className="text-gray-600"> / {totalSpots} left</span>
         </span>
       </div>
-      <div className="flex flex-wrap gap-2 justify-center">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2 justify-center">
         {spots.map(spot => (
-          <div key={spot.number} className="w-[48px] md:w-[52px]">
+          <div key={spot.number} className="w-[40px] sm:w-[48px] md:w-[52px]">
             <SpotCard spot={spot} />
           </div>
         ))}
@@ -208,17 +208,29 @@ const ChaseRevealPage = () => {
             animate={{ rotateY: [0, 360, 720, 1080, 1440, 1800, 2160, 2520, 2880, 3240, 3600] }}
             transition={{ duration: 3.5, times: [0, 0.15, 0.28, 0.39, 0.48, 0.56, 0.63, 0.70, 0.78, 0.88, 1], ease: "easeIn" }}
             style={{ perspective: 800, transformStyle: 'preserve-3d' }}
-            className="w-56 h-80 sm:w-64 sm:h-[360px] mx-auto"
+            className="w-48 h-[272px] sm:w-56 sm:h-80 md:w-64 md:h-[360px] mx-auto relative"
           >
-            <div className="w-full h-full rounded-2xl bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 flex items-center justify-center shadow-2xl shadow-amber-500/40" style={{ backfaceVisibility: 'hidden' }}>
+            {/* Front face */}
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-500 via-orange-600 to-red-600 flex items-center justify-center shadow-2xl shadow-amber-500/40"
+              style={{ backfaceVisibility: 'hidden' }}>
               <div className="text-center">
-                <Flame className="w-16 h-16 text-white/90 mx-auto" />
-                <p className="text-white font-black text-sm mt-2 tracking-wider">CHASE PACK</p>
+                <Flame className="w-12 h-12 sm:w-16 sm:h-16 text-white/90 mx-auto" />
+                <p className="text-white font-black text-xs sm:text-sm mt-2 tracking-wider">CHASE PACK</p>
+              </div>
+            </div>
+            {/* Back face */}
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-red-600 via-orange-600 to-amber-500 flex items-center justify-center shadow-2xl shadow-amber-500/40"
+              style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}>
+              <div className="text-center">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center mx-auto">
+                  <span className="text-white font-black text-sm sm:text-base">FS</span>
+                </div>
+                <p className="text-white/70 font-black text-[10px] sm:text-xs mt-2 tracking-widest">FLIPSLAB</p>
               </div>
             </div>
           </motion.div>
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: [0, 1, 0.5, 1] }} transition={{ duration: 1.5, repeat: Infinity }}
-            className="text-xl font-black text-[#f59e0b] mt-8 tracking-wide">
+            className="text-lg sm:text-xl font-black text-[#f59e0b] mt-6 sm:mt-8 tracking-wide">
             Revealing your card...
           </motion.p>
         </div>
@@ -260,7 +272,7 @@ const ChaseRevealPage = () => {
         <div className={`absolute top-1/4 left-1/3 w-[600px] h-[600px] rounded-full ${glowColor} blur-[150px] pointer-events-none`} />
         <div className={`absolute bottom-1/3 right-1/4 w-[400px] h-[400px] rounded-full ${glowColor} blur-[120px] pointer-events-none`} />
 
-        <div className="relative z-10 flex flex-col items-center pt-8 md:pt-12 pb-16 px-5">
+        <div className="relative z-10 flex flex-col items-center pt-6 sm:pt-8 md:pt-12 pb-12 sm:pb-16 px-4 sm:px-5">
           {/* Tier banner */}
           <motion.div initial={{ opacity: 0, scale: 0.5, y: -20 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ delay: 0.2, type: "spring", bounce: 0.4 }} className="mb-6">
             <div className={`inline-flex items-center gap-2.5 px-6 py-3 rounded-full ${tierCfg.badge} text-white font-black shadow-lg ${shadowColor}`}
@@ -405,14 +417,14 @@ const ChaseRevealPage = () => {
       </nav>
 
       {/* CONTENT */}
-      <div className="relative z-10 max-w-7xl mx-auto px-5 md:px-10 lg:px-16 pt-8 md:pt-12 pb-8">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-5 md:px-10 lg:px-16 pt-6 md:pt-12 pb-6 md:pb-8">
 
         {/* TITLE */}
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="mb-6 md:mb-8 text-center md:text-left">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-3">
             <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-[#f59e0b]">
+          <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-[#f59e0b]">
             {pack.title}
           </h1>
           <div className="flex items-center gap-4 mt-3 justify-center md:justify-start">
@@ -425,20 +437,20 @@ const ChaseRevealPage = () => {
         {/* CLAIM CODE — Full width prominent banner */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           className="bg-[#111] border border-[#f59e0b]/20 rounded-2xl p-5 md:p-6 mb-8 md:mb-10" data-testid="chase-claim-section">
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <div className="flex flex-col items-center gap-3 sm:gap-4">
             <div className="flex items-center gap-3 shrink-0">
               <Lock className="w-5 h-5 text-[#f59e0b]" />
               <span className="text-sm md:text-base font-black text-white tracking-wide">REVEAL YOUR CARD</span>
             </div>
             {error && <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">{error}</span>}
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
               <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
                 placeholder="ENTER CODE" maxLength={8}
-                className="flex-1 sm:w-[240px] bg-[#0a0a0a] border border-white/[0.1] rounded-xl px-5 py-3.5 text-center text-lg font-mono font-black text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
+                className="w-full sm:w-[240px] bg-[#0a0a0a] border border-white/[0.1] rounded-xl px-5 py-3.5 text-center text-lg font-mono font-black text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
                 data-testid="chase-claim-input"
                 onKeyDown={e => e.key === 'Enter' && handleReveal()} />
               <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
-                className="px-8 md:px-12 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm md:text-base hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/25 shrink-0"
+                className="w-full sm:w-auto px-8 md:px-12 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm md:text-base hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/25"
                 data-testid="chase-reveal-btn">
                 {revealing ? '...' : 'REVEAL'}
               </button>
@@ -449,9 +461,9 @@ const ChaseRevealPage = () => {
         {/* CHASERS — Big centered showcase */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="mb-10 md:mb-14">
-          <div className="flex justify-center gap-6 md:gap-8 lg:gap-10 flex-wrap">
+          <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 lg:gap-10 flex-wrap">
             {chaseCards.map((card, idx) => (
-              <div key={`chase-${idx}`} className="relative w-[220px] sm:w-[260px] md:w-[300px] lg:w-[340px]">
+              <div key={`chase-${idx}`} className="relative w-[85vw] max-w-[280px] sm:w-[260px] md:w-[300px] lg:w-[340px]">
                 <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/15 via-orange-500/8 to-transparent rounded-3xl blur-2xl pointer-events-none" />
                 <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/25">
                   {card.image ? (
@@ -477,7 +489,7 @@ const ChaseRevealPage = () => {
 
         {/* SPOT TRACKER + STORE INFO — Side by side on desktop */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
-          className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5 mb-10 md:mb-14">
+          className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 sm:gap-5 mb-8 md:mb-14">
           {/* Spot Tracker */}
           {pack.spots && <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />}
 
@@ -518,7 +530,7 @@ const ChaseRevealPage = () => {
       </div>
 
       {/* CARDS BY TIER */}
-      <div className="relative z-10 max-w-7xl mx-auto px-5 md:px-10 lg:px-16 pb-16 space-y-10 md:space-y-14">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-5 md:px-10 lg:px-16 pb-16 space-y-8 md:space-y-14">
         {midCards.length > 0 && (
           <motion.section initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
             <div className="flex items-center gap-2.5 mb-5">
