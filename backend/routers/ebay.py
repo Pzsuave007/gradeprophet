@@ -2929,7 +2929,7 @@ async def create_volume_discount(request: Request):
 
     promo_body = {
         "name": name[:90],
-        "description": f"Buy more, save more! Up to {max(t['percent_off'] for t in tiers)}% off when buying multiple items.",
+        "description": f"Buy more save {pct}% on orders!",
         "startDate": start_date,
         "endDate": end_date,
         "marketplaceId": "EBAY_US",
