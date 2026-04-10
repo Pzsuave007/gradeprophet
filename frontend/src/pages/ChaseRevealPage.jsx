@@ -329,27 +329,44 @@ const ChaseRevealPage = () => {
         </div>
       </nav>
 
-      {/* HERO: Three-column layout — Info | Chaser 1 | Chaser 2 */}
+      {/* HERO */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pt-8 pb-8">
 
-        {/* Top row: Title only */}
-        <div className="mb-6">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-3">
-              <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
-            </div>
-            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#f59e0b]">
-              {pack.title}
-            </h1>
-            <div className="flex items-center gap-4 mt-2">
-              <span className="text-white font-bold text-lg">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
-              <span className="text-white/[0.15]">|</span>
-              <span className="text-white font-bold">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
-            </div>
+        {/* Title */}
+        <div className="mb-5">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-3">
+            <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#f59e0b]">
+            {pack.title}
+          </h1>
+          <div className="flex items-center gap-4 mt-2">
+            <span className="text-white font-bold text-lg">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
+            <span className="text-white/[0.15]">|</span>
+            <span className="text-white font-bold">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
           </div>
         </div>
 
-        {/* Main grid: Sidebar | Chasers side by side */}
+        {/* REVEAL YOUR CARD — Full width */}
+        <div className="bg-[#111] border border-[#f59e0b]/20 rounded-2xl p-5 mb-5" data-testid="chase-claim-section">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <Lock className="w-5 h-5 text-[#f59e0b] shrink-0" />
+            <span className="text-sm font-black text-white tracking-wide shrink-0">REVEAL YOUR CARD</span>
+            {error && <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">{error}</span>}
+            <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
+              placeholder="ENTER CODE" maxLength={8}
+              className="w-[220px] bg-[#0a0a0a] border border-white/[0.1] rounded-xl px-5 py-3 text-center text-lg font-mono font-black text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
+              data-testid="chase-claim-input"
+              onKeyDown={e => e.key === 'Enter' && handleReveal()} />
+            <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
+              className="px-10 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/25"
+              data-testid="chase-reveal-btn">
+              {revealing ? '...' : 'REVEAL'}
+            </button>
+          </div>
+        </div>
+
+        {/* Main grid: Sidebar | Chasers */}
         <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
 
           {/* LEFT SIDEBAR — Compact */}
@@ -394,28 +411,9 @@ const ChaseRevealPage = () => {
             </div>
           </motion.div>
 
-          {/* RIGHT — Code field + Chase Cards side by side */}
+          {/* RIGHT — Chase Cards side by side */}
           <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.15 }}
             className="flex flex-col gap-4">
-
-            {/* Code input — Full width above both chasers */}
-            <div className="bg-[#111] border border-[#f59e0b]/20 rounded-2xl p-5" data-testid="chase-claim-section">
-              <div className="flex items-center justify-center gap-4 flex-wrap">
-                <Lock className="w-5 h-5 text-[#f59e0b] shrink-0" />
-                <span className="text-sm font-black text-white tracking-wide shrink-0">REVEAL YOUR CARD</span>
-                {error && <span className="text-xs text-red-400 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20">{error}</span>}
-                <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE" maxLength={8}
-                  className="w-[220px] bg-[#0a0a0a] border border-white/[0.1] rounded-xl px-5 py-3 text-center text-lg font-mono font-black text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
-                  data-testid="chase-claim-input"
-                  onKeyDown={e => e.key === 'Enter' && handleReveal()} />
-                <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
-                  className="px-10 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/25"
-                  data-testid="chase-reveal-btn">
-                  {revealing ? '...' : 'REVEAL'}
-                </button>
-              </div>
-            </div>
 
             {/* Chase cards side by side, same size */}
             <div className="flex justify-center gap-5 flex-wrap">
