@@ -2346,7 +2346,7 @@ async def create_chase_pack(request: Request):
 <p style="text-align:center;font-size:13px;color:#666;margin-top:16px;">Powered by FlipSlab Engine</p>
 </div>"""
     ship_map = {
-        "FreeShipping": f'<ShippingServiceOptions><ShippingService>USPSMedia</ShippingService><ShippingServiceCost>0.00</ShippingServiceCost><FreeShipping>true</FreeShipping></ShippingServiceOptions>',
+        "FreeShipping": '<ShippingServiceOptions><ShippingService>USPSMedia</ShippingService><ShippingServiceCost>0.00</ShippingServiceCost><FreeShipping>true</FreeShipping></ShippingServiceOptions>',
         "PWEEnvelope": f'<ShippingServiceOptions><ShippingService>USPSFirstClass</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
         "USPSFirstClass": f'<ShippingServiceOptions><ShippingService>USPSFirstClass</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
         "USPSPriority": f'<ShippingServiceOptions><ShippingService>USPSPriority</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
@@ -2357,6 +2357,11 @@ async def create_chase_pack(request: Request):
     bo_xml = ""
     if best_offer:
         bo_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+
+    # Get user location settings (required by eBay)
+    user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    postal_code = user_settings.get("postal_code", "")
+    location = user_settings.get("location", "")
 
     # Build Item Specifics
     specifics_xml = """<ItemSpecifics>
@@ -2374,12 +2379,15 @@ async def create_chase_pack(request: Request):
     <Title>{html.escape(title)}</Title>
     <Description><![CDATA[{safe_desc}]]></Description>
     <PrimaryCategory><CategoryID>{category_id}</CategoryID></PrimaryCategory>
-    <StartPrice>{price:.2f}</StartPrice>
+    <StartPrice currencyID="USD">{price:.2f}</StartPrice>
     <Quantity>{quantity}</Quantity>
-    <ConditionID>{condition_id}</ConditionID>
-    <ConditionDescriptors><ConditionDescriptorID>40001</ConditionDescriptorID><ConditionDescriptorValue>400010</ConditionDescriptorValue></ConditionDescriptors>
+    <CategoryMappingAllowed>true</CategoryMappingAllowed>
+    <ConditionID>4000</ConditionID>
+    <ConditionDescriptors><ConditionDescriptor><Name>40001</Name><Value>400010</Value></ConditionDescriptor></ConditionDescriptors>
     <Country>US</Country>
     <Currency>USD</Currency>
+    <PostalCode>{html.escape(postal_code)}</PostalCode>
+    <Location>{html.escape(location)}</Location>
     <DispatchTimeMax>3</DispatchTimeMax>
     <ListingDuration>GTC</ListingDuration>
     <ListingType>FixedPriceItem</ListingType>
@@ -2388,9 +2396,7 @@ async def create_chase_pack(request: Request):
       <ShippingType>Flat</ShippingType>
       {ship_xml}
     </ShippingDetails>
-    <ReturnPolicy>
-      <ReturnsAcceptedOption>ReturnsNotAccepted</ReturnsAcceptedOption>
-    </ReturnPolicy>
+    <ReturnPolicy><ReturnsAcceptedOption>ReturnsAccepted</ReturnsAcceptedOption><RefundOption>MoneyBack</RefundOption><ReturnsWithinOption>Days_30</ReturnsWithinOption><ShippingCostPaidByOption>Buyer</ShippingCostPaidByOption></ReturnPolicy>
     {specifics_xml}
     {bo_xml}
   </Item>
