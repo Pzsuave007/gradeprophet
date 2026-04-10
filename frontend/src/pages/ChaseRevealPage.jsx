@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Flame, Lock, Unlock, Star, Trophy, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Flame, Lock, Unlock, Star, Trophy, Users, Copy, Download, ShoppingBag, Store } from 'lucide-react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -105,12 +105,32 @@ const ChaseRevealPage = () => {
     );
   }
 
-  // Revealed Card Screen
+  // Revealed Card Screen with post-reveal actions
   if (revealedCard) {
     const card = revealedCard.card;
     const isChase = revealedCard.is_chase;
+
+    const shareText = isChase
+      ? `I just pulled the CHASE CARD! ${card.year} ${card.set_name} ${card.player} ${card.variation || ''} from a Chase Pack!`
+      : `I just pulled a ${card.year} ${card.set_name} ${card.player} ${card.variation || ''} from a Chase Pack!`;
+    const shareUrl = window.location.href;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
+
+    const downloadCard = () => {
+      if (!card.image) return;
+      const link = document.createElement('a');
+      link.href = `data:image/jpeg;base64,${card.image}`;
+      link.download = `${card.player}_${card.year}_${card.set_name}.jpg`.replace(/\s+/g, '_');
+      link.click();
+    };
+
+    const copyShareLink = () => {
+      navigator.clipboard.writeText(`${shareText}\n${shareUrl}`);
+      alert('Copied to clipboard!');
+    };
+
     return (
-      <div className={`min-h-screen flex items-center justify-center overflow-hidden ${isChase ? 'bg-gradient-to-br from-[#1a0800] via-[#050505] to-[#1a0800]' : 'bg-[#050505]'}`}>
+      <div className={`min-h-screen overflow-hidden ${isChase ? 'bg-gradient-to-br from-[#1a0800] via-[#050505] to-[#1a0800]' : 'bg-[#050505]'}`}>
         {isChase && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {[...Array(20)].map((_, i) => (
@@ -126,52 +146,88 @@ const ChaseRevealPage = () => {
             ))}
           </div>
         )}
-        <motion.div
-          initial={{ scale: 0, rotateY: 180 }}
-          animate={{ scale: 1, rotateY: 0 }}
-          transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}
-          className="text-center relative z-10 px-4"
-        >
+
+        <div className="relative z-10 flex flex-col items-center pt-8 pb-12 px-4">
+          {/* Chase badge */}
           {isChase && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="mb-4"
-            >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-orange-600 to-red-600 text-white font-black text-lg">
+            <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }} className="mb-4">
+              <div className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full bg-gradient-to-r from-orange-600 to-red-600 text-white font-black text-lg shadow-lg shadow-orange-500/30">
                 <Trophy className="w-5 h-5" /> CHASE CARD!
               </div>
             </motion.div>
           )}
 
-          {card.image ? (
-            <motion.img
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              src={`data:image/jpeg;base64,${card.image}`}
-              alt={card.player}
-              className={`w-64 sm:w-72 mx-auto rounded-xl shadow-2xl ${isChase ? 'shadow-orange-500/40 ring-4 ring-orange-500/50' : 'shadow-white/10'}`}
-            />
-          ) : (
-            <div className={`w-64 h-80 mx-auto rounded-xl flex items-center justify-center ${isChase ? 'bg-gradient-to-br from-orange-900 to-red-900' : 'bg-[#111]'}`}>
-              <Star className="w-16 h-16 text-orange-400" />
-            </div>
-          )}
+          {/* Card image */}
+          <motion.div initial={{ scale: 0, rotateY: 180 }} animate={{ scale: 1, rotateY: 0 }} transition={{ duration: 0.8, type: "spring", bounce: 0.4 }}>
+            {card.image ? (
+              <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player}
+                className={`w-64 sm:w-72 rounded-xl shadow-2xl ${isChase ? 'shadow-orange-500/40 ring-4 ring-orange-500/50' : 'shadow-white/10'}`} />
+            ) : (
+              <div className={`w-64 h-80 rounded-xl flex items-center justify-center ${isChase ? 'bg-gradient-to-br from-orange-900 to-red-900' : 'bg-[#111]'}`}>
+                <Star className="w-16 h-16 text-orange-400" />
+              </div>
+            )}
+          </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="mt-6"
-          >
+          {/* Card info */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mt-6 text-center">
             <p className="text-2xl font-black text-white">{card.player}</p>
             <p className="text-sm text-gray-400 mt-1">{card.year} {card.set_name}</p>
             {card.variation && <p className="text-sm text-orange-400 font-bold mt-1">{card.variation}</p>}
-            <p className="text-xs text-gray-500 mt-4">Congratulations, {revealedCard.buyer}!</p>
+            <p className="text-xs text-gray-500 mt-3">Congratulations, {revealedCard.buyer}!</p>
           </motion.div>
-        </motion.div>
+
+          {/* Post-reveal actions */}
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }} className="mt-8 w-full max-w-sm space-y-3">
+
+            {/* Share buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <a href={twitterUrl} target="_blank" rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 text-[#1DA1F2] text-xs font-bold hover:bg-[#1DA1F2]/20 transition-all"
+                data-testid="chase-share-twitter">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                Share on X
+              </a>
+              <button onClick={copyShareLink}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-xs font-bold hover:bg-white/10 transition-all"
+                data-testid="chase-copy-share">
+                <Copy className="w-3.5 h-3.5" /> Copy Link
+              </button>
+            </div>
+
+            {/* Download card image */}
+            {card.image && (
+              <button onClick={downloadCard}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-300 text-xs font-bold hover:bg-white/10 transition-all"
+                data-testid="chase-download-card">
+                <Download className="w-3.5 h-3.5" /> Download Card Image
+              </button>
+            )}
+
+            {/* Buy Another Spot */}
+            {pack?.ebay_url && (
+              <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-orange-500/10 border border-orange-500/30 text-orange-400 text-xs font-bold hover:bg-orange-500/20 transition-all"
+                data-testid="chase-buy-another">
+                <ShoppingBag className="w-3.5 h-3.5" /> Buy Another Spot on eBay
+              </a>
+            )}
+
+            {/* Visit Store */}
+            <a href={`${pack?.ebay_url ? pack.ebay_url.replace(/\/itm\/.*/, '') : 'https://www.ebay.com'}`} target="_blank" rel="noopener noreferrer"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 transition-all"
+              data-testid="chase-visit-store">
+              <Store className="w-3.5 h-3.5" /> Visit Store
+            </a>
+
+            {/* Back to Pack */}
+            <button onClick={() => { setRevealedCard(null); setShowReveal(false); setClaimCode(''); fetchPack(); }}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#111] border border-[#222] text-gray-400 text-xs font-medium hover:text-white hover:border-gray-600 transition-all"
+              data-testid="chase-back-to-pack">
+              <Flame className="w-3.5 h-3.5" /> Back to Pack
+            </button>
+          </motion.div>
+        </div>
       </div>
     );
   }
