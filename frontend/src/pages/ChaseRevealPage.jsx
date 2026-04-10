@@ -12,50 +12,54 @@ const TIER_CONFIG = {
   low: { label: 'BASE', icon: Gem, gradient: 'from-gray-500 to-gray-600', border: 'border-white/[0.08]', glow: 'shadow-white/5', bg: 'bg-white/[0.02]', text: 'text-gray-400', badge: 'bg-gradient-to-r from-gray-600 to-gray-700' },
 };
 
-// ===== SPOT TRACKER =====
-const SpotCard = ({ spot, index }) => {
+// ===== SPOT TRACKER — Mini Slab Cards =====
+const SpotCard = ({ spot }) => {
   const isClaimed = spot.claimed;
 
   return (
-    <div className="relative" style={{ perspective: '600px' }}>
+    <div className="relative" style={{ perspective: '400px' }}>
       <motion.div
         initial={false}
         animate={{ rotateY: isClaimed ? 180 : 0 }}
-        transition={{ duration: 0.6, type: 'spring', stiffness: 200, damping: 20 }}
+        transition={{ duration: 0.5, type: 'spring', stiffness: 260, damping: 22 }}
         style={{ transformStyle: 'preserve-3d' }}
-        className="relative w-full aspect-square"
+        className="relative w-full aspect-[3/4]"
       >
-        {/* FRONT — Available spot */}
+        {/* FRONT — Available slab */}
         <div
-          className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#111] border border-[#f59e0b]/30 flex flex-col items-center justify-center shadow-md shadow-[#f59e0b]/5 hover:border-[#f59e0b]/50 transition-colors"
+          className="absolute inset-0 rounded-[4px] bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] border border-[#f59e0b]/25 flex flex-col items-center justify-between overflow-hidden"
           style={{ backfaceVisibility: 'hidden' }}
           data-testid={`spot-front-${spot.number}`}
         >
-          <span className="text-[#f59e0b] font-black text-lg leading-none">{spot.number}</span>
-          <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]/40 mt-1.5 animate-pulse" />
+          {/* Slab label top */}
+          <div className="w-full bg-[#f59e0b]/10 border-b border-[#f59e0b]/15 py-[1px]">
+            <p className="text-[5px] font-bold text-[#f59e0b]/60 text-center tracking-wider">SPOT</p>
+          </div>
+          {/* Number */}
+          <span className="text-[#f59e0b] font-black text-[11px] leading-none">{spot.number}</span>
+          {/* Bottom dot */}
+          <div className="pb-1">
+            <div className="w-1 h-1 rounded-full bg-[#f59e0b]/30" />
+          </div>
         </div>
 
-        {/* BACK — Claimed spot */}
+        {/* BACK — Claimed slab */}
         <div
-          className="absolute inset-0 rounded-xl bg-[#111] border border-white/[0.06] flex flex-col items-center justify-center overflow-hidden"
+          className="absolute inset-0 rounded-[4px] bg-[#0f0f0f] border border-white/[0.06] flex flex-col items-center justify-between overflow-hidden"
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           data-testid={`spot-back-${spot.number}`}
         >
-          {/* Crosshatch overlay for "crossed out" feel */}
-          <div className="absolute inset-0 bg-gradient-to-br from-gray-800/50 to-gray-900/80" />
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center mb-0.5">
-              <Check className="w-3 h-3 text-emerald-400" />
-            </div>
-            <span className="text-[8px] font-bold text-gray-400 truncate max-w-[90%] text-center leading-tight px-0.5">
-              {spot.buyer || `#${spot.number}`}
-            </span>
+          {/* Label */}
+          <div className="w-full bg-emerald-500/10 border-b border-emerald-500/15 py-[1px]">
+            <p className="text-[5px] font-bold text-emerald-400/60 text-center tracking-wider">SOLD</p>
           </div>
-          {/* Diagonal strike line */}
-          <div className="absolute inset-0 pointer-events-none">
-            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-              <line x1="15" y1="15" x2="85" y2="85" stroke="rgba(239,68,68,0.25)" strokeWidth="2.5" strokeLinecap="round" />
-            </svg>
+          {/* Checkmark */}
+          <Check className="w-2.5 h-2.5 text-emerald-400/70" />
+          {/* Buyer name */}
+          <div className="pb-0.5 px-0.5 w-full">
+            <p className="text-[4px] font-bold text-gray-500 text-center truncate leading-tight">
+              {spot.buyer || '#' + spot.number}
+            </p>
           </div>
         </div>
       </motion.div>
@@ -63,54 +67,29 @@ const SpotCard = ({ spot, index }) => {
   );
 };
 
-const SpotTracker = ({ spots, totalSpots, spotsRemaining }) => {
+const SpotTracker = ({ spots, totalSpots }) => {
   if (!spots || spots.length === 0) return null;
   const claimed = spots.filter(s => s.claimed).length;
   const remaining = totalSpots - claimed;
 
   return (
-    <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-5" data-testid="spot-tracker">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <Users className="w-4 h-4 text-[#f59e0b]" />
-          <h3 className="text-sm font-bold text-white">Spots</h3>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#f59e0b]">{remaining}</span>
-          <span className="text-[10px] text-gray-500">of {totalSpots} left</span>
-        </div>
+    <div className="bg-[#111]/60 border border-white/[0.05] rounded-xl px-4 py-3" data-testid="spot-tracker">
+      {/* Compact header */}
+      <div className="flex items-center justify-between mb-2.5">
+        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Spots</span>
+        <span className="text-[10px]">
+          <span className="font-bold text-[#f59e0b]">{remaining}</span>
+          <span className="text-gray-600"> / {totalSpots} left</span>
+        </span>
       </div>
 
-      {/* Progress bar */}
-      <div className="h-1.5 bg-[#0a0a0a] rounded-full overflow-hidden mb-4">
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${(claimed / totalSpots) * 100}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-          className={`h-full rounded-full ${claimed >= totalSpots ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#f59e0b] to-orange-500'}`}
-        />
-      </div>
-
-      {/* Spot grid */}
-      <div className={`grid gap-2 ${totalSpots <= 12 ? 'grid-cols-6' : totalSpots <= 20 ? 'grid-cols-7' : 'grid-cols-8'}`}>
-        {spots.map((spot, i) => (
-          <SpotCard key={spot.number} spot={spot} index={i} />
-        ))}
-      </div>
-
-      {/* Legend */}
-      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/[0.04]">
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-gradient-to-br from-[#1a1a1a] to-[#111] border border-[#f59e0b]/30" />
-          <span className="text-[9px] text-gray-500">Available</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <div className="w-3 h-3 rounded bg-gray-800/50 border border-white/[0.06] flex items-center justify-center">
-            <Check className="w-2 h-2 text-emerald-400" />
+      {/* Mini slab grid */}
+      <div className={`flex flex-wrap gap-1.5 justify-center`}>
+        {spots.map((spot) => (
+          <div key={spot.number} className="w-[30px]">
+            <SpotCard spot={spot} />
           </div>
-          <span className="text-[9px] text-gray-500">Claimed</span>
-        </div>
+        ))}
       </div>
     </div>
   );

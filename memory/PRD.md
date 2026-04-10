@@ -142,7 +142,12 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - **Full Management Controls**: Edit title/price, Pause/Resume/End/Delete pack, Unassign buyers, Regenerate claim codes, Change chase card, Sync to eBay
 - **Backend**: PATCH /chase/{pack_id}, POST /chase/{pack_id}/pause|resume|end|change-chase|unassign|regenerate-code|sync-ebay, DELETE /chase/{pack_id}
 - **Frontend**: Edit mode with save/cancel, confirm modals for destructive actions, per-card action buttons (copy code, regenerate, unassign), status badge (Active/Paused/Completed/Ended)
-- **Tested**: 32/32 backend tests passed, all frontend UI verified via Playwright
+- **Spot Tracker (Mini Slabs)**: Visual numbered mini-slab cards on public Chase Pack page showing claimed/available spots
+  - Each spot looks like a tiny graded card slab with "SPOT" label and number
+  - Claimed spots flip (framer-motion 3D) showing "SOLD" label + checkmark + buyer name
+  - Compact single-row layout that doesn't steal attention from the main cards
+  - Also appears after card reveal for post-purchase context
+  - Backend: Added `spots` array and `spots_claimed` to public GET /api/ebay/chase/{pack_id} endpoint
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
