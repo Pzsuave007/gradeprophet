@@ -368,7 +368,7 @@ const ChaseRevealPage = () => {
         </div>
 
         {/* Main grid: Sidebar | Chasers side by side */}
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
 
           {/* LEFT SIDEBAR — Compact */}
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }} className="space-y-3">
