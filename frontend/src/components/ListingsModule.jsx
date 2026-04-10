@@ -9,6 +9,7 @@ import {
 import axios from 'axios';
 import { toast } from 'sonner';
 import StorePromotions from './StorePromotions';
+import ChasePackPanel from './ChasePackPanel';
 import { ViewToggle } from './ViewToggle';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -280,6 +281,11 @@ const ListingDetail = ({ listing, cardData: initialCardData, onBack, onSuccess, 
                   <span className="text-xs font-bold text-emerald-400">Pick Your Card ({lotInfo.card_count} variations)</span>
                 </div>
               </div>
+            )}
+
+            {/* Chase Pack Management */}
+            {lotInfo && lotInfo.listing_type === 'chase_pack' && (
+              <ChasePackPanel packId={lotInfo.pack_id} cardCount={lotInfo.card_count} spotsClaimed={lotInfo.spots_claimed} />
             )}
 
             {/* Price Lookup Links */}

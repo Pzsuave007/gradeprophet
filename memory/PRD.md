@@ -28,6 +28,7 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 │   │   │   ├── ListingsModule.jsx     # eBay listings + campaigns
 │   │   ├── pages/
 │   │   │   ├── AdminPage.jsx          # Admin panel (redesigned)
+│   │   │   ├── ChaseRevealPage.jsx    # Public chase pack reveal page
 ├── build_prod.sh              # Frontend build script
 ├── fix.sh                     # User's deploy script
 ```
@@ -113,9 +114,30 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - Frontend: Updated `StorePromotions.jsx` with collapsible create form, active promotions list with status badges, and action buttons
 - **Permanent Login Fix**: Added `ensure_admin_password()` to `server.py` startup that verifies and corrects admin password hash on every boot, preventing recurring fork login issues
 
+### Session - Feb 2026 (Chase Card Pack Feature)
+- **Chase Card Pack**: New listing type - select 10+ cards, designate a chase card, list on eBay
+- **Smart Pricing**: System suggests price per spot based on total card value with 1.3x markup
+- **Chase Collage**: Auto-generated collage with chase card large on top, others in grid below
+- **eBay Listing**: Creates eBay listing with quantity = number of cards, titled as "CHASE CARD PACK"
+- **Buyer Reveal Page**: Public page at `/chase/{packId}` where buyers enter claim code for animated card reveal
+- **Seller Management**: ChasePackPanel in Listings module to assign buyers, generate claim codes, track progress
+- **Public Results**: After all spots sold, page shows all winners with their eBay usernames
+- Backend: `POST /api/ebay/sell/chase-preview`, `POST /api/ebay/sell/create-chase-pack`, `POST /api/ebay/chase/{pack_id}/assign`, `POST /api/ebay/chase/{pack_id}/reveal`, `GET /api/ebay/chase/{pack_id}`, `GET /api/ebay/chase-packs`
+- Frontend: `CreateChasePackView.jsx`, `ChaseRevealPage.jsx`, `ChasePackPanel.jsx`
+- DB: `chase_packs` collection with pack_id, cards array, claim codes, assignment tracking
+- **End Listing Fix**: When ending a listing, cards now return to inventory (`category: "for_sale"`, `listed: false`), including lot/pick-your-card cards
+- **AGENT_RULES.md**: Created critical rules document for future agents (build with `build_prod.sh`, use dev token, don't touch auth)
+- **Dev Token**: Persistent `dev_flipslab_access` token created on startup for agent testing
+
+## CRITICAL BUILD RULES (READ BEFORE EVERY BUILD)
+- **NEVER run `craco build` or `yarn build` directly**. ALWAYS use `bash /app/build_prod.sh`
+- Production URL is `https://flipslabengine.com`
+- Read `/app/AGENT_RULES.md` before making any changes
+
 ## Next Priority
-- **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
-- **P1:** Whatnot & Shopify Integration
+- **P0:** Chase Pack testing in production (user to test with real eBay listing)
+- **P1:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
+- **P2:** Whatnot & Shopify Integration
 
 ## Future/Backlog
 - P2: Seller Hub Features (Sales Dashboard, Order Management, Best Offer Manager)
@@ -135,4 +157,5 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - `inventory`: image, thumbnail, store_thumbnail, back_image, back_thumbnail, year, set_name, variation, player, sport, team, grading_company, ebay_item_id
 - `listings_cache`: user_id, active (array), sold (array), active_total, sold_total, cached_at
 - `subscriptions`: user_id, plan_id (rookie|mvp|hall_of_famer), status
+- `chase_packs`: pack_id, user_id, ebay_item_id, cards (array with claim_code, assigned_to, revealed), status
 - `card_analyses`: user_id, card_name, created_at (AI analysis records)

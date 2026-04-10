@@ -444,3 +444,79 @@ def create_front_back_combined(front_b64: str, back_b64: str, target_height: int
     except Exception as e:
         logger.warning(f"Front+back combine failed: {e}")
         return ""
+
+
+
+def create_chase_collage(chase_image_b64: str, other_images_b64: list, card_height: int = 500, bg_color=(15, 15, 15), padding: int = 12) -> str:
+    """Create a chase pack collage: chase card large on top, other cards smaller in grid below.
+    Returns base64 JPEG string."""
+    from PIL import ImageDraw, ImageFont
+
+    def load_img(b64, target_h):
+        try:
+            img = Image.open(BytesIO(base64.b64decode(b64))).convert('RGB')
+            ratio = target_h / img.height
+            return img.resize((int(img.width * ratio), target_h), Image.LANCZOS)
+        except:
+            return None
+
+    # Load chase card (larger)
+    chase_h = int(card_height * 1.6)
+    chase_img = load_img(chase_image_b64, chase_h)
+    if not chase_img:
+        return ""
+
+    # Load other cards (smaller)
+    small_h = card_height
+    small_imgs = [img for b64 in other_images_b64 if (img := load_img(b64, small_h))]
+
+    if not small_imgs:
+        return ""
+
+    # Layout: chase card centered on top, grid of others below
+    cards_per_row = min(5, len(small_imgs))
+    rows = []
+    for i in range(0, len(small_imgs), cards_per_row):
+        rows.append(small_imgs[i:i + cards_per_row])
+
+    # Calculate widths
+    grid_row_widths = []
+    for row in rows:
+        w = sum(img.width for img in row) + padding * (len(row) - 1)
+        grid_row_widths.append(w)
+
+    max_grid_w = max(grid_row_widths) if grid_row_widths else 0
+    canvas_w = max(chase_img.width + padding * 2, max_grid_w + padding * 2)
+
+    # Height: padding + chase + padding + grid rows + padding
+    grid_h = len(rows) * (small_h + padding)
+    canvas_h = padding + chase_h + padding + grid_h + padding
+
+    canvas = Image.new('RGB', (canvas_w, canvas_h), bg_color)
+
+    # Draw "CHASE CARD" label area at very top
+    try:
+        draw = ImageDraw.Draw(canvas)
+        # Add subtle fire-colored accent line
+        accent_y = padding // 2
+        draw.rectangle([(padding, accent_y), (canvas_w - padding, accent_y + 3)], fill=(255, 100, 0))
+    except:
+        pass
+
+    # Paste chase card centered
+    chase_x = (canvas_w - chase_img.width) // 2
+    canvas.paste(chase_img, (chase_x, padding))
+
+    # Paste grid below
+    y = padding + chase_h + padding
+    for row in rows:
+        total_w = sum(img.width for img in row) + padding * (len(row) - 1)
+        x = (canvas_w - total_w) // 2
+        for img in row:
+            canvas.paste(img, (x, y))
+            x += img.width + padding
+        y += small_h + padding
+
+    buf = BytesIO()
+    canvas.save(buf, format='JPEG', quality=90)
+    return base64.b64encode(buf.getvalue()).decode('utf-8')

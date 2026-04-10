@@ -15,6 +15,7 @@ import { Button } from './ui/button';
 import CreateListingView from './CreateListingView';
 import CreateLotView from './CreateLotView';
 import CreatePickYourCardView from './CreatePickYourCardView';
+import CreateChasePackView from './CreateChasePackView';
 import SocialPostEditor from './SocialPostEditor';
 import BatchUploadView from './BatchUploadView';
 import PriceHistoryChart from './PriceHistoryChart';
@@ -1293,6 +1294,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const [showBulkPreset, setShowBulkPreset] = useState(false);
   const [showLotModal, setShowLotModal] = useState(false);
   const [showPickYourCard, setShowPickYourCard] = useState(false);
+  const [showChasePack, setShowChasePack] = useState(false);
   const [bulkPresetId, setBulkPresetId] = useState('');
   const [bulkPresets, setBulkPresets] = useState([]);
 
@@ -1562,6 +1564,18 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     );
   }
 
+  // Show Chase Pack view
+  if (showChasePack) {
+    const selectedItems = items.filter(i => selected.has(i.id));
+    return (
+      <CreateChasePackView
+        items={selectedItems}
+        onBack={() => { setShowChasePack(false); exitSelectMode(); }}
+        onSuccess={() => { setShowChasePack(false); exitSelectMode(); fetchInventory(search); }}
+      />
+    );
+  }
+
   // Show Create Listing view
   if (showCreateListing) {
     const selectedItems = items.filter(i => selected.has(i.id));
@@ -1669,6 +1683,10 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
             <button onClick={() => setShowPickYourCard(true)} disabled={!selectMode || selected.size < 2}
               className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="pick-your-card-btn">
               <Tag className="w-4 h-4" /> You Pick {selected.size >= 2 ? `(${selected.size})` : ''}
+            </button>
+            <button onClick={() => setShowChasePack(true)} disabled={!selectMode || selected.size < 10}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-orange-600 to-red-600 text-white text-sm font-semibold hover:from-orange-500 hover:to-red-500 disabled:opacity-30 transition-colors" data-testid="create-chase-pack-btn">
+              Chase Pack {selected.size >= 10 ? `(${selected.size})` : '(10+)'}
             </button>
           </>
         ) : null}

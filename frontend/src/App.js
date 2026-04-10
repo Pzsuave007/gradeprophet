@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import AdminPage from "./pages/AdminPage";
 import ShopPage from "./pages/ShopPage";
 import MarketplacePage from "./pages/MarketplacePage";
+import ChaseRevealPage from "./pages/ChaseRevealPage";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import OnboardingWizard from "./components/OnboardingWizard";
@@ -135,6 +136,7 @@ function App() {
           <Routes>
             <Route path="/shop/:slug" element={<ShopPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />
+            <Route path="/chase/:packId" element={<ChaseRevealPage />} />
             <Route path="*" element={<AuthPage onSuccess={handleAuthSuccess} onBack={() => setView('landing')} />} />
           </Routes>
           <Toaster position="bottom-right" />
@@ -146,6 +148,7 @@ function App() {
         <Routes>
           <Route path="/shop/:slug" element={<ShopPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/chase/:packId" element={<ChaseRevealPage />} />
           <Route path="*" element={<LandingPage onGetStarted={() => setView('auth')} />} />
         </Routes>
         <Toaster position="bottom-right" />
@@ -160,6 +163,7 @@ function App() {
         <Routes>
           <Route path="/shop/:slug" element={<ShopPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
+          <Route path="/chase/:packId" element={<ChaseRevealPage />} />
           <Route path="*" element={<OnboardingWizard user={user} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />} />
         </Routes>
         <Toaster position="bottom-right" />
@@ -173,6 +177,7 @@ function App() {
       <Routes>
         <Route path="/shop/:slug" element={<ShopPage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
+        <Route path="/chase/:packId" element={<ChaseRevealPage />} />
         <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
         <Route path="*" element={<Dashboard user={user} onLogout={handleLogout} />} />
       </Routes>

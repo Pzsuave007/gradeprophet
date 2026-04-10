@@ -1714,7 +1714,7 @@ async def lot_regenerate_images(request: Request):
 
 @router.get("/sell/lot-check/{ebay_item_id}")
 async def check_if_lot(ebay_item_id: str, request: Request):
-    """Check if an eBay listing is a lot or pick-your-card listing."""
+    """Check if an eBay listing is a lot, pick-your-card, or chase pack listing."""
     user = await get_current_user(request)
     lot = await db.lots.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
     if lot:
@@ -1722,6 +1722,9 @@ async def check_if_lot(ebay_item_id: str, request: Request):
     pick = await db.pick_your_card.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
     if pick:
         return {"is_lot": False, "listing_type": "pick_your_card", "pick_id": pick.get("pick_id"), "card_count": pick.get("card_count", 0), "card_ids": pick.get("card_ids", [])}
+    chase = await db.chase_packs.find_one({"ebay_item_id": ebay_item_id, "user_id": user["user_id"]}, {"_id": 0})
+    if chase:
+        return {"is_lot": False, "listing_type": "chase_pack", "pack_id": chase.get("pack_id"), "card_count": chase.get("total_spots", 0), "spots_claimed": chase.get("spots_claimed", 0)}
     return {"is_lot": False, "listing_type": "single"}
 
 
@@ -2035,6 +2038,524 @@ async def create_pick_your_card(request: Request):
     except Exception as e:
         logger.error(f"Pick Your Card exception: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ============ CHASE CARD PACK ============
+
+@router.post("/sell/chase-preview")
+async def chase_pack_preview(request: Request):
+    """Generate preview for a Chase Card Pack: suggested price, collage, title."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    card_ids = body.get("card_ids", [])
+    chase_card_id = body.get("chase_card_id")
+
+    if len(card_ids) < 10:
+        raise HTTPException(status_code=400, detail="Minimum 10 cards for a Chase Pack")
+
+    if not chase_card_id or chase_card_id not in card_ids:
+        raise HTTPException(status_code=400, detail="Must select a chase card from the pack")
+
+    # Fetch cards
+    cards = []
+    for cid in card_ids:
+        card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if card:
+            cards.append(card)
+
+    if len(cards) < 10:
+        raise HTTPException(status_code=400, detail=f"Only {len(cards)} valid cards found, need at least 10")
+
+    # Calculate suggested price
+    total_value = 0
+    chase_card = None
+    other_cards = []
+    for c in cards:
+        val = c.get("card_value") or c.get("listed_price") or c.get("purchase_price") or 0
+        try:
+            val = float(val)
+        except:
+            val = 0
+        total_value += val
+        if c["id"] == chase_card_id:
+            chase_card = c
+        else:
+            other_cards.append(c)
+
+    num_cards = len(cards)
+    # Suggested price: total value / num_cards * 1.3 markup, rounded up
+    suggested_price = round((total_value / num_cards * 1.3) + 0.49, 2) if total_value > 0 else 5.00
+    suggested_price = max(suggested_price, 1.99)
+
+    # Generate collage
+    from utils.image import create_chase_collage
+    chase_img = chase_card.get("image") or chase_card.get("thumbnail", "")
+    other_imgs = [c.get("image") or c.get("thumbnail", "") for c in other_cards if c.get("image") or c.get("thumbnail")]
+    collage_b64 = ""
+    if chase_img and other_imgs:
+        collage_b64 = create_chase_collage(chase_img, other_imgs)
+
+    # Build title
+    chase_player = chase_card.get("player", "Card")
+    chase_set = chase_card.get("set_name", "")
+    chase_year = chase_card.get("year", "")
+    chase_variation = chase_card.get("variation", "")
+    title = f"{chase_year} {chase_set} {chase_player}"
+    if chase_variation:
+        title += f" {chase_variation}"
+    title += f" CHASE CARD PACK"
+    title = title[:80]
+
+    # Build description
+    desc_lines = [
+        f"{chase_year} {chase_set} {chase_player} {chase_variation} CHASE CARD PACK",
+        "",
+        f"This pack contains {num_cards} cards. You will receive 1 card from this pack.",
+        f"All {num_cards} cards are shown in the photos.",
+        "",
+        "CHASE CARD:",
+        f"  {chase_player} - {chase_year} {chase_set} {chase_variation}",
+        "",
+        "ALL CARDS IN THIS PACK:",
+    ]
+    for i, c in enumerate(cards, 1):
+        p = c.get("player", "Unknown")
+        y = c.get("year", "")
+        s = c.get("set_name", "")
+        v = c.get("variation", "")
+        marker = " [CHASE]" if c["id"] == chase_card_id else ""
+        desc_lines.append(f"  {i}. {y} {s} {p} {v}{marker}")
+
+    desc_lines += [
+        "",
+        f"Total spots: {num_cards}. One card per purchase.",
+        "All cards are shown - no hidden cards, no filler.",
+        "READ BEFORE PURCHASE: You will receive ONE card from this pack.",
+    ]
+    description = "\n".join(desc_lines)
+
+    return {
+        "title": title,
+        "description": description,
+        "suggested_price": suggested_price,
+        "total_value": round(total_value, 2),
+        "num_cards": num_cards,
+        "collage": collage_b64,
+        "chase_card": {
+            "id": chase_card["id"],
+            "player": chase_player,
+            "year": chase_year,
+            "set_name": chase_set,
+            "variation": chase_variation,
+        },
+        "cards": [{"id": c["id"], "player": c.get("player", ""), "year": c.get("year", ""), "set_name": c.get("set_name", ""), "variation": c.get("variation", ""), "value": c.get("card_value") or c.get("listed_price") or c.get("purchase_price") or 0} for c in cards],
+    }
+
+
+@router.post("/sell/create-chase-pack")
+async def create_chase_pack(request: Request):
+    """Create and list a Chase Card Pack on eBay."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    body = await request.json()
+    card_ids = body.get("card_ids", [])
+    chase_card_id = body.get("chase_card_id")
+    title = body.get("title", "CHASE CARD PACK")[:80]
+    description = body.get("description", "")
+    price = float(body.get("price", 5.00))
+    condition_id = body.get("condition_id", 4000)
+    shipping_option = body.get("shipping_option", "USPSFirstClass")
+    shipping_cost = float(body.get("shipping_cost", 4.50))
+    best_offer = body.get("best_offer", False)
+
+    if len(card_ids) < 10:
+        raise HTTPException(status_code=400, detail="Minimum 10 cards")
+
+    # Fetch all cards
+    cards = []
+    for cid in card_ids:
+        card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if card:
+            cards.append(card)
+
+    if len(cards) < 10:
+        raise HTTPException(status_code=400, detail="Not enough valid cards")
+
+    # Generate collage for eBay
+    from utils.image import create_chase_collage, create_lot_collage
+    chase_card = next((c for c in cards if c["id"] == chase_card_id), cards[0])
+    other_cards = [c for c in cards if c["id"] != chase_card_id]
+
+    chase_img = chase_card.get("image") or chase_card.get("thumbnail", "")
+    other_imgs = [c.get("image") or c.get("thumbnail", "") for c in other_cards if c.get("image") or c.get("thumbnail")]
+
+    # Main collage (chase big + others)
+    collage_b64 = create_chase_collage(chase_img, other_imgs) if chase_img and other_imgs else ""
+
+    # Also create individual card images collage (grid of all cards)
+    all_imgs = [c.get("image") or c.get("thumbnail", "") for c in cards if c.get("image") or c.get("thumbnail")]
+    grid_collage_b64 = create_lot_collage(all_imgs, cards_per_row=5, card_height=500) if all_imgs else ""
+
+    # Upload images to eBay
+    picture_urls = []
+    for img_b64 in [collage_b64, grid_collage_b64]:
+        if not img_b64:
+            continue
+        try:
+            img_bytes = base64.b64decode(img_b64)
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={
+                        "X-EBAY-API-SITEID": "0",
+                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                        "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": "image/jpeg",
+                    },
+                    content=img_bytes,
+                )
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(resp.text)
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            url_el = root.find(".//e:FullURL", ns)
+            if url_el is not None and url_el.text:
+                picture_urls.append(url_el.text)
+        except Exception as e:
+            logger.warning(f"Chase pack image upload failed: {e}")
+
+    # Also upload individual chase card image
+    if chase_img:
+        try:
+            img_bytes = base64.b64decode(chase_img)
+            async with httpx.AsyncClient(timeout=60.0) as http_client:
+                resp = await http_client.post(
+                    "https://api.ebay.com/ws/api.dll",
+                    headers={
+                        "X-EBAY-API-SITEID": "0",
+                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
+                        "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": "image/jpeg",
+                    },
+                    content=img_bytes,
+                )
+            import xml.etree.ElementTree as ET
+            root = ET.fromstring(resp.text)
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            url_el = root.find(".//e:FullURL", ns)
+            if url_el is not None and url_el.text:
+                picture_urls.append(url_el.text)
+        except Exception as e:
+            logger.warning(f"Chase card image upload failed: {e}")
+
+    if not picture_urls:
+        raise HTTPException(status_code=500, detail="Failed to upload images to eBay")
+
+    pics_xml = "\n".join([f"<PictureURL>{url}</PictureURL>" for url in picture_urls[:12]])
+
+    # Detect sport from chase card
+    sport = chase_card.get("sport", "Basketball")
+    sport_lower = sport.lower() if sport else "basketball"
+    cat_map = {"basketball": "261328", "baseball": "261328", "football": "261328", "soccer": "261328", "hockey": "261328"}
+    category_id = cat_map.get(sport_lower, "261328")
+
+    safe_desc = html.escape(description)
+
+    # Shipping
+    ship_map = {
+        "FreeShipping": f'<ShippingServiceOptions><ShippingService>USPSMedia</ShippingService><ShippingServiceCost>0.00</ShippingServiceCost><FreeShipping>true</FreeShipping></ShippingServiceOptions>',
+        "PWEEnvelope": f'<ShippingServiceOptions><ShippingService>USPSFirstClass</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
+        "USPSFirstClass": f'<ShippingServiceOptions><ShippingService>USPSFirstClass</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
+        "USPSPriority": f'<ShippingServiceOptions><ShippingService>USPSPriority</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
+    }
+    ship_xml = ship_map.get(shipping_option, ship_map["USPSFirstClass"])
+
+    # Best offer
+    bo_xml = ""
+    if best_offer:
+        bo_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+
+    # Build Item Specifics
+    specifics_xml = """<ItemSpecifics>
+<NameValueList><Name>Sport</Name><Value>{sport}</Value></NameValueList>
+<NameValueList><Name>Type</Name><Value>Sports Trading Card</Value></NameValueList>
+<NameValueList><Name>Card Size</Name><Value>Standard</Value></NameValueList>
+</ItemSpecifics>""".format(sport=html.escape(sport))
+
+    quantity = len(cards)
+
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item>
+    <Title>{html.escape(title)}</Title>
+    <Description>{safe_desc}</Description>
+    <PrimaryCategory><CategoryID>{category_id}</CategoryID></PrimaryCategory>
+    <StartPrice>{price:.2f}</StartPrice>
+    <Quantity>{quantity}</Quantity>
+    <ConditionID>{condition_id}</ConditionID>
+    <ConditionDescriptors><ConditionDescriptorID>40001</ConditionDescriptorID><ConditionDescriptorValue>400010</ConditionDescriptorValue></ConditionDescriptors>
+    <Country>US</Country>
+    <Currency>USD</Currency>
+    <DispatchTimeMax>3</DispatchTimeMax>
+    <ListingDuration>GTC</ListingDuration>
+    <ListingType>FixedPriceItem</ListingType>
+    <PictureDetails>{pics_xml}</PictureDetails>
+    <ShippingDetails>
+      <ShippingType>Flat</ShippingType>
+      {ship_xml}
+    </ShippingDetails>
+    <ReturnPolicy>
+      <ReturnsAcceptedOption>ReturnsNotAccepted</ReturnsAcceptedOption>
+    </ReturnPolicy>
+    {specifics_xml}
+    {bo_xml}
+  </Item>
+</AddFixedPriceItemRequest>'''
+
+    try:
+        import xml.etree.ElementTree as ET
+        async with httpx.AsyncClient(timeout=30.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "AddFixedPriceItem",
+                "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": "text/xml",
+            }, content=xml_body)
+
+        root = ET.fromstring(resp.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        ack = root.find("e:Ack", ns)
+
+        if ack is not None and ack.text in ("Success", "Warning"):
+            item_id_el = root.find("e:ItemID", ns)
+            ebay_item_id = item_id_el.text if item_id_el is not None else ""
+
+            # Create chase pack record
+            pack_id = f"chase_{uuid.uuid4().hex[:12]}"
+            pack_cards = []
+            for c in cards:
+                claim_code = uuid.uuid4().hex[:8].upper()
+                pack_cards.append({
+                    "card_id": c["id"],
+                    "player": c.get("player", ""),
+                    "year": c.get("year", ""),
+                    "set_name": c.get("set_name", ""),
+                    "variation": c.get("variation", ""),
+                    "image": c.get("thumbnail") or c.get("store_thumbnail") or "",
+                    "is_chase": c["id"] == chase_card_id,
+                    "assigned_to": None,
+                    "claim_code": claim_code,
+                    "claimed_at": None,
+                    "revealed": False,
+                })
+
+            await db.chase_packs.insert_one({
+                "pack_id": pack_id,
+                "user_id": user_id,
+                "ebay_item_id": ebay_item_id,
+                "title": title,
+                "price": price,
+                "total_spots": len(cards),
+                "spots_claimed": 0,
+                "cards": pack_cards,
+                "chase_card_id": chase_card_id,
+                "status": "active",
+                "all_revealed": False,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+
+            # Mark cards in inventory
+            for c in cards:
+                await db.inventory.update_one(
+                    {"id": c["id"], "user_id": user_id},
+                    {"$set": {
+                        "category": "chase_pack",
+                        "chase_pack_id": pack_id,
+                        "ebay_item_id": ebay_item_id,
+                        "listed": True,
+                    }}
+                )
+
+            return {
+                "success": True,
+                "ebay_item_id": ebay_item_id,
+                "pack_id": pack_id,
+                "message": f"Chase Card Pack listed! {len(cards)} spots at ${price:.2f} each.",
+                "ebay_url": f"https://www.ebay.com/itm/{ebay_item_id}",
+            }
+        else:
+            real_errors = []
+            all_msgs = []
+            for err_el in root.findall(".//e:Errors", ns):
+                severity = err_el.find("e:SeverityCode", ns)
+                msg_el = err_el.find("e:LongMessage", ns)
+                code_el = err_el.find("e:ErrorCode", ns)
+                sev = severity.text if severity is not None else "Error"
+                msg_text = msg_el.text if msg_el is not None else "Unknown"
+                code = code_el.text if code_el is not None else ""
+                all_msgs.append(f"[{sev}:{code}] {msg_text}")
+                if sev == "Error":
+                    real_errors.append(f"[{code}] {msg_text}")
+            logger.error(f"Chase Pack listing failed: {all_msgs}")
+            return {"success": False, "error": real_errors[0] if real_errors else (all_msgs[0] if all_msgs else "eBay listing failed")}
+    except Exception as e:
+        logger.error(f"Chase Pack exception: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/chase/{pack_id}")
+async def get_chase_pack(pack_id: str):
+    """Public endpoint: get chase pack info for the reveal page."""
+    pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # Return cards but hide claim codes and assignment details for unclaimed
+    public_cards = []
+    for c in pack.get("cards", []):
+        card_info = {
+            "player": c["player"],
+            "year": c["year"],
+            "set_name": c["set_name"],
+            "variation": c["variation"],
+            "is_chase": c["is_chase"],
+            "revealed": c["revealed"],
+            "claimed": c["assigned_to"] is not None,
+        }
+        # Only show assigned_to if all are revealed
+        if pack.get("all_revealed"):
+            card_info["assigned_to"] = c.get("assigned_to", "")
+            card_info["image"] = c.get("image", "")
+        public_cards.append(card_info)
+
+    return {
+        "pack_id": pack["pack_id"],
+        "title": pack["title"],
+        "price": pack["price"],
+        "total_spots": pack["total_spots"],
+        "spots_claimed": pack["spots_claimed"],
+        "status": pack["status"],
+        "all_revealed": pack.get("all_revealed", False),
+        "cards": public_cards,
+        "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
+    }
+
+
+@router.post("/chase/{pack_id}/assign")
+async def assign_chase_spot(pack_id: str, request: Request):
+    """Seller assigns a buyer to a spot and gets the claim code to send them."""
+    user = await get_current_user(request)
+    body = await request.json()
+    buyer_username = body.get("buyer_username", "").strip()
+
+    if not buyer_username:
+        raise HTTPException(status_code=400, detail="Buyer username required")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # Find an unassigned card randomly
+    import random
+    unassigned = [i for i, c in enumerate(pack["cards"]) if c["assigned_to"] is None]
+    if not unassigned:
+        return {"success": False, "error": "All spots are already assigned"}
+
+    chosen_idx = random.choice(unassigned)
+    claim_code = pack["cards"][chosen_idx]["claim_code"]
+
+    # Update the card assignment
+    await db.chase_packs.update_one(
+        {"pack_id": pack_id, f"cards.{chosen_idx}.assigned_to": None},
+        {"$set": {
+            f"cards.{chosen_idx}.assigned_to": buyer_username,
+            f"cards.{chosen_idx}.claimed_at": datetime.now(timezone.utc).isoformat(),
+            "spots_claimed": pack["spots_claimed"] + 1,
+        }}
+    )
+
+    # Check if all assigned
+    new_claimed = pack["spots_claimed"] + 1
+    if new_claimed >= pack["total_spots"]:
+        await db.chase_packs.update_one(
+            {"pack_id": pack_id},
+            {"$set": {"all_revealed": True, "status": "completed"}}
+        )
+        # Also reveal all cards
+        for i in range(len(pack["cards"])):
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {f"cards.{i}.revealed": True}}
+            )
+
+    return {
+        "success": True,
+        "claim_code": claim_code,
+        "buyer": buyer_username,
+        "spots_remaining": pack["total_spots"] - new_claimed,
+        "message": f"Spot assigned to {buyer_username}. Send them this claim code: {claim_code}",
+    }
+
+
+@router.post("/chase/{pack_id}/reveal")
+async def reveal_chase_card(pack_id: str, request: Request):
+    """Public endpoint: buyer enters claim code to reveal their card."""
+    body = await request.json()
+    claim_code = body.get("claim_code", "").strip().upper()
+
+    if not claim_code:
+        raise HTTPException(status_code=400, detail="Claim code required")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # Find the card with this claim code
+    for i, c in enumerate(pack["cards"]):
+        if c["claim_code"] == claim_code:
+            if not c["assigned_to"]:
+                return {"success": False, "error": "This spot has not been assigned yet"}
+
+            # Mark as revealed
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {f"cards.{i}.revealed": True}}
+            )
+
+            return {
+                "success": True,
+                "card": {
+                    "player": c["player"],
+                    "year": c["year"],
+                    "set_name": c["set_name"],
+                    "variation": c["variation"],
+                    "image": c.get("image", ""),
+                    "is_chase": c["is_chase"],
+                },
+                "buyer": c["assigned_to"],
+                "is_chase": c["is_chase"],
+                "message": f"{'CHASE CARD!' if c['is_chase'] else 'Card revealed!'} You got: {c['year']} {c['set_name']} {c['player']} {c['variation']}",
+            }
+
+    raise HTTPException(status_code=404, detail="Invalid claim code")
+
+
+@router.get("/chase-packs")
+async def get_my_chase_packs(request: Request):
+    """Get all chase packs for the current user (seller dashboard)."""
+    user = await get_current_user(request)
+    packs = await db.chase_packs.find(
+        {"user_id": user["user_id"]},
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return {"packs": packs}
 
 
 # ============ BULK SAVINGS (Volume Discount) ============
