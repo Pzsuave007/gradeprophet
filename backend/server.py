@@ -39,7 +39,7 @@ from routers.market import router as market_router
 from routers.portfolio import router as portfolio_router
 from routers.alerts import router as alerts_router
 from routers.dashboard import router as dashboard_router
-from routers.ebay import router as ebay_router
+from routers.ebay import router as ebay_router, chase_sales_monitor_loop
 from routers.flipfinder import router as flipfinder_router, sniper_background_loop
 from routers.settings import router as settings_router
 from routers.onboarding import router as onboarding_router
@@ -250,6 +250,9 @@ async def startup_db_client():
 
     asyncio.create_task(sniper_background_loop())
     logger.info("Sniper background engine launched")
+
+    asyncio.create_task(chase_sales_monitor_loop())
+    logger.info("Chase Sales Monitor launched")
 
 
 async def ensure_admin_password():

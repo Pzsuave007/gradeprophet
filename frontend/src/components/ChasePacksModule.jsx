@@ -160,6 +160,7 @@ const PackDetailView = ({ packId, onBack }) => {
   const [syncing, setSyncing] = useState(false);
   const [confirm, setConfirm] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
+  const [checkingSales, setCheckingSales] = useState(false);
 
   const fetchPack = useCallback(async () => {
     try {
@@ -236,6 +237,23 @@ const PackDetailView = ({ packId, onBack }) => {
       toast.error(err.response?.data?.detail || 'Sync failed');
     } finally {
       setSyncing(false);
+    }
+  };
+
+  const checkSales = async () => {
+    setCheckingSales(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/chase/check-sales`, {}, { withCredentials: true });
+      if (res.data.new_sales > 0) {
+        toast.success(`${res.data.new_sales} new sale(s) detected! Buyers auto-assigned.`);
+        fetchPack();
+      } else {
+        toast.info('No new sales found');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Check failed');
+    } finally {
+      setCheckingSales(false);
     }
   };
 
@@ -434,6 +452,13 @@ const PackDetailView = ({ packId, onBack }) => {
           <button onClick={copyRevealLink} className="px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold hover:bg-[#f59e0b]/20 transition-all flex items-center gap-1.5" data-testid="copy-reveal-link">
             <ExternalLink className="w-3.5 h-3.5" /> Link
           </button>
+          {isActive && (
+            <button onClick={checkSales} disabled={checkingSales}
+              className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 disabled:opacity-40 transition-all flex items-center gap-1.5"
+              data-testid="check-sales-btn">
+              {checkingSales ? <RefreshCw className="w-3 h-3 animate-spin" /> : <DollarSign className="w-3.5 h-3.5" />} Check Sales
+            </button>
+          )}
           {fullPack.ebay_item_id && fullPack.ebay_item_id !== 'DEMO_123456' && (
             <>
               <a href={`https://www.ebay.com/itm/${fullPack.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
@@ -971,7 +996,11 @@ const ChasePacksModule = () => {
           <h1 className="text-xl font-black text-white flex items-center gap-2">
             <Flame className="w-5 h-5 text-[#f59e0b]" /> Chase Packs
           </h1>
-          <p className="text-xs text-gray-500 mt-0.5">Manage your Chase Card Pack listings</p>
+          <p className="text-xs text-gray-500 mt-0.5">Manage your Chase Card Pack listings
+            <span className="inline-flex items-center gap-1 ml-2 text-emerald-500/70">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" /> Auto-monitor active
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={() => setShowCreate(true)}

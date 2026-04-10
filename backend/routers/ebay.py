@@ -4135,3 +4135,243 @@ IMPORTANT: Title must be EXACTLY 80 characters or less."""
     except Exception as e:
         logger.error(f"AI listing generation failed: {e}")
         return {"title": data.card_name[:80], "description": f"{data.card_name}. Ships fast with tracking."}
+
+
+
+# ===== CHASE PACK SALES MONITOR =====
+from datetime import timedelta
+
+PRODUCTION_URL = "https://flipslabengine.com"
+
+
+async def _send_ebay_message(token: str, item_id: str, buyer_username: str, subject: str, body: str) -> bool:
+    """Send a message to an eBay buyer using Trading API."""
+    import xml.etree.ElementTree as ET
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<AddMemberMessageAAQToPartnerRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{item_id}</ItemID>
+  <MemberMessage>
+    <Subject>{html.escape(subject[:200])}</Subject>
+    <Body>{html.escape(body)}</Body>
+    <QuestionType>CustomizedSubject</QuestionType>
+    <RecipientID>{html.escape(buyer_username)}</RecipientID>
+  </MemberMessage>
+</AddMemberMessageAAQToPartnerRequest>"""
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as hc:
+            r = await hc.post(
+                "https://api.ebay.com/ws/api.dll",
+                content=xml_body,
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "1155",
+                    "X-EBAY-API-CALL-NAME": "AddMemberMessageAAQToPartner",
+                    "Content-Type": "text/xml",
+                },
+            )
+        if r.status_code == 200:
+            tree = ET.fromstring(r.text)
+            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+            ack = tree.find("e:Ack", ns)
+            if ack is not None and ack.text in ("Success", "Warning"):
+                logger.info(f"eBay message sent to {buyer_username} for item {item_id}")
+                return True
+            errors = tree.findall(".//e:Errors/e:LongMessage", ns)
+            err_msg = errors[0].text if errors else "Unknown"
+            logger.warning(f"eBay message to {buyer_username} failed: {err_msg}")
+        return False
+    except Exception as e:
+        logger.error(f"Failed to send eBay message: {e}")
+        return False
+
+
+async def _get_chase_pack_transactions(pack: dict, token: str) -> list:
+    """Check eBay for transactions on a Chase Pack listing."""
+    import xml.etree.ElementTree as ET
+
+    ebay_item_id = pack.get("ebay_item_id")
+    if not ebay_item_id:
+        return []
+
+    last_check = pack.get("last_sale_check")
+    if not last_check:
+        last_check = pack.get("created_at", (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat())
+
+    xml_body = f"""<?xml version="1.0" encoding="utf-8"?>
+<GetItemTransactionsRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID>
+  <ModTimeFrom>{last_check}</ModTimeFrom>
+  <ModTimeTo>{datetime.now(timezone.utc).isoformat()}</ModTimeTo>
+  <Pagination><EntriesPerPage>50</EntriesPerPage></Pagination>
+</GetItemTransactionsRequest>"""
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as hc:
+            r = await hc.post(
+                "https://api.ebay.com/ws/api.dll",
+                content=xml_body,
+                headers={
+                    "X-EBAY-API-SITEID": "0",
+                    "X-EBAY-API-COMPATIBILITY-LEVEL": "1155",
+                    "X-EBAY-API-CALL-NAME": "GetItemTransactions",
+                    "Content-Type": "text/xml",
+                },
+            )
+        if r.status_code != 200:
+            return []
+
+        tree = ET.fromstring(r.text)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+        txns = []
+        for txn in tree.findall(".//e:Transaction", ns):
+            txn_id_el = txn.find("e:TransactionID", ns)
+            buyer_el = txn.find("e:Buyer/e:UserID", ns)
+            qty_el = txn.find("e:QuantityPurchased", ns)
+
+            txn_id = txn_id_el.text if txn_id_el is not None else ""
+            buyer = buyer_el.text if buyer_el is not None else ""
+            qty = int(qty_el.text) if qty_el is not None else 1
+
+            if txn_id and buyer:
+                txns.append({"transaction_id": txn_id, "buyer": buyer, "quantity": qty})
+        return txns
+    except Exception as e:
+        logger.error(f"GetItemTransactions failed for {ebay_item_id}: {e}")
+        return []
+
+
+async def _assign_single_spot(pack_id: str, buyer_username: str) -> str | None:
+    """Assign one spot to a buyer. Returns claim_code or None."""
+    import random
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    if not pack or pack["status"] not in ("active", "paused"):
+        return None
+
+    unassigned = [i for i, c in enumerate(pack["cards"]) if c["assigned_to"] is None]
+    if not unassigned:
+        return None
+
+    chosen_idx = random.choice(unassigned)
+    claim_code = pack["cards"][chosen_idx]["claim_code"]
+
+    await db.chase_packs.update_one(
+        {"pack_id": pack_id, f"cards.{chosen_idx}.assigned_to": None},
+        {"$set": {
+            f"cards.{chosen_idx}.assigned_to": buyer_username,
+            f"cards.{chosen_idx}.claimed_at": datetime.now(timezone.utc).isoformat(),
+            "spots_claimed": pack.get("spots_claimed", 0) + 1,
+        }}
+    )
+
+    # Refresh to check if completed
+    updated = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    if updated and updated.get("spots_claimed", 0) >= updated.get("total_spots", 0):
+        await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "completed"}})
+
+    return claim_code
+
+
+async def check_all_chase_pack_sales():
+    """Check all active Chase Packs for new eBay sales. Auto-assign + notify buyers."""
+    active_packs = await db.chase_packs.find(
+        {"status": "active", "ebay_item_id": {"$exists": True, "$ne": ""}},
+        {"_id": 0}
+    ).to_list(100)
+
+    if not active_packs:
+        return {"checked": 0, "new_sales": 0}
+
+    total_new = 0
+    user_ids = list(set(p["user_id"] for p in active_packs))
+
+    for user_id in user_ids:
+        token = await get_ebay_user_token(user_id)
+        if not token:
+            continue
+
+        user_packs = [p for p in active_packs if p["user_id"] == user_id]
+        for pack in user_packs:
+            processed = set(pack.get("processed_transactions", []))
+            txns = await _get_chase_pack_transactions(pack, token)
+
+            for txn in txns:
+                if txn["transaction_id"] in processed:
+                    continue
+
+                # Assign spots (1 per quantity purchased)
+                codes = []
+                for _ in range(txn["quantity"]):
+                    code = await _assign_single_spot(pack["pack_id"], txn["buyer"])
+                    if code:
+                        codes.append(code)
+
+                if codes:
+                    total_new += len(codes)
+                    # Send ONE eBay message with all codes
+                    reveal_url = f"{PRODUCTION_URL}/chase/{pack['pack_id']}"
+                    if len(codes) == 1:
+                        msg_body = (
+                            f"Thanks for buying a spot in {pack['title']}!\n\n"
+                            f"Your claim code: {codes[0]}\n\n"
+                            f"Reveal your card here:\n{reveal_url}\n\n"
+                            f"Enter your code and see what you got. Good luck!"
+                        )
+                    else:
+                        codes_str = "\n".join(f"  Spot {i+1}: {c}" for i, c in enumerate(codes))
+                        msg_body = (
+                            f"Thanks for buying {len(codes)} spots in {pack['title']}!\n\n"
+                            f"Your claim codes:\n{codes_str}\n\n"
+                            f"Reveal your cards here:\n{reveal_url}\n\n"
+                            f"Enter each code to reveal. Good luck!"
+                        )
+
+                    sent = await _send_ebay_message(
+                        token=token,
+                        item_id=pack.get("ebay_item_id", ""),
+                        buyer_username=txn["buyer"],
+                        subject=f"Your {pack['title']} Code!",
+                        body=msg_body,
+                    )
+                    logger.info(f"Chase auto-assign: {txn['buyer']} -> {pack['pack_id']}, codes={codes}, msg_sent={sent}")
+
+                processed.add(txn["transaction_id"])
+
+            # Update last check time
+            await db.chase_packs.update_one(
+                {"pack_id": pack["pack_id"]},
+                {"$set": {
+                    "last_sale_check": datetime.now(timezone.utc).isoformat(),
+                    "processed_transactions": list(processed),
+                }}
+            )
+
+    return {"checked": len(active_packs), "new_sales": total_new}
+
+
+# --- Manual trigger endpoint ---
+@router.post("/chase/check-sales")
+async def check_chase_sales(request: Request):
+    """Manually trigger a check for new Chase Pack sales on eBay."""
+    await get_current_user(request)
+    result = await check_all_chase_pack_sales()
+    return {"success": True, **result}
+
+
+# --- Background loop (started from server.py) ---
+async def chase_sales_monitor_loop():
+    """Background loop — checks for Chase Pack sales every 60 seconds."""
+    logger.info("Chase Sales Monitor started")
+    await asyncio.sleep(10)  # Initial delay
+    while True:
+        try:
+            result = await check_all_chase_pack_sales()
+            if result["new_sales"] > 0:
+                logger.info(f"Chase monitor: {result['new_sales']} new sales processed")
+        except Exception as e:
+            logger.error(f"Chase sales monitor error: {e}")
+        await asyncio.sleep(60)

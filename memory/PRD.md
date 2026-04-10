@@ -118,6 +118,20 @@ FlipSlab Engine is a card management and selling platform for sports card collec
   - Compact spacing on mobile (smaller padding, smaller spot tracker slots)
 - Frontend compiled with `build_prod.sh`
 
+### Session - Apr 2026 (Chase Pack Auto-Sales Monitor + Buyer Messaging)
+- **Background Sales Monitor**: Polls eBay every 60 seconds for new Chase Pack transactions
+  - Uses `GetItemTransactions` Trading API to detect new sales
+  - Auto-assigns buyer to next available spot + generates claim code
+  - Handles multi-quantity purchases (buyer buys 3 spots = 3 separate codes)
+  - Tracks processed transactions to avoid duplicates
+- **eBay Buyer Messaging**: Uses `AddMemberMessageAAQToPartner` Trading API
+  - Sends buyer their claim code(s) + reveal page link
+  - Single message for multi-quantity purchases with all codes listed
+- **"Check Sales" button** in pack detail view (active packs only) for manual trigger
+- **"Auto-monitor active" indicator** in Chase Packs header with green pulsing dot
+- **Manual endpoint**: `POST /api/ebay/chase/check-sales`
+- Frontend compiled with `build_prod.sh`
+
 ### Session - Apr 2026 (Chase Pack Creation Wizard)
 - **"New Pack" button** added to Chase Packs module header
 - **3-Step Wizard**: Select Cards → Set Tiers → Details & Create
