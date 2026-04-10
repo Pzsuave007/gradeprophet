@@ -329,142 +329,115 @@ const ChaseRevealPage = () => {
         </div>
       </nav>
 
-      {/* HERO: Two-column layout */}
-      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pt-10 pb-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-start">
+      {/* HERO: Three-column layout — Info | Chaser 1 | Chaser 2 */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pt-8 pb-8">
 
-          {/* LEFT COLUMN */}
-          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="space-y-5">
-            {/* Badge + Title */}
-            <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-4">
-                <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
-              </div>
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#f59e0b]">
-                {pack.title}
-              </h1>
-              <div className="flex items-center gap-4 mt-3">
-                <span className="text-white font-bold text-lg">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
-                <span className="text-white/[0.15]">|</span>
-                <span className="text-white font-bold">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
-              </div>
+        {/* Top row: Title + Code input */}
+        <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4 mb-6">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-3">
+              <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
             </div>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#f59e0b]">
+              {pack.title}
+            </h1>
+            <div className="flex items-center gap-4 mt-2">
+              <span className="text-white font-bold text-lg">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
+              <span className="text-white/[0.15]">|</span>
+              <span className="text-white font-bold">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
+            </div>
+          </div>
 
-            {/* SPOT TRACKER */}
+          {/* Code input — top right */}
+          <div className="bg-[#111] border border-white/[0.08] rounded-xl p-3 shrink-0" data-testid="chase-claim-section">
+            <div className="flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5 text-[#f59e0b] shrink-0" />
+              <span className="text-[10px] font-bold text-gray-400 shrink-0">REVEAL:</span>
+              {error && <span className="text-[9px] text-red-400">{error}</span>}
+              <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
+                placeholder="ENTER CODE" maxLength={8}
+                className="w-[160px] bg-[#0a0a0a] border border-white/[0.08] rounded-lg px-3 py-2 text-center text-xs font-mono font-bold text-white tracking-[0.2em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
+                data-testid="chase-claim-input" />
+              <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
+                className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
+                data-testid="chase-reveal-btn">
+                {revealing ? '...' : 'REVEAL'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main grid: Sidebar | Chasers side by side */}
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6 items-start">
+
+          {/* LEFT SIDEBAR — Compact */}
+          <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.5 }} className="space-y-3">
+            {/* Spots Tracker — Compact */}
             {pack.spots && (
-              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />
-              </motion.div>
+              <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />
             )}
 
-            {/* Store Info */}
-            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-5 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#3b82f6] flex items-center justify-center shrink-0">
-                  <span className="text-white font-black text-sm">FS</span>
+            {/* Store Info — Compact */}
+            <div className="bg-[#111] border border-white/[0.06] rounded-xl p-3 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-[#3b82f6] flex items-center justify-center shrink-0">
+                  <span className="text-white font-black text-[9px]">FS</span>
                 </div>
                 <div>
-                  <p className="text-white font-bold text-sm">FlipSlab Engine</p>
-                  <p className="text-[10px] text-gray-500">Powered by FlipSlab</p>
+                  <p className="text-white font-bold text-xs">FlipSlab Engine</p>
+                  <p className="text-[9px] text-gray-500">Powered by FlipSlab</p>
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
-                  <Shield className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 font-medium">Verified</p>
-                  <p className="text-[9px] text-emerald-400 font-bold">Seller</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="bg-[#0a0a0a] rounded-lg p-2 border border-white/[0.04] text-center">
+                  <Shield className="w-3 h-3 text-emerald-400 mx-auto mb-0.5" />
+                  <p className="text-[8px] text-emerald-400 font-bold">Verified</p>
                 </div>
-                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
-                  <Package className="w-4 h-4 text-[#3b82f6] mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 font-medium">Ships</p>
-                  <p className="text-[9px] text-[#3b82f6] font-bold">Fast</p>
+                <div className="bg-[#0a0a0a] rounded-lg p-2 border border-white/[0.04] text-center">
+                  <Package className="w-3 h-3 text-[#3b82f6] mx-auto mb-0.5" />
+                  <p className="text-[8px] text-[#3b82f6] font-bold">Ships Fast</p>
                 </div>
-                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
-                  <Clock className="w-4 h-4 text-[#f59e0b] mx-auto mb-1" />
-                  <p className="text-[9px] text-gray-400 font-medium">Limited</p>
-                  <p className="text-[9px] text-[#f59e0b] font-bold">{pack.total_spots} Spots</p>
+                <div className="bg-[#0a0a0a] rounded-lg p-2 border border-white/[0.04] text-center">
+                  <Clock className="w-3 h-3 text-[#f59e0b] mx-auto mb-0.5" />
+                  <p className="text-[8px] text-[#f59e0b] font-bold">{pack.total_spots} Spots</p>
                 </div>
               </div>
               {pack.ebay_url && (
                 <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
-                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
                   data-testid="chase-buy-spot-ebay">
-                  <ShoppingBag className="w-4 h-4" /> Buy a Spot — ${pack.price?.toFixed(2)}
+                  <ShoppingBag className="w-3.5 h-3.5" /> Buy a Spot — ${pack.price?.toFixed(2)}
                 </a>
               )}
             </div>
           </motion.div>
 
-          {/* RIGHT COLUMN — Code input + Chase Cards stacked vertically */}
-          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex flex-col items-center gap-5 lg:sticky lg:top-8">
-
-            {/* Claim Code — Top of right column */}
-            <div className="w-full max-w-[340px] bg-[#111] border border-white/[0.08] rounded-2xl p-4" data-testid="chase-claim-section">
-              <h2 className="text-xs font-bold text-white mb-2 flex items-center gap-2">
-                <Lock className="w-3.5 h-3.5 text-[#f59e0b]" /> Reveal Your Card
-              </h2>
-              {error && <p className="text-[10px] text-red-400 mb-2 bg-red-500/10 px-2.5 py-1.5 rounded-lg border border-red-500/20">{error}</p>}
-              <div className="flex gap-2">
-                <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
-                  placeholder="ENTER CODE" maxLength={8}
-                  className="flex-1 bg-[#0a0a0a] border border-white/[0.08] rounded-xl px-3 py-2.5 text-center text-sm font-mono font-bold text-white tracking-[0.25em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
-                  data-testid="chase-claim-input" />
-                <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
-                  className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-xs hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
-                  data-testid="chase-reveal-btn">
-                  {revealing ? '...' : 'REVEAL'}
-                </button>
-              </div>
-            </div>
-
-            {mainChase ? (
-              <>
-                {/* Primary Chaser — Large */}
-                <div className="relative w-[260px] sm:w-[300px] lg:w-[320px]">
-                  <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent rounded-3xl blur-2xl pointer-events-none" />
-                  <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/30">
-                    {mainChase.image ? (
-                      <img src={`data:image/jpeg;base64,${mainChase.image}`} alt={mainChase.player} className="w-full aspect-[3/4] object-cover" />
-                    ) : (
-                      <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
-                        <Crown className="w-16 h-16 text-amber-400" />
-                      </div>
-                    )}
-                    <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg">
-                      <Crown className="w-3 h-3" /> CHASER
+          {/* RIGHT — Chase Cards side by side, same size */}
+          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.15 }}
+            className="flex justify-center gap-5 flex-wrap">
+            {chaseCards.map((card, idx) => (
+              <div key={`chase-${idx}`} className="relative w-[240px] sm:w-[260px] lg:w-[280px]">
+                <div className="absolute -inset-5 bg-gradient-to-br from-amber-500/15 via-orange-500/8 to-transparent rounded-3xl blur-2xl pointer-events-none" />
+                <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/25">
+                  {card.image ? (
+                    <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
+                  ) : (
+                    <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
+                      <Crown className="w-12 h-12 text-amber-400" />
                     </div>
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-4 pt-12">
-                      <p className="text-white font-black text-lg">{mainChase.player}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">{mainChase.year} {mainChase.set_name}</p>
-                      {mainChase.variation && <p className="text-amber-400 text-xs font-bold mt-0.5">{mainChase.variation}</p>}
-                    </div>
+                  )}
+                  <div className="absolute top-2.5 left-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[9px] font-black px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-lg">
+                    <Crown className="w-2.5 h-2.5" /> CHASER
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3.5 pt-10">
+                    <p className="text-white font-black text-base leading-tight">{card.player}</p>
+                    <p className="text-gray-400 text-[10px] mt-0.5">{card.year} {card.set_name}</p>
+                    {card.variation && <p className="text-amber-400 text-[10px] font-bold mt-0.5">{card.variation}</p>}
                   </div>
                 </div>
-
-                {/* Secondary Chasers — Smaller, stacked below */}
-                {chaseCards.slice(1).map((card, idx) => (
-                  <div key={`chase-extra-${idx}`} className="relative w-[180px] sm:w-[200px] lg:w-[220px]">
-                    <div className="absolute -inset-4 bg-amber-500/10 rounded-2xl blur-xl pointer-events-none" />
-                    <div className="relative rounded-xl border-2 border-amber-500/40 overflow-hidden shadow-lg shadow-amber-500/20">
-                      {card.image ? (
-                        <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
-                      ) : (
-                        <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Crown className="w-8 h-8 text-amber-400" /></div>
-                      )}
-                      <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-                        <Crown className="w-2.5 h-2.5" /> CHASER
-                      </div>
-                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
-                        <p className="text-white font-bold text-sm truncate">{card.player}</p>
-                        <p className="text-gray-400 text-[10px] mt-0.5">{card.year} {card.set_name}</p>
-                        {card.variation && <p className="text-amber-400 text-[9px] font-bold mt-0.5">{card.variation}</p>}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </>
-            ) : null}
+              </div>
+            ))}
+            {/* If only 1 chaser, no empty space needed */}
           </motion.div>
         </div>
       </div>
