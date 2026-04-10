@@ -470,7 +470,7 @@ const PackDetailView = ({ packId, onBack }) => {
         </div>
       )}
 
-      {/* ===== BUYERS PANEL — Compact ===== */}
+      {/* ===== BUYERS PANEL — 2 columns with thumbnails ===== */}
       {assignedCards.length > 0 && (
         <div className="bg-[#111] border border-white/[0.06] rounded-xl overflow-hidden" data-testid="buyers-panel">
           <div className="px-3 py-2 border-b border-white/[0.06] flex items-center justify-between">
@@ -479,19 +479,32 @@ const PackDetailView = ({ packId, onBack }) => {
             </h3>
             <span className="text-[10px] text-gray-500">{assignedCards.filter(c => c.revealed).length} revealed</span>
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 divide-y lg:divide-y-0 divide-white/[0.04]">
+          <div className="grid grid-cols-1 lg:grid-cols-2">
             {assignedCards.map((card, idx) => (
-              <div key={idx} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/[0.02] transition-colors border-b border-white/[0.03] lg:odd:border-r" data-testid={`buyer-row-${idx}`}>
-                {/* Buyer + Card */}
-                <div className="flex-1 min-w-0 flex items-center gap-2">
-                  <span className={`text-[10px] font-bold shrink-0 ${card.revealed ? 'text-emerald-400' : 'text-amber-400'}`}>
-                    {card.revealed ? '✓' : '◌'}
-                  </span>
-                  <span className="text-xs font-bold text-[#3b82f6] truncate">{card.assigned_to}</span>
-                  <span className="text-[10px] text-gray-600 truncate hidden sm:inline">— {card.player}</span>
+              <div key={idx} className="flex items-center gap-2.5 px-3 py-2 hover:bg-white/[0.02] transition-colors border-b border-white/[0.03] lg:odd:border-r" data-testid={`buyer-row-${idx}`}>
+                {/* # */}
+                <span className="text-[10px] text-gray-600 font-mono w-4 shrink-0 text-center">{idx + 1}</span>
+                {/* Thumbnail */}
+                <div className="w-9 h-12 rounded-md overflow-hidden border border-white/[0.06] shrink-0">
+                  {card.image ? (
+                    <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-[#0a0a0a]" />
+                  )}
                 </div>
+                {/* Buyer + Card */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-[#3b82f6] truncate">{card.assigned_to}</p>
+                  <p className="text-[10px] text-gray-500 truncate">{card.player} — {card.year} {card.set_name}</p>
+                </div>
+                {/* Status */}
+                {card.revealed ? (
+                  <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded shrink-0">✓ Revealed</span>
+                ) : (
+                  <span className="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded shrink-0">◌ Pending</span>
+                )}
                 {/* Code */}
-                <code className="text-xs font-mono font-bold text-white bg-[#0a0a0a] border border-white/[0.08] px-2 py-1 rounded tracking-wider shrink-0">
+                <code className="text-[11px] font-mono font-bold text-white bg-[#0a0a0a] border border-white/[0.08] px-2 py-1 rounded tracking-wider shrink-0">
                   {card.claim_code}
                 </code>
                 <button onClick={() => copyCode(card.claim_code)}
