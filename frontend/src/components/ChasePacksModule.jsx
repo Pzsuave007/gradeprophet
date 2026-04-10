@@ -702,10 +702,14 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
 
   const goStep3 = async () => {
     if (chaseCount < 1) { toast.error('Pick at least 1 Chaser card'); return; }
-    // Auto-calculate suggested price with 30% margin
-    const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.listed_price || c.price || 0), 0);
-    if (totalValue > 0 && price === '5.00') {
-      const suggestedPerSpot = ((totalValue * 1.3) / selected.length).toFixed(2);
+    // Auto-calculate price: 30% profit AFTER eBay fees (~13%)
+    const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
+    if (totalValue > 0) {
+      const EBAY_FEE_PCT = 0.13;
+      const PROFIT_MARGIN = 0.30;
+      const desiredRevenue = totalValue * (1 + PROFIT_MARGIN);
+      const totalSellingPrice = desiredRevenue / (1 - EBAY_FEE_PCT);
+      const suggestedPerSpot = (totalSellingPrice / selected.length).toFixed(2);
       setPrice(suggestedPerSpot);
     }
     setStep(3);
@@ -977,30 +981,36 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
 
           {/* Summary */}
           {(() => {
-            const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.listed_price || c.price || 0), 0);
-            const margin = totalValue > 0 ? (((selected.length * parseFloat(price || 0)) / totalValue - 1) * 100).toFixed(0) : 0;
+            const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
             const totalRevenue = selected.length * parseFloat(price || 0);
-            const profit = totalRevenue - totalValue;
+            const ebayFees = totalRevenue * 0.13;
+            const netRevenue = totalRevenue - ebayFees;
+            const profit = netRevenue - totalValue;
+            const margin = totalValue > 0 ? ((profit / totalValue) * 100).toFixed(0) : 0;
             return (
               <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4 space-y-3">
                 <p className="text-xs font-bold text-white">Price Breakdown</p>
                 <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
                   <span className="text-gray-500">Total card value</span><span className="text-white font-bold text-right">${totalValue.toFixed(2)}</span>
-                  <span className="text-gray-500">Cards / Spots</span><span className="text-white font-bold text-right">{selected.length}</span>
+                  <span className="text-gray-500">Spots</span><span className="text-white font-bold text-right">{selected.length}</span>
                   <span className="text-gray-500">Price per spot</span><span className="text-white font-bold text-right">${parseFloat(price || 0).toFixed(2)}</span>
-                  <span className="text-gray-500">Revenue if sold out</span><span className="text-emerald-400 font-bold text-right">${totalRevenue.toFixed(2)}</span>
-                  <span className="text-gray-500">Profit</span>
-                  <span className={`font-bold text-right ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <span className="text-gray-500">Gross revenue</span><span className="text-white font-bold text-right">${totalRevenue.toFixed(2)}</span>
+                  <span className="text-gray-500">eBay fees (~13%)</span><span className="text-red-400 font-bold text-right">-${ebayFees.toFixed(2)}</span>
+                  <span className="text-gray-500">Net revenue</span><span className="text-white font-bold text-right">${netRevenue.toFixed(2)}</span>
+                </div>
+                <div className="border-t border-white/[0.06] pt-2 grid grid-cols-2 gap-y-1.5 text-[11px]">
+                  <span className="text-gray-500 font-bold">Your profit</span>
+                  <span className={`font-black text-right ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {profit >= 0 ? '+' : '-'}${Math.abs(profit).toFixed(2)}
                   </span>
-                  <span className="text-gray-500">Margin</span>
-                  <span className={`font-bold text-right ${Number(margin) >= 30 ? 'text-emerald-400' : Number(margin) >= 0 ? 'text-[#f59e0b]' : 'text-red-400'}`}>
+                  <span className="text-gray-500 font-bold">Profit margin</span>
+                  <span className={`font-black text-right ${Number(margin) >= 30 ? 'text-emerald-400' : Number(margin) >= 0 ? 'text-[#f59e0b]' : 'text-red-400'}`}>
                     {margin}%
                   </span>
                 </div>
                 {Number(margin) < 30 && totalValue > 0 && (
                   <p className="text-[10px] text-[#f59e0b] bg-[#f59e0b]/5 rounded-lg px-3 py-1.5 border border-[#f59e0b]/15">
-                    Recommended: at least 30% margin (${((totalValue * 1.3) / selected.length).toFixed(2)}/spot)
+                    Recommended: ${((totalValue * 1.30 / 0.87) / selected.length).toFixed(2)}/spot for 30% profit after fees
                   </p>
                 )}
                 <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.04]">
