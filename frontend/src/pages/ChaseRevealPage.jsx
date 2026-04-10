@@ -415,12 +415,13 @@ const ChaseRevealPage = () => {
             </div>
           </motion.div>
 
-          {/* RIGHT COLUMN — Chase Card centered */}
+          {/* RIGHT COLUMN — Chase Cards stacked vertically */}
           <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
-            className="flex items-center justify-center">
+            className="flex flex-col items-center gap-5 lg:sticky lg:top-8">
             {mainChase ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="relative w-[260px] sm:w-[300px] lg:w-[340px]">
+              <>
+                {/* Primary Chaser — Large */}
+                <div className="relative w-[260px] sm:w-[300px] lg:w-[320px]">
                   <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent rounded-3xl blur-2xl pointer-events-none" />
                   <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/30">
                     {mainChase.image ? (
@@ -440,30 +441,29 @@ const ChaseRevealPage = () => {
                     </div>
                   </div>
                 </div>
-                {chaseCards.length > 1 && (
-                  <div className="flex justify-center gap-3 w-full">
-                    {chaseCards.slice(1).map((card, idx) => (
-                      <div key={`chase-extra-${idx}`} className="relative w-[140px] sm:w-[160px] rounded-xl border-2 border-amber-500/40 overflow-hidden shadow-lg shadow-amber-500/20">
-                        <div className="absolute -inset-3 bg-amber-500/10 rounded-xl blur-lg pointer-events-none" />
-                        <div className="relative">
-                          {card.image ? (
-                            <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
-                          ) : (
-                            <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Crown className="w-6 h-6 text-amber-400" /></div>
-                          )}
-                          <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[7px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
-                            <Crown className="w-2 h-2" /> CHASER
-                          </div>
-                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-2 pt-6">
-                            <p className="text-white font-bold text-[11px] truncate">{card.player}</p>
-                            <p className="text-amber-400 text-[9px]">{card.year} {card.set_name}</p>
-                          </div>
-                        </div>
+
+                {/* Secondary Chasers — Smaller, stacked below */}
+                {chaseCards.slice(1).map((card, idx) => (
+                  <div key={`chase-extra-${idx}`} className="relative w-[180px] sm:w-[200px] lg:w-[220px]">
+                    <div className="absolute -inset-4 bg-amber-500/10 rounded-2xl blur-xl pointer-events-none" />
+                    <div className="relative rounded-xl border-2 border-amber-500/40 overflow-hidden shadow-lg shadow-amber-500/20">
+                      {card.image ? (
+                        <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
+                      ) : (
+                        <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Crown className="w-8 h-8 text-amber-400" /></div>
+                      )}
+                      <div className="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md">
+                        <Crown className="w-2.5 h-2.5" /> CHASER
                       </div>
-                    ))}
+                      <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-3 pt-8">
+                        <p className="text-white font-bold text-sm truncate">{card.player}</p>
+                        <p className="text-gray-400 text-[10px] mt-0.5">{card.year} {card.set_name}</p>
+                        {card.variation && <p className="text-amber-400 text-[9px] font-bold mt-0.5">{card.variation}</p>}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
+                ))}
+              </>
             ) : null}
           </motion.div>
         </div>
