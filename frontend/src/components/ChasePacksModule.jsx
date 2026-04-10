@@ -703,7 +703,7 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
   const goStep3 = async () => {
     if (chaseCount < 1) { toast.error('Pick at least 1 Chaser card'); return; }
     // Auto-calculate price: 30% profit AFTER eBay fees (~13%)
-    const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
+    const totalValue = selected.reduce((sum, c) => sum + (c.card_value || c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
     if (totalValue > 0) {
       const EBAY_FEE_PCT = 0.13;
       const PROFIT_MARGIN = 0.30;
@@ -981,7 +981,7 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
 
           {/* Summary */}
           {(() => {
-            const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
+            const totalValue = selected.reduce((sum, c) => sum + (c.card_value || c.purchase_price || c.value || c.listed_price || c.price || 0), 0);
             const totalRevenue = selected.length * parseFloat(price || 0);
             const ebayFees = totalRevenue * 0.13;
             const netRevenue = totalRevenue - ebayFees;
