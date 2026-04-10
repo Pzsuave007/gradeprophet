@@ -2153,6 +2153,49 @@ async def chase_pack_preview(request: Request):
     }
 
 
+
+@router.post("/chase/preview-collage")
+async def preview_chase_collage(request: Request):
+    """Generate collage preview for Chase Pack without posting to eBay."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    card_ids = body.get("card_ids", [])
+    chase_card_id = body.get("chase_card_id", "")
+
+    if len(card_ids) < 10:
+        raise HTTPException(status_code=400, detail="Need at least 10 cards")
+
+    # Fetch card data
+    cards = []
+    for cid in card_ids:
+        c = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if c:
+            cards.append(c)
+
+    if len(cards) < 10:
+        raise HTTPException(status_code=400, detail="Not enough valid cards found")
+
+    from utils.image import create_chase_collage, create_lot_collage
+    chase_card = next((c for c in cards if c["id"] == chase_card_id), cards[0])
+    other_cards = [c for c in cards if c["id"] != chase_card_id]
+
+    chase_img = chase_card.get("image") or chase_card.get("thumbnail", "")
+    other_imgs = [c.get("image") or c.get("thumbnail", "") for c in other_cards if c.get("image") or c.get("thumbnail")]
+
+    collage_b64 = create_chase_collage(chase_img, other_imgs) if chase_img and other_imgs else ""
+    all_imgs = [c.get("image") or c.get("thumbnail", "") for c in cards if c.get("image") or c.get("thumbnail")]
+    grid_collage_b64 = create_lot_collage(all_imgs, cards_per_row=5, card_height=500) if all_imgs else ""
+
+    return {
+        "success": True,
+        "collage": collage_b64,
+        "grid": grid_collage_b64,
+        "chase_image": chase_card.get("thumbnail") or chase_card.get("store_thumbnail", ""),
+        "card_count": len(cards),
+    }
+
+
 @router.post("/sell/create-chase-pack")
 async def create_chase_pack(request: Request):
     """Create and list a Chase Card Pack on eBay."""

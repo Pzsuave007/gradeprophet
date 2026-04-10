@@ -657,6 +657,8 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
   const [shipping, setShipping] = useState('USPSFirstClass');
   const [shippingCost, setShippingCost] = useState('4.50');
   const [creating, setCreating] = useState(false);
+  const [preview, setPreview] = useState(null);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -698,7 +700,7 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
     setStep(2);
   };
 
-  const goStep3 = () => {
+  const goStep3 = async () => {
     if (chaseCount < 1) { toast.error('Pick at least 1 Chaser card'); return; }
     // Auto-calculate suggested price with 30% margin
     const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.listed_price || c.price || 0), 0);
@@ -707,6 +709,17 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
       setPrice(suggestedPerSpot);
     }
     setStep(3);
+    // Generate preview collage
+    setLoadingPreview(true);
+    try {
+      const chaseCardId = Object.entries(tiers).find(([, t]) => t === 'chase')?.[0] || selected[0].id;
+      const res = await axios.post(`${API}/api/ebay/chase/preview-collage`, {
+        card_ids: selected.map(c => c.id),
+        chase_card_id: chaseCardId,
+      }, { withCredentials: true });
+      if (res.data.success) setPreview(res.data);
+    } catch { toast.error('Could not generate preview'); }
+    finally { setLoadingPreview(false); }
   };
 
   const handleCreate = async () => {
@@ -896,7 +909,33 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
 
       {/* STEP 3: Details & Create */}
       {step === 3 && (
-        <div className="space-y-5 max-w-lg">
+        <div className="space-y-5 max-w-2xl">
+          {/* eBay Listing Preview */}
+          <div>
+            <label className="text-[10px] text-gray-500 uppercase font-bold block mb-2">eBay Listing Preview</label>
+            {loadingPreview ? (
+              <div className="flex items-center justify-center py-10 bg-[#111] rounded-xl border border-white/[0.06]">
+                <RefreshCw className="w-5 h-5 animate-spin text-[#f59e0b] mr-2" />
+                <span className="text-xs text-gray-400">Generating collage preview...</span>
+              </div>
+            ) : preview ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3" data-testid="wizard-preview-images">
+                {preview.collage && (
+                  <div className="rounded-xl overflow-hidden border border-[#f59e0b]/20 bg-[#0a0a0a]">
+                    <img src={`data:image/jpeg;base64,${preview.collage}`} alt="Chase collage" className="w-full" />
+                    <p className="text-[9px] text-gray-500 text-center py-1.5">Main Image (Chase + Cards)</p>
+                  </div>
+                )}
+                {preview.grid && (
+                  <div className="rounded-xl overflow-hidden border border-white/[0.08] bg-[#0a0a0a]">
+                    <img src={`data:image/jpeg;base64,${preview.grid}`} alt="All cards grid" className="w-full" />
+                    <p className="text-[9px] text-gray-500 text-center py-1.5">All Cards Grid</p>
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
+
           <div>
             <label className="text-[10px] text-gray-500 uppercase font-bold block mb-1.5">Pack Title</label>
             <input value={title} onChange={e => setTitle(e.target.value)} maxLength={80} placeholder="e.g. Kobe Bryant Chase Pack"
