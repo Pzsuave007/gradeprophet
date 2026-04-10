@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Flame, Lock, Star, Trophy, Users, Copy, Download, ShoppingBag, Store, Zap, Crown, Gem } from 'lucide-react';
+import { Flame, Lock, Star, Trophy, Users, Copy, Download, ShoppingBag, Store, Zap, Crown, Gem, Shield, Clock, Package } from 'lucide-react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -99,25 +99,21 @@ const ChaseRevealPage = () => {
     const card = revealedCard.card;
     const isChase = revealedCard.is_chase;
     const shareText = isChase
-      ? `I just pulled the CHASE! ${card.year} ${card.set_name} ${card.player} ${card.variation || ''} from a Chase Pack!`
+      ? `I just pulled the CHASE! ${card.year} ${card.set_name} ${card.player} ${card.variation || ''}`
       : `I pulled ${card.year} ${card.set_name} ${card.player} ${card.variation || ''} from a Chase Pack!`;
     const shareUrl = window.location.href;
     const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(shareUrl)}`;
-
     const downloadCard = () => {
       if (!card.image) return;
       const link = document.createElement('a');
       link.href = `data:image/jpeg;base64,${card.image}`;
-      link.download = `${card.player}_${card.year}_${card.set_name}.jpg`.replace(/\s+/g, '_');
+      link.download = `${card.player}_${card.year}.jpg`.replace(/\s+/g, '_');
       link.click();
     };
 
     return (
-      <div className={`min-h-screen overflow-hidden ${isChase ? 'bg-[#0a0a0a]' : 'bg-[#0a0a0a]'}`}>
-        {/* Ambient glows */}
+      <div className="min-h-screen bg-[#0a0a0a] overflow-hidden">
         <div className={`absolute top-20 left-1/4 w-[600px] h-[600px] rounded-full ${isChase ? 'bg-[#f59e0b]/[0.08]' : 'bg-[#3b82f6]/[0.06]'} blur-[150px] pointer-events-none`} />
-        <div className={`absolute bottom-0 right-1/4 w-[400px] h-[400px] rounded-full ${isChase ? 'bg-orange-600/[0.06]' : 'bg-[#3b82f6]/[0.04]'} blur-[120px] pointer-events-none`} />
-
         {isChase && (
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {[...Array(25)].map((_, i) => (
@@ -131,7 +127,6 @@ const ChaseRevealPage = () => {
             ))}
           </div>
         )}
-
         <div className="relative z-10 flex flex-col items-center pt-8 pb-12 px-4">
           {isChase && (
             <motion.div initial={{ opacity: 0, scale: 0.5 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, type: "spring" }} className="mb-6">
@@ -140,7 +135,6 @@ const ChaseRevealPage = () => {
               </div>
             </motion.div>
           )}
-
           <motion.div initial={{ scale: 0, rotateY: 180 }} animate={{ scale: 1, rotateY: 0 }} transition={{ duration: 0.8, type: "spring", bounce: 0.3 }}>
             {card.image ? (
               <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player}
@@ -151,14 +145,12 @@ const ChaseRevealPage = () => {
               </div>
             )}
           </motion.div>
-
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }} className="mt-6 text-center">
             <p className="text-3xl font-black text-white">{card.player}</p>
             <p className="text-sm text-gray-400 mt-1">{card.year} {card.set_name}</p>
             {card.variation && <p className="text-sm text-[#f59e0b] font-bold mt-1">{card.variation}</p>}
             <p className="text-xs text-gray-500 mt-3">Congratulations, <span className="text-white font-bold">{revealedCard.buyer}</span>!</p>
           </motion.div>
-
           <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }} className="mt-8 w-full max-w-sm space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <a href={twitterUrl} target="_blank" rel="noopener noreferrer"
@@ -166,7 +158,7 @@ const ChaseRevealPage = () => {
                 <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
                 Share on X
               </a>
-              <button onClick={() => { navigator.clipboard.writeText(`${shareText}\n${shareUrl}`); alert('Copied!'); }}
+              <button onClick={() => { navigator.clipboard.writeText(`${shareText}\n${shareUrl}`); }}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white/[0.04] border border-white/[0.08] text-gray-300 text-xs font-bold hover:bg-white/[0.08] transition-all" data-testid="chase-copy-share">
                 <Copy className="w-3.5 h-3.5" /> Copy Link
               </button>
@@ -183,12 +175,8 @@ const ChaseRevealPage = () => {
                 <ShoppingBag className="w-3.5 h-3.5" /> Buy Another Spot on eBay
               </a>
             )}
-            <a href={`${pack?.ebay_url ? pack.ebay_url.replace(/\/itm\/.*/, '') : 'https://www.ebay.com'}`} target="_blank" rel="noopener noreferrer"
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#3b82f6]/10 border border-[#3b82f6]/30 text-[#3b82f6] text-xs font-bold hover:bg-[#3b82f6]/20 transition-all" data-testid="chase-visit-store">
-              <Store className="w-3.5 h-3.5" /> Visit Store
-            </a>
             <button onClick={() => { setRevealedCard(null); setShowReveal(false); setClaimCode(''); fetchPack(); }}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#111] border border-white/[0.06] text-gray-400 text-xs font-medium hover:text-white hover:border-white/[0.12] transition-all" data-testid="chase-back-to-pack">
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#111] border border-white/[0.06] text-gray-400 text-xs font-medium hover:text-white transition-all" data-testid="chase-back-to-pack">
               <Flame className="w-3.5 h-3.5" /> Back to Pack
             </button>
           </motion.div>
@@ -201,46 +189,30 @@ const ChaseRevealPage = () => {
   const chaseCards = pack.cards?.filter(c => c.tier === 'chase') || [];
   const midCards = pack.cards?.filter(c => c.tier === 'mid') || [];
   const lowCards = pack.cards?.filter(c => c.tier === 'low') || [];
+  const mainChase = chaseCards[0];
 
   const CardItem = ({ card, size }) => {
     const tier = TIER_CONFIG[card.tier] || TIER_CONFIG.low;
     const TierIcon = tier.icon;
-    const sizeClasses = {
-      large: 'w-full max-w-[280px]',
-      medium: '',
-      small: '',
-    };
-
     return (
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        whileHover={{ scale: 1.03, y: -4 }}
-        transition={{ duration: 0.3 }}
-        className={`relative rounded-2xl border ${tier.border} ${tier.bg} overflow-hidden shadow-lg ${tier.glow} ${sizeClasses[size]} group`}
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+        whileHover={{ scale: 1.03, y: -4 }} transition={{ duration: 0.3 }}
+        className={`relative rounded-2xl border ${tier.border} ${tier.bg} overflow-hidden shadow-lg ${tier.glow} group`}
       >
         {card.image ? (
-          <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player}
-            className="w-full aspect-[3/4] object-cover" />
+          <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
         ) : (
-          <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
-            <Lock className="w-8 h-8 text-gray-700" />
-          </div>
+          <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Lock className="w-8 h-8 text-gray-700" /></div>
         )}
-
-        {/* Tier badge */}
         <div className={`absolute top-2 left-2 ${tier.badge} text-white text-[8px] font-black px-2 py-0.5 rounded-full flex items-center gap-1 shadow-md`}>
           <TierIcon className="w-2.5 h-2.5" /> {tier.label}
         </div>
-
-        {/* Card info overlay */}
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-3 pt-8">
           <p className="text-white font-black text-sm leading-tight truncate">{card.player}</p>
           <p className="text-gray-400 text-[10px] mt-0.5">{card.year} {card.set_name}</p>
           {card.variation && <p className={`${tier.text} text-[10px] font-bold mt-0.5 truncate`}>{card.variation}</p>}
         </div>
-
-        {/* Winner overlay when all revealed */}
         {pack.all_revealed && card.assigned_to && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center backdrop-blur-sm">
             <div className="text-center px-3">
@@ -255,12 +227,12 @@ const ChaseRevealPage = () => {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white overflow-x-hidden" data-testid="chase-pack-page">
-      {/* Ambient glows like landing page */}
-      <div className="absolute top-20 left-1/4 w-[500px] h-[500px] rounded-full bg-[#f59e0b]/[0.06] blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/2 right-1/4 w-[400px] h-[400px] rounded-full bg-[#3b82f6]/[0.06] blur-[120px] pointer-events-none" />
+      {/* Ambient glows */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-[#f59e0b]/[0.06] blur-[120px] pointer-events-none" />
+      <div className="absolute top-1/3 right-0 w-[400px] h-[400px] rounded-full bg-[#3b82f6]/[0.06] blur-[120px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="relative z-10 flex items-center justify-between px-6 lg:px-16 py-5 border-b border-white/[0.06]">
+      <nav className="relative z-10 flex items-center justify-between px-6 lg:px-16 py-4 border-b border-white/[0.06]">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#3b82f6] flex items-center justify-center">
             <span className="text-white font-black text-xs">FS</span>
@@ -269,76 +241,145 @@ const ChaseRevealPage = () => {
           <span className="text-[9px] uppercase tracking-[0.3em] text-[#3b82f6] ml-0.5 font-bold">ENGINE</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-gray-500 uppercase tracking-widest">Chase Card Pack</span>
+          <span className="text-[10px] text-gray-500 uppercase tracking-widest hidden sm:inline">Chase Card Pack</span>
           <Flame className="w-4 h-4 text-[#f59e0b]" />
         </div>
       </nav>
 
-      {/* Hero section */}
-      <div className="relative z-10 pt-12 pb-8 px-4 text-center">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-5">
-            <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
-          </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight">
-            <span className="text-[#f59e0b]">{pack.title}</span>
-          </h1>
-          <p className="text-gray-400 mt-3 text-sm">
-            <span className="text-white font-bold">${pack.price?.toFixed(2)}</span> per spot
-            <span className="mx-2 text-white/[0.15]">|</span>
-            <span className="text-white font-bold">{pack.total_spots}</span> total spots
-          </p>
-        </motion.div>
-      </div>
+      {/* HERO: Two-column layout — Left: info + claim | Right: Chase card */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pt-10 pb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-start">
 
-      {/* Claim Code Section */}
-      <div className="relative z-10 max-w-lg mx-auto px-4 mb-12">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="bg-[#111] border border-white/[0.08] rounded-2xl p-6" data-testid="chase-claim-section">
-          <h2 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
-            <Lock className="w-4 h-4 text-[#f59e0b]" /> Reveal Your Card
-          </h2>
-          <p className="text-xs text-gray-500 mb-4">Purchased a spot? Enter your claim code below.</p>
-          {error && <p className="text-xs text-red-400 mb-3 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">{error}</p>}
-          <div className="flex gap-2">
-            <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
-              placeholder="ENTER CODE"
-              maxLength={8}
-              className="flex-1 bg-[#0a0a0a] border border-white/[0.08] rounded-xl px-4 py-3 text-center text-lg font-mono font-bold text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
-              data-testid="chase-claim-input" />
-            <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
-              className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
-              data-testid="chase-reveal-btn">
-              {revealing ? '...' : 'REVEAL'}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Cards by tier */}
-      <div className="relative z-10 max-w-6xl mx-auto px-4 pb-16 space-y-10">
-
-        {/* CHASERS - Big cards */}
-        {chaseCards.length > 0 && (
-          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}>
-            <div className="flex items-center gap-2 mb-5">
-              <Crown className="w-5 h-5 text-[#f59e0b]" />
-              <h2 className="text-lg font-black text-white">CHASERS</h2>
-              <span className="text-xs text-gray-500 ml-2">{chaseCards.length} card{chaseCards.length > 1 ? 's' : ''}</span>
+          {/* LEFT COLUMN */}
+          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="space-y-6">
+            {/* Badge + Title */}
+            <div>
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-4">
+                <Flame className="w-3.5 h-3.5" /> CHASE CARD PACK
+              </div>
+              <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#f59e0b]">
+                {pack.title}
+              </h1>
+              <div className="flex items-center gap-4 mt-3">
+                <span className="text-white font-bold text-lg">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
+                <span className="text-white/[0.15]">|</span>
+                <span className="text-white font-bold">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
+              </div>
             </div>
-            <div className="flex flex-wrap justify-center gap-5">
-              {chaseCards.map((card, idx) => (
-                <div key={`chase-${idx}`} className="w-[220px] sm:w-[260px]">
-                  <CardItem card={card} size="large" />
+
+            {/* Claim Code */}
+            <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-5" data-testid="chase-claim-section">
+              <h2 className="text-sm font-bold text-white mb-2 flex items-center gap-2">
+                <Lock className="w-4 h-4 text-[#f59e0b]" /> Reveal Your Card
+              </h2>
+              <p className="text-xs text-gray-500 mb-3">Purchased a spot? Enter your claim code below.</p>
+              {error && <p className="text-xs text-red-400 mb-3 bg-red-500/10 px-3 py-2 rounded-lg border border-red-500/20">{error}</p>}
+              <div className="flex gap-2">
+                <input value={claimCode} onChange={e => setClaimCode(e.target.value.toUpperCase())}
+                  placeholder="ENTER CODE" maxLength={8}
+                  className="flex-1 bg-[#0a0a0a] border border-white/[0.08] rounded-xl px-4 py-3 text-center text-lg font-mono font-bold text-white tracking-[0.3em] uppercase focus:border-[#f59e0b]/50 outline-none transition-colors"
+                  data-testid="chase-claim-input" />
+                <button onClick={handleReveal} disabled={revealing || !claimCode.trim()}
+                  className="px-8 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all shadow-lg shadow-amber-500/20"
+                  data-testid="chase-reveal-btn">
+                  {revealing ? '...' : 'REVEAL'}
+                </button>
+              </div>
+            </div>
+
+            {/* Store Info */}
+            <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#3b82f6] flex items-center justify-center shrink-0">
+                  <span className="text-white font-black text-sm">FS</span>
                 </div>
-              ))}
+                <div>
+                  <p className="text-white font-bold text-sm">FlipSlab Engine</p>
+                  <p className="text-[10px] text-gray-500">Powered by FlipSlab</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
+                  <Shield className="w-4 h-4 text-emerald-400 mx-auto mb-1" />
+                  <p className="text-[9px] text-gray-400 font-medium">Verified</p>
+                  <p className="text-[9px] text-emerald-400 font-bold">Seller</p>
+                </div>
+                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
+                  <Package className="w-4 h-4 text-[#3b82f6] mx-auto mb-1" />
+                  <p className="text-[9px] text-gray-400 font-medium">Ships</p>
+                  <p className="text-[9px] text-[#3b82f6] font-bold">Fast</p>
+                </div>
+                <div className="bg-[#0a0a0a] rounded-xl p-3 border border-white/[0.04] text-center">
+                  <Clock className="w-4 h-4 text-[#f59e0b] mx-auto mb-1" />
+                  <p className="text-[9px] text-gray-400 font-medium">Limited</p>
+                  <p className="text-[9px] text-[#f59e0b] font-bold">{pack.total_spots} Spots</p>
+                </div>
+              </div>
+              {/* Buy button */}
+              {pack.ebay_url && (
+                <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
+                  data-testid="chase-buy-spot-ebay">
+                  <ShoppingBag className="w-4 h-4" /> Buy a Spot — ${pack.price?.toFixed(2)}
+                </a>
+              )}
             </div>
-          </motion.section>
-        )}
+          </motion.div>
 
-        {/* MID TIER - Medium cards */}
+          {/* RIGHT COLUMN — Chase Card big */}
+          <motion.div initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, delay: 0.2 }}
+            className="flex justify-center lg:justify-end">
+            {mainChase ? (
+              <div className="relative w-[280px] sm:w-[320px] lg:w-[360px]">
+                {/* Glow behind card */}
+                <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent rounded-3xl blur-2xl pointer-events-none" />
+                <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/30">
+                  {mainChase.image ? (
+                    <img src={`data:image/jpeg;base64,${mainChase.image}`} alt={mainChase.player} className="w-full aspect-[3/4] object-cover" />
+                  ) : (
+                    <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center">
+                      <Crown className="w-16 h-16 text-amber-400" />
+                    </div>
+                  )}
+                  <div className="absolute top-3 left-3 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-black px-3 py-1 rounded-full flex items-center gap-1.5 shadow-lg">
+                    <Crown className="w-3 h-3" /> CHASER
+                  </div>
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/70 to-transparent p-4 pt-12">
+                    <p className="text-white font-black text-lg">{mainChase.player}</p>
+                    <p className="text-gray-400 text-xs mt-0.5">{mainChase.year} {mainChase.set_name}</p>
+                    {mainChase.variation && <p className="text-amber-400 text-xs font-bold mt-0.5">{mainChase.variation}</p>}
+                  </div>
+                </div>
+                {/* Additional chasers below if more than 1 */}
+                {chaseCards.length > 1 && (
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    {chaseCards.slice(1).map((card, idx) => (
+                      <div key={`chase-extra-${idx}`} className="rounded-xl border border-amber-500/30 overflow-hidden shadow-lg shadow-amber-500/10">
+                        {card.image ? (
+                          <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className="w-full aspect-[3/4] object-cover" />
+                        ) : (
+                          <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Crown className="w-6 h-6 text-amber-400" /></div>
+                        )}
+                        <div className="bg-black/80 px-2 py-1.5">
+                          <p className="text-white font-bold text-[10px] truncate">{card.player}</p>
+                          <p className="text-amber-400 text-[9px]">{card.year} {card.set_name}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </motion.div>
+        </div>
+      </div>
+
+      {/* Cards by tier — below the hero */}
+      <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pb-16 space-y-10">
+
+        {/* MID TIER */}
         {midCards.length > 0 && (
-          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}>
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
             <div className="flex items-center gap-2 mb-4">
               <Zap className="w-4 h-4 text-[#3b82f6]" />
               <h2 className="text-base font-black text-white">MID TIER</h2>
@@ -352,9 +393,9 @@ const ChaseRevealPage = () => {
           </motion.section>
         )}
 
-        {/* LOW TIER - Smaller cards */}
+        {/* BASE */}
         {lowCards.length > 0 && (
-          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }}>
+          <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
             <div className="flex items-center gap-2 mb-4">
               <Gem className="w-4 h-4 text-gray-400" />
               <h2 className="text-base font-black text-white">BASE</h2>
@@ -368,17 +409,6 @@ const ChaseRevealPage = () => {
           </motion.section>
         )}
       </div>
-
-      {/* eBay CTA */}
-      {pack.ebay_url && (
-        <div className="relative z-10 text-center pb-12">
-          <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
-            data-testid="chase-buy-spot-ebay">
-            <ShoppingBag className="w-4 h-4" /> Buy a Spot on eBay — ${pack.price?.toFixed(2)}
-          </a>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/[0.06] py-6 text-center">
