@@ -349,48 +349,70 @@ const PackDetailView = ({ packId, onBack }) => {
     <div className="space-y-4" data-testid="chase-pack-detail">
       {confirm && <ConfirmModal {...confirm} />}
 
-      {/* Header row — Title + Actions inline */}
+      {/* Header — Click to edit title & price */}
       <div className="flex items-center gap-3">
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-[#111] transition-colors" data-testid="pack-detail-back">
           <ChevronLeft className="w-5 h-5 text-gray-400" />
         </button>
-        <div className="flex-1 min-w-0">
-          {editing ? (
-            <div className="flex items-center gap-2 flex-wrap">
-              <input value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={80}
-                className="flex-1 min-w-[200px] bg-[#0a0a0a] border border-white/[0.1] rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-[#f59e0b]/50"
-                data-testid="edit-title-input" />
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-gray-500">$</span>
-                <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number" step="0.01" min="0.01"
-                  className="w-20 bg-[#0a0a0a] border border-white/[0.1] rounded-lg px-2 py-1.5 text-sm text-white outline-none focus:border-[#f59e0b]/50"
-                  data-testid="edit-price-input" />
-              </div>
+        <div className="flex-1 min-w-0 flex items-center gap-2 flex-wrap">
+          <Flame className="w-4 h-4 text-[#f59e0b] shrink-0" />
+
+          {/* Title — click to edit */}
+          {editing === 'title' ? (
+            <div className="flex items-center gap-1.5">
+              <input value={editTitle} onChange={e => setEditTitle(e.target.value)} maxLength={80} autoFocus
+                className="min-w-[250px] bg-[#0a0a0a] border border-[#f59e0b]/40 rounded-lg px-3 py-1.5 text-base font-black text-white outline-none"
+                data-testid="edit-title-input"
+                onKeyDown={e => { if (e.key === 'Enter') saveEdits(); if (e.key === 'Escape') { setEditing(false); setEditTitle(fullPack.title); } }} />
               <button onClick={saveEdits} disabled={saving}
-                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-bold hover:bg-emerald-500 disabled:opacity-40"
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 disabled:opacity-40"
                 data-testid="save-edits-btn">
-                {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Save
+                {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Save'}
               </button>
-              <button onClick={() => { setEditing(false); setEditTitle(fullPack.title); setEditPrice(fullPack.price?.toString()); }}
-                className="p-1.5 rounded-lg bg-white/[0.05] text-gray-400 hover:bg-white/[0.08]" data-testid="cancel-edit-btn">
+              <button onClick={() => { setEditing(false); setEditTitle(fullPack.title); }}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/[0.05]" data-testid="cancel-edit-btn">
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <Flame className="w-4 h-4 text-[#f59e0b] shrink-0" />
-              <h1 className="text-base font-black text-white truncate">{fullPack.title}</h1>
-              <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${status.bg} ${status.text} border ${status.border}`}>{status.label}</span>
-              <span className="text-[10px] text-gray-500 shrink-0">${fullPack.price?.toFixed(2)}/spot</span>
-              <span className="text-[10px] text-gray-500 shrink-0">{claimed}/{total}</span>
-            </div>
+            <button onClick={() => isEditable && setEditing('title')}
+              className={`text-base font-black text-white truncate ${isEditable ? 'hover:bg-white/[0.04] px-2 py-0.5 rounded-lg border border-transparent hover:border-white/[0.1] cursor-text transition-all group' : ''}`}
+              data-testid="edit-pack-btn" title={isEditable ? 'Click to edit title' : ''}>
+              {fullPack.title}
+              {isEditable && <Pencil className="w-3 h-3 text-gray-600 inline ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity" />}
+            </button>
           )}
+
+          <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 ${status.bg} ${status.text} border ${status.border}`}>{status.label}</span>
+
+          {/* Price — click to edit */}
+          {editing === 'price' ? (
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm text-gray-400">$</span>
+              <input value={editPrice} onChange={e => setEditPrice(e.target.value)} type="number" step="0.01" min="0.01" autoFocus
+                className="w-24 bg-[#0a0a0a] border border-[#f59e0b]/40 rounded-lg px-3 py-1.5 text-sm font-bold text-white outline-none"
+                data-testid="edit-price-input"
+                onKeyDown={e => { if (e.key === 'Enter') saveEdits(); if (e.key === 'Escape') { setEditing(false); setEditPrice(fullPack.price?.toString()); } }} />
+              <button onClick={saveEdits} disabled={saving}
+                className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 disabled:opacity-40">
+                {saving ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Save'}
+              </button>
+              <button onClick={() => { setEditing(false); setEditPrice(fullPack.price?.toString()); }}
+                className="p-1.5 rounded-lg text-gray-400 hover:bg-white/[0.05]">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => isEditable && setEditing('price')}
+              className={`text-sm text-gray-400 shrink-0 ${isEditable ? 'hover:bg-white/[0.04] px-2 py-0.5 rounded-lg border border-transparent hover:border-white/[0.1] cursor-text transition-all group' : ''}`}
+              title={isEditable ? 'Click to edit price' : ''}>
+              ${fullPack.price?.toFixed(2)}/spot
+              {isEditable && <Pencil className="w-2.5 h-2.5 text-gray-600 inline ml-1 opacity-0 group-hover:opacity-100 transition-opacity" />}
+            </button>
+          )}
+
+          <span className="text-xs text-gray-500 shrink-0">{claimed}/{total}</span>
         </div>
-        {!editing && isEditable && (
-          <button onClick={() => setEditing(true)} className="p-1.5 rounded-lg hover:bg-white/[0.05]" data-testid="edit-pack-btn" title="Edit">
-            <Pencil className="w-3.5 h-3.5 text-gray-400" />
-          </button>
-        )}
       </div>
 
       {/* Stats bar + Quick actions — Single compact row */}

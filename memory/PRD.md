@@ -10,7 +10,7 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 │   ├── routers/
 │   │   ├── cards.py           # Single item uploads, eBay XML generation
 │   │   ├── inventory.py       # Batch uploads, saves, queues
-│   │   ├── ebay.py            # eBay listings, sync, promoted listings, bulk actions
+│   │   ├── ebay.py            # eBay listings, sync, promoted listings, bulk actions, Chase Packs
 │   │   ├── admin.py           # Admin panel APIs
 │   │   ├── subscription.py    # Plans & billing
 │   │   ├── settings.py        # User settings
@@ -26,11 +26,14 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 │   │   │   ├── CreateListingView.jsx  # Bulk eBay listing publisher
 │   │   │   ├── InventoryModule.jsx    # Card inventory management
 │   │   │   ├── ListingsModule.jsx     # eBay listings + campaigns
+│   │   │   ├── ChasePacksModule.jsx   # Chase Pack management (inline editing, tier selectors, buyer grid)
 │   │   ├── pages/
 │   │   │   ├── AdminPage.jsx          # Admin panel (redesigned)
 │   │   │   ├── ChaseRevealPage.jsx    # Public chase pack reveal page
-├── build_prod.sh              # Frontend build script
+│   │   │   ├── Dashboard.jsx          # Main dashboard with Chase Packs routing
+├── build_prod.sh              # Frontend build script (ALWAYS use this)
 ├── fix.sh                     # User's deploy script
+├── AGENT_RULES.md             # Critical rules for agents
 ```
 
 ## Subscription Plans (Current)
@@ -48,123 +51,68 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 ## CRITICAL BUILD RULES (READ BEFORE EVERY BUILD)
 - **NEVER run `craco build` or `yarn build` directly**. ALWAYS use `bash /app/build_prod.sh`
 - Production URL is `https://flipslabengine.com` — this MUST be baked into the frontend build
-- The `.env` file has the Emergent preview URL for local testing ONLY — it must NEVER leak into production builds
-- `build_prod.sh` overrides REACT_APP_BACKEND_URL to the production URL and verifies no preview URL leaks
-- **DO NOT change auth.py Google OAuth endpoints** — they use Emergent Auth service which is correct
-- `ensure_admin_password()` in server.py fixes admin password on every startup (prevents fork login issues)
+- The `.env` file has the Emergent preview URL for local testing ONLY
+- `build_prod.sh` overrides REACT_APP_BACKEND_URL to the production URL
+- **DO NOT change auth.py Google OAuth endpoints**
+- `ensure_admin_password()` in server.py fixes admin password on every startup
 
 ## Completed Features
 
 ### Session - Feb 2026 (Pick Your Card Feature + Bulk Savings)
-- New "Pick Your Card" multi-variation listing: one eBay listing with dropdown where buyers pick which card they want
-- Each card = one variation with its own photo, price, and quantity
+- New "Pick Your Card" multi-variation listing
 - "Set All Prices" bulk button + individual price editing per card
-- **Bulk Savings (Volume Discount)**: Configurable tiers (Buy 2+ = X% off, Buy 3+ = Y% off) via eBay Marketing API
-- Auto-applied after listing creation via `POST /sell/marketing/v1/item_promotion`
-- Backend: `create-pick-your-card` + `volume-discount` endpoints
-- Frontend: `CreatePickYourCardView.jsx` with tier management UI and price preview
-- Integrated into Inventory as green "You Pick" button
+- **Bulk Savings (Volume Discount)**: Configurable tiers via eBay Marketing API
 
 ### Session - Feb 2026 (Create Lot Feature + Fix)
-- Backend logic for "Create Lot" (Collage generator in `image.py`, new eBay lot endpoint)
-- Frontend `CreateLotView` full-page component (replaced popup modal) with correct eBay CONDITIONS (400010-400013) and SHIPPING_OPTIONS (Free/PWE/FirstClass/Priority)
-- Backend: Fixed ConditionID to use 4000 + ConditionDescriptors (matching single-listing flow), fixed shipping XML
-- Fixed "improper words" eBay error by removing "Lot" from title/description (blocked in Singles category 261328)
-- Combined front+back images side by side (left=front, right=back) instead of separate uploads
-- Collages: max 4 cards per collage, 2 per row
-- Max cards per lot increased from 10 to 15
-- Regenerate Images feature: in Listings tab, lot listings show "Regenerate & Upload Images" button to re-create and push updated images to eBay via ReviseFixedPriceItem
-- **Fixed P0 crash**: `CreateLotModal` was rendered in wrong scope. Converted to full-page `CreateLotView`.
+- Backend logic for "Create Lot" (Collage generator, new eBay lot endpoint)
+- Frontend `CreateLotView` with correct eBay CONDITIONS and SHIPPING_OPTIONS
+- Combined front+back images side by side, max 4 cards per collage, max 15 cards per lot
 
 ### Session - Feb 2026 (eBay Cassini SEO)
-- Expanded Item Specifics for new eBay listings (20+ fields): Type, Year Manufactured, Card Size, Country, Language, Original/Reprint, Vintage, Autographed, Card Name, League, Manufacturer, Parallel/Variety, Features, Custom Bundle, Material, Team, Print Run, Signed By
-- `build_item_specifics()` helper in ebay.py
-- `extract_manufacturer()` to parse brand from set_name
-- `POST /api/ebay/sell/bulk-revise-specifics` endpoint for bulk updating existing listings
-- "Specifics" bulk action button in ListingsModule.jsx
-- Fixed Signed By (always = player name), Team (from inventory), Print Run (from /XX in variation)
-- Updated AI prompt to extract `team` field, added `team` to inventory models
+- Expanded Item Specifics for new eBay listings (20+ fields)
+- `build_item_specifics()` helper, `extract_manufacturer()`, bulk revise specifics
 
 ### Session - Feb 2026 (Promoted Listings Standard)
-- **Campaign Management**: Create, pause, resume, end, delete PLS campaigns
-- **Bulk Promote/Remove**: Add/remove listings from campaigns in bulk
-- **Campaign View**: Grid view of promoted listings with ad rate, status, and remove button
-- **AD Badge**: Orange "AD" badge on promoted listings in the main grid
-- **Endpoints**: GET /promoted/campaigns, POST /promoted/create-campaign, POST /promoted/bulk-add, POST /promoted/bulk-remove, GET /promoted/campaign/{id}/ads, POST /promoted/campaign/{id}/pause|resume|end, DELETE /promoted/campaign/{id}, POST /promoted/campaign/{id}/remove-ads
+- Campaign Management: Create, pause, resume, end, delete PLS campaigns
+- Bulk Promote/Remove, Campaign View, AD Badge
 
 ### Session - Feb 2026 (UI/UX Improvements)
-- Bulk action buttons (Shipping, Condition, Best Offer, Specifics, Promote) always visible in both ListingsModule and InventoryModule (disabled until Select mode)
-- Auto-refresh on browser tab visibility change (not polling timer)
-- CreateListingView calls onSuccess() after publishing to refresh data
-- Admin Panel completely redesigned: large user cards, text labels on all buttons, clickable plan badges, stats grid, plan distribution bars, confirm modals, 3 clear tabs (Users/Transactions/Presets)
+- Bulk action buttons always visible, auto-refresh on tab visibility
+- Admin Panel redesigned: large user cards, text labels, clickable plan badges
 
 ### Session - Feb 2026 (Admin Fixes)
-- Fixed valid_plans from old 4-plan to new 3-plan system
-- Fixed PLAN_ALIASES: hall_of_fame→hall_of_famer (was incorrectly mvp)
-- Migrated all DB subscriptions to new plan IDs
-- Fixed admin stats to normalize old plan IDs
-- Fixed Scans count: now = inventory count (every card scanned by AI)
-- Fixed Listings count: now uses listings_cache.active_total (synced from eBay)
-- Added Total eBay Listings to global stats
+- Fixed valid_plans, PLAN_ALIASES, migrated DB subscriptions, fixed stats
 
 ### Session - Feb 2026 (Store Promotions Management + Login Fix)
-- **Store Promotions List**: Fetches active/scheduled/paused ORDER_DISCOUNT promotions from eBay Marketing API (`GET /sell/marketing/v1/promotion`)
-- **Pause/Resume/Delete**: Full lifecycle management of store promotions via eBay Marketing API
-- Backend endpoints: `GET /api/ebay/sell/store-promotions`, `POST .../pause`, `POST .../resume`, `DELETE ...`
-- Frontend: Updated `StorePromotions.jsx` with collapsible create form, active promotions list with status badges, and action buttons
-- **Permanent Login Fix**: Added `ensure_admin_password()` to `server.py` startup that verifies and corrects admin password hash on every boot, preventing recurring fork login issues
+- Store Promotions lifecycle management via eBay Marketing API
+- Permanent Login Fix with `ensure_admin_password()` on startup
 
 ### Session - Feb 2026 (Chase Card Pack Feature)
-- **Chase Card Pack**: New listing type - select 10+ cards, designate a chase card, list on eBay
-- **Smart Pricing**: System suggests price per spot based on total card value with 1.3x markup
-- **Chase Collage**: Auto-generated collage with chase card large on top, others in grid below
-- **eBay Listing**: Creates eBay listing with quantity = number of cards, titled as "CHASE CARD PACK"
-- **Buyer Reveal Page**: Public page at `/chase/{packId}` where buyers enter claim code for animated card reveal
-- **Seller Management**: ChasePackPanel in Listings module to assign buyers, generate claim codes, track progress
-- **Public Results**: After all spots sold, page shows all winners with their eBay usernames
-- Backend: `POST /api/ebay/sell/chase-preview`, `POST /api/ebay/sell/create-chase-pack`, `POST /api/ebay/chase/{pack_id}/assign`, `POST /api/ebay/chase/{pack_id}/reveal`, `GET /api/ebay/chase/{pack_id}`, `GET /api/ebay/chase-packs`
-- Frontend: `CreateChasePackView.jsx`, `ChaseRevealPage.jsx`, `ChasePackPanel.jsx`
-- DB: `chase_packs` collection with pack_id, cards array, claim codes, assignment tracking
-- **End Listing Fix**: When ending a listing, cards now return to inventory (`category: "for_sale"`, `listed: false`), including lot/pick-your-card cards
-- **AGENT_RULES.md**: Created critical rules document for future agents (build with `build_prod.sh`, use dev token, don't touch auth)
-- **Dev Token**: Persistent `dev_flipslab_access` token created on startup for agent testing
+- Chase Card Pack listing type with smart pricing, collage generation
+- Buyer Reveal Page at `/chase/{packId}` with animated card reveal
+- Seller Management: assign buyers, generate claim codes, track progress
+- End Listing Fix: cards return to inventory
 
-## CRITICAL BUILD RULES (READ BEFORE EVERY BUILD)
-- **NEVER run `craco build` or `yarn build` directly**. ALWAYS use `bash /app/build_prod.sh`
-- Production URL is `https://flipslabengine.com`
-- Read `/app/AGENT_RULES.md` before making any changes
-
-### Session - Apr 2026 (Chase Packs Management Tab)
-- **ChasePacksModule wired into Dashboard**: Added as new sidebar tab with Flame icon
+### Session - Apr 2026 (Chase Packs Management Tab) - COMPLETE
+- **ChasePacksModule wired into Dashboard** as new sidebar tab
 - Pack list view with stats (Active Packs, Spots Sold, Revenue, Completed)
-- Pack detail view with progress bar, buyer assignment, claim code management
-- Full integration with backend endpoints (`GET /api/ebay/chase-packs`, `POST /api/ebay/chase/{pack_id}/assign`)
 - **Full Management Controls**: Edit title/price, Pause/Resume/End/Delete pack, Unassign buyers, Regenerate claim codes, Change chase card, Sync to eBay
-- **Backend**: PATCH /chase/{pack_id}, POST /chase/{pack_id}/pause|resume|end|change-chase|unassign|regenerate-code|sync-ebay, DELETE /chase/{pack_id}
-- **Frontend**: Edit mode with save/cancel, confirm modals for destructive actions, per-card action buttons (copy code, regenerate, unassign), status badge (Active/Paused/Completed/Ended)
-- **Spot Tracker (Mini Slabs)**: Visual numbered mini-slab cards on public Chase Pack page showing claimed/available spots
-  - Each spot looks like a tiny graded card slab with "SPOT" label and number (medium size, ~42px)
-  - Claimed spots flip (framer-motion 3D) showing "SOLD" label + checkmark + buyer name
-  - Compact layout that doesn't steal attention from the main cards
-  - Also appears after card reveal for post-purchase context
-  - Backend: Added `spots` array and `spots_claimed` to public GET /api/ebay/chase/{pack_id} endpoint
-- **Tier Management System**: Full control over Chaser/Mid/Base tier assignments
-  - Backend: POST /api/ebay/chase/{pack_id}/update-tiers stores tiers in DB per card
-  - Public endpoint now uses STORED tiers instead of auto-calculating (respects is_chase flag)
-  - Dashboard: TierBadge component + dropdown selector per card (assigned and available)
-  - Changes reflect immediately on the public Chase Pack page
+- **Inline Editing**: Click-to-edit Title and Price (Save/Cancel buttons, Enter/Escape keyboard shortcuts) - VERIFIED WORKING Apr 2026
+- **2-Column Buyer Grid**: Thumbnails, buyer names, codes, status, action buttons
+- **Tier Management**: Manual Chaser/Mid/Base tier assignment per card
+- **Spot Tracker (Mini Slabs)**: Visual mini-slab cards on public page with Framer Motion 3D flip
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration
 
 ## Future/Backlog
-- P2: Seller Hub Features (Sales Dashboard, Order Management, Best Offer Manager)
-- P3: Direct Purchase on FlipSlab (Stripe direct buys)
+- P2: Chase Pack Phase 2 - Direct Purchase on FlipSlab via Stripe
+- P3: Seller Hub Features (Sales Dashboard, Order Management, Best Offer Manager)
 - P4: New User Onboarding (Setup wizard)
 - P5: "Flip Finder" Core Logic Enhancements
 - P6: Windows Scanner App
-- P7: Team Access
+- P7: Team Access (Legend tier)
 - P8: Refactor InventoryModule.jsx & ListingsModule.jsx (both very large)
 
 ## 3rd Party Integrations
@@ -176,5 +124,5 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - `inventory`: image, thumbnail, store_thumbnail, back_image, back_thumbnail, year, set_name, variation, player, sport, team, grading_company, ebay_item_id
 - `listings_cache`: user_id, active (array), sold (array), active_total, sold_total, cached_at
 - `subscriptions`: user_id, plan_id (rookie|mvp|hall_of_famer), status
-- `chase_packs`: pack_id, user_id, ebay_item_id, cards (array with claim_code, assigned_to, revealed), status
+- `chase_packs`: pack_id, user_id, ebay_item_id, title, price, total_spots, cards (array with claim_code, assigned_to, revealed, tier), status, created_at
 - `card_analyses`: user_id, card_name, created_at (AI analysis records)
