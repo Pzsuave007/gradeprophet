@@ -2243,73 +2243,59 @@ async def create_chase_pack(request: Request):
     if len(cards) < 10:
         raise HTTPException(status_code=400, detail="Not enough valid cards")
 
-    # Generate collage for eBay
-    from utils.image import create_chase_collage, create_lot_collage
+    # Separate cards by tier for collage generation
+    from utils.image import create_chase_tier_image
     chase_card = next((c for c in cards if c["id"] == chase_card_id), cards[0])
-    other_cards = [c for c in cards if c["id"] != chase_card_id]
 
-    chase_img = chase_card.get("image") or chase_card.get("thumbnail", "")
-    other_imgs = [c.get("image") or c.get("thumbnail", "") for c in other_cards if c.get("image") or c.get("thumbnail")]
+    # Build tier lists from body tiers or default (chase_card=chase, rest=base)
+    tier_map = {}
+    for t_entry in body.get("tiers", []):
+        tier_map[t_entry.get("card_id")] = t_entry.get("tier", "low")
+    if not tier_map:
+        for c in cards:
+            tier_map[c["id"]] = "chase" if c["id"] == chase_card_id else "low"
 
-    # Main collage (chase big + others)
-    collage_b64 = create_chase_collage(chase_img, other_imgs) if chase_img and other_imgs else ""
+    chase_cards = [c for c in cards if tier_map.get(c["id"]) == "chase"]
+    mid_cards = [c for c in cards if tier_map.get(c["id"]) == "mid"]
+    base_cards = [c for c in cards if tier_map.get(c["id"]) in ("low", "base", None)]
 
-    # Also create individual card images collage (grid of all cards)
-    all_imgs = [c.get("image") or c.get("thumbnail", "") for c in cards if c.get("image") or c.get("thumbnail")]
-    grid_collage_b64 = create_lot_collage(all_imgs, cards_per_row=5, card_height=500) if all_imgs else ""
+    def get_imgs(card_list):
+        return [c.get("image") or c.get("thumbnail", "") for c in card_list if c.get("image") or c.get("thumbnail")]
 
-    # Upload images to eBay
+    # Generate 3 tier collages
+    collages = []
+    chase_imgs = get_imgs(chase_cards)
+    if chase_imgs:
+        collages.append(("chase-tier", create_chase_tier_image(chase_imgs, tier="chase")))
+    mid_imgs = get_imgs(mid_cards)
+    if mid_imgs:
+        collages.append(("mid-tier", create_chase_tier_image(mid_imgs, tier="mid")))
+    base_imgs = get_imgs(base_cards)
+    if base_imgs:
+        collages.append(("base-tier", create_chase_tier_image(base_imgs, tier="base")))
+
+    # Upload tier collages first, then individual card photos (eBay max 12 photos)
     picture_urls = []
-    for img_b64 in [collage_b64, grid_collage_b64]:
-        if not img_b64:
-            continue
-        try:
-            img_bytes = base64.b64decode(img_b64)
-            async with httpx.AsyncClient(timeout=60.0) as http_client:
-                resp = await http_client.post(
-                    "https://api.ebay.com/ws/api.dll",
-                    headers={
-                        "X-EBAY-API-SITEID": "0",
-                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-                        "X-EBAY-API-IAF-TOKEN": token,
-                        "Content-Type": "image/jpeg",
-                    },
-                    content=img_bytes,
-                )
-            import xml.etree.ElementTree as ET
-            root = ET.fromstring(resp.text)
-            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
-            url_el = root.find(".//e:FullURL", ns)
-            if url_el is not None and url_el.text:
-                picture_urls.append(url_el.text)
-        except Exception as e:
-            logger.warning(f"Chase pack image upload failed: {e}")
+    for label, b64 in collages:
+        if b64:
+            try:
+                url = await _upload_image_to_ebay(token, b64, label, title)
+                if url:
+                    picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Chase collage upload failed ({label}): {e}")
 
-    # Also upload individual chase card image
-    if chase_img:
-        try:
-            img_bytes = base64.b64decode(chase_img)
-            async with httpx.AsyncClient(timeout=60.0) as http_client:
-                resp = await http_client.post(
-                    "https://api.ebay.com/ws/api.dll",
-                    headers={
-                        "X-EBAY-API-SITEID": "0",
-                        "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-                        "X-EBAY-API-CALL-NAME": "UploadSiteHostedPictures",
-                        "X-EBAY-API-IAF-TOKEN": token,
-                        "Content-Type": "image/jpeg",
-                    },
-                    content=img_bytes,
-                )
-            import xml.etree.ElementTree as ET
-            root = ET.fromstring(resp.text)
-            ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
-            url_el = root.find(".//e:FullURL", ns)
-            if url_el is not None and url_el.text:
-                picture_urls.append(url_el.text)
-        except Exception as e:
-            logger.warning(f"Chase card image upload failed: {e}")
+    # Upload individual card images (fill remaining slots up to 12)
+    remaining_slots = 12 - len(picture_urls)
+    if remaining_slots > 0:
+        all_card_imgs = get_imgs(cards)
+        for i, img_b64 in enumerate(all_card_imgs[:remaining_slots]):
+            try:
+                url = await _upload_image_to_ebay(token, img_b64, f"card-{i+1}", title)
+                if url:
+                    picture_urls.append(url)
+            except Exception as e:
+                logger.warning(f"Chase card image upload failed (card-{i+1}): {e}")
 
     if not picture_urls:
         raise HTTPException(status_code=500, detail="Failed to upload images to eBay")
@@ -2322,9 +2308,43 @@ async def create_chase_pack(request: Request):
     cat_map = {"basketball": "261328", "baseball": "261328", "football": "261328", "soccer": "261328", "hockey": "261328"}
     category_id = cat_map.get(sport_lower, "261328")
 
-    safe_desc = html.escape(description)
+    # Build rich HTML description explaining how the Chase Pack works
+    chase_names = ", ".join([c.get("player", "Unknown") for c in chase_cards][:3])
+    mid_count = len(mid_cards)
+    base_count = len(base_cards)
+    total = len(cards)
 
-    # Shipping
+    safe_desc = f"""<div style="font-family:Arial,sans-serif;max-width:800px;margin:0 auto;color:#222;">
+<h2 style="text-align:center;color:#b45309;font-size:22px;">CHASE CARD PACK - {total} Spots Available!</h2>
+<hr style="border:1px solid #f59e0b;margin:12px 0;">
+
+<h3 style="color:#333;">How It Works:</h3>
+<ol style="font-size:14px;line-height:1.8;">
+<li><strong>Purchase a spot</strong> - Each spot costs ${price:.2f}. You are purchasing ONE random card from this pack of {total} cards.</li>
+<li><strong>Receive your claim code</strong> - After purchase, you will receive a unique claim code via eBay message within minutes.</li>
+<li><strong>Reveal your card</strong> - Visit our reveal page and enter your code. Your card is randomly assigned at the time of purchase - can you pull the CHASE?</li>
+<li><strong>Card ships to you</strong> - Once all spots are sold and revealed, cards are shipped to their owners.</li>
+</ol>
+
+<h3 style="color:#333;">What's In This Pack:</h3>
+<table style="width:100%;border-collapse:collapse;font-size:14px;margin:8px 0;">
+<tr style="background:#fef3c7;"><td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#b45309;">CHASE ({len(chase_cards)} card{'' if len(chase_cards)==1 else 's'})</td><td style="padding:8px;border:1px solid #ddd;">{html.escape(chase_names)}</td></tr>
+<tr style="background:#dbeafe;"><td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#1d4ed8;">MID TIER ({mid_count} card{'' if mid_count==1 else 's'})</td><td style="padding:8px;border:1px solid #ddd;">Great pulls with solid value!</td></tr>
+<tr style="background:#f3f4f6;"><td style="padding:8px;border:1px solid #ddd;font-weight:bold;color:#555;">BASE ({base_count} card{'' if base_count==1 else 's'})</td><td style="padding:8px;border:1px solid #ddd;">Every spot is a winner!</td></tr>
+</table>
+
+<h3 style="color:#333;">Important Details:</h3>
+<ul style="font-size:14px;line-height:1.8;">
+<li>Each purchase = 1 randomly assigned card from the pack.</li>
+<li>Cards are pre-loaded and randomly assigned at the time of sale - completely fair for all buyers.</li>
+<li>All cards shown in the listing photos are included in this pack.</li>
+<li>Claim codes are sent automatically via eBay message after purchase.</li>
+<li>Cards ship after all spots are claimed, or within 3 business days of last sale.</li>
+<li>No returns - all sales are final as cards are randomly assigned.</li>
+</ul>
+
+<p style="text-align:center;font-size:13px;color:#666;margin-top:16px;">Powered by FlipSlab Engine</p>
+</div>"""
     ship_map = {
         "FreeShipping": f'<ShippingServiceOptions><ShippingService>USPSMedia</ShippingService><ShippingServiceCost>0.00</ShippingServiceCost><FreeShipping>true</FreeShipping></ShippingServiceOptions>',
         "PWEEnvelope": f'<ShippingServiceOptions><ShippingService>USPSFirstClass</ShippingService><ShippingServiceCost>{shipping_cost:.2f}</ShippingServiceCost></ShippingServiceOptions>',
@@ -2352,7 +2372,7 @@ async def create_chase_pack(request: Request):
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
     <Title>{html.escape(title)}</Title>
-    <Description>{safe_desc}</Description>
+    <Description><![CDATA[{safe_desc}]]></Description>
     <PrimaryCategory><CategoryID>{category_id}</CategoryID></PrimaryCategory>
     <StartPrice>{price:.2f}</StartPrice>
     <Quantity>{quantity}</Quantity>

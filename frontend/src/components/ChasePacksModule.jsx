@@ -742,7 +742,7 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
         price: parseFloat(price),
         shipping_option: shipping,
         shipping_cost: parseFloat(shippingCost),
-        description: `Chase Card Pack! ${selected.length} spots available. Each spot reveals a random card. Can you pull the CHASER?`,
+        tiers: Object.entries(tiers).map(([card_id, tier]) => ({ card_id, tier })),
       }, { withCredentials: true });
       if (res.data.success) {
         toast.success(`Pack created! Listed on eBay`);
