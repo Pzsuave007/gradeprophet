@@ -473,8 +473,8 @@ def create_chase_collage(chase_image_b64: str, other_images_b64: list, card_heig
     if not small_imgs:
         return ""
 
-    # Layout: chase card centered on top, grid of others below
-    cards_per_row = min(5, len(small_imgs))
+    # Layout: chase card centered on top, grid of others below (2 per row)
+    cards_per_row = min(2, len(small_imgs))
     rows = []
     for i in range(0, len(small_imgs), cards_per_row):
         rows.append(small_imgs[i:i + cards_per_row])
@@ -603,8 +603,8 @@ def create_chase_tier_image(card_images_b64: list, tier: str = "chase", card_hei
         canvas_w = max(total_w + padding * 4, 800)
         canvas_h = banner_h + padding + imgs[0].height + padding * 3
     else:
-        # Grid layout for mid/base
-        cards_per_row = min(5, len(imgs))
+        # Grid layout for mid/base — 2 cards per row for clean eBay images
+        cards_per_row = min(2, len(imgs))
         rows = [imgs[i:i + cards_per_row] for i in range(0, len(imgs), cards_per_row)]
         max_row_w = max(sum(im.width for im in row) + padding * (len(row) - 1) for row in rows)
         canvas_w = max(max_row_w + padding * 4, 600)
@@ -660,9 +660,9 @@ def create_chase_tier_image(card_images_b64: list, tier: str = "chase", card_hei
             canvas.paste(im, (x, y))
             x += im.width + padding
     else:
-        # Grid layout
+        # Grid layout — 2 cards per row
         y = banner_h + padding + 8
-        cards_per_row = min(5, len(imgs))
+        cards_per_row = min(2, len(imgs))
         rows = [imgs[i:i + cards_per_row] for i in range(0, len(imgs), cards_per_row)]
         for row in rows:
             total_w = sum(im.width for im in row) + padding * (len(row) - 1)

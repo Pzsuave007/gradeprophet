@@ -1,104 +1,111 @@
 <analysis>**original_problem_statement**: 
-The user wanted to optimize eBay listings for Cassini SEO, manage eBay Promoted Listings Standard, and requested an Admin Panel fix. Following that, they requested a new Create Lot feature, a Pick Your Card (Multi-variation listing) feature, and a Store Promotions / Bulk Savings feature.
-NEW REQUIREMENT: The user requested a Chase Card Pack feature (similar to Arena Club's digital packs but compliant with eBay's chance listing rules). The seller selects 10+ cards, lists them as a Chase Pack on eBay, and buyers use a claim code on FlipSlab to reveal their specific card via an animated, 3-tier visual experience (Chaser, Mid Tier, Base). The user also requested a dedicated Dashboard tab to manage these Chase Packs.
+The user wants to finalize the Chase Card Pack feature. This includes wiring the  to the main Dashboard, giving the seller full control over all details of active packs, and refining the public Reveal Page. Following that, they needed to fix an ongoing error with eBay Store Promotions and build a 3-Step Wizard for creating Chase Packs, including auto-calculating the price based on card values (30% margin after eBay fees) and auto-detecting sales from eBay via a background monitor.
 
 PRODUCT REQUIREMENTS:
-- Populate eBay Item Specifics for better Cassini SEO ranking.
-- Manage eBay Promoted Listings Standard & Store Promotions.
-- Create Lot and Pick Your Card Features.
-- Chase Card Pack Feature: Select 10+ cards, auto-generate a pricing suggestion and a collage, and list on eBay. 
-- Chase Reveal Page: A public page where buyers input a claim code to reveal their card with an animated 3-tier layout (Chaser, Mid Tier, Base).
-- Chase Packs Module: A dedicated tab in the main Dashboard to manage active Chase Packs, view spots claimed, and assign buyers.
-- Permanent fix for Admin Login breaking across forks.
+- Complete Chase Packs Module (Inline editing, Setup Wizard).
+- Refine Reveal Page (Responsive layout, 3-tier celebrations, 3D flip card, mobile fixes).
+- Fix Store Promotions (Fix eBay errors related to , multiple tiers, and description length).
+- Setup Wizard: Select unlisted/unsold cards -> Assign Tiers -> Details (Auto-pricing using  + 30% profit margin + 13% eBay fee consideration).
+- Pre-post Preview: Generate 3 aesthetic images (Chase, Mid, Base) to preview before listing on eBay.
+- Auto-assign: Background monitor that detects eBay sales, generates codes, assigns buyers, and sends an eBay message with the claim link.
 
-**User's preferred language**: Spanish (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. The user primarily speaks Spanish).
+**User's preferred language**: **Spanish** (INSTRUCT NEXT AGENT: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. The user exclusively communicates in Spanish, so ALL replies MUST be in Spanish).
 
 **what currently exists?** 
-A mature React + FastAPI + MongoDB card management and eBay listing application. It features automated AI cropping, bulk listing actions, expanded Item Specifics SEO, Promoted Listings, Create Lot, Pick Your Card, and Store Promotions. It now also includes a complete Chase Card Pack creation and public reveal flow with high-quality animations and 3-tier visual hierarchy. The admin login issues have been permanently fixed via a startup validation script.
+A mature React + FastAPI + MongoDB app. The Chase Card Pack functionality is heavily developed. The seller Dashboard has a 3-step Wizard to create packs, preview 3 tier collages, and auto-calculate prices. The backend includes a background monitor that polls eBay every 60 seconds for Chase Pack sales, auto-assigns buyers, and sends eBay messages. The Reveal Page has 3 levels of custom particle celebrations based on the pulled card's tier. 
 
 **Last working item**:
-    - Last item agent was working: Creating the Chase Packs management tab. The agent successfully created  but hasn't yet wired it into the main  sidebar and routing.
+    - Last item agent was working: Modifying the  function inside  so that if there are more than 2 cards in a tier, the preview images arrange the cards in a 2-cards-per-row grid format (instead of a single row/cluster), making the generated eBay images look much better.
     - Status: IN PROGRESS
-    - Agent Testing Done: N (File just created, not yet rendered)
-    - Which testing method agent to use? Frontend testing agent or screenshot tool.
+    - Agent Testing Done: N (The agent was just reading  when the session ended).
+    - Which testing method agent to use? manual testing by python -c or curl (to hit the  endpoint and verify the base64 output).
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:  
-  Issue 1: Wire  into the Dashboard
-     - Attempted fixes: The agent just created .
-     - Next debug checklist: Edit  to import , add it to the  array (with an icon like  or ), and add it to the  switch statement. 
-     - Why fix this issue and what will be achieved with the fix? The user requested a dedicated tab to manage all details of their Chase Digital Packs.
+  Issue 1: Update eBay Collage Preview Image Grid (2 cards per row)
+     - Attempted fixes: The agent viewed  but hasn't applied the  yet.
+     - Next debug checklist: Check  in . Update the coordinate math to wrap to a new row after 2 cards ( resets,  increments).
+     - Why fix this issue and what will be achieved with the fix? The user explicitly requested that the generated eBay preview images look more attractive by placing exactly 2 cards per row.
      - Status: IN PROGRESS
      - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Frontend.
+     - Should Test frontend/backend/both after fix? Backend (verify collage generation).
+     - Blocked on other issue: None.
 
 **In progress Task List**:
-  Task 1: Complete Chase Packs Management UI
-     - Where to resume: Integrate  into . Ensure the module correctly fetches from the backend, displays active/ended packs, and allows the seller to assign buyers and retrieve claim codes.
-     - What will be achieved with this? Gives the seller full control over their Chase Packs in one centralized view.
+  Task 1: Chase Pack Phase 1 Final Polish
+     - Where to resume: Implement the 2-cards-per-row logic in . Then show the user the updated preview in the Step 3 wizard.
+     - What will be achieved with this? Wraps up the last visual request for the Chase Pack creation flow before moving to Stripe integration.
      - Status: IN PROGRESS
-     - Should Test frontend/backend/both after fix? Both (verify API endpoints load correctly in the new UI).
+     - Should Test frontend/backend/both after fix? Both (Backend image gen, Frontend display).
+     - Blocked on something: None.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - P0: Stripe Production Integration (Update Stripe Dashboard products to match the new plans: Rookie, MVP 4.99, and Hall of Famer 9.99).
+    - P0: Stripe Production Integration (Update Stripe Dashboard products to match the new plans: Rookie free, MVP 4.99, and Hall of Famer 9.99).
     - P1: Whatnot & Shopify Integration.
     Future Tasks:
-    - P2: Chase Pack Phase 2 - Direct Purchase on FlipSlab (Stripe direct buys for Chase Packs, bypassing eBay entirely).
+    - P2: Chase Pack Phase 2 - Direct Purchase on FlipSlab via Stripe (bypassing eBay entirely).
     - P3: Seller Hub Features (Dashboard de Ventas, Order Management, Best Offer Manager).
     - P4: New User Onboarding (Setup wizard).
     - P5: Flip Finder Core Logic Enhancements.
     - P6: Windows Scanner App.
     - P7: Team Access (Legend tier).
-    - P8: Refactor  &  (High priority tech debt).
+    - P8: Refactor  & .
 
 **Completed work in this session**
-- Built Store Promotions UI to list, pause, and delete active promotions (DONE)
-- Fixed Admin Login Permanently: Added  in  startup to force-reset the hash if it breaks across forks (DONE)
-- Created  and fixed  to ensure frontend is ALWAYS built with the correct production URL instead of Emergent's preview URL (DONE)
-- Implemented Dev Token () created at server startup to allow backend testing without touching Google Auth (DONE)
-- Fixed eBay End Listing bug: Ending a listing now successfully returns items (both single and lots) to the inventory as  and  using  (DONE)
-- Built Chase Card Pack Feature: Backend collage generator, price suggestion, eBay listing payload (DONE)
-- Built Chase Reveal Page: A visually stunning public page () with 3 tiers (Chaser, Mid, Base), full-quality images, spinning animation, and post-reveal share/purchase actions (DONE)
+- Verified Inline Editing for Chase Packs Title/Price (DONE)
+- Redesigned Chase Reveal Page to be responsive with 3-tier custom celebrations (Sparkles, Confetti, Gold Rings) (DONE)
+- Fixed mobile UI for Reveal Page (stacked buttons, 3D flip card fix, unblocked pointer-events) (DONE)
+- Fixed eBay Store Promotions bug (fetched , restricted to 1 discount rule, truncated description) (DONE)
+- Built 3-Step Chase Pack Creation Wizard () (DONE)
+- Filtered Wizard card selector to exclude sold/listed cards (DONE)
+- Implemented eBay background monitor () for auto-assigning buyers & messaging via Trading API (DONE)
+- Implemented Auto-Pricing calculation logic prioritizing  + 30% profit + 13% eBay fees (DONE)
+- Created  endpoint to generate 3 tier collages before publishing (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   None.
+   - None.
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: Admin login hash getting corrupted/outdated in new fork databases.
+  - Issue recurrence in previous fork: Admin login hash getting corrupted/outdated across forks.
   - Recurrence count: 10+
-  - Status: RESOLVED (A startup script now checks and corrects the admin hash automatically on every boot. A dev token was also added for agent testing).
+  - Status: RESOLVED (Startup script ensures admin hash on boot. Dev token  is actively being used safely).
 
 **Code Architecture**
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── ebay.py             // Contains standard listings, Lots, Pick Your Card, Store Promotions, and new CHASE PACK endpoints
-│   │   ├── shop.py             // Public shop routes
+│   │   ├── ebay.py             // Contains Chase Pack CRUD, Chase Monitor loop, Preview generation, Promos
+│   │   ├── inventory.py        // Updated filters for  and 
 │   ├── utils/
-│   │   └── image.py            // Collage generators (updated for Chase Packs)
+│   │   └── image.py            // Collage generators (, )
+│   ├── server.py               // Starts background 
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── InventoryModule.jsx         // Added Create Chase Pack button
-│   │   │   ├── CreateChasePackView.jsx     // Full page view for Chase Pack creation
-│   │   │   ├── ChasePacksModule.jsx        // NEW: Management tab for Chase Packs (Needs wiring)
+│   │   │   ├── ChasePacksModule.jsx  // 3-step wizard, preview image rendering, Check Sales button
+│   │   │   ├── StorePromotions.jsx   // Fixed to allow 1 rule for eBay compatibility
 │   │   ├── pages/
-│   │   │   ├── Dashboard.jsx               // Main wrapper (Needs update for ChasePacksModule)
-│   │   │   ├── ChaseRevealPage.jsx         // Public animated reveal page
+│   │   │   ├── ChaseRevealPage.jsx   // Layout fixes, 3-tier animations, mobile optimizations
 
 **Key Technical Concepts**
 - React frontend, FastAPI backend, MongoDB.
-- **Chase Pack Architecture**: To comply with eBay policies, Chase Packs are listed on eBay showing *all* cards. The buyer purchases a spot, the seller assigns them in FlipSlab (generating a ), and the buyer visits FlipSlab to reveal their specific card.
+- eBay Trading API used heavily for background polling () and messages ().
+- PIL/cv2 used for in-memory collage generation.
+- Framer Motion used heavily on the Reveal Page.
 
 **key DB schema**
+  - : Uses  (representing the user-input Value $),  ('sold', 'collection', 'for_sale').
   - : Stores .
 
 **changes in tech stack**
   - None
 
 **All files of reference**
-  -  (CRITICAL: Rules for building and testing)
+  -  (Currently modifying  for 2-column grid).
+  -  (Wizard and Preview rendering).
+  -  (Preview endpoint, Sales monitor loop).
+  -  (CRITICAL: Rules for building and testing).
   - Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
 yarn run v1.22.22
 $ craco build
@@ -131,15 +138,16 @@ src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/pages/ChaseRevealPage.jsx
-  Line 25:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 36:5:    React Hook useMemo has missing dependencies: 'cfg.colors', 'cfg.count', 'cfg.durMax', 'cfg.durMin', 'cfg.sizeMax', 'cfg.sizeMin', and 'cfg.spread'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 159:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array                                                                                            react-hooks/exhaustive-deps
 
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  413.35 kB         build/static/js/main.cefbc503.js
-  19.14 kB (+40 B)  build/static/css/main.89200ec1.css
+  423.05 kB  build/static/js/main.540dc5ac.js
+  19.69 kB   build/static/css/main.3a779e57.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -154,28 +162,21 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 30.89s.
-Build complete. Ready for deploy. (CRITICAL: Always use this to compile the frontend)
-  -  (Added  and Dev Token generation)
-  -  (Added , , , )
-  -  (Created animated public reveal page)
-  -  (Created)
-  -  (Created, needs wiring)
-  -  (Needs wiring for the new module)
+Done in 26.83s.
+Build complete. Ready for deploy. (CRITICAL: Always use this to compile the frontend).
 
 **Areas that need refactoring**:
--  and  are extremely large and manage multiple complex full-page views.
+-  collage generation logic is getting complex with multiple different functions doing similar math.
+-  and  remain extremely large.
 
 **key api endpoints**
 - 
-- 
-- 
-- 
-- 
+-  (Generates base64 preview images)
+-  (Manual trigger for the auto-monitor)
+-  (Store Promos)
 
 **Critical Info for New Agent**
-- **LANGUAGE**: The user communicates primarily in Spanish. You **MUST** reply in **Spanish**.
-- **READ  FIRST**: This file contains crucial instructions about not breaking the login and how to build the frontend.
+- **LANGUAGE**: You **MUST** reply in **Spanish**. The user only speaks Spanish.
 - **FRONTEND BUILD**: NEVER run  manually. **ALWAYS run Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
 yarn run v1.22.22
 $ craco build
@@ -208,15 +209,16 @@ src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/pages/ChaseRevealPage.jsx
-  Line 25:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 36:5:    React Hook useMemo has missing dependencies: 'cfg.colors', 'cfg.count', 'cfg.durMax', 'cfg.durMin', 'cfg.sizeMax', 'cfg.sizeMin', and 'cfg.spread'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 159:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array                                                                                            react-hooks/exhaustive-deps
 
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  413.35 kB  build/static/js/main.cefbc503.js
-  19.14 kB   build/static/css/main.89200ec1.css
+  423.05 kB  build/static/js/main.540dc5ac.js
+  19.69 kB   build/static/css/main.3a779e57.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -231,22 +233,17 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 17.33s.
-Build complete. Ready for deploy.**. Running it manually injects the Emergent Preview URL into the build, which breaks the user's production site.
-- **TESTING AUTH**: Do not touch Google Auth. A permanent dev token  is generated on backend startup. Use it in cookies to test APIs: .
-- **EBAY POLICY AWARENESS**: Mystery Packs are strictly banned on eBay. The implementation is deliberately called Chase Card Pack and explicitly shows all cards available to maintain compliance. Do not rename variables or UI elements back to Mystery.
+Done in 18.40s.
+Build complete. Ready for deploy.**.
+- **AUTH RULES**: DO NOT TOUCH AUTH. Use the permanent dev token  for testing.
+- **EBAY PROMOS**: eBay requires users to have a Store Subscription to run  promos. The user has now upgraded to a Basic Store, so promos work correctly.
+- **IMAGE GEN**: The user specifically requested the generated images for the Mid and Base tiers in the Chase Pack preview to display cards in a grid of 2 per row (2 tarjetas por line). Update  accordingly.
 
 **documents and test reports created in this job**
-  -  (Updated)
-  -  (Created)
-  -  (Updated)
+  -  (Updated with latest completed features).
 
 **Last 10 User Messages and any pending HUMAN messages** 
- - (Agent showed final centered design of the Chase Pack Hero section)
- - ok me gusta mucho pero si creoq ue tenemos que tener un tab para manejar todos los detalles de estas Chaser Digital Packs, donde podemos controlar todos los detalles y tambien si tenemos varios de estos , igualmente ahi podemos ver como van, que tarjetas ya se ganaron etc
- - (Agent asks whether to add it as a new tab in the main menu or inside Listings)
- - a. Como un tab nuevo en el menú principal
- - (Agent creates  but job ends before wiring it to )
+ - ok tambien en la imagenes que se crean necesito que si son mas de dos imagens siempre uses el formato que estamos usando en las otras seeciones deonde solo pones2 tarjetas por line asi se van a ver mucho mejor
 
 **Project Health Check:**
 - Broken: None.
@@ -258,18 +255,18 @@ Build complete. Ready for deploy.**. Running it manually injects the Emergent Pr
 - Stripe (Payments) — requires User API Key.
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Manual testing via screenshots & bash scripts due to complex UI requirements).
+  - Testing agent used after significant changes: NO (Iterative frontend/backend checks were verified manually via screenshots and bash curl tests).
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: None
-  - Known regressions: None currently.
+  - Known regressions: None.
 
 **Credentials to test flow:**
-Use . A new  token is available for safe backend curl testing.
+Use . A  token is available for safe backend curl testing.
 
 **What agent forgot to execute**
-The agent created  but failed to update  to actually display the new tab in the sidebar and route to it.
+The agent was in the middle of updating  in  to enforce the 2-cards-per-row layout for eBay preview images, but the session timed out before the file was edited and compiled.
 
 **Debugging checklist for current issue**
-    Issue: Chase Packs Module is not visible in the Dashboard.
-    Frontend files to check: 
-    -  -> Import , add  to the  array, and add it to the  switch statement.</analysis>
+    Issue: eBay Collage Images - 2 Cards per Row
+    Backend files to check: 
+    Action: Edit the  function. Implement logic so that iterating through  places exactly 2 cards side-by-side, then resets  to the start margin and increments  to the next row. Re-calculate the canvas height () based on . After fixing, test via curl to  or take a screenshot of Step 3 in the .</analysis>
