@@ -28,7 +28,6 @@ const StorePromotions = ({ compact = false }) => {
   const [showCreate, setShowCreate] = useState(false);
   const [tiers, setTiers] = useState([
     { min_qty: 2, percent_off: 10 },
-    { min_qty: 4, percent_off: 20 },
   ]);
   const [endDays, setEndDays] = useState(30);
 
@@ -255,31 +254,19 @@ const StorePromotions = ({ compact = false }) => {
             Buyers get a discount when purchasing multiple items from your store. Applies to ALL your eBay listings.
           </p>
 
-          {/* Tiers */}
+          {/* Discount Rule */}
           <div className="space-y-2">
-            {tiers.map((tier, idx) => (
-              <div key={idx} className="flex items-center gap-2 px-3 py-2 bg-emerald-500/5 rounded-lg border border-emerald-500/20" data-testid={`promo-tier-${idx}`}>
-                <span className="text-[10px] text-emerald-400 shrink-0">Buy</span>
-                <input type="number" min="2" max="20" value={tier.min_qty}
-                  onChange={e => updateTier(idx, 'min_qty', e.target.value)}
-                  className="w-12 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
-                <span className="text-[10px] text-gray-500">+ items</span>
-                <input type="number" min="5" max="80" value={tier.percent_off}
-                  onChange={e => updateTier(idx, 'percent_off', e.target.value)}
-                  className="w-12 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
-                <span className="text-[10px] text-emerald-400">% off</span>
-                {tiers.length > 1 && (
-                  <button onClick={() => removeTier(idx)} className="ml-auto text-red-400/60 hover:text-red-400 transition-colors">
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
-            ))}
-            {tiers.length < 4 && (
-              <button onClick={addTier} className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-bold" data-testid="promo-add-tier">
-                <Plus className="w-3 h-3" /> Add Tier
-              </button>
-            )}
+            <div className="flex items-center gap-2 px-3 py-2.5 bg-emerald-500/5 rounded-lg border border-emerald-500/20" data-testid="promo-tier-0">
+              <span className="text-[10px] text-emerald-400 shrink-0">Buy</span>
+              <input type="number" min="2" max="20" value={tiers[0].min_qty}
+                onChange={e => updateTier(0, 'min_qty', e.target.value)}
+                className="w-12 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+              <span className="text-[10px] text-gray-500">+ items</span>
+              <input type="number" min="5" max="80" value={tiers[0].percent_off}
+                onChange={e => updateTier(0, 'percent_off', e.target.value)}
+                className="w-12 bg-[#0a0a0a] border border-[#222] rounded px-2 py-1 text-xs text-white text-center outline-none focus:border-emerald-500/50" />
+              <span className="text-[10px] text-emerald-400">% off</span>
+            </div>
           </div>
 
           {/* Duration */}

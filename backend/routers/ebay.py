@@ -2914,15 +2914,14 @@ async def create_volume_discount(request: Request):
     # Build listing IDs list
     ids = listing_ids if listing_ids else ([ebay_item_id] if ebay_item_id else [])
 
-    # Build discount rules for ORDER_DISCOUNT
-    discount_rules = []
-    for i, tier in enumerate(tiers[:4]):  # Max 4 tiers
-        pct = max(5, min(80, tier["percent_off"]))  # eBay requires 5-80%
-        discount_rules.append({
-            "discountBenefit": {"percentageOffOrder": str(pct)},
-            "discountSpecification": {"minQuantity": tier["min_qty"]},
-            "ruleOrder": i + 1,
-        })
+    # Build single discount rule for ORDER_DISCOUNT (eBay only allows 1 rule)
+    first_tier = tiers[0]
+    pct = max(5, min(80, first_tier["percent_off"]))
+    discount_rules = [{
+        "discountBenefit": {"percentageOffOrder": str(pct)},
+        "discountSpecification": {"minQuantity": first_tier["min_qty"]},
+        "ruleOrder": 1,
+    }]
 
     from datetime import timedelta
     start_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
