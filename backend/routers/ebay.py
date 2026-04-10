@@ -2594,6 +2594,7 @@ async def reveal_chase_card(pack_id: str, request: Request):
                     "variation": c["variation"],
                     "image": c.get("image", ""),
                     "is_chase": c["is_chase"],
+                    "tier": c.get("tier", "chase" if c["is_chase"] else "low"),
                 },
                 "buyer": c["assigned_to"],
                 "is_chase": c["is_chase"],

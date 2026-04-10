@@ -102,6 +102,16 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - **Tier Management**: Manual Chaser/Mid/Base tier assignment per card
 - **Spot Tracker (Mini Slabs)**: Visual mini-slab cards on public page with Framer Motion 3D flip
 
+### Session - Apr 2026 (Chase Reveal Page Redesign)
+- **Responsive Layout**: Redesigned ChaseRevealPage for desktop/tablet - bigger chasers, centered layout, horizontal spot tracker + store info side by side on desktop
+- **3-Tier Celebration System**: CelebrationEffect component with confetti particles
+  - Base (low): 25 silver/white sparkles, subtle celebration
+  - Mid: 55 blue/purple confetti pieces + blue screen flash
+  - Chase: 110 gold/orange/red confetti storm + golden screen flash + pulsing ring
+- **Backend Fix**: Added `tier` field to reveal endpoint response so celebration tier is correctly detected
+- **Better Spacing**: More padding on desktop/tablet, bigger card grids, better visual hierarchy
+- Frontend compiled with `build_prod.sh`
+
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
 - **P1:** Whatnot & Shopify Integration
