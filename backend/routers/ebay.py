@@ -2417,36 +2417,47 @@ async def get_chase_pack(pack_id: str):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
-    # Calculate tiers by value: Chase 10%, Mid 30%, Low 60%
     cards_list = pack.get("cards", [])
     n = len(cards_list)
 
-    # Get card values from inventory
-    card_values = {}
-    for c in cards_list:
-        inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1, "purchase_price": 1})
-        val = 0
-        if inv:
-            val = float(inv.get("card_value") or inv.get("listed_price") or inv.get("purchase_price") or 0)
-        card_values[c["card_id"]] = val
+    # Use stored tiers if available, otherwise calculate from value
+    has_stored_tiers = any(c.get("tier") for c in cards_list)
 
-    # Sort by value descending
-    sorted_cards = sorted(cards_list, key=lambda x: card_values.get(x["card_id"], 0), reverse=True)
-    chase_count = max(1, round(n * 0.10))
-    mid_count = max(1, round(n * 0.30))
-    # rest is low
+    if not has_stored_tiers:
+        # Legacy packs: calculate tiers from inventory value
+        card_values = {}
+        for c in cards_list:
+            inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1, "purchase_price": 1})
+            val = 0
+            if inv:
+                val = float(inv.get("card_value") or inv.get("listed_price") or inv.get("purchase_price") or 0)
+            card_values[c["card_id"]] = val
 
-    tier_map = {}
-    for i, c in enumerate(sorted_cards):
-        if i < chase_count:
-            tier_map[c["card_id"]] = "chase"
-        elif i < chase_count + mid_count:
-            tier_map[c["card_id"]] = "mid"
-        else:
-            tier_map[c["card_id"]] = "low"
+        sorted_cards = sorted(cards_list, key=lambda x: card_values.get(x["card_id"], 0), reverse=True)
+        chase_count = max(1, round(n * 0.10))
+        mid_count = max(1, round(n * 0.30))
 
-    # Build public cards - ALWAYS show images (they're on the eBay listing anyway)
-    # NEVER show who has which card until all spots are sold
+        tier_map = {}
+        for i, c in enumerate(sorted_cards):
+            if c["is_chase"]:
+                tier_map[c["card_id"]] = "chase"
+            elif i < chase_count:
+                tier_map[c["card_id"]] = "chase"
+            elif i < chase_count + mid_count:
+                tier_map[c["card_id"]] = "mid"
+            else:
+                tier_map[c["card_id"]] = "low"
+
+        # Persist calculated tiers to DB
+        for i, c in enumerate(cards_list):
+            t = tier_map.get(c["card_id"], "low")
+            await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {f"cards.{i}.tier": t}})
+    else:
+        tier_map = {}
+        for c in cards_list:
+            tier_map[c["card_id"]] = c.get("tier", "low")
+
+    # Build public cards
     public_cards = []
     for c in cards_list:
         card_info = {
@@ -2457,7 +2468,6 @@ async def get_chase_pack(pack_id: str):
             "is_chase": c["is_chase"],
             "image": c.get("image", ""),
             "tier": tier_map.get(c["card_id"], "low"),
-            "value": card_values.get(c["card_id"], 0),
         }
         if pack.get("all_revealed"):
             card_info["assigned_to"] = c.get("assigned_to", "")
@@ -2465,15 +2475,19 @@ async def get_chase_pack(pack_id: str):
 
     # Sort for display: chase first, then mid, then low
     tier_order = {"chase": 0, "mid": 1, "low": 2}
-    public_cards.sort(key=lambda x: (tier_order.get(x["tier"], 2), -x["value"]))
+    public_cards.sort(key=lambda x: tier_order.get(x["tier"], 2))
 
-    # Build spots tracker (shows claimed status + buyer names, NOT which card they got)
+    # Build spots tracker
     spots = []
     for i, c in enumerate(cards_list):
         spot = {"number": i + 1, "claimed": bool(c.get("assigned_to")), "revealed": bool(c.get("revealed"))}
         if c.get("assigned_to"):
             spot["buyer"] = c["assigned_to"]
         spots.append(spot)
+
+    chase_n = sum(1 for c in public_cards if c["tier"] == "chase")
+    mid_n = sum(1 for c in public_cards if c["tier"] == "mid")
+    low_n = n - chase_n - mid_n
 
     return {
         "pack_id": pack["pack_id"],
@@ -2486,7 +2500,7 @@ async def get_chase_pack(pack_id: str):
         "cards": public_cards,
         "spots": spots,
         "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
-        "tiers": {"chase": chase_count, "mid": mid_count, "low": n - chase_count - mid_count},
+        "tiers": {"chase": chase_n, "mid": mid_n, "low": low_n},
     }
 
 
@@ -2783,6 +2797,39 @@ async def regenerate_chase_code(pack_id: str, request: Request):
             return {"success": True, "new_code": new_code, "message": f"New code: {new_code}"}
 
     raise HTTPException(status_code=400, detail="Card not found in pack")
+
+
+@router.post("/chase/{pack_id}/update-tiers")
+async def update_chase_tiers(pack_id: str, request: Request):
+    """Update tier assignments for cards in a chase pack."""
+    user = await get_current_user(request)
+    body = await request.json()
+    tiers = body.get("tiers", {})  # {card_id: "chase"|"mid"|"low"}
+
+    if not tiers:
+        return {"success": False, "error": "No tier changes provided"}
+
+    valid_tiers = {"chase", "mid", "low"}
+    for card_id, tier in tiers.items():
+        if tier not in valid_tiers:
+            raise HTTPException(status_code=400, detail=f"Invalid tier '{tier}'. Must be chase, mid, or low")
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    updated = 0
+    for i, c in enumerate(pack["cards"]):
+        if c["card_id"] in tiers:
+            new_tier = tiers[c["card_id"]]
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {f"cards.{i}.tier": new_tier}}
+            )
+            updated += 1
+
+    return {"success": True, "message": f"{updated} card tiers updated"}
+
 
 
 @router.post("/chase/{pack_id}/sync-ebay")

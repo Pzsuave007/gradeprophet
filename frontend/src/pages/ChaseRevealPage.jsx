@@ -27,37 +27,31 @@ const SpotCard = ({ spot }) => {
       >
         {/* FRONT — Available slab */}
         <div
-          className="absolute inset-0 rounded-[4px] bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] border border-[#f59e0b]/25 flex flex-col items-center justify-between overflow-hidden"
+          className="absolute inset-0 rounded-md bg-gradient-to-b from-[#1a1a1a] to-[#0f0f0f] border border-[#f59e0b]/25 flex flex-col items-center justify-between overflow-hidden"
           style={{ backfaceVisibility: 'hidden' }}
           data-testid={`spot-front-${spot.number}`}
         >
-          {/* Slab label top */}
-          <div className="w-full bg-[#f59e0b]/10 border-b border-[#f59e0b]/15 py-[1px]">
-            <p className="text-[5px] font-bold text-[#f59e0b]/60 text-center tracking-wider">SPOT</p>
+          <div className="w-full bg-[#f59e0b]/10 border-b border-[#f59e0b]/15 py-[2px]">
+            <p className="text-[6px] font-bold text-[#f59e0b]/60 text-center tracking-wider">SPOT</p>
           </div>
-          {/* Number */}
-          <span className="text-[#f59e0b] font-black text-[11px] leading-none">{spot.number}</span>
-          {/* Bottom dot */}
-          <div className="pb-1">
+          <span className="text-[#f59e0b] font-black text-sm leading-none">{spot.number}</span>
+          <div className="pb-1.5">
             <div className="w-1 h-1 rounded-full bg-[#f59e0b]/30" />
           </div>
         </div>
 
         {/* BACK — Claimed slab */}
         <div
-          className="absolute inset-0 rounded-[4px] bg-[#0f0f0f] border border-white/[0.06] flex flex-col items-center justify-between overflow-hidden"
+          className="absolute inset-0 rounded-md bg-[#0f0f0f] border border-white/[0.06] flex flex-col items-center justify-between overflow-hidden"
           style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           data-testid={`spot-back-${spot.number}`}
         >
-          {/* Label */}
-          <div className="w-full bg-emerald-500/10 border-b border-emerald-500/15 py-[1px]">
-            <p className="text-[5px] font-bold text-emerald-400/60 text-center tracking-wider">SOLD</p>
+          <div className="w-full bg-emerald-500/10 border-b border-emerald-500/15 py-[2px]">
+            <p className="text-[6px] font-bold text-emerald-400/60 text-center tracking-wider">SOLD</p>
           </div>
-          {/* Checkmark */}
-          <Check className="w-2.5 h-2.5 text-emerald-400/70" />
-          {/* Buyer name */}
-          <div className="pb-0.5 px-0.5 w-full">
-            <p className="text-[4px] font-bold text-gray-500 text-center truncate leading-tight">
+          <Check className="w-3 h-3 text-emerald-400/70" />
+          <div className="pb-1 px-0.5 w-full">
+            <p className="text-[6px] font-bold text-gray-500 text-center truncate leading-tight">
               {spot.buyer || '#' + spot.number}
             </p>
           </div>
@@ -74,7 +68,6 @@ const SpotTracker = ({ spots, totalSpots }) => {
 
   return (
     <div className="bg-[#111]/60 border border-white/[0.05] rounded-xl px-4 py-3" data-testid="spot-tracker">
-      {/* Compact header */}
       <div className="flex items-center justify-between mb-2.5">
         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Spots</span>
         <span className="text-[10px]">
@@ -83,10 +76,9 @@ const SpotTracker = ({ spots, totalSpots }) => {
         </span>
       </div>
 
-      {/* Mini slab grid */}
-      <div className={`flex flex-wrap gap-1.5 justify-center`}>
+      <div className="flex flex-wrap gap-1.5 justify-center">
         {spots.map((spot) => (
-          <div key={spot.number} className="w-[30px]">
+          <div key={spot.number} className="w-[42px]">
             <SpotCard spot={spot} />
           </div>
         ))}

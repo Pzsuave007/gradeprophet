@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Flame, Crown, Zap, RefreshCw, Copy, UserPlus, ExternalLink, ChevronLeft, ChevronRight, Eye, DollarSign, Package, Users, Clock, Check, BarChart3, Pencil, Pause, Play, XCircle, Trash2, RotateCcw, Upload, Save, X, UserMinus, KeyRound, AlertTriangle } from 'lucide-react';
+import { Flame, Crown, Zap, Gem, RefreshCw, Copy, UserPlus, ExternalLink, ChevronLeft, ChevronRight, Eye, DollarSign, Package, Users, Clock, Check, BarChart3, Pencil, Pause, Play, XCircle, Trash2, RotateCcw, Upload, Save, X, UserMinus, KeyRound, AlertTriangle, ChevronDown } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -10,6 +10,22 @@ const STATUS_STYLE = {
   paused: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', label: 'Paused' },
   completed: { bg: 'bg-[#3b82f6]/10', border: 'border-[#3b82f6]/30', text: 'text-[#3b82f6]', label: 'Completed' },
   ended: { bg: 'bg-gray-500/10', border: 'border-gray-500/30', text: 'text-gray-400', label: 'Ended' },
+};
+
+const TIER_OPTS = [
+  { value: 'chase', label: 'Chaser', icon: Crown, color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30', badge: 'bg-gradient-to-r from-amber-500 to-orange-600' },
+  { value: 'mid', label: 'Mid', icon: Zap, color: 'text-[#3b82f6]', bg: 'bg-[#3b82f6]/10', border: 'border-[#3b82f6]/30', badge: 'bg-gradient-to-r from-[#3b82f6] to-blue-600' },
+  { value: 'low', label: 'Base', icon: Gem, color: 'text-gray-400', bg: 'bg-white/[0.04]', border: 'border-white/[0.08]', badge: 'bg-gradient-to-r from-gray-600 to-gray-700' },
+];
+
+const TierBadge = ({ tier }) => {
+  const t = TIER_OPTS.find(o => o.value === tier) || TIER_OPTS[2];
+  const Icon = t.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 text-[8px] font-black px-1.5 py-0.5 rounded-full text-white ${t.badge}`}>
+      <Icon className="w-2 h-2" /> {t.label.toUpperCase()}
+    </span>
+  );
 };
 
 // ===== PACK LIST VIEW =====
@@ -296,6 +312,23 @@ const PackDetailView = ({ packId, onBack }) => {
     }
   };
 
+  const updateTier = async (cardId, tier) => {
+    setActionLoading(`tier-${cardId}`);
+    try {
+      const res = await axios.post(`${API}/api/ebay/chase/${packId}/update-tiers`, { tiers: { [cardId]: tier } }, { withCredentials: true });
+      if (res.data.success) {
+        toast.success(`Tier updated to ${tier}`);
+        fetchPack();
+      } else {
+        toast.error(res.data.error || 'Failed');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   const copyCode = (code) => { navigator.clipboard.writeText(code); toast.success(`Code ${code} copied!`); };
   const copyRevealLink = () => { navigator.clipboard.writeText(`${window.location.origin}/chase/${packId}`); toast.success('Reveal link copied!'); };
 
@@ -489,7 +522,7 @@ const PackDetailView = ({ packId, onBack }) => {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-bold text-white truncate">{card.player}</p>
-                    {card.is_chase && <span className="text-[8px] font-black px-1.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-orange-600 text-white">CHASE</span>}
+                    <TierBadge tier={card.tier || (card.is_chase ? 'chase' : 'low')} />
                   </div>
                   <p className="text-[10px] text-gray-500">{card.year} {card.set_name} {card.variation || ''}</p>
                 </div>
@@ -499,6 +532,19 @@ const PackDetailView = ({ packId, onBack }) => {
                     {card.revealed ? 'Revealed' : 'Pending'}
                   </p>
                 </div>
+                {/* Tier selector */}
+                {isEditable && (
+                  <select
+                    value={card.tier || (card.is_chase ? 'chase' : 'low')}
+                    onChange={e => updateTier(card.card_id, e.target.value)}
+                    disabled={!!actionLoading}
+                    className="bg-[#0a0a0a] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-gray-300 outline-none cursor-pointer shrink-0"
+                    data-testid={`tier-select-${card.card_id}`}>
+                    <option value="chase">Chaser</option>
+                    <option value="mid">Mid</option>
+                    <option value="low">Base</option>
+                  </select>
+                )}
                 {/* Card actions */}
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => copyCode(card.claim_code)}
@@ -539,12 +585,11 @@ const PackDetailView = ({ packId, onBack }) => {
                   ) : (
                     <div className="w-full aspect-[3/4] bg-[#0a0a0a] flex items-center justify-center"><Flame className="w-6 h-6 text-gray-700" /></div>
                   )}
-                  {card.is_chase && (
-                    <div className="absolute top-1.5 left-1.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[7px] font-black px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <Crown className="w-2 h-2" /> CHASE
-                    </div>
-                  )}
-                  {/* Make chase button - only on non-chase cards */}
+                  {/* Tier badge */}
+                  <div className="absolute top-1.5 left-1.5">
+                    <TierBadge tier={card.tier || (card.is_chase ? 'chase' : 'low')} />
+                  </div>
+                  {/* Make chase button */}
                   {!card.is_chase && isEditable && (
                     <button onClick={() => changeChaseCard(card.card_id)}
                       disabled={!!actionLoading}
@@ -555,8 +600,23 @@ const PackDetailView = ({ packId, onBack }) => {
                   )}
                 </div>
                 <div className="p-2">
-                  <p className="text-[10px] font-bold text-white truncate">{card.player}</p>
+                  <div className="flex items-center justify-between gap-1">
+                    <p className="text-[10px] font-bold text-white truncate">{card.player}</p>
+                  </div>
                   <p className="text-[9px] text-gray-500 truncate">{card.year} {card.set_name}</p>
+                  {/* Tier selector */}
+                  {isEditable && (
+                    <select
+                      value={card.tier || (card.is_chase ? 'chase' : 'low')}
+                      onChange={e => updateTier(card.card_id, e.target.value)}
+                      disabled={!!actionLoading}
+                      className="mt-1.5 w-full bg-[#0a0a0a] border border-white/[0.08] rounded px-1.5 py-1 text-[9px] text-gray-300 outline-none cursor-pointer"
+                      data-testid={`tier-select-${card.card_id}`}>
+                      <option value="chase">Chaser</option>
+                      <option value="mid">Mid Tier</option>
+                      <option value="low">Base</option>
+                    </select>
+                  )}
                 </div>
               </div>
             ))}
