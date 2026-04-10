@@ -661,8 +661,9 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axios.get(`${API}/api/inventory?listed=false&limit=500`, { withCredentials: true });
-        setInventory(res.data.items || []);
+        const res = await axios.get(`${API}/api/inventory?limit=500`, { withCredentials: true });
+        const available = (res.data.items || []).filter(c => c.category !== 'sold' && !c.listed && !c.in_chase_pack);
+        setInventory(available);
       } catch { toast.error('Failed to load inventory'); }
       finally { setLoadingInv(false); }
     })();
