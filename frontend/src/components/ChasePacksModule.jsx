@@ -700,6 +700,12 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
 
   const goStep3 = () => {
     if (chaseCount < 1) { toast.error('Pick at least 1 Chaser card'); return; }
+    // Auto-calculate suggested price with 30% margin
+    const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.listed_price || c.price || 0), 0);
+    if (totalValue > 0 && price === '5.00') {
+      const suggestedPerSpot = ((totalValue * 1.3) / selected.length).toFixed(2);
+      setPrice(suggestedPerSpot);
+    }
     setStep(3);
   };
 
@@ -932,18 +938,41 @@ const CreatePackWizard = ({ onBack, onCreated }) => {
           )}
 
           {/* Summary */}
-          <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4 space-y-2">
-            <p className="text-xs font-bold text-white">Summary</p>
-            <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
-              <span className="text-gray-500">Cards</span><span className="text-white font-bold text-right">{selected.length}</span>
-              <span className="text-gray-500">Spots</span><span className="text-white font-bold text-right">{selected.length}</span>
-              <span className="text-gray-500">Price/spot</span><span className="text-white font-bold text-right">${parseFloat(price || 0).toFixed(2)}</span>
-              <span className="text-gray-500">Total if sold out</span><span className="text-emerald-400 font-bold text-right">${(selected.length * parseFloat(price || 0)).toFixed(2)}</span>
-              <span className="text-gray-500">Chasers</span><span className="text-[#f59e0b] font-bold text-right">{chaseCount}</span>
-              <span className="text-gray-500">Mid</span><span className="text-[#3b82f6] font-bold text-right">{Object.values(tiers).filter(t => t === 'mid').length}</span>
-              <span className="text-gray-500">Base</span><span className="text-gray-400 font-bold text-right">{Object.values(tiers).filter(t => t === 'low').length}</span>
-            </div>
-          </div>
+          {(() => {
+            const totalValue = selected.reduce((sum, c) => sum + (c.purchase_price || c.listed_price || c.price || 0), 0);
+            const margin = totalValue > 0 ? (((selected.length * parseFloat(price || 0)) / totalValue - 1) * 100).toFixed(0) : 0;
+            const totalRevenue = selected.length * parseFloat(price || 0);
+            const profit = totalRevenue - totalValue;
+            return (
+              <div className="bg-[#111] border border-white/[0.06] rounded-xl p-4 space-y-3">
+                <p className="text-xs font-bold text-white">Price Breakdown</p>
+                <div className="grid grid-cols-2 gap-y-1.5 text-[11px]">
+                  <span className="text-gray-500">Total card value</span><span className="text-white font-bold text-right">${totalValue.toFixed(2)}</span>
+                  <span className="text-gray-500">Cards / Spots</span><span className="text-white font-bold text-right">{selected.length}</span>
+                  <span className="text-gray-500">Price per spot</span><span className="text-white font-bold text-right">${parseFloat(price || 0).toFixed(2)}</span>
+                  <span className="text-gray-500">Revenue if sold out</span><span className="text-emerald-400 font-bold text-right">${totalRevenue.toFixed(2)}</span>
+                  <span className="text-gray-500">Profit</span>
+                  <span className={`font-bold text-right ${profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {profit >= 0 ? '+' : '-'}${Math.abs(profit).toFixed(2)}
+                  </span>
+                  <span className="text-gray-500">Margin</span>
+                  <span className={`font-bold text-right ${Number(margin) >= 30 ? 'text-emerald-400' : Number(margin) >= 0 ? 'text-[#f59e0b]' : 'text-red-400'}`}>
+                    {margin}%
+                  </span>
+                </div>
+                {Number(margin) < 30 && totalValue > 0 && (
+                  <p className="text-[10px] text-[#f59e0b] bg-[#f59e0b]/5 rounded-lg px-3 py-1.5 border border-[#f59e0b]/15">
+                    Recommended: at least 30% margin (${((totalValue * 1.3) / selected.length).toFixed(2)}/spot)
+                  </p>
+                )}
+                <div className="grid grid-cols-3 gap-2 pt-1 border-t border-white/[0.04]">
+                  <div className="text-center"><span className="text-[10px] text-[#f59e0b] font-bold">{chaseCount}</span><p className="text-[8px] text-gray-600">Chasers</p></div>
+                  <div className="text-center"><span className="text-[10px] text-[#3b82f6] font-bold">{Object.values(tiers).filter(t => t === 'mid').length}</span><p className="text-[8px] text-gray-600">Mid</p></div>
+                  <div className="text-center"><span className="text-[10px] text-gray-400 font-bold">{Object.values(tiers).filter(t => t === 'low').length}</span><p className="text-[8px] text-gray-600">Base</p></div>
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="flex gap-3 sticky bottom-0 pt-4 bg-[#0a0a0a]">
             <button onClick={() => setStep(2)} className="px-6 py-3.5 rounded-xl bg-[#111] border border-white/[0.08] text-gray-400 text-sm font-bold">
