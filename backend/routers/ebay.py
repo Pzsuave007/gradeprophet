@@ -4399,18 +4399,18 @@ async def check_all_chase_pack_sales():
                     reveal_url = f"{PRODUCTION_URL}/chase/{pack['pack_id']}"
                     if len(codes) == 1:
                         msg_body = (
-                            f"Thanks for buying a spot in {pack['title']}!\n\n"
-                            f"Your claim code: {codes[0]}\n\n"
-                            f"Reveal your card here:\n{reveal_url}\n\n"
-                            f"Enter your code and see what you got. Good luck!"
+                            f"Thanks for purchasing a spot in {pack['title']}!\n\n"
+                            f"Your claim code is: {codes[0]}\n\n"
+                            f"To reveal your card, go to flipslabengine.com/chase and enter your code.\n\n"
+                            f"Good luck - can you pull the CHASE?"
                         )
                     else:
                         codes_str = "\n".join(f"  Spot {i+1}: {c}" for i, c in enumerate(codes))
                         msg_body = (
-                            f"Thanks for buying {len(codes)} spots in {pack['title']}!\n\n"
+                            f"Thanks for purchasing {len(codes)} spots in {pack['title']}!\n\n"
                             f"Your claim codes:\n{codes_str}\n\n"
-                            f"Reveal your cards here:\n{reveal_url}\n\n"
-                            f"Enter each code to reveal. Good luck!"
+                            f"To reveal your cards, go to flipslabengine.com/chase and enter each code.\n\n"
+                            f"Good luck - can you pull the CHASE?"
                         )
 
                     sent = await _send_ebay_message(
