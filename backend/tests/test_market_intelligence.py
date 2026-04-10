@@ -10,7 +10,7 @@ import time
 # Get BASE_URL from environment (public URL)
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 if not BASE_URL:
-    BASE_URL = "https://chase-editor-tool.preview.emergentagent.com"
+    BASE_URL = "https://chase-sales-monitor.preview.emergentagent.com"
 
 
 class TestMarketHealthEndpoints:
