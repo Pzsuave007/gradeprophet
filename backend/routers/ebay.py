@@ -2467,14 +2467,24 @@ async def get_chase_pack(pack_id: str):
     tier_order = {"chase": 0, "mid": 1, "low": 2}
     public_cards.sort(key=lambda x: (tier_order.get(x["tier"], 2), -x["value"]))
 
+    # Build spots tracker (shows claimed status + buyer names, NOT which card they got)
+    spots = []
+    for i, c in enumerate(cards_list):
+        spot = {"number": i + 1, "claimed": bool(c.get("assigned_to")), "revealed": bool(c.get("revealed"))}
+        if c.get("assigned_to"):
+            spot["buyer"] = c["assigned_to"]
+        spots.append(spot)
+
     return {
         "pack_id": pack["pack_id"],
         "title": pack["title"],
         "price": pack["price"],
         "total_spots": pack["total_spots"],
+        "spots_claimed": pack.get("spots_claimed", 0),
         "status": pack["status"],
         "all_revealed": pack.get("all_revealed", False),
         "cards": public_cards,
+        "spots": spots,
         "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
         "tiers": {"chase": chase_count, "mid": mid_count, "low": n - chase_count - mid_count},
     }

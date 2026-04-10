@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Flame, Lock, Star, Trophy, Users, Copy, Download, ShoppingBag, Store, Zap, Crown, Gem, Shield, Clock, Package } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Flame, Lock, Star, Trophy, Users, Copy, Download, ShoppingBag, Store, Zap, Crown, Gem, Shield, Clock, Package, Check } from 'lucide-react';
 import axios from 'axios';
 
 const API = process.env.REACT_APP_BACKEND_URL;
@@ -10,6 +10,110 @@ const TIER_CONFIG = {
   chase: { label: 'CHASER', icon: Crown, gradient: 'from-amber-500 to-orange-600', border: 'border-amber-500/50', glow: 'shadow-amber-500/30', bg: 'bg-amber-500/5', text: 'text-amber-400', badge: 'bg-gradient-to-r from-amber-500 to-orange-600' },
   mid: { label: 'MID TIER', icon: Zap, gradient: 'from-[#3b82f6] to-blue-600', border: 'border-[#3b82f6]/40', glow: 'shadow-[#3b82f6]/20', bg: 'bg-[#3b82f6]/5', text: 'text-[#3b82f6]', badge: 'bg-gradient-to-r from-[#3b82f6] to-blue-600' },
   low: { label: 'BASE', icon: Gem, gradient: 'from-gray-500 to-gray-600', border: 'border-white/[0.08]', glow: 'shadow-white/5', bg: 'bg-white/[0.02]', text: 'text-gray-400', badge: 'bg-gradient-to-r from-gray-600 to-gray-700' },
+};
+
+// ===== SPOT TRACKER =====
+const SpotCard = ({ spot, index }) => {
+  const isClaimed = spot.claimed;
+
+  return (
+    <div className="relative" style={{ perspective: '600px' }}>
+      <motion.div
+        initial={false}
+        animate={{ rotateY: isClaimed ? 180 : 0 }}
+        transition={{ duration: 0.6, type: 'spring', stiffness: 200, damping: 20 }}
+        style={{ transformStyle: 'preserve-3d' }}
+        className="relative w-full aspect-square"
+      >
+        {/* FRONT — Available spot */}
+        <div
+          className="absolute inset-0 rounded-xl bg-gradient-to-br from-[#1a1a1a] to-[#111] border border-[#f59e0b]/30 flex flex-col items-center justify-center shadow-md shadow-[#f59e0b]/5 hover:border-[#f59e0b]/50 transition-colors"
+          style={{ backfaceVisibility: 'hidden' }}
+          data-testid={`spot-front-${spot.number}`}
+        >
+          <span className="text-[#f59e0b] font-black text-lg leading-none">{spot.number}</span>
+          <div className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]/40 mt-1.5 animate-pulse" />
+        </div>
+
+        {/* BACK — Claimed spot */}
+        <div
+          className="absolute inset-0 rounded-xl bg-[#111] border border-white/[0.06] flex flex-col items-center justify-center overflow-hidden"
+          style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
+          data-testid={`spot-back-${spot.number}`}
+        >
+          {/* Crosshatch overlay for "crossed out" feel */}
+          <div className="absolute inset-0 bg-gradient-to-br from-gray-800/50 to-gray-900/80" />
+          <div className="relative z-10 flex flex-col items-center">
+            <div className="w-5 h-5 rounded-full bg-emerald-500/20 flex items-center justify-center mb-0.5">
+              <Check className="w-3 h-3 text-emerald-400" />
+            </div>
+            <span className="text-[8px] font-bold text-gray-400 truncate max-w-[90%] text-center leading-tight px-0.5">
+              {spot.buyer || `#${spot.number}`}
+            </span>
+          </div>
+          {/* Diagonal strike line */}
+          <div className="absolute inset-0 pointer-events-none">
+            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <line x1="15" y1="15" x2="85" y2="85" stroke="rgba(239,68,68,0.25)" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const SpotTracker = ({ spots, totalSpots, spotsRemaining }) => {
+  if (!spots || spots.length === 0) return null;
+  const claimed = spots.filter(s => s.claimed).length;
+  const remaining = totalSpots - claimed;
+
+  return (
+    <div className="bg-[#111] border border-white/[0.08] rounded-2xl p-5" data-testid="spot-tracker">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-[#f59e0b]" />
+          <h3 className="text-sm font-bold text-white">Spots</h3>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-[#f59e0b]">{remaining}</span>
+          <span className="text-[10px] text-gray-500">of {totalSpots} left</span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="h-1.5 bg-[#0a0a0a] rounded-full overflow-hidden mb-4">
+        <motion.div
+          initial={{ width: 0 }}
+          animate={{ width: `${(claimed / totalSpots) * 100}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+          className={`h-full rounded-full ${claimed >= totalSpots ? 'bg-emerald-500' : 'bg-gradient-to-r from-[#f59e0b] to-orange-500'}`}
+        />
+      </div>
+
+      {/* Spot grid */}
+      <div className={`grid gap-2 ${totalSpots <= 12 ? 'grid-cols-6' : totalSpots <= 20 ? 'grid-cols-7' : 'grid-cols-8'}`}>
+        {spots.map((spot, i) => (
+          <SpotCard key={spot.number} spot={spot} index={i} />
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/[0.04]">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-gradient-to-br from-[#1a1a1a] to-[#111] border border-[#f59e0b]/30" />
+          <span className="text-[9px] text-gray-500">Available</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded bg-gray-800/50 border border-white/[0.06] flex items-center justify-center">
+            <Check className="w-2 h-2 text-emerald-400" />
+          </div>
+          <span className="text-[9px] text-gray-500">Claimed</span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 const ChaseRevealPage = () => {
@@ -151,7 +255,15 @@ const ChaseRevealPage = () => {
             {card.variation && <p className="text-sm text-[#f59e0b] font-bold mt-1">{card.variation}</p>}
             <p className="text-xs text-gray-500 mt-3">Congratulations, <span className="text-white font-bold">{revealedCard.buyer}</span>!</p>
           </motion.div>
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }} className="mt-8 w-full max-w-sm space-y-3">
+
+          {/* Spot tracker after reveal */}
+          {pack.spots && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.9 }} className="mt-8 w-full max-w-sm">
+              <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />
+            </motion.div>
+          )}
+
+          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1 }} className="mt-6 w-full max-w-sm space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <a href={twitterUrl} target="_blank" rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 py-3 rounded-xl bg-[#1DA1F2]/10 border border-[#1DA1F2]/30 text-[#1DA1F2] text-xs font-bold hover:bg-[#1DA1F2]/20 transition-all" data-testid="chase-share-twitter">
@@ -191,7 +303,7 @@ const ChaseRevealPage = () => {
   const lowCards = pack.cards?.filter(c => c.tier === 'low') || [];
   const mainChase = chaseCards[0];
 
-  const CardItem = ({ card, size }) => {
+  const CardItem = ({ card }) => {
     const tier = TIER_CONFIG[card.tier] || TIER_CONFIG.low;
     const TierIcon = tier.icon;
     return (
@@ -246,12 +358,12 @@ const ChaseRevealPage = () => {
         </div>
       </nav>
 
-      {/* HERO: Two-column layout — Left: info + claim | Right: Chase card */}
+      {/* HERO: Two-column layout */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pt-10 pb-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_auto] gap-8 lg:gap-16 items-start">
 
           {/* LEFT COLUMN */}
-          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="space-y-6">
+          <motion.div initial={{ opacity: 0, x: -30 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6 }} className="space-y-5">
             {/* Badge + Title */}
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold mb-4">
@@ -287,6 +399,13 @@ const ChaseRevealPage = () => {
               </div>
             </div>
 
+            {/* SPOT TRACKER — Right here in the hero section */}
+            {pack.spots && (
+              <motion.div initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+                <SpotTracker spots={pack.spots} totalSpots={pack.total_spots} />
+              </motion.div>
+            )}
+
             {/* Store Info */}
             <div className="bg-[#111] border border-white/[0.06] rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-3">
@@ -315,7 +434,6 @@ const ChaseRevealPage = () => {
                   <p className="text-[9px] text-[#f59e0b] font-bold">{pack.total_spots} Spots</p>
                 </div>
               </div>
-              {/* Buy button */}
               {pack.ebay_url && (
                 <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
                   className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
@@ -331,7 +449,6 @@ const ChaseRevealPage = () => {
             className="flex items-center justify-center">
             {mainChase ? (
               <div className="flex flex-col items-center gap-4">
-                {/* Main chaser */}
                 <div className="relative w-[260px] sm:w-[300px] lg:w-[340px]">
                   <div className="absolute -inset-6 bg-gradient-to-br from-amber-500/20 via-orange-500/10 to-transparent rounded-3xl blur-2xl pointer-events-none" />
                   <div className="relative rounded-2xl border-2 border-amber-500/50 overflow-hidden shadow-2xl shadow-amber-500/30">
@@ -352,7 +469,6 @@ const ChaseRevealPage = () => {
                     </div>
                   </div>
                 </div>
-                {/* Additional chasers side by side below */}
                 {chaseCards.length > 1 && (
                   <div className="flex justify-center gap-3 w-full">
                     {chaseCards.slice(1).map((card, idx) => (
@@ -382,10 +498,8 @@ const ChaseRevealPage = () => {
         </div>
       </div>
 
-      {/* Cards by tier — below the hero */}
+      {/* Cards by tier */}
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-16 pb-16 space-y-10">
-
-        {/* MID TIER */}
         {midCards.length > 0 && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4 }}>
             <div className="flex items-center gap-2 mb-4">
@@ -395,13 +509,12 @@ const ChaseRevealPage = () => {
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {midCards.map((card, idx) => (
-                <CardItem key={`mid-${idx}`} card={card} size="medium" />
+                <CardItem key={`mid-${idx}`} card={card} />
               ))}
             </div>
           </motion.section>
         )}
 
-        {/* BASE */}
         {lowCards.length > 0 && (
           <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.6 }}>
             <div className="flex items-center gap-2 mb-4">
@@ -411,7 +524,7 @@ const ChaseRevealPage = () => {
             </div>
             <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
               {lowCards.map((card, idx) => (
-                <CardItem key={`low-${idx}`} card={card} size="small" />
+                <CardItem key={`low-${idx}`} card={card} />
               ))}
             </div>
           </motion.section>
