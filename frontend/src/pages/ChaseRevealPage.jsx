@@ -431,6 +431,13 @@ const ChaseRevealPage = () => {
             <span className="text-white font-bold text-lg md:text-xl">${pack.price?.toFixed(2)} <span className="text-sm text-gray-400 font-normal">per spot</span></span>
             <span className="text-white/[0.15]">|</span>
             <span className="text-white font-bold text-lg md:text-xl">{pack.total_spots} <span className="text-sm text-gray-400 font-normal">spots</span></span>
+            {pack.ebay_url && (
+              <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
+                className="ml-2 inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-black text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/25 hover:shadow-amber-500/40 hover:scale-105 active:scale-95"
+                data-testid="chase-buy-spot-top">
+                <ShoppingBag className="w-4 h-4" /> Buy a Spot
+              </a>
+            )}
           </div>
         </motion.div>
 
@@ -518,13 +525,6 @@ const ChaseRevealPage = () => {
                 <p className="text-[9px] text-[#f59e0b] font-bold">{pack.total_spots} Spots</p>
               </div>
             </div>
-            {pack.ebay_url && (
-              <a href={pack.ebay_url} target="_blank" rel="noopener noreferrer"
-                className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white font-bold text-sm hover:from-amber-400 hover:to-orange-500 transition-all shadow-lg shadow-amber-500/20"
-                data-testid="chase-buy-spot-ebay">
-                <ShoppingBag className="w-4 h-4" /> Buy a Spot — ${pack.price?.toFixed(2)}
-              </a>
-            )}
           </div>
         </motion.div>
       </div>
