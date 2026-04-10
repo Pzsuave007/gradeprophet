@@ -397,7 +397,7 @@ const PackDetailView = ({ packId, onBack }) => {
       <div className="flex items-stretch gap-3 flex-wrap">
         {/* Progress mini */}
         <div className="flex-1 min-w-[200px] bg-[#111] border border-white/[0.06] rounded-xl px-4 py-3">
-          <div className="flex items-center justify-between text-[10px] mb-1.5">
+          <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="text-gray-500">{claimed}/{total} spots</span>
             <span className="text-emerald-400 font-bold">${(claimed * (fullPack.price || 0)).toFixed(2)}</span>
           </div>
@@ -409,18 +409,18 @@ const PackDetailView = ({ packId, onBack }) => {
 
         {/* Quick action buttons */}
         <div className="flex items-center gap-1.5">
-          <button onClick={copyRevealLink} className="px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-[10px] font-bold hover:bg-[#f59e0b]/20 transition-all flex items-center gap-1.5" data-testid="copy-reveal-link">
-            <ExternalLink className="w-3 h-3" /> Link
+          <button onClick={copyRevealLink} className="px-3 py-2 rounded-lg bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-bold hover:bg-[#f59e0b]/20 transition-all flex items-center gap-1.5" data-testid="copy-reveal-link">
+            <ExternalLink className="w-3.5 h-3.5" /> Link
           </button>
           {fullPack.ebay_item_id && fullPack.ebay_item_id !== 'DEMO_123456' && (
             <>
               <a href={`https://www.ebay.com/itm/${fullPack.ebay_item_id}`} target="_blank" rel="noopener noreferrer"
-                className="px-3 py-2 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#3b82f6] text-[10px] font-bold hover:bg-[#3b82f6]/20 transition-all flex items-center gap-1.5">
-                <Eye className="w-3 h-3" /> eBay
+                className="px-3 py-2 rounded-lg bg-[#3b82f6]/10 border border-[#3b82f6]/20 text-[#3b82f6] text-xs font-bold hover:bg-[#3b82f6]/20 transition-all flex items-center gap-1.5">
+                <Eye className="w-3.5 h-3.5" /> eBay
               </a>
               {isEditable && (
                 <button onClick={syncToEbay} disabled={syncing}
-                  className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[10px] font-bold hover:bg-purple-500/20 disabled:opacity-40 transition-all flex items-center gap-1.5"
+                  className="px-3 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-xs font-bold hover:bg-purple-500/20 disabled:opacity-40 transition-all flex items-center gap-1.5"
                   data-testid="sync-ebay-btn">
                   {syncing ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />} Sync
                 </button>
@@ -429,24 +429,24 @@ const PackDetailView = ({ packId, onBack }) => {
           )}
           {isActive && (
             <button onClick={() => setConfirm({ title: 'Pause Pack', message: 'Pause this pack?', onConfirm: () => handleAction('pause'), onCancel: () => setConfirm(null) })}
-              disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 disabled:opacity-40 flex items-center gap-1.5" data-testid="pause-pack-btn">
+              disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold hover:bg-amber-500/20 disabled:opacity-40 flex items-center gap-1.5" data-testid="pause-pack-btn">
               <Pause className="w-3 h-3" /> Pause
             </button>
           )}
           {isPaused && (
             <button onClick={() => handleAction('resume')} disabled={!!actionLoading}
-              className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-bold hover:bg-emerald-500/20 disabled:opacity-40 flex items-center gap-1.5" data-testid="resume-pack-btn">
+              className="px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold hover:bg-emerald-500/20 disabled:opacity-40 flex items-center gap-1.5" data-testid="resume-pack-btn">
               {actionLoading === 'resume' ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Resume
             </button>
           )}
           {isEditable && (
             <button onClick={() => setConfirm({ title: 'End Pack', message: `End pack and return ${total - claimed} cards to inventory?`, danger: true, onConfirm: () => handleAction('end'), onCancel: () => setConfirm(null) })}
-              disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15 text-red-400 text-[10px] font-bold hover:bg-red-500/10 disabled:opacity-40 flex items-center gap-1.5" data-testid="end-pack-btn">
+              disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/15 text-red-400 text-xs font-bold hover:bg-red-500/10 disabled:opacity-40 flex items-center gap-1.5" data-testid="end-pack-btn">
               <XCircle className="w-3 h-3" /> End
             </button>
           )}
           <button onClick={() => setConfirm({ title: 'Delete Pack', message: 'Permanently delete this pack?', danger: true, onConfirm: () => handleAction('delete'), onCancel: () => setConfirm(null) })}
-            disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 text-red-400/50 text-[10px] font-medium hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 flex items-center gap-1.5" data-testid="delete-pack-btn">
+            disabled={!!actionLoading} className="px-3 py-2 rounded-lg bg-red-500/5 border border-red-500/10 text-red-400/50 text-xs font-medium hover:bg-red-500/10 hover:text-red-400 disabled:opacity-40 flex items-center gap-1.5" data-testid="delete-pack-btn">
             <Trash2 className="w-3 h-3" />
           </button>
         </div>
@@ -456,98 +456,101 @@ const PackDetailView = ({ packId, onBack }) => {
       {isEditable && claimed < total && (
         <div className="flex items-center gap-2 bg-[#111] border border-[#f59e0b]/15 rounded-xl px-3 py-2" data-testid="assign-buyer-section">
           <UserPlus className="w-3.5 h-3.5 text-[#f59e0b] shrink-0" />
-          <span className="text-[10px] font-bold text-gray-400 shrink-0">Assign:</span>
+          <span className="text-xs font-bold text-gray-400 shrink-0">Assign:</span>
           <input value={buyerName} onChange={e => setBuyerName(e.target.value)}
             placeholder="eBay buyer username"
-            className="flex-1 bg-[#0a0a0a] border border-white/[0.06] rounded-lg px-3 py-1.5 text-xs text-white outline-none focus:border-[#f59e0b]/40 transition-colors"
+            className="flex-1 bg-[#0a0a0a] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-[#f59e0b]/40 transition-colors"
             data-testid="assign-buyer-input"
             onKeyDown={e => e.key === 'Enter' && assignBuyer()} />
           <button onClick={assignBuyer} disabled={assigning || !buyerName.trim()}
-            className="px-4 py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-[10px] font-bold hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all"
+            className="px-5 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 text-white text-xs font-bold hover:from-amber-400 hover:to-orange-500 disabled:opacity-40 transition-all"
             data-testid="assign-buyer-btn">
             {assigning ? <RefreshCw className="w-3 h-3 animate-spin" /> : 'Assign'}
           </button>
         </div>
       )}
 
-      {/* ALL CARDS — Compact grid */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <span className="text-xs font-bold text-white">Cards ({fullPack.cards?.length || 0})</span>
-          <span className="text-[10px] text-gray-500">{assignedCards.length} assigned / {unassignedCards.length} available</span>
-        </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2">
-          {(fullPack.cards || []).map((card, idx) => {
-            const isAssigned = !!card.assigned_to;
-            const tier = card.tier || (card.is_chase ? 'chase' : 'low');
-            const tierOpt = TIER_OPTS.find(o => o.value === tier) || TIER_OPTS[2];
-            return (
-              <div key={idx} className={`bg-[#111] border rounded-xl overflow-hidden group relative ${isAssigned ? 'border-emerald-500/15' : 'border-white/[0.06]'}`}>
-                {/* Card image */}
-                <div className="relative">
-                  {card.image ? (
-                    <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className={`w-full aspect-[3/4] object-cover ${isAssigned ? 'brightness-75' : ''}`} />
-                  ) : (
-                    <div className="w-full aspect-[3/4] bg-[#0a0a0a] flex items-center justify-center"><Flame className="w-5 h-5 text-gray-700" /></div>
-                  )}
-                  {/* Tier badge */}
-                  <div className="absolute top-1 left-1">
-                    <TierBadge tier={tier} />
-                  </div>
-                  {/* Assigned overlay */}
-                  {isAssigned && (
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-2 py-1.5">
-                      <p className="text-[9px] font-bold text-[#3b82f6] truncate">{card.assigned_to}</p>
-                      <p className={`text-[8px] font-bold ${card.revealed ? 'text-emerald-400' : 'text-amber-400'}`}>
-                        {card.revealed ? 'Revealed' : 'Pending'}
-                      </p>
-                    </div>
-                  )}
-                  {/* Set Chase button on hover */}
-                  {!card.is_chase && isEditable && !isAssigned && (
-                    <button onClick={() => changeChaseCard(card.card_id)} disabled={!!actionLoading}
-                      className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 bg-black/70 text-amber-400 text-[7px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 hover:bg-amber-500 hover:text-white transition-all"
-                      title="Make Chase Card">
-                      <Crown className="w-2 h-2" /> Chase
-                    </button>
-                  )}
-                </div>
-                {/* Info + actions */}
-                <div className="px-2 py-1.5 space-y-1">
-                  <p className="text-[9px] font-bold text-white truncate leading-tight">{card.player}</p>
-                  <p className="text-[8px] text-gray-500 truncate">{card.year} {card.set_name}</p>
-                  {/* Tier selector */}
-                  {isEditable && (
-                    <select value={tier} onChange={e => updateTier(card.card_id, e.target.value)} disabled={!!actionLoading}
-                      className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded px-1 py-0.5 text-[8px] text-gray-300 outline-none cursor-pointer"
-                      data-testid={`tier-select-${card.card_id}`}>
-                      <option value="chase">Chaser</option>
-                      <option value="mid">Mid</option>
-                      <option value="low">Base</option>
-                    </select>
-                  )}
-                  {/* Actions row */}
-                  {isAssigned && (
-                    <div className="flex items-center justify-end gap-0.5 pt-0.5">
-                      <button onClick={() => copyCode(card.claim_code)} className="p-1 rounded bg-white/[0.04] hover:bg-white/[0.08]" title={`Code: ${card.claim_code}`}>
-                        <Copy className="w-2.5 h-2.5 text-gray-400" />
-                      </button>
-                      <button onClick={() => regenerateCode(card.card_id)} disabled={!!actionLoading} className="p-1 rounded bg-white/[0.04] hover:bg-purple-500/20" title="Regenerate code">
-                        {actionLoading === `regen-${card.card_id}` ? <RefreshCw className="w-2.5 h-2.5 animate-spin text-purple-400" /> : <KeyRound className="w-2.5 h-2.5 text-purple-400" />}
-                      </button>
-                      {isEditable && (
-                        <button onClick={() => setConfirm({ title: 'Unassign', message: `Remove ${card.assigned_to}?`, danger: true, onConfirm: () => unassignBuyer(card.card_id), onCancel: () => setConfirm(null) })}
-                          disabled={!!actionLoading} className="p-1 rounded bg-white/[0.04] hover:bg-red-500/20" title="Unassign">
-                          <UserMinus className="w-2.5 h-2.5 text-red-400" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
+      {/* ALL CARDS — Grouped by tier */}
+      <div className="space-y-5">
+        {['chase', 'mid', 'low'].map(tierKey => {
+          const tierCards = (fullPack.cards || []).filter(c => (c.tier || (c.is_chase ? 'chase' : 'low')) === tierKey);
+          if (tierCards.length === 0) return null;
+          const tierInfo = TIER_OPTS.find(o => o.value === tierKey) || TIER_OPTS[2];
+          const TIcon = tierInfo.icon;
+          return (
+            <div key={tierKey}>
+              <div className="flex items-center gap-2 mb-2">
+                <TIcon className={`w-4 h-4 ${tierInfo.color}`} />
+                <span className="text-sm font-bold text-white">{tierInfo.label}</span>
+                <span className="text-xs text-gray-500">({tierCards.length})</span>
               </div>
-            );
-          })}
-        </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5">
+                {tierCards.map((card, idx) => {
+                  const isAssigned = !!card.assigned_to;
+                  const tier = card.tier || (card.is_chase ? 'chase' : 'low');
+                  return (
+                    <div key={idx} className={`bg-[#111] border rounded-xl overflow-hidden group relative ${isAssigned ? 'border-emerald-500/15' : 'border-white/[0.06]'}`}>
+                      <div className="relative">
+                        {card.image ? (
+                          <img src={`data:image/jpeg;base64,${card.image}`} alt={card.player} className={`w-full aspect-[3/4] object-cover ${isAssigned ? 'brightness-75' : ''}`} />
+                        ) : (
+                          <div className="w-full aspect-[3/4] bg-[#0a0a0a] flex items-center justify-center"><Flame className="w-5 h-5 text-gray-700" /></div>
+                        )}
+                        <div className="absolute top-1.5 left-1.5">
+                          <TierBadge tier={tier} />
+                        </div>
+                        {isAssigned && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 to-transparent px-2.5 py-2">
+                            <p className="text-xs font-bold text-[#3b82f6] truncate">{card.assigned_to}</p>
+                            <p className={`text-[10px] font-bold ${card.revealed ? 'text-emerald-400' : 'text-amber-400'}`}>
+                              {card.revealed ? 'Revealed' : 'Pending'}
+                            </p>
+                          </div>
+                        )}
+                        {!card.is_chase && isEditable && !isAssigned && (
+                          <button onClick={() => changeChaseCard(card.card_id)} disabled={!!actionLoading}
+                            className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 bg-black/70 text-amber-400 text-[8px] font-black px-2 py-1 rounded-full flex items-center gap-1 hover:bg-amber-500 hover:text-white transition-all"
+                            title="Make Chase Card">
+                            <Crown className="w-2.5 h-2.5" /> Chase
+                          </button>
+                        )}
+                      </div>
+                      <div className="px-2.5 py-2 space-y-1">
+                        <p className="text-xs font-bold text-white truncate">{card.player}</p>
+                        <p className="text-[10px] text-gray-500 truncate">{card.year} {card.set_name}</p>
+                        {isEditable && (
+                          <select value={tier} onChange={e => updateTier(card.card_id, e.target.value)} disabled={!!actionLoading}
+                            className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded px-1.5 py-1 text-[10px] text-gray-300 outline-none cursor-pointer"
+                            data-testid={`tier-select-${card.card_id}`}>
+                            <option value="chase">Chaser</option>
+                            <option value="mid">Mid</option>
+                            <option value="low">Base</option>
+                          </select>
+                        )}
+                        {isAssigned && (
+                          <div className="flex items-center justify-end gap-1 pt-0.5">
+                            <button onClick={() => copyCode(card.claim_code)} className="p-1.5 rounded bg-white/[0.04] hover:bg-white/[0.08]" title={`Code: ${card.claim_code}`}>
+                              <Copy className="w-3 h-3 text-gray-400" />
+                            </button>
+                            <button onClick={() => regenerateCode(card.card_id)} disabled={!!actionLoading} className="p-1.5 rounded bg-white/[0.04] hover:bg-purple-500/20" title="Regenerate code">
+                              {actionLoading === `regen-${card.card_id}` ? <RefreshCw className="w-3 h-3 animate-spin text-purple-400" /> : <KeyRound className="w-3 h-3 text-purple-400" />}
+                            </button>
+                            {isEditable && (
+                              <button onClick={() => setConfirm({ title: 'Unassign', message: `Remove ${card.assigned_to}?`, danger: true, onConfirm: () => unassignBuyer(card.card_id), onCancel: () => setConfirm(null) })}
+                                disabled={!!actionLoading} className="p-1.5 rounded bg-white/[0.04] hover:bg-red-500/20" title="Unassign">
+                                <UserMinus className="w-3 h-3 text-red-400" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
