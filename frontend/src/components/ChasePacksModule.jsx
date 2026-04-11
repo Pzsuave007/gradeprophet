@@ -350,6 +350,16 @@ const PackDetailView = ({ packId, onBack }) => {
   const copyCode = (code) => { navigator.clipboard.writeText(code); toast.success(`Code ${code} copied!`); };
   const copyRevealLink = () => { navigator.clipboard.writeText(`${window.location.origin}/chase/${packId}`); toast.success('Reveal link copied!'); };
 
+  const updateCardValue = async (cardId, value) => {
+    try {
+      await axios.post(`${API}/api/ebay/chase/${packId}/update-card-value`, { card_id: cardId, card_value: value }, { withCredentials: true });
+      toast.success(`Value updated to $${value.toFixed(2)}`);
+      fetchPack();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to update value');
+    }
+  };
+
   if (loading) return <div className="flex items-center justify-center py-20"><RefreshCw className="w-6 h-6 animate-spin text-[#f59e0b]" /></div>;
   if (!fullPack) return <p className="text-gray-500 text-center py-10">Pack not found</p>;
 
@@ -622,6 +632,26 @@ const PackDetailView = ({ packId, onBack }) => {
                       <div className="px-2.5 py-2 space-y-1">
                         <p className="text-xs font-bold text-white truncate">{card.player}</p>
                         <p className="text-[10px] text-gray-500 truncate">{card.year} {card.set_name}</p>
+                        {isEditable && (
+                          <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-gray-500">$</span>
+                            <input
+                              type="number" step="0.01" min="0"
+                              defaultValue={card.card_value || card.value || ''}
+                              onBlur={e => {
+                                const val = parseFloat(e.target.value);
+                                if (!isNaN(val) && val >= 0) updateCardValue(card.card_id, val);
+                              }}
+                              onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
+                              placeholder="Value"
+                              className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded px-1.5 py-0.5 text-[10px] text-amber-300 outline-none focus:border-amber-500/30"
+                              data-testid={`card-value-${card.card_id}`}
+                            />
+                          </div>
+                        )}
+                        {!isEditable && (card.card_value || card.value) > 0 && (
+                          <p className="text-[10px] text-amber-400 font-bold">${(card.card_value || card.value || 0).toFixed(2)}</p>
+                        )}
                         {isEditable && (
                           <select value={tier} onChange={e => updateTier(card.card_id, e.target.value)} disabled={!!actionLoading}
                             className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded px-1.5 py-1 text-[10px] text-gray-300 outline-none cursor-pointer"

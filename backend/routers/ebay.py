@@ -2704,6 +2704,43 @@ async def reveal_chase_card(pack_id: str, request: Request):
     raise HTTPException(status_code=404, detail="Invalid claim code")
 
 
+
+@router.post("/chase/{pack_id}/update-card-value")
+async def update_chase_card_value(pack_id: str, request: Request):
+    """Update the card_value of a card in a chase pack (also updates inventory)."""
+    user = await get_current_user(request)
+    body = await request.json()
+    card_id = body.get("card_id")
+    card_value = body.get("card_value")
+
+    if not card_id or card_value is None:
+        raise HTTPException(status_code=400, detail="card_id and card_value required")
+
+    card_value = float(card_value)
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Pack not found")
+
+    # Update in chase_packs.cards array
+    for i, c in enumerate(pack.get("cards", [])):
+        if c["card_id"] == card_id:
+            await db.chase_packs.update_one(
+                {"pack_id": pack_id},
+                {"$set": {f"cards.{i}.card_value": card_value, f"cards.{i}.value": card_value}}
+            )
+            break
+
+    # Also update in inventory
+    await db.inventory.update_one(
+        {"id": card_id, "user_id": user["user_id"]},
+        {"$set": {"card_value": card_value}}
+    )
+
+    return {"success": True, "message": f"Card value updated to ${card_value:.2f}"}
+
+
+
 @router.get("/chase-packs")
 async def get_my_chase_packs(request: Request):
     """Get all chase packs for the current user (seller dashboard)."""
@@ -2712,6 +2749,15 @@ async def get_my_chase_packs(request: Request):
         {"user_id": user["user_id"]},
         {"_id": 0}
     ).sort("created_at", -1).to_list(50)
+
+    # Enrich cards with card_value from inventory if not already stored
+    for pack in packs:
+        for c in pack.get("cards", []):
+            if not c.get("card_value") and not c.get("value"):
+                inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1})
+                if inv:
+                    c["card_value"] = float(inv.get("card_value") or inv.get("listed_price") or 0)
+
     return {"packs": packs}
 
 
