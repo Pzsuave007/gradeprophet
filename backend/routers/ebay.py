@@ -2949,6 +2949,37 @@ async def end_chase_pack(pack_id: str, request: Request):
     if pack["status"] == "ended":
         return {"success": False, "error": "Pack already ended"}
 
+    # End the eBay listing if it exists
+    ebay_item_id = pack.get("ebay_item_id", "")
+    ebay_ended = False
+    if ebay_item_id:
+        try:
+            token = await get_ebay_user_token(user["user_id"])
+            if token:
+                xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<EndItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID><EndingReason>NotAvailable</EndingReason>
+</EndItemRequest>'''
+                import xml.etree.ElementTree as ET
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "EndItem", "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": "text/xml",
+                    }, content=xml_body)
+                ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    ebay_ended = True
+                    logger.info(f"eBay listing {ebay_item_id} ended for chase pack {pack_id}")
+                else:
+                    errors = [e.find("e:LongMessage", ns).text for e in root.findall(".//e:Errors", ns) if e.find("e:LongMessage", ns) is not None]
+                    logger.warning(f"Failed to end eBay listing {ebay_item_id}: {errors}")
+        except Exception as e:
+            logger.warning(f"Error ending eBay listing for chase pack: {e}")
+
     # Return unassigned cards to inventory
     returned = 0
     for c in pack["cards"]:
@@ -2960,7 +2991,8 @@ async def end_chase_pack(pack_id: str, request: Request):
             returned += 1
 
     await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "ended"}})
-    return {"success": True, "message": f"Pack ended. {returned} cards returned to inventory."}
+    ebay_msg = " eBay listing ended." if ebay_ended else (" eBay listing could not be ended — please end it manually on eBay." if ebay_item_id else "")
+    return {"success": True, "message": f"Pack ended. {returned} cards returned to inventory.{ebay_msg}"}
 
 
 @router.delete("/chase/{pack_id}")
@@ -2970,6 +3002,32 @@ async def delete_chase_pack(pack_id: str, request: Request):
     pack = await db.chase_packs.find_one({"pack_id": pack_id, "user_id": user["user_id"]}, {"_id": 0})
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # End the eBay listing if it exists
+    ebay_item_id = pack.get("ebay_item_id", "")
+    if ebay_item_id:
+        try:
+            token = await get_ebay_user_token(user["user_id"])
+            if token:
+                xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<EndItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID><EndingReason>NotAvailable</EndingReason>
+</EndItemRequest>'''
+                import xml.etree.ElementTree as ET
+                async with httpx.AsyncClient(timeout=30.0) as http_client:
+                    resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                        "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                        "X-EBAY-API-CALL-NAME": "EndItem", "X-EBAY-API-IAF-TOKEN": token,
+                        "Content-Type": "text/xml",
+                    }, content=xml_body)
+                ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    logger.info(f"eBay listing {ebay_item_id} ended for deleted chase pack {pack_id}")
+        except Exception as e:
+            logger.warning(f"Error ending eBay listing for deleted chase pack: {e}")
 
     # Return unassigned cards to inventory
     returned = 0
