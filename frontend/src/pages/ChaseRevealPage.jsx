@@ -360,6 +360,15 @@ const ChaseRevealPage = () => {
   const midCards = pack.cards?.filter(c => c.tier === 'mid') || [];
   const lowCards = pack.cards?.filter(c => c.tier === 'low') || [];
 
+  // Value range formatter
+  const tierValues = pack.tier_values || {};
+  const fmtRange = (tier) => {
+    const r = tierValues[tier];
+    if (!r) return null;
+    if (r.min === r.max) return `$${r.min.toFixed(0)}`;
+    return `$${r.min.toFixed(0)}–$${r.max.toFixed(0)}`;
+  };
+
   const CardItem = ({ card, size = 'md' }) => {
     const tier = TIER_CONFIG[card.tier] || TIER_CONFIG.low;
     const TierIcon = tier.icon;
@@ -468,6 +477,13 @@ const ChaseRevealPage = () => {
         {/* CHASERS — Big centered showcase */}
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
           className="mb-10 md:mb-14">
+          {fmtRange('chase') && (
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Crown className="w-4 h-4 text-amber-400" />
+              <span className="text-sm font-black text-amber-400">CHASER</span>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold">{fmtRange('chase')} value</span>
+            </div>
+          )}
           <div className="flex justify-center gap-4 sm:gap-6 md:gap-8 lg:gap-10 flex-wrap">
             {chaseCards.map((card, idx) => (
               <div key={`chase-${idx}`} className="relative w-[85vw] max-w-[280px] sm:w-[260px] md:w-[300px] lg:w-[340px]">
@@ -537,6 +553,9 @@ const ChaseRevealPage = () => {
               <Zap className="w-5 h-5 text-[#3b82f6]" />
               <h2 className="text-lg md:text-xl font-black text-white">MID TIER</h2>
               <span className="text-sm text-gray-500 ml-2">{midCards.length} cards</span>
+              {fmtRange('mid') && (
+                <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-bold ml-auto">{fmtRange('mid')} value</span>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
               {midCards.map((card, idx) => <CardItem key={`mid-${idx}`} card={card} />)}
@@ -550,6 +569,9 @@ const ChaseRevealPage = () => {
               <Gem className="w-5 h-5 text-gray-400" />
               <h2 className="text-lg md:text-xl font-black text-white">BASE</h2>
               <span className="text-sm text-gray-500 ml-2">{lowCards.length} cards</span>
+              {fmtRange('low') && (
+                <span className="px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-gray-300 text-xs font-bold ml-auto">{fmtRange('low')} value</span>
+              )}
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
               {lowCards.map((card, idx) => <CardItem key={`low-${idx}`} card={card} />)}

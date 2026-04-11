@@ -2540,9 +2540,13 @@ async def get_chase_pack(pack_id: str):
         for c in cards_list:
             tier_map[c["card_id"]] = c.get("tier", "low")
 
-    # Build public cards
+    # Build public cards — fetch card_value from inventory
     public_cards = []
     for c in cards_list:
+        # Get card value from inventory
+        inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1})
+        val = float(inv.get("card_value") or inv.get("listed_price") or 0) if inv else 0
+
         card_info = {
             "player": c["player"],
             "year": c["year"],
@@ -2551,6 +2555,7 @@ async def get_chase_pack(pack_id: str):
             "is_chase": c["is_chase"],
             "image": c.get("image", ""),
             "tier": tier_map.get(c["card_id"], "low"),
+            "card_value": val,
         }
         if pack.get("all_revealed"):
             card_info["assigned_to"] = c.get("assigned_to", "")
@@ -2572,6 +2577,13 @@ async def get_chase_pack(pack_id: str):
     mid_n = sum(1 for c in public_cards if c["tier"] == "mid")
     low_n = n - chase_n - mid_n
 
+    # Calculate value ranges per tier
+    def tier_value_range(tier_name):
+        vals = [c["card_value"] for c in public_cards if c["tier"] == tier_name and c["card_value"] > 0]
+        if not vals:
+            return None
+        return {"min": min(vals), "max": max(vals)}
+
     return {
         "pack_id": pack["pack_id"],
         "title": pack["title"],
@@ -2584,6 +2596,11 @@ async def get_chase_pack(pack_id: str):
         "spots": spots,
         "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
         "tiers": {"chase": chase_n, "mid": mid_n, "low": low_n},
+        "tier_values": {
+            "chase": tier_value_range("chase"),
+            "mid": tier_value_range("mid"),
+            "low": tier_value_range("low"),
+        },
     }
 
 
