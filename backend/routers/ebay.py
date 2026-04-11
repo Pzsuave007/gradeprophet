@@ -2322,8 +2322,8 @@ async def create_chase_pack(request: Request):
 <ol style="font-size:14px;line-height:1.8;">
 <li><strong>Purchase a spot</strong> - Each spot costs ${price:.2f}. You are purchasing ONE random card from this pack of {total} cards.</li>
 <li><strong>Receive your claim code</strong> - After purchase, you will receive a unique claim code via eBay message within minutes.</li>
-<li><strong>Reveal your card</strong> - Visit our reveal page and enter your code. Your card is randomly assigned at the time of purchase - can you pull the CHASE?</li>
-<li><strong>Card ships to you</strong> - Once all spots are sold and revealed, cards are shipped to their owners.</li>
+<li><strong>Pick your card</strong> - Visit our reveal page and enter your code. You will see all the cards face down — pick the one you want and reveal it!</li>
+<li><strong>Card ships to you</strong> - Once all spots are sold and picked, cards are shipped to their owners.</li>
 </ol>
 
 <h3 style="color:#333;">What's In This Pack:</h3>
@@ -2336,7 +2336,7 @@ async def create_chase_pack(request: Request):
 <h3 style="color:#333;">Important Details:</h3>
 <ul style="font-size:14px;line-height:1.8;">
 <li>Each purchase = 1 randomly assigned card from the pack.</li>
-<li>Cards are pre-loaded and randomly assigned at the time of sale - completely fair for all buyers.</li>
+<li>Cards are NOT pre-assigned. YOU pick which card you want — completely fair and transparent.</li>
 <li>All cards shown in the listing photos are included in this pack.</li>
 <li>Claim codes are sent automatically via eBay message after purchase.</li>
 <li>Cards ship after all spots are claimed, or within 3 business days of last sale.</li>
@@ -2500,6 +2500,17 @@ async def get_chase_pack(pack_id: str):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
+    # Fetch seller info (logo, name)
+    user_id = pack.get("user_id", "")
+    seller_info = {}
+    if user_id:
+        settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0, "shop_logo": 1, "shop_name": 1, "display_name": 1})
+        user_doc = await db.users.find_one({"user_id": user_id}, {"_id": 0, "picture": 1, "name": 1})
+        seller_info = {
+            "logo": (settings or {}).get("shop_logo") or (user_doc or {}).get("picture", ""),
+            "name": (settings or {}).get("shop_name") or (settings or {}).get("display_name") or (user_doc or {}).get("name", ""),
+        }
+
     cards_list = pack.get("cards", [])
     n = len(cards_list)
 
@@ -2596,6 +2607,7 @@ async def get_chase_pack(pack_id: str):
         "spots": spots,
         "ebay_url": f"https://www.ebay.com/itm/{pack.get('ebay_item_id', '')}",
         "tiers": {"chase": chase_n, "mid": mid_n, "low": low_n},
+        "seller": seller_info,
         "tier_values": {
             "chase": tier_value_range("chase"),
             "mid": tier_value_range("mid"),
@@ -2606,7 +2618,7 @@ async def get_chase_pack(pack_id: str):
 
 @router.post("/chase/{pack_id}/assign")
 async def assign_chase_spot(pack_id: str, request: Request):
-    """Seller assigns a buyer to a spot and gets the claim code to send them."""
+    """Seller assigns a buyer to a spot (pending — buyer picks card later)."""
     user = await get_current_user(request)
     body = await request.json()
     buyer_username = body.get("buyer_username", "").strip()
@@ -2618,38 +2630,31 @@ async def assign_chase_spot(pack_id: str, request: Request):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
-    # Find an unassigned card randomly
-    import random
-    unassigned = [i for i, c in enumerate(pack["cards"]) if c["assigned_to"] is None]
-    if not unassigned:
+    # Check available spots
+    picked_count = sum(1 for c in pack["cards"] if c.get("assigned_to"))
+    pending_count = len(pack.get("pending_claims", []))
+    total_taken = picked_count + pending_count
+    if total_taken >= pack["total_spots"]:
         return {"success": False, "error": "All spots are already assigned"}
 
-    chosen_idx = random.choice(unassigned)
-    claim_code = pack["cards"][chosen_idx]["claim_code"]
+    import secrets
+    claim_code = secrets.token_hex(4).upper()
 
-    # Update the card assignment
     await db.chase_packs.update_one(
-        {"pack_id": pack_id, f"cards.{chosen_idx}.assigned_to": None},
-        {"$set": {
-            f"cards.{chosen_idx}.assigned_to": buyer_username,
-            f"cards.{chosen_idx}.claimed_at": datetime.now(timezone.utc).isoformat(),
-            "spots_claimed": pack["spots_claimed"] + 1,
-        }}
+        {"pack_id": pack_id},
+        {
+            "$push": {"pending_claims": {
+                "claim_code": claim_code,
+                "buyer_username": buyer_username,
+                "claimed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            "$set": {"spots_claimed": total_taken + 1},
+        }
     )
 
-    # Check if all assigned
-    new_claimed = pack["spots_claimed"] + 1
+    new_claimed = total_taken + 1
     if new_claimed >= pack["total_spots"]:
-        await db.chase_packs.update_one(
-            {"pack_id": pack_id},
-            {"$set": {"all_revealed": True, "status": "completed"}}
-        )
-        # Also reveal all cards
-        for i in range(len(pack["cards"])):
-            await db.chase_packs.update_one(
-                {"pack_id": pack_id},
-                {"$set": {f"cards.{i}.revealed": True}}
-            )
+        await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "completed"}})
 
     return {
         "success": True,
@@ -2662,7 +2667,7 @@ async def assign_chase_spot(pack_id: str, request: Request):
 
 @router.post("/chase/{pack_id}/reveal")
 async def reveal_chase_card(pack_id: str, request: Request):
-    """Public endpoint: buyer enters claim code to reveal their card."""
+    """Public endpoint: buyer enters claim code. Returns needs_pick or the revealed card."""
     body = await request.json()
     claim_code = body.get("claim_code", "").strip().upper()
 
@@ -2673,20 +2678,34 @@ async def reveal_chase_card(pack_id: str, request: Request):
     if not pack:
         raise HTTPException(status_code=404, detail="Chase Pack not found")
 
-    # Find the card with this claim code
-    for i, c in enumerate(pack["cards"]):
-        if c["claim_code"] == claim_code:
-            if not c["assigned_to"]:
-                return {"success": False, "error": "This spot has not been assigned yet"}
-
-            # Mark as revealed
-            await db.chase_packs.update_one(
-                {"pack_id": pack_id},
-                {"$set": {f"cards.{i}.revealed": True}}
-            )
-
+    # Check if code is in pending_claims (buyer hasn't picked yet)
+    pending = pack.get("pending_claims", [])
+    for pc in pending:
+        if pc["claim_code"] == claim_code:
+            # Buyer needs to pick a card
+            available = [i for i, c in enumerate(pack["cards"]) if not c.get("assigned_to")]
+            taken = [i for i, c in enumerate(pack["cards"]) if c.get("assigned_to")]
             return {
                 "success": True,
+                "needs_pick": True,
+                "buyer": pc["buyer_username"],
+                "total_cards": len(pack["cards"]),
+                "available_indices": available,
+                "taken_indices": taken,
+            }
+
+    # Check if code is on a card that was already picked (already assigned)
+    for i, c in enumerate(pack["cards"]):
+        if c.get("claim_code") == claim_code and c.get("assigned_to"):
+            # Already picked — reveal directly
+            if not c.get("revealed"):
+                await db.chase_packs.update_one(
+                    {"pack_id": pack_id},
+                    {"$set": {f"cards.{i}.revealed": True}}
+                )
+            return {
+                "success": True,
+                "needs_pick": False,
                 "card": {
                     "player": c["player"],
                     "year": c["year"],
@@ -2702,6 +2721,85 @@ async def reveal_chase_card(pack_id: str, request: Request):
             }
 
     raise HTTPException(status_code=404, detail="Invalid claim code")
+
+
+@router.post("/chase/{pack_id}/pick-card")
+async def pick_chase_card(pack_id: str, request: Request):
+    """Public endpoint: buyer picks a card by index. Assigns it to them and reveals it."""
+    body = await request.json()
+    claim_code = body.get("claim_code", "").strip().upper()
+    card_index = body.get("card_index")
+
+    if not claim_code or card_index is None:
+        raise HTTPException(status_code=400, detail="claim_code and card_index required")
+
+    card_index = int(card_index)
+
+    pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    if not pack:
+        raise HTTPException(status_code=404, detail="Chase Pack not found")
+
+    # Find the pending claim
+    pending = pack.get("pending_claims", [])
+    claim = None
+    for pc in pending:
+        if pc["claim_code"] == claim_code:
+            claim = pc
+            break
+
+    if not claim:
+        raise HTTPException(status_code=404, detail="Invalid or already used claim code")
+
+    # Validate card index
+    cards = pack.get("cards", [])
+    if card_index < 0 or card_index >= len(cards):
+        raise HTTPException(status_code=400, detail="Invalid card index")
+
+    if cards[card_index].get("assigned_to"):
+        raise HTTPException(status_code=400, detail="This card has already been taken")
+
+    buyer = claim["buyer_username"]
+
+    # Assign buyer to the chosen card
+    await db.chase_packs.update_one(
+        {"pack_id": pack_id},
+        {
+            "$set": {
+                f"cards.{card_index}.assigned_to": buyer,
+                f"cards.{card_index}.claimed_at": datetime.now(timezone.utc).isoformat(),
+                f"cards.{card_index}.claim_code": claim_code,
+                f"cards.{card_index}.revealed": True,
+            },
+            "$pull": {"pending_claims": {"claim_code": claim_code}},
+        }
+    )
+
+    # Check if all cards are now assigned
+    updated_pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
+    all_assigned = all(c.get("assigned_to") for c in updated_pack["cards"])
+    no_pending = len(updated_pack.get("pending_claims", [])) == 0
+    if all_assigned and no_pending:
+        await db.chase_packs.update_one(
+            {"pack_id": pack_id},
+            {"$set": {"all_revealed": True, "status": "completed"}}
+        )
+
+    c = cards[card_index]
+    return {
+        "success": True,
+        "card": {
+            "player": c["player"],
+            "year": c["year"],
+            "set_name": c["set_name"],
+            "variation": c["variation"],
+            "image": c.get("image", ""),
+            "is_chase": c["is_chase"],
+            "tier": c.get("tier", "chase" if c["is_chase"] else "low"),
+        },
+        "buyer": buyer,
+        "is_chase": c["is_chase"],
+        "message": f"{'CHASE CARD!' if c['is_chase'] else 'Card revealed!'} You got: {c['year']} {c['set_name']} {c['player']} {c['variation']}",
+    }
 
 
 
@@ -4391,32 +4489,38 @@ async def _get_chase_pack_transactions(pack: dict, token: str) -> list:
 
 
 async def _assign_single_spot(pack_id: str, buyer_username: str) -> str | None:
-    """Assign one spot to a buyer. Returns claim_code or None."""
-    import random
+    """Assign one spot to a buyer as pending claim (buyer picks card later). Returns claim_code or None."""
+    import secrets
 
     pack = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
     if not pack or pack["status"] not in ("active", "paused"):
         return None
 
-    unassigned = [i for i, c in enumerate(pack["cards"]) if c["assigned_to"] is None]
-    if not unassigned:
+    # Check if there are available spots
+    picked_count = sum(1 for c in pack["cards"] if c.get("assigned_to"))
+    pending_count = len(pack.get("pending_claims", []))
+    total_taken = picked_count + pending_count
+    if total_taken >= pack["total_spots"]:
         return None
 
-    chosen_idx = random.choice(unassigned)
-    claim_code = pack["cards"][chosen_idx]["claim_code"]
+    # Generate claim code
+    claim_code = secrets.token_hex(4).upper()
 
+    # Add to pending_claims
     await db.chase_packs.update_one(
-        {"pack_id": pack_id, f"cards.{chosen_idx}.assigned_to": None},
-        {"$set": {
-            f"cards.{chosen_idx}.assigned_to": buyer_username,
-            f"cards.{chosen_idx}.claimed_at": datetime.now(timezone.utc).isoformat(),
-            "spots_claimed": pack.get("spots_claimed", 0) + 1,
-        }}
+        {"pack_id": pack_id},
+        {
+            "$push": {"pending_claims": {
+                "claim_code": claim_code,
+                "buyer_username": buyer_username,
+                "claimed_at": datetime.now(timezone.utc).isoformat(),
+            }},
+            "$set": {"spots_claimed": total_taken + 1},
+        }
     )
 
-    # Refresh to check if completed
-    updated = await db.chase_packs.find_one({"pack_id": pack_id}, {"_id": 0})
-    if updated and updated.get("spots_claimed", 0) >= updated.get("total_spots", 0):
+    # Check if all spots taken
+    if total_taken + 1 >= pack["total_spots"]:
         await db.chase_packs.update_one({"pack_id": pack_id}, {"$set": {"status": "completed"}})
 
     return claim_code
@@ -4465,18 +4569,18 @@ async def check_all_chase_pack_sales():
                         msg_body = (
                             f"Thanks for purchasing a spot in {pack['title']}!\n\n"
                             f"Your claim code is: {codes[0]}\n\n"
-                            f"To reveal your card, copy and paste this link in your browser:\n"
+                            f"To pick your card, copy and paste this link in your browser:\n"
                             f"{reveal_url}\n\n"
-                            f"Enter your code and see what you got. Good luck - can you pull the CHASE?"
+                            f"Enter your code, pick a card from the pack, and reveal what you got. Good luck - can you pull the CHASE?"
                         )
                     else:
                         codes_str = "\n".join(f"  Spot {i+1}: {c}" for i, c in enumerate(codes))
                         msg_body = (
                             f"Thanks for purchasing {len(codes)} spots in {pack['title']}!\n\n"
                             f"Your claim codes:\n{codes_str}\n\n"
-                            f"To reveal your cards, copy and paste this link in your browser:\n"
+                            f"To pick your cards, copy and paste this link in your browser:\n"
                             f"{reveal_url}\n\n"
-                            f"Enter each code to reveal. Good luck - can you pull the CHASE?"
+                            f"Enter each code, pick a card from the pack, and reveal what you got. Good luck - can you pull the CHASE?"
                         )
 
                     sent = await _send_ebay_message(

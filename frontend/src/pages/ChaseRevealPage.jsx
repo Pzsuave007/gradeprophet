@@ -155,6 +155,10 @@ const ChaseRevealPage = () => {
   const [revealedCard, setRevealedCard] = useState(null);
   const [showReveal, setShowReveal] = useState(false);
   const [error, setError] = useState('');
+  // Pick-your-card state
+  const [pickMode, setPickMode] = useState(false);
+  const [pickData, setPickData] = useState(null); // { buyer, total_cards, available_indices, taken_indices }
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => { fetchPack(); }, [packId]);
 
@@ -173,11 +177,35 @@ const ChaseRevealPage = () => {
     try {
       const res = await axios.post(`${API}/api/ebay/chase/${packId}/reveal`, { claim_code: claimCode.trim().toUpperCase() });
       if (res.data.success) {
-        setShowReveal(true);
-        setTimeout(() => setRevealedCard(res.data), 3800);
+        if (res.data.needs_pick) {
+          // Buyer needs to pick a card
+          setPickMode(true);
+          setPickData(res.data);
+        } else {
+          // Already picked — show reveal directly
+          setShowReveal(true);
+          setTimeout(() => setRevealedCard(res.data), 3800);
+        }
       } else { setError(res.data.error || 'Invalid code'); }
     } catch (err) { setError(err.response?.data?.detail || 'Invalid claim code'); }
     finally { setRevealing(false); }
+  };
+
+  const handlePickCard = async (cardIndex) => {
+    setPicking(true);
+    setError('');
+    try {
+      const res = await axios.post(`${API}/api/ebay/chase/${packId}/pick-card`, {
+        claim_code: claimCode.trim().toUpperCase(),
+        card_index: cardIndex,
+      });
+      if (res.data.success) {
+        setPickMode(false);
+        setShowReveal(true);
+        setTimeout(() => setRevealedCard(res.data), 3800);
+      } else { setError(res.data.error || 'Failed to pick card'); }
+    } catch (err) { setError(err.response?.data?.detail || 'Failed to pick card'); }
+    finally { setPicking(false); }
   };
 
   // Loading
@@ -195,6 +223,116 @@ const ChaseRevealPage = () => {
   );
 
   if (!pack) return null;
+
+  const sellerLogo = pack.seller?.logo || '';
+  const sellerName = pack.seller?.name || 'FlipSlab';
+
+  /* ===== PICK YOUR CARD SCREEN ===== */
+  if (pickMode && pickData) {
+    const total = pickData.total_cards;
+    const available = new Set(pickData.available_indices);
+    const taken = new Set(pickData.taken_indices);
+
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] text-white overflow-hidden" data-testid="chase-pick-screen">
+        <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-[#f59e0b]/[0.04] blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-[400px] h-[400px] rounded-full bg-[#3b82f6]/[0.04] blur-[120px] pointer-events-none" />
+
+        <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-12">
+          {/* Header */}
+          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="text-center mb-8">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#f59e0b]/10 border border-[#f59e0b]/20 text-[#f59e0b] text-xs font-black mb-3">
+              <Flame className="w-3.5 h-3.5" /> PICK YOUR CARD
+            </div>
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mb-2">
+              Choose Your Card, <span className="text-[#f59e0b]">{pickData.buyer}</span>
+            </h1>
+            <p className="text-sm text-gray-400">
+              {available.size} of {total} cards remaining. Tap a card to reveal it!
+            </p>
+            {error && <p className="text-xs text-red-400 mt-2">{error}</p>}
+          </motion.div>
+
+          {/* Card Grid */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 sm:gap-4">
+            {Array.from({ length: total }, (_, idx) => {
+              const isTaken = taken.has(idx);
+              const isAvailable = available.has(idx);
+              return (
+                <motion.div
+                  key={idx}
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: idx * 0.04 }}
+                  onClick={() => isAvailable && !picking && handlePickCard(idx)}
+                  className={`relative cursor-pointer group ${isTaken ? 'opacity-40 pointer-events-none' : ''} ${picking ? 'pointer-events-none' : ''}`}
+                  data-testid={`pick-card-${idx}`}
+                >
+                  {/* Graded Card Slab */}
+                  <motion.div
+                    whileHover={isAvailable ? { scale: 1.08, y: -6 } : {}}
+                    whileTap={isAvailable ? { scale: 0.95 } : {}}
+                    className={`relative aspect-[2.5/4] rounded-xl overflow-hidden border-2 transition-all duration-300 ${
+                      isTaken
+                        ? 'border-gray-800 bg-[#111]'
+                        : 'border-gray-600/50 bg-gradient-to-b from-[#1a1a2e] to-[#111] hover:border-[#f59e0b]/60 hover:shadow-lg hover:shadow-[#f59e0b]/20'
+                    }`}
+                  >
+                    {/* Slab top label */}
+                    <div className={`absolute top-0 left-0 right-0 h-6 sm:h-7 flex items-center justify-center ${
+                      isTaken ? 'bg-gray-900' : 'bg-gradient-to-b from-gray-700/50 to-transparent'
+                    }`}>
+                      <span className={`text-[8px] sm:text-[9px] font-black tracking-[0.2em] ${isTaken ? 'text-gray-600' : 'text-gray-400'}`}>
+                        CARD #{idx + 1}
+                      </span>
+                    </div>
+
+                    {/* Center content */}
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      {isTaken ? (
+                        <>
+                          <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-gray-700" />
+                          <p className="text-[8px] sm:text-[9px] text-gray-600 font-bold mt-1.5 uppercase tracking-wider">Taken</p>
+                        </>
+                      ) : (
+                        <>
+                          {sellerLogo ? (
+                            <img src={sellerLogo} alt={sellerName} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full object-cover border-2 border-white/10 shadow-lg group-hover:border-[#f59e0b]/40 transition-colors" />
+                          ) : (
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-br from-[#3b82f6] to-[#1d4ed8] flex items-center justify-center border-2 border-white/10 shadow-lg group-hover:border-[#f59e0b]/40 transition-colors">
+                              <span className="text-white font-black text-xs sm:text-sm">{sellerName.charAt(0).toUpperCase()}</span>
+                            </div>
+                          )}
+                          <p className="text-[7px] sm:text-[8px] text-gray-500 font-bold mt-1.5 uppercase tracking-wider">{sellerName}</p>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Slab bottom label */}
+                    <div className={`absolute bottom-0 left-0 right-0 h-5 sm:h-6 flex items-center justify-center ${
+                      isTaken ? 'bg-gray-900' : 'bg-gradient-to-t from-gray-700/30 to-transparent'
+                    }`}>
+                      <span className={`text-[7px] sm:text-[8px] font-bold tracking-wider ${isTaken ? 'text-gray-700' : 'text-gray-500 group-hover:text-[#f59e0b]'} transition-colors`}>
+                        {isTaken ? 'CLAIMED' : 'TAP TO PICK'}
+                      </span>
+                    </div>
+
+                    {/* Slab edge lines */}
+                    {!isTaken && (
+                      <>
+                        <div className="absolute top-7 left-0 right-0 h-px bg-gray-700/30" />
+                        <div className="absolute bottom-6 left-0 right-0 h-px bg-gray-700/30" />
+                      </>
+                    )}
+                  </motion.div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ===== SPIN ANIMATION ===== */
   if (showReveal && !revealedCard) {
