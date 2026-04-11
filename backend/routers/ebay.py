@@ -2551,12 +2551,14 @@ async def get_chase_pack(pack_id: str):
         for c in cards_list:
             tier_map[c["card_id"]] = c.get("tier", "low")
 
-    # Build public cards — fetch card_value from inventory
+    # Build public cards — fetch card_value from inventory or use stored value
     public_cards = []
     for c in cards_list:
-        # Get card value from inventory
-        inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1})
-        val = float(inv.get("card_value") or inv.get("listed_price") or 0) if inv else 0
+        # Prefer stored card_value on the pack card, fallback to inventory
+        val = float(c.get("card_value") or 0)
+        if val == 0:
+            inv = await db.inventory.find_one({"id": c["card_id"]}, {"_id": 0, "card_value": 1, "listed_price": 1})
+            val = float(inv.get("card_value") or inv.get("listed_price") or 0) if inv else 0
 
         card_info = {
             "player": c["player"],
