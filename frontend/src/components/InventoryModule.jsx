@@ -41,7 +41,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
   const [form, setForm] = useState({
     card_name: '', player: '', year: '', set_name: '', card_number: '',
     variation: '', condition: 'Raw', card_condition: 'Near Mint or Better', grading_company: '', grade: '', cert_number: '',
-    purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'collection', sport: '',
+    purchase_price: '', card_value: '', quantity: 1, notes: '', image_base64: null, back_image_base64: null, category: 'for_sale', sport: '',
   });
   const [imagePreview, setImagePreview] = useState(null);
   const [backImagePreview, setBackImagePreview] = useState(null);
@@ -57,7 +57,7 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
         grading_company: editItem.grading_company || '', grade: editItem.grade || '',
         cert_number: editItem.cert_number || '',
         purchase_price: editItem.purchase_price || '', card_value: editItem.card_value || '', quantity: editItem.quantity || 1, notes: editItem.notes || '',
-        image_base64: null, back_image_base64: null, category: editItem.category || 'collection', sport: editItem.sport || '',
+        image_base64: null, back_image_base64: null, category: editItem.category || 'for_sale', sport: editItem.sport || '',
       });
       const frontThumb = editItem.store_thumbnail || editItem.thumbnail;
       setImagePreview(frontThumb ? `data:image/${editItem.store_thumbnail ? 'webp' : 'jpeg'};base64,${frontThumb}` : null);
@@ -180,17 +180,6 @@ const CardFormView = ({ onBack, onSave, editItem }) => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 max-w-2xl">
-        {/* Category */}
-        <div><label className={labelCls}>Category</label>
-          <div className="flex gap-2">
-            {[{ val: 'collection', label: 'Collection', icon: Heart }, { val: 'for_sale', label: 'Inventory', icon: ShoppingBag }].map(({ val, label, icon: Icon }) => (
-              <button key={val} type="button" onClick={() => setForm(f => ({ ...f, category: val }))}
-                className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border ${form.category === val ? (val === 'for_sale' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-[#3b82f6]/10 border-[#3b82f6]/30 text-[#3b82f6]') : 'bg-[#0a0a0a] border-[#222] text-gray-500 hover:text-white'}`}
-                data-testid={`category-${val}`}><Icon className="w-4 h-4" />{label}</button>
-            ))}
-          </div>
-        </div>
-
         {/* Front + Back images */}
         <div className="flex flex-col sm:flex-row items-start gap-4">
           <div className="flex gap-4">
@@ -1110,7 +1099,6 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
               )}
               {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
               {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Inventory</span>}
-              {item.category === 'collection' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3b82f6]/20 text-[#3b82f6] font-bold uppercase">Collection</span>}
             </div>
           </div>
 
@@ -1602,7 +1590,6 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 
   const categoryTabs = [
     { id: 'all', label: 'All', count: s.total_cards || 0 },
-    { id: 'collection', label: 'Collection', icon: Heart, count: s.collection_count || 0 },
     { id: 'for_sale', label: 'Inventory', icon: ShoppingBag, count: s.for_sale_count || 0 },
     { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
     { id: 'sold', label: 'Sold', icon: TrendingUp, count: s.sold_count || 0 },
@@ -2058,7 +2045,7 @@ const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCa
   return (
     <div className="space-y-5 pb-8" data-testid="inventory-page">
       <div className="flex items-center justify-between">
-        <div><h1 className="text-xl font-bold text-white tracking-tight">Inventory</h1><p className="text-xs text-gray-500 mt-0.5">Manage your card collection</p></div>
+        <div><h1 className="text-xl font-bold text-white tracking-tight">Inventory</h1><p className="text-xs text-gray-500 mt-0.5">Manage your cards</p></div>
       </div>
       <div className="flex gap-1 mb-1 overflow-x-auto scrollbar-hide">
         {[{ id: 'cards', label: 'My Cards', icon: Layers }, { id: 'batch', label: 'Batch Upload', icon: Upload }, { id: 'scan', label: 'Scan Card', icon: Scan }].map(({ id, label, icon: Icon }) => (
