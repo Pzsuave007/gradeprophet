@@ -348,7 +348,7 @@ const PackDetailView = ({ packId, onBack }) => {
   };
 
   const copyCode = (code) => { navigator.clipboard.writeText(code); toast.success(`Code ${code} copied!`); };
-  const copyRevealLink = () => { navigator.clipboard.writeText(`${window.location.origin}/chase/${packId}`); toast.success('Reveal link copied!'); };
+  const copyRevealLink = () => { window.open(`${window.location.origin}/chase/${packId}`, '_blank'); };
 
   const updateCardValue = async (cardId, value) => {
     try {
