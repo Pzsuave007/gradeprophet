@@ -34,10 +34,10 @@ def build_best_offer_xml(price: float, user_settings: dict, force_enabled: bool 
     ld_parts = []
     if decline_pct and price > 0:
         min_price = round(price * (decline_pct / 100), 2)
-        ld_parts.append(f"<MinimumBestOfferPrice>{min_price:.2f}</MinimumBestOfferPrice>")
+        ld_parts.append(f'<MinimumBestOfferPrice currencyID="USD">{min_price:.2f}</MinimumBestOfferPrice>')
     if accept_pct and price > 0:
         auto_accept_price = round(price * (1 - accept_pct / 100), 2)
-        ld_parts.append(f"<BestOfferAutoAcceptPrice>{auto_accept_price:.2f}</BestOfferAutoAcceptPrice>")
+        ld_parts.append(f'<BestOfferAutoAcceptPrice currencyID="USD">{auto_accept_price:.2f}</BestOfferAutoAcceptPrice>')
     if ld_parts:
         bo_xml += "<ListingDetails>" + "".join(ld_parts) + "</ListingDetails>"
     return bo_xml
