@@ -3928,6 +3928,87 @@ async def bulk_update_best_offer_rules(request: Request):
     }
 
 
+class BulkApplyOfferRulesRequest(BaseModel):
+    item_ids: List[str]
+
+
+@router.post("/sell/bulk-apply-offer-rules")
+async def bulk_apply_offer_rules(data: BulkApplyOfferRulesRequest, request: Request):
+    """Apply auto-accept/auto-decline Best Offer rules to specific selected eBay listings."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    decline_pct = user_settings.get("best_offer_auto_decline_pct")
+    accept_pct = user_settings.get("best_offer_auto_accept_pct")
+    if not decline_pct and not accept_pct:
+        raise HTTPException(status_code=400, detail="No Best Offer rules configured. Set percentages in Account settings first.")
+
+    # Look up prices from inventory for the selected item_ids
+    items = await db.inventory.find(
+        {"user_id": user_id, "ebay_item_id": {"$in": data.item_ids}},
+        {"_id": 0, "ebay_item_id": 1, "price": 1, "ebay_price": 1}
+    ).to_list(5000)
+    price_map = {it["ebay_item_id"]: it.get("ebay_price") or it.get("price") or 0 for it in items}
+
+    # Also check listings_cache for prices not in inventory
+    if len(price_map) < len(data.item_ids):
+        missing = [iid for iid in data.item_ids if iid not in price_map]
+        cached = await db.listings_cache.find(
+            {"user_id": user_id, "item_id": {"$in": missing}},
+            {"_id": 0, "item_id": 1, "price": 1}
+        ).to_list(5000)
+        for c in cached:
+            price_map[c["item_id"]] = c.get("price", 0)
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            price = price_map.get(item_id, 0)
+            if price <= 0:
+                results.append({"item_id": item_id, "success": False, "error": "Price not found"})
+                continue
+
+            bo_xml = build_best_offer_xml(price, user_settings)
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{bo_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True, "price": price})
+                else:
+                    err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                    results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ok = sum(1 for r in results if r["success"])
+    return {
+        "success": ok > 0,
+        "total": len(data.item_ids),
+        "updated": ok,
+        "failed": len(data.item_ids) - ok,
+        "decline_pct": decline_pct,
+        "accept_pct": accept_pct,
+        "results": results,
+        "note": f"Best Offer rules applied to {ok}/{len(data.item_ids)} listings"
+    }
+
 
 class BulkReviseSpecificsRequest(BaseModel):
     item_ids: List[str]  # eBay item IDs

@@ -923,6 +923,22 @@ const ListingsModule = () => {
     }
   };
 
+  const bulkApplyOfferRules = async () => {
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-apply-offer-rules`, { item_ids: selectedIds });
+      toast.success(res.data.note || `Rules applied to ${res.data.updated} listings`);
+      setShowBulkOffer(false);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Set rules in Account first');
+    } finally {
+      setBulkUpdating(false);
+    }
+  };
+
 
   const bulkUpdateShipping = async (items) => {
     if (!bulkShippingOption) { toast.error('Select a shipping option'); return; }
@@ -1690,7 +1706,7 @@ const ListingsModule = () => {
                 </div>
                 <button onClick={() => setShowBulkOffer(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <button onClick={() => bulkToggleBestOffer(true)} disabled={bulkUpdating}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 disabled:opacity-50 transition-colors"
                   data-testid="bulk-offer-enable-btn">
@@ -1700,6 +1716,11 @@ const ListingsModule = () => {
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-red-600/80 text-white text-sm font-bold hover:bg-red-500 disabled:opacity-50 transition-colors"
                   data-testid="bulk-offer-disable-btn">
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Disable Best Offer</>}
+                </button>
+                <button onClick={bulkApplyOfferRules} disabled={bulkUpdating}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-bold hover:bg-amber-500/30 disabled:opacity-50 transition-colors"
+                  data-testid="bulk-apply-offer-rules-btn">
+                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Applying...</> : <>Apply Auto-Decline/Accept Rules</>}
                 </button>
                 <button onClick={() => setShowBulkOffer(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-offer-cancel-btn">Cancel</button>
               </div>
