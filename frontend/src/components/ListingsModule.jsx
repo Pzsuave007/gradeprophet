@@ -859,6 +859,8 @@ const ListingsModule = () => {
   const [showBulkCondition, setShowBulkCondition] = useState(false);
   const [bulkConditionValue, setBulkConditionValue] = useState('');
   const [showBulkOffer, setShowBulkOffer] = useState(false);
+  const [bulkDeclinePct, setBulkDeclinePct] = useState('');
+  const [bulkAcceptPct, setBulkAcceptPct] = useState('');
   const [showBulkSpecifics, setShowBulkSpecifics] = useState(false);
   const [showBulkPromote, setShowBulkPromote] = useState(false);
   const [showStoreDiscount, setShowStoreDiscount] = useState(false);
@@ -926,14 +928,19 @@ const ListingsModule = () => {
   const bulkApplyOfferRules = async () => {
     const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
     if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    if (!bulkDeclinePct && !bulkAcceptPct) { toast.error('Set at least one percentage'); return; }
     setBulkUpdating(true);
     try {
-      const res = await axios.post(`${API}/api/ebay/sell/bulk-apply-offer-rules`, { item_ids: selectedIds });
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-apply-offer-rules`, {
+        item_ids: selectedIds,
+        decline_pct: bulkDeclinePct ? parseFloat(bulkDeclinePct) : null,
+        accept_pct: bulkAcceptPct ? parseFloat(bulkAcceptPct) : null,
+      });
       toast.success(res.data.note || `Rules applied to ${res.data.updated} listings`);
       setShowBulkOffer(false);
       exitSelectMode();
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Set rules in Account first');
+      toast.error(err.response?.data?.detail || 'Failed to apply rules');
     } finally {
       setBulkUpdating(false);
     }
@@ -1350,7 +1357,14 @@ const ListingsModule = () => {
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-semibold hover:bg-violet-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-condition-btn">
                 Condition {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
-              <button onClick={() => setShowBulkOffer(true)} disabled={!selectMode || selected.size === 0}
+              <button onClick={async () => {
+                  setShowBulkOffer(true);
+                  try {
+                    const res = await axios.get(`${API}/api/settings`);
+                    if (res.data.best_offer_auto_decline_pct != null) setBulkDeclinePct(String(res.data.best_offer_auto_decline_pct));
+                    if (res.data.best_offer_auto_accept_pct != null) setBulkAcceptPct(String(res.data.best_offer_auto_accept_pct));
+                  } catch {}
+                }} disabled={!selectMode || selected.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-offer-btn">
                 Best Offer {selected.size > 0 ? `(${selected.size})` : ''}
               </button>
@@ -1706,7 +1720,9 @@ const ListingsModule = () => {
                 </div>
                 <button onClick={() => setShowBulkOffer(false)} className="p-1 rounded hover:bg-white/5"><X className="w-4 h-4 text-gray-500" /></button>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
+
+              {/* Toggle Enable/Disable */}
+              <div className="flex flex-wrap items-center gap-3 mb-4">
                 <button onClick={() => bulkToggleBestOffer(true)} disabled={bulkUpdating}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 disabled:opacity-50 transition-colors"
                   data-testid="bulk-offer-enable-btn">
@@ -1717,12 +1733,35 @@ const ListingsModule = () => {
                   data-testid="bulk-offer-disable-btn">
                   {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Updating...</> : <>Disable Best Offer</>}
                 </button>
-                <button onClick={bulkApplyOfferRules} disabled={bulkUpdating}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 text-sm font-bold hover:bg-amber-500/30 disabled:opacity-50 transition-colors"
-                  data-testid="bulk-apply-offer-rules-btn">
-                  {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Applying...</> : <>Apply Auto-Decline/Accept Rules</>}
-                </button>
                 <button onClick={() => setShowBulkOffer(false)} className="px-4 py-2.5 rounded-lg bg-[#1a1a1a] text-gray-400 text-sm hover:text-white transition-colors" data-testid="bulk-offer-cancel-btn">Cancel</button>
+              </div>
+
+              {/* Auto-Decline / Auto-Accept Rules */}
+              <div className="border-t border-[#222] pt-4">
+                <p className="text-xs font-bold text-amber-400 mb-3">Auto-Decline / Auto-Accept Rules</p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-medium">Auto-Decline below %</label>
+                    <input type="number" min="0" max="99" step="1"
+                      className="w-full bg-[#0a0a0a] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-red-500 focus:outline-none transition-colors text-center"
+                      value={bulkDeclinePct} onChange={e => setBulkDeclinePct(e.target.value)} placeholder="70"
+                      data-testid="bulk-decline-pct-input" />
+                    {bulkDeclinePct && <p className="text-[10px] text-red-400/70 mt-1">Reject offers below {bulkDeclinePct}% of price</p>}
+                  </div>
+                  <div className="flex-1 min-w-[140px]">
+                    <label className="block text-[10px] uppercase tracking-wider text-gray-500 mb-1 font-medium">Auto-Accept within %</label>
+                    <input type="number" min="0" max="99" step="1"
+                      className="w-full bg-[#0a0a0a] border border-[#333] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:border-emerald-500 focus:outline-none transition-colors text-center"
+                      value={bulkAcceptPct} onChange={e => setBulkAcceptPct(e.target.value)} placeholder="10"
+                      data-testid="bulk-accept-pct-input" />
+                    {bulkAcceptPct && <p className="text-[10px] text-emerald-400/70 mt-1">Accept offers within {bulkAcceptPct}% of price</p>}
+                  </div>
+                  <button onClick={bulkApplyOfferRules} disabled={bulkUpdating || (!bulkDeclinePct && !bulkAcceptPct)}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-amber-500 text-black text-sm font-bold hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                    data-testid="bulk-apply-offer-rules-btn">
+                    {bulkUpdating ? <><RefreshCw className="w-4 h-4 animate-spin" /> Applying...</> : <>Apply Rules</>}
+                  </button>
+                </div>
               </div>
             </div>
           </motion.div>

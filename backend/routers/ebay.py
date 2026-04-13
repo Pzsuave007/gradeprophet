@@ -3930,6 +3930,8 @@ async def bulk_update_best_offer_rules(request: Request):
 
 class BulkApplyOfferRulesRequest(BaseModel):
     item_ids: List[str]
+    decline_pct: Optional[float] = None
+    accept_pct: Optional[float] = None
 
 
 @router.post("/sell/bulk-apply-offer-rules")
@@ -3941,11 +3943,15 @@ async def bulk_apply_offer_rules(data: BulkApplyOfferRulesRequest, request: Requ
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
+    # Use request percentages if provided, otherwise fall back to saved settings
     user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
-    decline_pct = user_settings.get("best_offer_auto_decline_pct")
-    accept_pct = user_settings.get("best_offer_auto_accept_pct")
+    decline_pct = data.decline_pct if data.decline_pct is not None else user_settings.get("best_offer_auto_decline_pct")
+    accept_pct = data.accept_pct if data.accept_pct is not None else user_settings.get("best_offer_auto_accept_pct")
     if not decline_pct and not accept_pct:
-        raise HTTPException(status_code=400, detail="No Best Offer rules configured. Set percentages in Account settings first.")
+        raise HTTPException(status_code=400, detail="No Best Offer rules provided. Set percentages before applying.")
+
+    # Build a temporary settings dict with the percentages to use
+    rule_settings = {"best_offer_auto_decline_pct": decline_pct, "best_offer_auto_accept_pct": accept_pct}
 
     # Look up prices from inventory for the selected item_ids
     items = await db.inventory.find(
@@ -3975,7 +3981,7 @@ async def bulk_apply_offer_rules(data: BulkApplyOfferRulesRequest, request: Requ
                 results.append({"item_id": item_id, "success": False, "error": "Price not found"})
                 continue
 
-            bo_xml = build_best_offer_xml(price, user_settings)
+            bo_xml = build_best_offer_xml(price, rule_settings)
             xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
