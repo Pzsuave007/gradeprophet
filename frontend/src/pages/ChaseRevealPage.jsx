@@ -224,6 +224,19 @@ const ChaseRevealPage = () => {
 
   if (!pack) return null;
 
+  // Pack ended or deleted
+  if (pack.status === 'ended' || pack.status === 'deleted') {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center" data-testid="chase-pack-ended">
+        <div className="text-center">
+          <Lock className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+          <h1 className="text-2xl font-black text-white mb-2">Pack Ended</h1>
+          <p className="text-sm text-gray-400">This Chase Pack is no longer active.</p>
+        </div>
+      </div>
+    );
+  }
+
   const sellerLogo = pack.seller?.logo || '';
   const sellerName = pack.seller?.name || 'FlipSlab';
 
