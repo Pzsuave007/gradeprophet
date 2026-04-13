@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink, Download, QrCode } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink, Download, QrCode, ShieldCheck, Percent } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -26,6 +26,11 @@ const AccountModule = () => {
   const [shopName, setShopName] = useState('');
   const [shopLogo, setShopLogo] = useState('');
   const [savingSlug, setSavingSlug] = useState(false);
+  const [bestOfferDeclinePct, setBestOfferDeclinePct] = useState('');
+  const [bestOfferAcceptPct, setBestOfferAcceptPct] = useState('');
+  const [savingBestOffer, setSavingBestOffer] = useState(false);
+  const [bulkUpdating, setBulkUpdating] = useState(false);
+  const [bulkResult, setBulkResult] = useState(null);
 
   const fetchPlan = useCallback(async () => {
     try {
@@ -47,6 +52,8 @@ const AccountModule = () => {
         if (settingsRes.value.data.shop_slug) setShopSlug(settingsRes.value.data.shop_slug);
         if (settingsRes.value.data.shop_name) setShopName(settingsRes.value.data.shop_name);
         if (settingsRes.value.data.shop_logo) setShopLogo(settingsRes.value.data.shop_logo);
+        if (settingsRes.value.data.best_offer_auto_decline_pct != null) setBestOfferDeclinePct(String(settingsRes.value.data.best_offer_auto_decline_pct));
+        if (settingsRes.value.data.best_offer_auto_accept_pct != null) setBestOfferAcceptPct(String(settingsRes.value.data.best_offer_auto_accept_pct));
       }
     } catch { setEbayStatus({ connected: false }); }
     finally { setLoading(false); }
@@ -95,6 +102,37 @@ const AccountModule = () => {
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to save');
     } finally { setSavingSlug(false); }
+  };
+
+  const saveBestOfferRules = async () => {
+    setSavingBestOffer(true);
+    try {
+      const payload = {};
+      if (bestOfferDeclinePct !== '') payload.best_offer_auto_decline_pct = parseFloat(bestOfferDeclinePct);
+      else payload.best_offer_auto_decline_pct = null;
+      if (bestOfferAcceptPct !== '') payload.best_offer_auto_accept_pct = parseFloat(bestOfferAcceptPct);
+      else payload.best_offer_auto_accept_pct = null;
+      await axios.put(`${API}/api/settings`, payload);
+      toast.success('Best Offer rules saved! Will apply to new listings.');
+    } catch { toast.error('Failed to save Best Offer rules'); }
+    finally { setSavingBestOffer(false); }
+  };
+
+  const bulkApplyBestOfferRules = async () => {
+    if (!bestOfferDeclinePct && !bestOfferAcceptPct) {
+      toast.error('Set at least one percentage before applying');
+      return;
+    }
+    setBulkUpdating(true);
+    setBulkResult(null);
+    try {
+      await saveBestOfferRules();
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-update-best-offer-rules`);
+      setBulkResult(res.data);
+      toast.success(`Rules applied to ${res.data.updated}/${res.data.total} listings`);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to apply rules');
+    } finally { setBulkUpdating(false); }
   };
 
   const handleLogoUpload = (e) => {
@@ -409,6 +447,95 @@ const AccountModule = () => {
               {generatingToken ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Smartphone className="w-4 h-4" />}
               Generar Scanner Token
             </button>
+          )}
+        </div>
+      </motion.div>
+
+      {/* Best Offer Rules */}
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
+        className="bg-[#111] border border-[#1a1a1a] rounded-xl overflow-hidden" data-testid="best-offer-rules-section">
+        <div className="px-5 py-4 border-b border-[#1a1a1a] flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+          <h2 className="text-sm font-bold text-white">Best Offer Rules</h2>
+          <span className="text-[10px] text-gray-600 ml-auto">Auto-filter eBay offers</span>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-xs text-gray-400">
+            Set percentage rules to automatically decline lowball offers and accept fair ones. Applied to all new listings with Best Offer enabled.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Auto-Decline */}
+            <div className="bg-[#0a0a0a] border border-[#222] rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <XCircle className="w-4 h-4 text-red-400" />
+                <span className="text-xs font-bold text-white">Auto-Decline</span>
+              </div>
+              <p className="text-[11px] text-gray-500">Reject offers below this % of the listing price</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="0" max="99" step="1"
+                  className={inputCls + " text-center"}
+                  value={bestOfferDeclinePct}
+                  onChange={e => setBestOfferDeclinePct(e.target.value)}
+                  placeholder="70"
+                  data-testid="input-best-offer-decline-pct"
+                />
+                <Percent className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              </div>
+              {bestOfferDeclinePct && (
+                <p className="text-[10px] text-red-400/70">
+                  Example: $100 card → auto-decline below ${(100 * parseFloat(bestOfferDeclinePct) / 100).toFixed(2)}
+                </p>
+              )}
+            </div>
+
+            {/* Auto-Accept */}
+            <div className="bg-[#0a0a0a] border border-[#222] rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold text-white">Auto-Accept</span>
+              </div>
+              <p className="text-[11px] text-gray-500">Accept offers within this % of the listing price</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number" min="0" max="99" step="1"
+                  className={inputCls + " text-center"}
+                  value={bestOfferAcceptPct}
+                  onChange={e => setBestOfferAcceptPct(e.target.value)}
+                  placeholder="10"
+                  data-testid="input-best-offer-accept-pct"
+                />
+                <Percent className="w-4 h-4 text-gray-500 flex-shrink-0" />
+              </div>
+              {bestOfferAcceptPct && (
+                <p className="text-[10px] text-emerald-400/70">
+                  Example: $100 card → auto-accept above ${(100 * (1 - parseFloat(bestOfferAcceptPct) / 100)).toFixed(2)}
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <button onClick={saveBestOfferRules} disabled={savingBestOffer}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-[#3b82f6] text-white text-sm font-semibold hover:bg-[#2563eb] disabled:opacity-50 transition-colors"
+              data-testid="save-best-offer-rules-btn">
+              {savingBestOffer ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save Rules
+            </button>
+            <button onClick={bulkApplyBestOfferRules} disabled={bulkUpdating}
+              className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-sm font-semibold hover:bg-emerald-500/30 disabled:opacity-50 transition-colors"
+              data-testid="bulk-apply-best-offer-btn">
+              {bulkUpdating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+              {bulkUpdating ? 'Applying...' : 'Apply to All Active Listings'}
+            </button>
+          </div>
+
+          {bulkResult && (
+            <div className={`p-3 rounded-lg border text-xs ${bulkResult.updated > 0 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}
+              data-testid="bulk-result-message">
+              {bulkResult.note} — {bulkResult.failed > 0 ? `${bulkResult.failed} failed` : 'all successful'}
+            </div>
           )}
         </div>
       </motion.div>

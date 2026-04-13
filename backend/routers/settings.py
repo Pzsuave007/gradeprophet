@@ -17,6 +17,8 @@ class UserSettings(BaseModel):
     location: Optional[str] = None
     default_shipping: Optional[str] = "USPSFirstClass"
     default_sport: Optional[str] = "Basketball"
+    best_offer_auto_decline_pct: Optional[float] = None
+    best_offer_auto_accept_pct: Optional[float] = None
 
 
 @router.get("")
@@ -26,7 +28,7 @@ async def get_user_settings(request: Request):
     user_id = user["user_id"]
     settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0})
     if not settings:
-        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball", "shop_slug": ""}
+        return {"user_id": user_id, "display_name": "", "postal_code": "", "location": "", "default_shipping": "USPSFirstClass", "default_sport": "Basketball", "shop_slug": "", "best_offer_auto_decline_pct": None, "best_offer_auto_accept_pct": None}
     return settings
 
 

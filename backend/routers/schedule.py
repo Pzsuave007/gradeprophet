@@ -286,7 +286,7 @@ async def clear_queue(queue_type: str, request: Request):
 
 async def _create_ebay_listing(post: dict, token: str) -> dict:
     """Create an eBay listing (fixed price or auction) from a scheduled post."""
-    from routers.ebay import _upload_image_to_ebay, build_item_specifics
+    from routers.ebay import _upload_image_to_ebay, build_item_specifics, build_best_offer_xml
 
     # Upload images
     picture_urls = []
@@ -365,7 +365,8 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
         start_price = post.get("price", 9.99)
         extra_xml = ""
         if post.get("best_offer"):
-            extra_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+            sched_user_settings = await db.user_settings.find_one({"user_id": post.get("user_id")}, {"_id": 0}) or {}
+            extra_xml = build_best_offer_xml(start_price, sched_user_settings)
 
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <{api_call}Request xmlns="urn:ebay:apis:eBLBaseComponents">

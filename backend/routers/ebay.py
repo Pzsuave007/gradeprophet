@@ -24,6 +24,25 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/ebay", tags=["ebay"])
 
 
+def build_best_offer_xml(price: float, user_settings: dict, force_enabled: bool = True) -> str:
+    """Build BestOfferDetails + ListingDetails XML with auto-accept/decline thresholds."""
+    if not force_enabled:
+        return ""
+    bo_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+    decline_pct = user_settings.get("best_offer_auto_decline_pct")
+    accept_pct = user_settings.get("best_offer_auto_accept_pct")
+    ld_parts = []
+    if decline_pct and price > 0:
+        min_price = round(price * (decline_pct / 100), 2)
+        ld_parts.append(f"<MinimumBestOfferPrice>{min_price:.2f}</MinimumBestOfferPrice>")
+    if accept_pct and price > 0:
+        auto_accept_price = round(price * (1 - accept_pct / 100), 2)
+        ld_parts.append(f"<BestOfferAutoAcceptPrice>{auto_accept_price:.2f}</BestOfferAutoAcceptPrice>")
+    if ld_parts:
+        bo_xml += "<ListingDetails>" + "".join(ld_parts) + "</ListingDetails>"
+    return bo_xml
+
+
 # ---- Models ----
 
 class EbayListingPreviewRequest(BaseModel):
@@ -990,7 +1009,8 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
     # Best Offer XML
     best_offer_xml = ""
     if data.best_offer and data.listing_format == "FixedPriceItem":
-        best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+        bo_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+        best_offer_xml = build_best_offer_xml(data.price, bo_settings)
 
     api_call = "AddFixedPriceItem" if data.listing_format == "FixedPriceItem" else "AddItem"
     duration = data.duration if data.listing_format == "FixedPriceItem" else (data.duration if data.duration in ["Days_3", "Days_5", "Days_7", "Days_10"] else "Days_7")
@@ -1379,14 +1399,20 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     # Best offer
     best_offer_xml = ""
     if data.best_offer:
-        best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
-        bo_prefs = []
-        if data.auto_accept:
-            bo_prefs.append(f"<BestOfferAutoAcceptPrice>{data.auto_accept}</BestOfferAutoAcceptPrice>")
-        if data.minimum_offer:
-            bo_prefs.append(f"<MinimumBestOfferPrice>{data.minimum_offer}</MinimumBestOfferPrice>")
-        if bo_prefs:
-            best_offer_xml += "<ListingDetails>" + "".join(bo_prefs) + "</ListingDetails>"
+        if data.auto_accept or data.minimum_offer:
+            # Use explicit dollar values from request
+            best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>"
+            bo_prefs = []
+            if data.auto_accept:
+                bo_prefs.append(f"<BestOfferAutoAcceptPrice>{data.auto_accept}</BestOfferAutoAcceptPrice>")
+            if data.minimum_offer:
+                bo_prefs.append(f"<MinimumBestOfferPrice>{data.minimum_offer}</MinimumBestOfferPrice>")
+            if bo_prefs:
+                best_offer_xml += "<ListingDetails>" + "".join(bo_prefs) + "</ListingDetails>"
+        else:
+            # Fall back to percentage-based settings
+            lot_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+            best_offer_xml = build_best_offer_xml(data.price, lot_settings)
 
     # Fetch user settings for postal code and location
     user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
@@ -3829,6 +3855,77 @@ async def bulk_revise_best_offer(data: BulkBestOfferRequest, request: Request):
     action = "enabled" if data.enable else "disabled"
     return {"success": ok > 0, "total": len(data.item_ids), "updated": ok, "results": results,
             "note": f"Best Offer {action} on {ok}/{len(data.item_ids)} listings"}
+
+
+@router.post("/sell/bulk-update-best-offer-rules")
+async def bulk_update_best_offer_rules(request: Request):
+    """Apply auto-accept/auto-decline Best Offer rules to all active eBay listings using user settings percentages."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    user_settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    decline_pct = user_settings.get("best_offer_auto_decline_pct")
+    accept_pct = user_settings.get("best_offer_auto_accept_pct")
+    if not decline_pct and not accept_pct:
+        raise HTTPException(status_code=400, detail="No Best Offer rules configured. Set percentages in Account settings first.")
+
+    # Get all active inventory items with eBay listings
+    items = await db.inventory.find(
+        {"user_id": user_id, "ebay_item_id": {"$exists": True, "$ne": ""}, "category": "for_sale"},
+        {"_id": 0, "ebay_item_id": 1, "price": 1, "ebay_price": 1}
+    ).to_list(5000)
+
+    if not items:
+        raise HTTPException(status_code=404, detail="No active eBay listings found in inventory.")
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item in items:
+            item_id = item.get("ebay_item_id")
+            price = item.get("ebay_price") or item.get("price") or 0
+            if not item_id or price <= 0:
+                results.append({"item_id": item_id or "unknown", "success": False, "error": "No price found"})
+                continue
+
+            bo_xml = build_best_offer_xml(price, user_settings)
+            xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{item_id}</ItemID>{bo_xml}</Item>
+</ReviseFixedPriceItemRequest>'''
+            try:
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True, "price": price})
+                else:
+                    err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                    results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ok = sum(1 for r in results if r["success"])
+    return {
+        "success": ok > 0,
+        "total": len(items),
+        "updated": ok,
+        "failed": len(items) - ok,
+        "decline_pct": decline_pct,
+        "accept_pct": accept_pct,
+        "results": results,
+        "note": f"Best Offer rules applied to {ok}/{len(items)} listings"
+    }
 
 
 
