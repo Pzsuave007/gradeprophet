@@ -14,7 +14,7 @@ echo ""
 # Configuracion
 PUBLIC_HTML="/home/flipcardsuni2/public_html"
 BACKEND_DIR="/opt/gradeprophet/backend"
-DOWNLOAD_URL="https://chase-sales-monitor.preview.emergentagent.com/api/download-code"
+DOWNLOAD_URL="https://best-offer-rules.preview.emergentagent.com/api/download-code"
 
 # Crear carpeta backend si no existe
 mkdir -p "$BACKEND_DIR"

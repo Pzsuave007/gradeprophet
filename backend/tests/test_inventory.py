@@ -11,7 +11,7 @@ import uuid
 # Get backend URL from environment (no default to fail fast if missing)
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL')
 if not BASE_URL:
-    BASE_URL = "https://chase-sales-monitor.preview.emergentagent.com"
+    BASE_URL = "https://best-offer-rules.preview.emergentagent.com"
 BASE_URL = BASE_URL.rstrip('/')
 
 
