@@ -12,7 +12,8 @@ import {
   Camera,
   Crosshair,
   BarChart3,
-  Flame
+  Flame,
+  Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { PlanProvider } from '../hooks/usePlan';
@@ -24,6 +25,7 @@ import FlipFinder from '../components/FlipFinder';
 import MarketModule from '../components/MarketModule';
 import QuickScan from '../components/QuickScan';
 import ChasePacksModule from '../components/ChasePacksModule';
+import ScheduleModule from '../components/ScheduleModule';
 
 // Placeholder components for future modules
 const PlaceholderModule = ({ title, description, icon: Icon }) => (
@@ -53,6 +55,7 @@ const modules = [
   { id: 'listings', label: 'Listings', icon: Tag },
   { id: 'flipfinder', label: 'Flip Finder', icon: Crosshair },
   { id: 'chase-packs', label: 'Chase Packs', icon: Flame },
+  { id: 'schedule', label: 'Schedule', icon: Calendar },
   { id: 'market', label: 'Market', icon: BarChart3 },
   { id: 'account', label: 'Account', icon: User },
 ];
@@ -109,6 +112,7 @@ const Dashboard = ({ user, onLogout }) => {
       case 'listings': return <ListingsModule />;
       case 'flipfinder': return <FlipFinder onNavigateToAccount={() => setActiveModule('account')} />;
       case 'chase-packs': return <ChasePacksModule />;
+      case 'schedule': return <ScheduleModule />;
       case 'market': return <MarketModule onNavigateToAccount={() => setActiveModule('account')} />;
       case 'account': return <AccountModule />;
       default: return <DashboardHome onNavigate={setActiveModule} />;

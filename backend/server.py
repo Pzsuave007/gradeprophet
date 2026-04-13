@@ -47,6 +47,7 @@ from routers.subscription import router as subscription_router
 from routers.admin import router as admin_router
 from routers.shop import router as shop_router
 from routers.marketplace import router as marketplace_router
+from routers.schedule import router as schedule_router, run_schedule_worker
 
 # Create parent API router
 api_router = APIRouter(prefix="/api")
@@ -67,6 +68,7 @@ api_router.include_router(subscription_router)
 api_router.include_router(admin_router)
 api_router.include_router(shop_router)
 api_router.include_router(marketplace_router)
+api_router.include_router(schedule_router)
 
 
 # Stripe Webhook (under /api prefix for routing)
@@ -253,6 +255,8 @@ async def startup_db_client():
 
     asyncio.create_task(chase_sales_monitor_loop())
     logger.info("Chase Sales Monitor launched")
+    asyncio.create_task(run_schedule_worker())
+    logger.info("Schedule Worker launched")
 
 
 async def ensure_admin_password():
