@@ -1,10 +1,11 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors, Crop } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { ScrollArea } from '../components/ui/scroll-area';
 import { Input } from '../components/ui/input';
+import ImageCropper from './ImageCropper';
 
 const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disabled, testId, accent, small }) => {
   const fileInputRef = useRef(null);
@@ -128,6 +129,7 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
   const [ebayError, setEbayError] = useState(null);
   const [ebayTitle, setEbayTitle] = useState('');
   const [selectedEbayIdx, setSelectedEbayIdx] = useState(null);
+  const [croppingImage, setCroppingImage] = useState(null); // 'front' | 'back' | null
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
@@ -330,11 +332,42 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
 
           {/* Front + Back Side by Side - Compact */}
           <div className="grid grid-cols-2 gap-3">
-            <ImageUploadZone label="Front" sublabel="Required" image={frontImage} onImageSelect={setFrontImage}
-              onClear={() => setFrontImage(null)} disabled={isAnalyzing} testId="front-image-upload" />
-            <ImageUploadZone label="Back" sublabel="Optional" image={backImage} onImageSelect={setBackImage}
-              onClear={() => setBackImage(null)} disabled={isAnalyzing} testId="back-image-upload" />
+            <div>
+              <ImageUploadZone label="Front" sublabel="Required" image={frontImage} onImageSelect={setFrontImage}
+                onClear={() => setFrontImage(null)} disabled={isAnalyzing} testId="front-image-upload" />
+              {frontImage && !isAnalyzing && (
+                <button onClick={() => setCroppingImage('front')}
+                  className="flex items-center justify-center gap-1.5 w-full mt-1.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 transition-colors"
+                  data-testid="crop-front-btn">
+                  <Crop className="w-3 h-3" /> Crop
+                </button>
+              )}
+            </div>
+            <div>
+              <ImageUploadZone label="Back" sublabel="Optional" image={backImage} onImageSelect={setBackImage}
+                onClear={() => setBackImage(null)} disabled={isAnalyzing} testId="back-image-upload" />
+              {backImage && !isAnalyzing && (
+                <button onClick={() => setCroppingImage('back')}
+                  className="flex items-center justify-center gap-1.5 w-full mt-1.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 transition-colors"
+                  data-testid="crop-back-btn">
+                  <Crop className="w-3 h-3" /> Crop
+                </button>
+              )}
+            </div>
           </div>
+
+          {/* Crop Modal */}
+          {croppingImage && (
+            <ImageCropper
+              imageSrc={croppingImage === 'front' ? frontImage : backImage}
+              onCropDone={(cropped) => {
+                if (croppingImage === 'front') setFrontImage(cropped);
+                else setBackImage(cropped);
+                setCroppingImage(null);
+              }}
+              onCancel={() => setCroppingImage(null)}
+            />
+          )}
 
           {/* Corners - Always visible, compact row */}
           <div className="bg-[#111] border border-[#1a1a1a] rounded-lg p-3">
