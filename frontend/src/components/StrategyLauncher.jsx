@@ -20,6 +20,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [auctionIds, setAuctionIds] = useState(new Set());
+  const [auctionOrder, setAuctionOrder] = useState([]);
   const [prices, setPrices] = useState({});
   const [lookingUp, setLookingUp] = useState(false);
   const [launching, setLaunching] = useState(false);
@@ -56,14 +57,54 @@ const StrategyLauncher = ({ onBack, onDone }) => {
   const toggleAuction = (id) => {
     setAuctionIds(prev => {
       const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
+      if (next.has(id)) {
+        next.delete(id);
+        setAuctionOrder(o => o.filter(x => x !== id));
+      } else {
+        next.add(id);
+        setAuctionOrder(o => [...o, id]);
+      }
+      return next;
+    });
+  };
+
+  const moveAuction = (idx, dir) => {
+    setAuctionOrder(prev => {
+      const next = [...prev];
+      const newIdx = idx + dir;
+      if (newIdx < 0 || newIdx >= next.length) return prev;
+      [next[idx], next[newIdx]] = [next[newIdx], next[idx]];
       return next;
     });
   };
 
   const selectedCards = cards.filter(c => selected.includes(c.id));
-  const auctionCards = selectedCards.filter(c => auctionIds.has(c.id));
+  const auctionCards = auctionOrder.map(id => selectedCards.find(c => c.id === id)).filter(Boolean);
   const fixedCards = selectedCards.filter(c => !auctionIds.has(c.id));
+
+  // Calculate start day for calendar preview
+  const getStartDay = () => {
+    const now = new Date();
+    const postHour = config.post_hour + 5; // Central to UTC approx
+    const today = new Date(now);
+    today.setUTCHours(postHour, 0, 0, 0);
+    return now < today ? today : new Date(today.getTime() + 86400000);
+  };
+
+  const getDayLabel = (date) => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    return days[date.getDay()];
+  };
+
+  const isWeekend = (date) => {
+    const d = date.getDay();
+    return d === 0 || d === 5 || d === 6; // Fri, Sat, Sun
+  };
+
+  const formatDate = (date) => {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return `${months[date.getMonth()]} ${date.getDate()}`;
+  };
 
   const lookupPrices = async () => {
     setLookingUp(true);
@@ -94,7 +135,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
     setLaunching(true);
     try {
       const res = await axios.post(`${API}/api/schedule/launch-strategy`, {
-        auction_card_ids: Array.from(auctionIds),
+        auction_card_ids: auctionOrder,
         fixed_card_ids: fixedCards.map(c => c.id),
         prices,
         auction_start_pct: config.auction_start_pct,
@@ -281,6 +322,63 @@ const StrategyLauncher = ({ onBack, onDone }) => {
                 <p className="text-[10px] text-gray-500 font-bold">TOTAL CARDS</p>
               </div>
             </div>
+
+            {/* Auction Schedule - Reorderable Calendar */}
+            {auctionCards.length > 0 && (
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] mb-5" data-testid="auction-schedule-section">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold text-white flex items-center gap-2">
+                    <Gavel className="w-3.5 h-3.5 text-amber-400" /> Auction Schedule
+                  </p>
+                  <p className="text-[9px] text-gray-500">Drag cards so the best ones end on weekends</p>
+                </div>
+                <div className="space-y-1 max-h-[280px] overflow-y-auto pr-1">
+                  {auctionCards.map((c, idx) => {
+                    const startDay = getStartDay();
+                    const postDate = new Date(startDay.getTime() + idx * 86400000);
+                    const auctionDays = config.auction_duration === 'Days_7' ? 7 : 10;
+                    const endDate = new Date(postDate.getTime() + auctionDays * 86400000);
+                    const endIsWeekend = isWeekend(endDate);
+                    const img = c.thumbnail || c.store_thumbnail;
+                    return (
+                      <div key={c.id} className={`flex items-center gap-2 p-2 rounded-lg transition-all ${endIsWeekend ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-black/20 border border-white/[0.03]'}`}>
+                        <div className="flex flex-col gap-0.5">
+                          <button onClick={() => moveAuction(idx, -1)} disabled={idx === 0}
+                            className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-gray-500 hover:text-white" data-testid={`auction-up-${idx}`}>
+                            <ArrowLeft className="w-3 h-3 rotate-90" />
+                          </button>
+                          <button onClick={() => moveAuction(idx, 1)} disabled={idx === auctionCards.length - 1}
+                            className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-gray-500 hover:text-white" data-testid={`auction-down-${idx}`}>
+                            <ArrowRight className="w-3 h-3 rotate-90" />
+                          </button>
+                        </div>
+                        <span className="text-[10px] text-gray-600 font-mono w-5 text-center shrink-0">#{idx + 1}</span>
+                        <div className="w-7 h-9 rounded overflow-hidden bg-[#111] shrink-0">
+                          {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-gray-700 m-auto mt-2.5" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[10px] font-bold text-white truncate">{c.player}</p>
+                          <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-[9px] text-gray-500">Posts {getDayLabel(postDate)} {formatDate(postDate)}</p>
+                          <p className={`text-[10px] font-bold ${endIsWeekend ? 'text-emerald-400' : 'text-gray-400'}`}>
+                            Ends {getDayLabel(endDate)} {formatDate(endDate)} {endIsWeekend ? ' *' : ''}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/[0.04]">
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/40" />
+                    <span className="text-[9px] text-gray-500">Ends Fri/Sat/Sun = more buyers</span>
+                  </div>
+                  <span className="text-[9px] text-gray-600 ml-auto">{auctionCards.filter((_, i) => { const s = getStartDay(); const e = new Date(s.getTime() + (i * 86400000) + (config.auction_duration === 'Days_7' ? 7 : 10) * 86400000); return isWeekend(e); }).length}/{auctionCards.length} end on weekends</span>
+                </div>
+              </div>
+            )}
 
             {/* Settings Grid */}
             <div className="space-y-4 mb-5">
