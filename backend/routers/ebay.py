@@ -259,8 +259,20 @@ def build_item_specifics(item: dict, data=None) -> list:
 
 def generate_listing_title(item: dict) -> str:
     base = item.get("card_name", "")
+    player = item.get("player", "")
+    # If card_name is long enough, put player first then card info
     if base and len(base) > 15:
-        title = base
+        # If player name exists and is in card_name, reorder so player comes first
+        if player and player.lower() in base.lower():
+            # Remove player from base, put it first
+            import re
+            cleaned = re.sub(re.escape(player), '', base, count=1, flags=re.IGNORECASE).strip()
+            cleaned = re.sub(r'\s+', ' ', cleaned).strip(' -,')
+            title = f"{player} {cleaned}".strip()
+        elif player:
+            title = f"{player} {base}"
+        else:
+            title = base
         if item.get("condition") == "Graded" and item.get("grade"):
             company = item.get("grading_company", "PSA")
             grade_str = f"{company} {item['grade']}"
@@ -268,9 +280,9 @@ def generate_listing_title(item: dict) -> str:
                 title = f"{title} {grade_str}"
         return title[:80]
     parts = []
+    if player: parts.append(player)
     if item.get("year"): parts.append(str(item["year"]))
     if item.get("set_name"): parts.append(item["set_name"])
-    if item.get("player"): parts.append(item["player"])
     if item.get("variation"): parts.append(item["variation"])
     if item.get("card_number"): parts.append(f"#{item['card_number']}")
     if item.get("condition") == "Graded" and item.get("grade"):
