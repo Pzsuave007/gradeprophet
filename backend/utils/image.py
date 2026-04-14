@@ -304,7 +304,7 @@ def process_card_image(image_base64: str, max_size: int = 800, skip_crop: bool =
     return processed
 
 
-def crop_corners_from_image(image_base64: str, corner_size_percent: float = 0.25) -> dict:
+def crop_corners_from_image(image_base64: str, corner_size_percent: float = 0.35) -> dict:
     """Crop the four corners from a card image for detailed analysis"""
     try:
         from fastapi import HTTPException
@@ -314,28 +314,23 @@ def crop_corners_from_image(image_base64: str, corner_size_percent: float = 0.25
 
         width, height = img.size
         corner_size = int(min(width, height) * corner_size_percent)
+        MIN_CORNER_PX = 400
+
+        def save_corner(corner_img):
+            # Upscale small corners so AI can see detail
+            cw, ch = corner_img.size
+            if cw < MIN_CORNER_PX or ch < MIN_CORNER_PX:
+                scale = max(MIN_CORNER_PX / cw, MIN_CORNER_PX / ch)
+                corner_img = corner_img.resize((int(cw * scale), int(ch * scale)), Image.LANCZOS)
+            buf = BytesIO()
+            corner_img.save(buf, format='JPEG', quality=95)
+            return base64.b64encode(buf.getvalue()).decode('utf-8')
 
         corners = {}
-
-        top_left = img.crop((0, 0, corner_size, corner_size))
-        tl_buffer = BytesIO()
-        top_left.save(tl_buffer, format='JPEG', quality=90)
-        corners['top_left'] = base64.b64encode(tl_buffer.getvalue()).decode('utf-8')
-
-        top_right = img.crop((width - corner_size, 0, width, corner_size))
-        tr_buffer = BytesIO()
-        top_right.save(tr_buffer, format='JPEG', quality=90)
-        corners['top_right'] = base64.b64encode(tr_buffer.getvalue()).decode('utf-8')
-
-        bottom_left = img.crop((0, height - corner_size, corner_size, height))
-        bl_buffer = BytesIO()
-        bottom_left.save(bl_buffer, format='JPEG', quality=90)
-        corners['bottom_left'] = base64.b64encode(bl_buffer.getvalue()).decode('utf-8')
-
-        bottom_right = img.crop((width - corner_size, height - corner_size, width, height))
-        br_buffer = BytesIO()
-        bottom_right.save(br_buffer, format='JPEG', quality=90)
-        corners['bottom_right'] = base64.b64encode(br_buffer.getvalue()).decode('utf-8')
+        corners['top_left'] = save_corner(img.crop((0, 0, corner_size, corner_size)))
+        corners['top_right'] = save_corner(img.crop((width - corner_size, 0, width, corner_size)))
+        corners['bottom_left'] = save_corner(img.crop((0, height - corner_size, corner_size, height)))
+        corners['bottom_right'] = save_corner(img.crop((width - corner_size, height - corner_size, width, height)))
 
         return corners
 

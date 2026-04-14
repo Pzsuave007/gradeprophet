@@ -27,7 +27,7 @@ const ImageCropper = ({ imageSrc, onCropDone, onCancel }) => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(image, pixelCrop.x, pixelCrop.y, pixelCrop.width, pixelCrop.height, 0, 0, pixelCrop.width, pixelCrop.height);
 
-    const croppedDataUrl = canvas.toDataURL('image/webp', 0.85);
+    const croppedDataUrl = canvas.toDataURL('image/webp', 0.95);
     canvas.width = 0;
     canvas.height = 0;
     onCropDone(croppedDataUrl);
