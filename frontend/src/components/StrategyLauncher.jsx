@@ -160,21 +160,21 @@ const StrategyLauncher = ({ onBack, onDone }) => {
             {loading ? (
               <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-gray-600 animate-spin" /></div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2 max-h-[400px] overflow-y-auto pr-1">
+              <div className="grid grid-cols-5 sm:grid-cols-6 md:grid-cols-7 gap-2 max-h-[520px] overflow-y-auto pr-1">
                 {filtered.map(c => {
                   const sel = selected.includes(c.id);
                   const img = c.thumbnail || c.store_thumbnail || c.image;
                   return (
                     <motion.div key={c.id} whileTap={{ scale: 0.97 }} onClick={() => toggle(c.id)}
-                      className={`relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
+                      className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
                       data-testid={`strategy-card-${c.id}`}>
                       {img && <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />}
                       {!img && <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-5 h-5 text-gray-700" /></div>}
                       <div className="p-1">
-                        <p className="text-[9px] font-bold text-white truncate">{c.player}</p>
-                        <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
+                        <p className="text-[8px] font-bold text-white truncate">{c.player}</p>
+                        <p className="text-[7px] text-gray-500 truncate">{c.year} {c.set_name}</p>
                       </div>
-                      {sel && <div className="absolute top-1 right-1 w-4 h-4 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-2.5 h-2.5 text-black" /></div>}
+                      {sel && <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-2 h-2 text-black" /></div>}
                     </motion.div>
                   );
                 })}
@@ -214,25 +214,25 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[420px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 max-h-[520px] overflow-y-auto pr-1">
               {selectedCards.map(c => {
                 const isAuction = auctionIds.has(c.id);
                 const img = c.thumbnail || c.store_thumbnail || c.image;
                 const hasPrice = prices[c.id] && prices[c.id] > 0;
                 return (
-                  <div key={c.id} className={`relative rounded-xl overflow-hidden border-2 transition-all ${isAuction ? 'border-amber-500/60 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02]'}`}>
+                  <div key={c.id} className={`relative rounded-lg overflow-hidden border-2 transition-all ${isAuction ? 'border-amber-500/60 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02]'}`}>
                     <div className="cursor-pointer" onClick={() => toggleAuction(c.id)}>
                       {img ? <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />
-                        : <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-6 h-6 text-gray-700" /></div>}
-                      <span className={`absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full ${isAuction ? 'bg-amber-500 text-black' : 'bg-emerald-500/80 text-white'}`}>
+                        : <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-5 h-5 text-gray-700" /></div>}
+                      <span className={`absolute top-1 left-1 text-[7px] font-black px-1.5 py-0.5 rounded-full ${isAuction ? 'bg-amber-500 text-black' : 'bg-emerald-500/80 text-white'}`}>
                         {isAuction ? 'AUCTION' : 'FIXED'}
                       </span>
                     </div>
-                    <div className="p-2 space-y-1">
-                      <p className="text-[10px] font-bold text-white truncate">{c.player}</p>
-                      <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
+                    <div className="p-1.5 space-y-0.5">
+                      <p className="text-[8px] font-bold text-white truncate">{c.player}</p>
+                      <p className="text-[7px] text-gray-500 truncate">{c.year} {c.set_name}</p>
                       <input type="number" step="0.01" min="0"
-                        className={`w-full bg-[#0a0a0a] border rounded-lg px-2 py-1.5 text-xs text-right text-white outline-none ${hasPrice ? 'border-white/[0.06]' : 'border-red-500/40'}`}
+                        className={`w-full bg-[#0a0a0a] border rounded px-1.5 py-1 text-[10px] text-right text-white outline-none ${hasPrice ? 'border-white/[0.06]' : 'border-red-500/40'}`}
                         value={prices[c.id] || ''}
                         onChange={e => setPrices(p => ({ ...p, [c.id]: e.target.value ? parseFloat(e.target.value) : '' }))}
                         placeholder="$0.00"
