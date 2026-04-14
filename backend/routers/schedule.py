@@ -319,9 +319,13 @@ async def launch_strategy(request: Request):
     # Use prices provided by frontend (market values looked up client-side)
     price_overrides = body.get("prices", {})
 
-    # Schedule start: tomorrow at configured hour (converted to UTC)
+    # Schedule start: today if before post hour, otherwise tomorrow
     now = datetime.now(timezone.utc)
-    start_day = now.replace(hour=post_hour_utc, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    today_post = now.replace(hour=post_hour_utc, minute=0, second=0, microsecond=0)
+    if now < today_post:
+        start_day = today_post
+    else:
+        start_day = today_post + timedelta(days=1)
 
     added_auctions = []
     added_fixed = []
