@@ -323,16 +323,19 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               </div>
             </div>
 
-            {/* Auction Schedule - Reorderable Calendar */}
+            {/* Auction Schedule - Visual Calendar Cards */}
             {auctionCards.length > 0 && (
               <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04] mb-5" data-testid="auction-schedule-section">
-                <div className="flex items-center justify-between mb-3">
-                  <p className="text-xs font-bold text-white flex items-center gap-2">
-                    <Gavel className="w-3.5 h-3.5 text-amber-400" /> Auction Schedule
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm font-bold text-white flex items-center gap-2">
+                    <Gavel className="w-4 h-4 text-amber-400" /> Auction Schedule
                   </p>
-                  <p className="text-[9px] text-gray-500">Drag cards so the best ones end on weekends</p>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500/40" />
+                    <span className="text-xs text-gray-400">= Ends on Weekend</span>
+                  </div>
                 </div>
-                <div className="space-y-1 max-h-[280px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-3 max-h-[450px] overflow-y-auto pr-1">
                   {auctionCards.map((c, idx) => {
                     const startDay = getStartDay();
                     const postDate = new Date(startDay.getTime() + idx * 86400000);
@@ -341,42 +344,38 @@ const StrategyLauncher = ({ onBack, onDone }) => {
                     const endIsWeekend = isWeekend(endDate);
                     const img = c.thumbnail || c.store_thumbnail;
                     return (
-                      <div key={c.id} className={`flex items-center gap-2 p-2 rounded-lg transition-all ${endIsWeekend ? 'bg-emerald-500/5 border border-emerald-500/15' : 'bg-black/20 border border-white/[0.03]'}`}>
-                        <div className="flex flex-col gap-0.5">
-                          <button onClick={() => moveAuction(idx, -1)} disabled={idx === 0}
-                            className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-gray-500 hover:text-white" data-testid={`auction-up-${idx}`}>
-                            <ArrowLeft className="w-3 h-3 rotate-90" />
-                          </button>
-                          <button onClick={() => moveAuction(idx, 1)} disabled={idx === auctionCards.length - 1}
-                            className="p-0.5 rounded hover:bg-white/10 disabled:opacity-20 text-gray-500 hover:text-white" data-testid={`auction-down-${idx}`}>
-                            <ArrowRight className="w-3 h-3 rotate-90" />
-                          </button>
-                        </div>
-                        <span className="text-[10px] text-gray-600 font-mono w-5 text-center shrink-0">#{idx + 1}</span>
-                        <div className="w-7 h-9 rounded overflow-hidden bg-[#111] shrink-0">
-                          {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-gray-700 m-auto mt-2.5" />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold text-white truncate">{c.player}</p>
-                          <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-[9px] text-gray-500">Posts {getDayLabel(postDate)} {formatDate(postDate)}</p>
-                          <p className={`text-[10px] font-bold ${endIsWeekend ? 'text-emerald-400' : 'text-gray-400'}`}>
-                            Ends {getDayLabel(endDate)} {formatDate(endDate)} {endIsWeekend ? ' *' : ''}
-                          </p>
+                      <div key={c.id} className={`rounded-xl overflow-hidden transition-all ${endIsWeekend ? 'border-2 border-emerald-500/40 bg-emerald-500/5' : 'border-2 border-white/[0.04] bg-black/30'}`}>
+                        {img ? <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />
+                          : <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-8 h-8 text-gray-700" /></div>}
+                        <div className="p-2 space-y-1.5">
+                          <p className="text-xs font-bold text-white truncate">{c.player}</p>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] text-gray-500">Posts</p>
+                            <p className="text-[11px] font-bold text-gray-300">{getDayLabel(postDate)} {formatDate(postDate)}</p>
+                          </div>
+                          <div className={`flex items-center justify-between p-1.5 rounded-lg ${endIsWeekend ? 'bg-emerald-500/15' : 'bg-white/[0.03]'}`}>
+                            <p className={`text-[10px] ${endIsWeekend ? 'text-emerald-400' : 'text-gray-500'}`}>Ends</p>
+                            <p className={`text-sm font-black ${endIsWeekend ? 'text-emerald-400' : 'text-white'}`}>{getDayLabel(endDate)} {formatDate(endDate)}</p>
+                          </div>
+                          <div className="flex items-center justify-center gap-1 pt-1">
+                            <button onClick={() => moveAuction(idx, -1)} disabled={idx === 0}
+                              className="flex-1 py-1 rounded-lg text-center text-[10px] font-bold bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white disabled:opacity-20 transition-colors" data-testid={`auction-up-${idx}`}>
+                              <ArrowLeft className="w-3.5 h-3.5 inline" />
+                            </button>
+                            <span className="text-[10px] text-gray-600 font-bold px-2">#{idx + 1}</span>
+                            <button onClick={() => moveAuction(idx, 1)} disabled={idx === auctionCards.length - 1}
+                              className="flex-1 py-1 rounded-lg text-center text-[10px] font-bold bg-white/[0.04] hover:bg-white/[0.08] text-gray-400 hover:text-white disabled:opacity-20 transition-colors" data-testid={`auction-down-${idx}`}>
+                              <ArrowRight className="w-3.5 h-3.5 inline" />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <div className="flex items-center gap-3 mt-2 pt-2 border-t border-white/[0.04]">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500/40" />
-                    <span className="text-[9px] text-gray-500">Ends Fri/Sat/Sun = more buyers</span>
-                  </div>
-                  <span className="text-[9px] text-gray-600 ml-auto">{auctionCards.filter((_, i) => { const s = getStartDay(); const e = new Date(s.getTime() + (i * 86400000) + (config.auction_duration === 'Days_7' ? 7 : 10) * 86400000); return isWeekend(e); }).length}/{auctionCards.length} end on weekends</span>
-                </div>
+                <p className="text-xs text-gray-500 mt-3 text-center">
+                  <span className="text-emerald-400 font-bold">{auctionCards.filter((_, i) => { const s = getStartDay(); const e = new Date(s.getTime() + (i * 86400000) + (config.auction_duration === 'Days_7' ? 7 : 10) * 86400000); return isWeekend(e); }).length}</span>/{auctionCards.length} auctions end on weekends — use arrows to reorder
+                </p>
               </div>
             )}
 
