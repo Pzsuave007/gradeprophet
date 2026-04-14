@@ -40,7 +40,7 @@ class InventoryItem(BaseModel):
     image: Optional[str] = None
     back_image: Optional[str] = None
     listed: bool = False
-    category: str = "collection"
+    category: str = "for_sale"
     sport: Optional[str] = None
     team: Optional[str] = None
     source_analysis_id: Optional[str] = None
@@ -66,7 +66,7 @@ class InventoryItemCreate(BaseModel):
     notes: Optional[str] = None
     image_base64: Optional[str] = None
     back_image_base64: Optional[str] = None
-    category: str = "collection"
+    category: str = "for_sale"
     sport: Optional[str] = None
     team: Optional[str] = None
 
@@ -116,11 +116,11 @@ class BatchCardItem(BaseModel):
 
 class BatchSaveRequest(BaseModel):
     cards: List[BatchCardItem]
-    category: str = "collection"
+    category: str = "for_sale"
 
 
 class ImportFromScanRequest(BaseModel):
-    category: str = "collection"
+    category: str = "for_sale"
     purchase_price: Optional[float] = None
     notes: Optional[str] = None
 
