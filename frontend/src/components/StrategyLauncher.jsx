@@ -375,6 +375,56 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               </div>
             )}
 
+            {/* Strategy Plan Visual */}
+            <div className="p-4 rounded-xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/15 mb-5" data-testid="strategy-plan-summary">
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-amber-400" />
+                <p className="text-xs font-bold text-white">Your Strategy Plan</p>
+              </div>
+              <div className="space-y-2.5">
+                {auctionCards.length > 0 && (
+                  <div className="flex items-start gap-3 p-2.5 rounded-lg bg-black/30">
+                    <Gavel className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-bold text-amber-400">Auctions — 1 per day</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {auctionCards.length} auctions posting at <span className="text-white font-bold">{config.post_hour > 12 ? config.post_hour - 12 : config.post_hour}:00 {config.post_hour >= 12 ? 'PM' : 'AM'} Central</span> — one every day for <span className="text-white font-bold">{auctionCards.length} days</span>
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Duration: {config.auction_duration === 'Days_7' ? '7' : '10'} days each — Starting bid at {config.auction_start_pct}% of comp
+                      </p>
+                      <p className="text-[10px] text-gray-500">
+                        First auction ends on day {config.auction_duration === 'Days_7' ? 8 : 11} — Last auction ends on day {auctionCards.length + (config.auction_duration === 'Days_7' ? 7 : 10)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {fixedCards.length > 0 && (
+                  <div className="flex items-start gap-3 p-2.5 rounded-lg bg-black/30">
+                    <DollarSign className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-[11px] font-bold text-emerald-400">Fixed Price — {config.batch_size} per day</p>
+                      <p className="text-[10px] text-gray-400 mt-0.5">
+                        {fixedCards.length} listings posting at <span className="text-white font-bold">{config.post_hour > 12 ? config.post_hour - 12 : config.post_hour}:00 {config.post_hour >= 12 ? 'PM' : 'AM'} Central</span> — {config.batch_size} cards per day for <span className="text-white font-bold">{Math.ceil(fixedCards.length / config.batch_size)} days</span>
+                      </p>
+                      <p className="text-[10px] text-gray-500 mt-0.5">
+                        Best Offer enabled — Auto-decline below {config.auto_decline_pct}% — Auto-accept within {config.auto_accept_pct}%
+                      </p>
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-start gap-3 p-2.5 rounded-lg bg-black/30">
+                  <Rocket className="w-4 h-4 text-[#3b82f6] shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[11px] font-bold text-[#3b82f6]">Shipping</p>
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      {SHIPPING_OPTIONS.find(s => s.id === config.shipping_option)?.label || config.shipping_option} — {config.shipping_cost === 0 ? 'Free' : `$${config.shipping_cost.toFixed(2)}`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center justify-between mt-2 pt-4 border-t border-white/[0.04]">
               <button onClick={() => setStep(2)} className="text-xs text-gray-400 hover:text-white font-bold" data-testid="strategy-back-step3">
                 <ArrowLeft className="w-3.5 h-3.5 inline mr-1" /> Back
