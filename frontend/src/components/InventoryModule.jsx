@@ -1911,6 +1911,13 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                     data-testid={`chart-item-${i}`}>
                     <TrendingUp className="w-4 h-4" /><span className="text-[9px] font-bold">Price</span>
                   </button>
+                  {onAnalyzeCard && (
+                    <button onClick={(e) => { e.stopPropagation(); onAnalyzeCard(item); }}
+                      className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-amber-400 hover:bg-amber-500/15 active:bg-amber-500/25 transition-colors"
+                      data-testid={`analyze-card-${i}`}>
+                      <Scan className="w-4 h-4" /><span className="text-[9px] font-bold">Analyze</span>
+                    </button>
+                  )}
                   <button onClick={(e) => { e.stopPropagation(); openEdit(item); }}
                     className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[#3b82f6] hover:bg-[#3b82f6]/15 active:bg-[#3b82f6]/25 transition-colors"
                     data-testid={`edit-item-${i}`}>
@@ -1975,6 +1982,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
                   {!item.listed && <button onClick={(e) => { e.stopPropagation(); listSingleItem(item); }} className="p-1.5 rounded-lg hover:bg-emerald-500/10 text-gray-500 hover:text-emerald-400" data-testid={`list-item-${i}`} title="List on eBay"><ShoppingBag className="w-3.5 h-3.5" /></button>}
                   {item.listed && item.ebay_item_id && <a href={`https://www.ebay.com/itm/${item.ebay_item_id}`} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg hover:bg-amber-500/10 text-gray-500 hover:text-amber-400" title="View on eBay"><ExternalLink className="w-3.5 h-3.5" /></a>}
+                  {onAnalyzeCard && <button onClick={(e) => { e.stopPropagation(); onAnalyzeCard(item); }} className="p-1.5 rounded-lg hover:bg-amber-500/10 text-gray-500 hover:text-amber-400" data-testid={`analyze-item-${i}`} title="Analyze Card"><Scan className="w-3.5 h-3.5" /></button>}
                   <button onClick={(e) => { e.stopPropagation(); setChartCard(chartCard?.id === item.id ? null : item); }} className="p-1.5 rounded-lg hover:bg-purple-500/10 text-gray-500 hover:text-purple-400" data-testid={`chart-item-list-${i}`} title="Price History"><TrendingUp className="w-3.5 h-3.5" /></button>
                   <button onClick={(e) => { e.stopPropagation(); openEdit(item); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-item-${i}`}><Edit2 className="w-3.5 h-3.5" /></button>
                   {!item.listed && <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-1.5 rounded-lg hover:bg-white/5 text-gray-500 hover:text-red-400" data-testid={`delete-item-${i}`}><Trash2 className="w-3.5 h-3.5" /></button>}
@@ -2030,7 +2038,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
 };
 
 // =========== MAIN INVENTORY WITH SCANNER ===========
-const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCategory, onAddCategoryConsumed }) => {
+const InventoryModule = ({ pendingDetailCard, onDetailCardConsumed, pendingAddCategory, onAddCategoryConsumed, onAnalyzeCard }) => {
   const [mainTab, setMainTab] = useState('cards');
   const [activeCategory, setActiveCategory] = useState('for_sale');
   const [scannerView, setScannerView] = useState('scan');

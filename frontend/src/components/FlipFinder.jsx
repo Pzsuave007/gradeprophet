@@ -11,7 +11,7 @@ import UpgradeGate from './UpgradeGate';
 import { Button } from './ui/button';
 import { usePlan } from '../hooks/usePlan';
 
-const FlipFinder = ({ onNavigateToAccount }) => {
+const FlipFinder = ({ onNavigateToAccount, initialAnalyzeCard, onAnalyzeCardConsumed }) => {
   const [currentView, setCurrentView] = useState('monitor');
   const [currentAnalysis, setCurrentAnalysis] = useState(null);
   const [frontImage, setFrontImage] = useState(null);
@@ -22,6 +22,14 @@ const FlipFinder = ({ onNavigateToAccount }) => {
   const [ebayUrlToImport, setEbayUrlToImport] = useState(null);
   const [snipeUrl, setSnipeUrl] = useState(null);
   const { hasFeature, planId } = usePlan();
+
+  // Auto-switch to analyze tab when a card is passed from inventory
+  React.useEffect(() => {
+    if (initialAnalyzeCard) {
+      setSubTab('analyze');
+      setCurrentView('scanner');
+    }
+  }, [initialAnalyzeCard]);
 
   const flipFinderAccess = hasFeature('flip_finder');
   const hasMonitor = hasFeature('flip_finder_monitor');
@@ -140,7 +148,8 @@ const FlipFinder = ({ onNavigateToAccount }) => {
         {subTab === 'scanner' && currentView === 'scanner' && (
           <motion.div key="scanner" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <CardScanner onAnalysisComplete={handleAnalysisComplete} isAnalyzing={isAnalyzing} setIsAnalyzing={setIsAnalyzing}
-              ebayUrlToImport={ebayUrlToImport} onEbayImportComplete={handleEbayImportComplete} />
+              ebayUrlToImport={ebayUrlToImport} onEbayImportComplete={handleEbayImportComplete}
+              initialCard={initialAnalyzeCard} onInitialCardConsumed={onAnalyzeCardConsumed} />
           </motion.div>
         )}
 

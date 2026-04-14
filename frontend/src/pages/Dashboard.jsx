@@ -66,6 +66,7 @@ const Dashboard = ({ user, onLogout }) => {
   const [quickScanOpen, setQuickScanOpen] = useState(false);
   const [pendingDetailCard, setPendingDetailCard] = useState(null);
   const [pendingAddCategory, setPendingAddCategory] = useState(null);
+  const [pendingAnalyzeCard, setPendingAnalyzeCard] = useState(null);
   const navigate = useNavigate();
 
   const token = localStorage.getItem('flipslab_token');
@@ -108,9 +109,9 @@ const Dashboard = ({ user, onLogout }) => {
   const renderModule = () => {
     switch (activeModule) {
       case 'dashboard': return <DashboardHome onNavigate={setActiveModule} />;
-      case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} />;
+      case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} onAnalyzeCard={(card) => { setPendingAnalyzeCard(card); setActiveModule('flipfinder'); }} />;
       case 'listings': return <ListingsModule />;
-      case 'flipfinder': return <FlipFinder onNavigateToAccount={() => setActiveModule('account')} />;
+      case 'flipfinder': return <FlipFinder onNavigateToAccount={() => setActiveModule('account')} initialAnalyzeCard={pendingAnalyzeCard} onAnalyzeCardConsumed={() => setPendingAnalyzeCard(null)} />;
       case 'chase-packs': return <ChasePacksModule />;
       case 'schedule': return <ScheduleModule />;
       case 'market': return <MarketModule onNavigateToAccount={() => setActiveModule('account')} />;
