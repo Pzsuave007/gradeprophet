@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors, Crop } from 'lucide-react';
+import { Scan, Upload, X, RotateCcw, FlipHorizontal, Award, Info, Check, Trash2, Loader2, CornerDownRight, Calendar, Link, Scissors, Crop, Search } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Progress } from '../components/ui/progress';
 import { ScrollArea } from '../components/ui/scroll-area';
@@ -129,7 +129,11 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
   const [ebayError, setEbayError] = useState(null);
   const [ebayTitle, setEbayTitle] = useState('');
   const [selectedEbayIdx, setSelectedEbayIdx] = useState(null);
-  const [croppingImage, setCroppingImage] = useState(null); // 'front' | 'back' | null
+  const [croppingImage, setCroppingImage] = useState(null);
+  const [showInventoryPicker, setShowInventoryPicker] = useState(false);
+  const [inventoryCards, setInventoryCards] = useState([]);
+  const [inventoryLoading, setInventoryLoading] = useState(false);
+  const [inventorySearch, setInventorySearch] = useState('');
 
   const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
   const API = `${BACKEND_URL}/api`;
@@ -200,6 +204,37 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
   };
 
   const clearEbayImport = () => { setEbayUrl(''); setEbayImages([]); setEbayError(null); setEbayTitle(''); setSelectedEbayIdx(null); };
+
+  const openInventoryPicker = async () => {
+    setShowInventoryPicker(true);
+    if (inventoryCards.length > 0) return;
+    setInventoryLoading(true);
+    try {
+      const res = await fetch(`${API}/inventory?category=for_sale&limit=200`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setInventoryCards((data.items || []).filter(c => c.image));
+      }
+    } catch {}
+    finally { setInventoryLoading(false); }
+  };
+
+  const pickFromInventory = async (card) => {
+    // Load full item with full-size images
+    try {
+      const res = await fetch(`${API}/inventory/${card.id}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.image) setFrontImage(`data:image/jpeg;base64,${data.image}`);
+        if (data.back_image) setBackImage(`data:image/jpeg;base64,${data.back_image}`);
+        if (data.year) setCardYear(String(data.year));
+      }
+    } catch {
+      // Fallback: use what we have
+      if (card.image) setFrontImage(`data:image/jpeg;base64,${card.image}`);
+    }
+    setShowInventoryPicker(false);
+  };
 
   const saveReference = async (imageData) => {
     setSavingRef(true);
@@ -324,6 +359,48 @@ const CardScanner = ({ onAnalysisComplete, isAnalyzing, setIsAnalyzing, ebayUrlT
                       ))}
                     </div>
                     <button onClick={clearEbayImport} className="text-xs text-gray-500 hover:text-white mt-2">Limpiar</button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Pick from Inventory */}
+          <div className="bg-[#111] border border-[#1a1a1a] rounded-lg overflow-hidden">
+            <div className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={openInventoryPicker}>
+              <div className="flex items-center gap-2">
+                <Scan className="w-4 h-4 text-amber-400" />
+                <span className="text-sm text-white font-medium">Pick from Inventory</span>
+              </div>
+              <span className="text-gray-600 text-sm">{showInventoryPicker ? '−' : '+'}</span>
+            </div>
+            {showInventoryPicker && (
+              <div className="px-3 pb-3 border-t border-[#1a1a1a]">
+                <div className="relative mt-2 mb-2">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500" />
+                  <input value={inventorySearch} onChange={e => setInventorySearch(e.target.value)} placeholder="Search cards..."
+                    className="w-full bg-[#0a0a0a] border border-[#1a1a1a] rounded-lg pl-8 pr-3 py-1.5 text-xs text-white outline-none focus:border-white/10"
+                    data-testid="inventory-picker-search" />
+                </div>
+                {inventoryLoading ? (
+                  <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-gray-600 animate-spin" /></div>
+                ) : (
+                  <div className="grid grid-cols-5 sm:grid-cols-6 gap-1.5 max-h-[200px] overflow-y-auto">
+                    {inventoryCards
+                      .filter(c => !inventorySearch || (c.player || '').toLowerCase().includes(inventorySearch.toLowerCase()) || (c.card_name || '').toLowerCase().includes(inventorySearch.toLowerCase()))
+                      .map(c => {
+                        const img = c.thumbnail || c.store_thumbnail;
+                        return (
+                          <div key={c.id} onClick={() => pickFromInventory(c)}
+                            className="rounded-lg overflow-hidden cursor-pointer border border-transparent hover:border-amber-500/50 transition-colors"
+                            data-testid={`inv-pick-${c.id}`}>
+                            {img ? <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />
+                              : <div className="w-full aspect-[3/4] bg-[#0a0a0a] flex items-center justify-center"><Upload className="w-3 h-3 text-gray-700" /></div>}
+                            <p className="text-[8px] text-gray-400 truncate px-1 py-0.5">{c.player}</p>
+                          </div>
+                        );
+                    })}
                   </div>
                 )}
               </div>
