@@ -77,10 +77,8 @@ async def add_to_schedule(request: Request):
     grading_company = card.get("grading_company", "")
     grade = card.get("grade", "")
 
-    title_parts = [str(year), set_name, player, variation, card_number]
-    if grading_company and grade:
-        title_parts.append(f"{grading_company} {grade}")
-    title = " ".join(p for p in title_parts if p).strip()[:80]
+    from routers.ebay import generate_listing_title
+    title = generate_listing_title(card)
 
     # Sport category mapping
     cat_map = {"baseball": "261328", "basketball": "261329", "football": "261330", "soccer": "261331", "hockey": "261332", "wrestling": "261333", "golf": "261334", "tennis": "261335", "racing": "261336"}
@@ -185,10 +183,8 @@ async def add_bulk_to_schedule(request: Request):
         sport = card.get("sport", "Baseball")
         grading_company = card.get("grading_company", "")
         grade = card.get("grade", "")
-        title_parts = [str(year), set_name, player, variation, card.get("card_number", "")]
-        if grading_company and grade:
-            title_parts.append(f"{grading_company} {grade}")
-        title = " ".join(p for p in title_parts if p).strip()[:80]
+        from routers.ebay import generate_listing_title
+        title = generate_listing_title(card)
 
         post = {
             "id": str(uuid.uuid4())[:12],
