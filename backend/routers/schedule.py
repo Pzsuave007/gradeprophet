@@ -282,6 +282,192 @@ async def clear_queue(queue_type: str, request: Request):
     return {"success": True, "deleted": result.deleted_count}
 
 
+# ========== STRATEGY LAUNCHER ==========
+
+@router.post("/launch-strategy")
+async def launch_strategy(request: Request):
+    """Launch the eBay 150 Strategy: schedule auctions (1/day) + fixed price (5-6/day batches)."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+
+    auction_ids = body.get("auction_card_ids", [])
+    fixed_ids = body.get("fixed_card_ids", [])
+    auction_start_pct = float(body.get("auction_start_pct", 50))
+    auto_decline_pct = float(body.get("auto_decline_pct", 70))
+    auto_accept_pct = float(body.get("auto_accept_pct", 10))
+    shipping_option = body.get("shipping_option", "USPSFirstClass")
+    shipping_cost = float(body.get("shipping_cost", 1.50))
+    batch_size = int(body.get("batch_size", 5))
+
+    all_ids = auction_ids + fixed_ids
+    if not all_ids:
+        raise HTTPException(status_code=400, detail="No cards selected")
+
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+    cat_map = {"baseball": "261328", "basketball": "261329", "football": "261330", "soccer": "261331", "hockey": "261332"}
+
+    # Fetch all cards from inventory
+    cards_map = {}
+    for cid in all_ids:
+        card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
+        if card and not card.get("listed"):
+            existing = await db.scheduled_posts.find_one({"card_id": cid, "user_id": user_id, "status": "pending"}, {"_id": 0})
+            if not existing:
+                cards_map[cid] = card
+
+    # Use prices provided by frontend (market values looked up client-side)
+    price_overrides = body.get("prices", {})
+
+    # Schedule start: tomorrow 7pm Central (midnight UTC during CDT)
+    now = datetime.now(timezone.utc)
+    start_day = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+
+    added_auctions = []
+    added_fixed = []
+    needs_price = []
+    auction_day = 0
+    fixed_day = 0
+    fixed_in_batch = 0
+
+    def build_title(card):
+        from routers.ebay import generate_listing_title
+        return generate_listing_title(card)
+
+    # --- Schedule AUCTIONS: 1 per day ---
+    for cid in auction_ids:
+        card = cards_map.get(cid)
+        if not card:
+            continue
+        price = price_overrides.get(cid)
+        if not price or float(price) <= 0:
+            needs_price.append({"card_id": cid, "player": card.get("player", ""), "type": "auction"})
+            continue
+
+        starting_bid = round(float(price) * (auction_start_pct / 100), 2)
+        scheduled_at = start_day + timedelta(days=auction_day)
+        sport = card.get("sport", "Baseball")
+
+        post = {
+            "id": str(uuid.uuid4())[:12],
+            "user_id": user_id,
+            "card_id": cid,
+            "queue_type": "auction",
+            "status": "pending",
+            "scheduled_at": scheduled_at.isoformat(),
+            "title": build_title(card),
+            "player": card.get("player", ""),
+            "year": str(card.get("year", "")),
+            "set_name": card.get("set_name", ""),
+            "variation": card.get("variation", ""),
+            "sport": sport,
+            "card_number": card.get("card_number", ""),
+            "grading_company": card.get("grading_company", ""),
+            "grade": str(card.get("grade", "")) if card.get("grade") else "",
+            "image": card.get("image", ""),
+            "back_image": card.get("back_image", ""),
+            "category_id": cat_map.get(sport.lower(), "261328"),
+            "price": float(price),
+            "starting_bid": starting_bid,
+            "reserve_price": None,
+            "buy_it_now": None,
+            "auction_duration": "Days_7",
+            "shipping_option": shipping_option,
+            "shipping_cost": shipping_cost,
+            "condition_id": 400010,
+            "best_offer": False,
+            "postal_code": settings.get("postal_code", ""),
+            "location": settings.get("location", ""),
+            "ebay_item_id": None,
+            "error_message": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "posted_at": None,
+        }
+        await db.scheduled_posts.insert_one(post)
+        post.pop("_id", None)
+        added_auctions.append(post)
+        auction_day += 1
+
+    # --- Schedule FIXED PRICE: batches of 5-6 per day ---
+    for cid in fixed_ids:
+        card = cards_map.get(cid)
+        if not card:
+            continue
+        price = price_overrides.get(cid)
+        if not price or float(price) <= 0:
+            needs_price.append({"card_id": cid, "player": card.get("player", ""), "type": "fixed"})
+            continue
+
+        # Within each day, space items 10 minutes apart
+        scheduled_at = start_day + timedelta(days=fixed_day, minutes=fixed_in_batch * 10)
+        sport = card.get("sport", "Baseball")
+
+        post = {
+            "id": str(uuid.uuid4())[:12],
+            "user_id": user_id,
+            "card_id": cid,
+            "queue_type": "fixed_price",
+            "status": "pending",
+            "scheduled_at": scheduled_at.isoformat(),
+            "title": build_title(card),
+            "player": card.get("player", ""),
+            "year": str(card.get("year", "")),
+            "set_name": card.get("set_name", ""),
+            "variation": card.get("variation", ""),
+            "sport": sport,
+            "card_number": card.get("card_number", ""),
+            "grading_company": card.get("grading_company", ""),
+            "grade": str(card.get("grade", "")) if card.get("grade") else "",
+            "image": card.get("image", ""),
+            "back_image": card.get("back_image", ""),
+            "category_id": cat_map.get(sport.lower(), "261328"),
+            "price": float(price),
+            "starting_bid": 0.99,
+            "reserve_price": None,
+            "buy_it_now": None,
+            "auction_duration": "Days_7",
+            "shipping_option": shipping_option,
+            "shipping_cost": shipping_cost,
+            "condition_id": 400010,
+            "best_offer": True,
+            "postal_code": settings.get("postal_code", ""),
+            "location": settings.get("location", ""),
+            "ebay_item_id": None,
+            "error_message": None,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "posted_at": None,
+        }
+        await db.scheduled_posts.insert_one(post)
+        post.pop("_id", None)
+        added_fixed.append(post)
+
+        fixed_in_batch += 1
+        if fixed_in_batch >= batch_size:
+            fixed_in_batch = 0
+            fixed_day += 1
+
+    # Save best offer settings
+    if auto_decline_pct or auto_accept_pct:
+        await db.user_settings.update_one(
+            {"user_id": user_id},
+            {"$set": {
+                "best_offer_auto_decline_pct": auto_decline_pct,
+                "best_offer_auto_accept_pct": auto_accept_pct,
+            }},
+            upsert=True,
+        )
+
+    total_days = max(auction_day, fixed_day + (1 if fixed_in_batch > 0 else 0))
+    return {
+        "success": True,
+        "auctions_scheduled": len(added_auctions),
+        "fixed_scheduled": len(added_fixed),
+        "total_days": total_days,
+        "needs_price": needs_price,
+        "note": f"Strategy launched! {len(added_auctions)} auctions + {len(added_fixed)} fixed price over {total_days} days",
+    }
+
+
 # ========== BACKGROUND SCHEDULER ==========
 
 async def _create_ebay_listing(post: dict, token: str) -> dict:

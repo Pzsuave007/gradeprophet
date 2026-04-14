@@ -8,60 +8,68 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── ebay.py            # eBay listings, sync, promoted listings, Chase Packs
-│   │   ├── schedule.py        # Schedule Posting (fixed price + auction queues + background worker)
-│   │   ├── inventory.py       # Batch uploads, saves, queues
-│   │   ├── shop.py            # Shop/storefront + public chase packs
-│   │   ├── marketplace.py     # Marketplace + public chase packs
-│   │   ├── admin.py, subscription.py, settings.py, flipfinder.py
-│   ├── utils/ (image.py, ai.py, ebay.py)
+│   │   ├── ebay.py            # eBay listings, sync, promoted listings, Chase Packs, Best Offer rules
+│   │   ├── schedule.py        # Schedule Posting + Strategy Launcher + background worker
+│   │   ├── inventory.py       
+│   │   ├── settings.py        # User settings incl. best_offer_auto_decline/accept_pct
+│   │   ├── shop.py, marketplace.py, admin.py, subscription.py, flipfinder.py
+│   ├── utils/ (image.py, ai.py, ebay.py, market.py)
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ScheduleModule.jsx    # Schedule Posting (2 queues, add-to-schedule, timeline)
-│   │   │   ├── ChasePacksModule.jsx  # Chase Pack management
-│   │   │   ├── InventoryModule.jsx   # Card inventory (Collection option removed)
+│   │   │   ├── ScheduleModule.jsx       # Schedule Posting with Strategy Launcher integration
+│   │   │   ├── StrategyLauncher.jsx     # NEW: eBay Strategy Launcher (3-step wizard)
+│   │   │   ├── ChasePacksModule.jsx
+│   │   │   ├── InventoryModule.jsx
+│   │   │   ├── ListingsModule.jsx       # Bulk Best Offer with editable % rules
+│   │   │   ├── AccountModule.jsx        # Best Offer Rules section
 │   │   ├── pages/
-│   │   │   ├── ChaseRevealPage.jsx   # Pick Your Card flow
+│   │   │   ├── ChaseRevealPage.jsx
 │   │   │   ├── ShopPage.jsx, MarketplacePage.jsx, Dashboard.jsx
 ├── build_prod.sh, fix.sh, AGENT_RULES.md
 ```
 
-## Schedule Posting Feature
-- Two separate queues: Fixed Price and Auctions
-- Background worker runs every 60 seconds, posts pending items to eBay
-- Auctions: Starting Bid, Reserve Price, Buy It Now, Duration (1-10 days)
-- Bulk scheduling with configurable interval (e.g., 1 card every 24 hours)
-- Default posting time: 7pm EST (midnight UTC)
-- Cards auto-marked as "listed" after successful posting
+## Best Offer Auto-Accept/Auto-Decline Rules
+- User sets percentages in Account → "Best Offer Rules" section
+- `auto_decline_pct` (e.g. 70): reject offers below 70% of price
+- `auto_accept_pct` (e.g. 10): accept offers within 10% of price
+- Automatically applied to new listings with Best Offer enabled
+- Bulk apply to selected listings in Listings module (with editable percentages)
+- Bulk apply to ALL active listings from Account
+- Uses eBay `<MinimumBestOfferPrice>` and `<BestOfferAutoAcceptPrice>` with `currencyID="USD"`
 
-## Chase Pack Flow (Pick Your Card)
-- Buyer purchases spot → receives claim code via eBay message
-- Enters code → sees grid of face-down "graded card slabs" with seller logo
-- Picks a card → reveal animation + tier celebration
-- End/Delete pack auto-ends eBay listing
+## eBay Strategy Launcher
+- 3-step wizard in Schedule tab:
+  1. Select cards from unlisted inventory
+  2. Pick which cards are auctions (tap to toggle) + set prices (auto-lookup or manual)
+  3. Configure settings (auction start %, decline %, accept %, batch size) + launch
+- Auctions: 1/day, 7-day duration, starting bid = X% of comp
+- Fixed Price: batches of N/day, Best Offer enabled with auto-decline/accept rules
+- All scheduled at 7pm Central (midnight UTC)
+- Endpoint: `POST /api/schedule/launch-strategy`
+
+## Listing Title Format
+- Player name FIRST, then card details: "Stephen Curry 2024 Topps Chrome #45"
+- Applied in `generate_listing_title()` in ebay.py and used by schedule worker
 
 ## Key API Endpoints
-- `POST /api/schedule/add` — Schedule single card
-- `POST /api/schedule/add-bulk` — Schedule multiple cards with interval
-- `GET /api/schedule/queue` — Get schedule queue
-- `DELETE /api/schedule/{id}` — Remove from schedule
-- `POST /api/ebay/sell/create-chase-pack` — Create chase pack on eBay
-- `POST /api/ebay/chase/{pack_id}/pick-card` — Buyer picks card
-- `GET /api/shop/{slug}/chase-packs` — Public chase packs for store
-- `GET /api/marketplace/chase-packs` — All active chase packs
+- `POST /api/schedule/launch-strategy` — Launch eBay strategy
+- `POST /api/schedule/add-bulk` — Schedule multiple cards
+- `POST /api/ebay/sell/bulk-apply-offer-rules` — Apply Best Offer rules to selected listings
+- `POST /api/ebay/sell/bulk-update-best-offer-rules` — Apply rules to ALL active listings
+- `PUT /api/settings` — Save best_offer_auto_decline_pct, best_offer_auto_accept_pct
+- `POST /api/ebay/sell/create` — Create listing (auto-applies Best Offer rules)
 
-## Completed Features (Latest - Apr 2026)
+## Completed Features (Apr 2026)
+- Best Offer Auto-Decline/Auto-Accept Rules (settings + apply to new + bulk update)
+- eBay Strategy Launcher (3-step wizard, auctions + fixed price scheduling)
+- Player name first in listing titles
 - Schedule Posting with dual queues (Fixed Price + Auctions)
-- Background scheduler worker
-- Auction support (Starting Bid, Reserve, BIN, Duration)
 - Pick Your Card flow for Chase Packs
-- Chase Packs in Store banner + Marketplace section
+- Chase Packs in Store + Marketplace
 - eBay listing auto-end on pack End/Delete
-- Card value editing + tier value ranges
 - Collection option removed from inventory
-- Collage grid 2 cards per row
-- Rich HTML description for eBay Chase Pack listings
+- Rich HTML description for eBay listings
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
@@ -69,7 +77,7 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 
 ## Future/Backlog
 - P2: Chase Pack Phase 2 - Direct Purchase via Stripe
-- P3: Seller Hub Features
+- P3: Seller Hub Features (Sales Dashboard, Order Management)
 - P4: New User Onboarding
 - P5-P8: Flip Finder, Windows Scanner, Team Access, Refactoring
 

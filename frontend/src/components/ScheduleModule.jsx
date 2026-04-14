@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, Search, X, Timer, Zap } from 'lucide-react';
+import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, Search, X, Timer, Zap, Rocket } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
+import StrategyLauncher from './StrategyLauncher';
 
 const API = process.env.REACT_APP_BACKEND_URL;
 
@@ -202,6 +203,7 @@ const ScheduleModule = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [addingTo, setAddingTo] = useState(null); // 'fixed_price' | 'auction' | null
+  const [showStrategy, setShowStrategy] = useState(false);
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -229,6 +231,10 @@ const ScheduleModule = () => {
     } catch { toast.error('Failed to clear queue'); }
   };
 
+  if (showStrategy) {
+    return <StrategyLauncher onBack={() => setShowStrategy(false)} onDone={() => { setShowStrategy(false); fetchQueue(); }} />;
+  }
+
   if (addingTo) {
     return <AddToScheduleView queueType={addingTo} onBack={() => setAddingTo(null)} onAdded={() => { setAddingTo(null); fetchQueue(); }} />;
   }
@@ -246,6 +252,9 @@ const ScheduleModule = () => {
           <p className="text-xs text-gray-500 mt-0.5">Queue cards for automatic eBay posting</p>
         </div>
         <div className="flex gap-2">
+          <button onClick={() => setShowStrategy(true)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-orange-500 to-red-600 text-white text-xs font-black hover:shadow-lg hover:shadow-orange-500/20 transition-shadow" data-testid="launch-strategy-btn">
+            <Rocket className="w-3.5 h-3.5" /> Launch Strategy
+          </button>
           <button onClick={() => setAddingTo(tab)} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black text-xs font-black hover:shadow-lg hover:shadow-amber-500/20 transition-shadow" data-testid="add-to-schedule-btn">
             <Plus className="w-3.5 h-3.5" /> Add Cards
           </button>
