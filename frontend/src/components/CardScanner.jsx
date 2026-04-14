@@ -24,7 +24,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
       const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX = 1200;
+        const MAX = 1600;
         let w = img.width, h = img.height;
         if (w > MAX || h > MAX) {
           if (w > h) { h = Math.round((h / w) * MAX); w = MAX; }
@@ -34,7 +34,7 @@ const ImageUploadZone = ({ label, sublabel, image, onImageSelect, onClear, disab
         canvas.height = h;
         const ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, w, h);
-        const result = canvas.toDataURL('image/webp', 0.82);
+        const result = canvas.toDataURL('image/webp', 0.92);
         canvas.width = 0;
         canvas.height = 0;
         resolve(result);
