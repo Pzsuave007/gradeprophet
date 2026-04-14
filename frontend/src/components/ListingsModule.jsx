@@ -926,13 +926,14 @@ const ListingsModule = () => {
   };
 
   const bulkApplyOfferRules = async () => {
-    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
-    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    const selectedItems = allSortedActive.filter(i => selected.has(i.item_id));
+    if (selectedItems.length === 0) { toast.error('No items selected'); return; }
     if (!bulkDeclinePct && !bulkAcceptPct) { toast.error('Set at least one percentage'); return; }
     setBulkUpdating(true);
     try {
       const res = await axios.post(`${API}/api/ebay/sell/bulk-apply-offer-rules`, {
-        item_ids: selectedIds,
+        item_ids: selectedItems.map(i => i.item_id),
+        prices: selectedItems.reduce((acc, i) => { acc[i.item_id] = i.price; return acc; }, {}),
         decline_pct: bulkDeclinePct ? parseFloat(bulkDeclinePct) : null,
         accept_pct: bulkAcceptPct ? parseFloat(bulkAcceptPct) : null,
       });

@@ -3884,14 +3884,32 @@ async def bulk_update_best_offer_rules(request: Request):
     if not decline_pct and not accept_pct:
         raise HTTPException(status_code=400, detail="No Best Offer rules configured. Set percentages in Account settings first.")
 
-    # Get all active inventory items with eBay listings
-    items = await db.inventory.find(
+    # Get prices from inventory items with eBay listings
+    inv_items = await db.inventory.find(
         {"user_id": user_id, "ebay_item_id": {"$exists": True, "$ne": ""}, "category": "for_sale"},
         {"_id": 0, "ebay_item_id": 1, "price": 1, "ebay_price": 1}
     ).to_list(5000)
 
+    # Build price map from inventory
+    items = []
+    seen_ids = set()
+    for it in inv_items:
+        eid = it.get("ebay_item_id")
+        if eid:
+            items.append({"item_id": eid, "price": it.get("ebay_price") or it.get("price") or 0})
+            seen_ids.add(eid)
+
+    # Also include active listings from cache that aren't in inventory
+    cache_doc = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0, "active": 1})
+    if cache_doc and cache_doc.get("active"):
+        for cached_item in cache_doc["active"]:
+            cid = cached_item.get("itemid") or cached_item.get("item_id", "")
+            if cid and cid not in seen_ids:
+                items.append({"item_id": cid, "price": cached_item.get("price", 0)})
+                seen_ids.add(cid)
+
     if not items:
-        raise HTTPException(status_code=404, detail="No active eBay listings found in inventory.")
+        raise HTTPException(status_code=404, detail="No active eBay listings found.")
 
     results = []
     import xml.etree.ElementTree as ET
@@ -3899,8 +3917,8 @@ async def bulk_update_best_offer_rules(request: Request):
 
     async with httpx.AsyncClient(timeout=30.0) as http_client:
         for item in items:
-            item_id = item.get("ebay_item_id")
-            price = item.get("ebay_price") or item.get("price") or 0
+            item_id = item.get("item_id")
+            price = item.get("price") or 0
             if not item_id or price <= 0:
                 results.append({"item_id": item_id or "unknown", "success": False, "error": "No price found"})
                 continue
@@ -3942,6 +3960,7 @@ async def bulk_update_best_offer_rules(request: Request):
 
 class BulkApplyOfferRulesRequest(BaseModel):
     item_ids: List[str]
+    prices: Optional[dict] = None
     decline_pct: Optional[float] = None
     accept_pct: Optional[float] = None
 
@@ -3965,22 +3984,34 @@ async def bulk_apply_offer_rules(data: BulkApplyOfferRulesRequest, request: Requ
     # Build a temporary settings dict with the percentages to use
     rule_settings = {"best_offer_auto_decline_pct": decline_pct, "best_offer_auto_accept_pct": accept_pct}
 
-    # Look up prices from inventory for the selected item_ids
-    items = await db.inventory.find(
-        {"user_id": user_id, "ebay_item_id": {"$in": data.item_ids}},
-        {"_id": 0, "ebay_item_id": 1, "price": 1, "ebay_price": 1}
-    ).to_list(5000)
-    price_map = {it["ebay_item_id"]: it.get("ebay_price") or it.get("price") or 0 for it in items}
+    # Use prices from frontend if provided
+    price_map = {}
+    if data.prices:
+        for iid, p in data.prices.items():
+            if p and float(p) > 0:
+                price_map[iid] = float(p)
 
-    # Also check listings_cache for prices not in inventory
-    if len(price_map) < len(data.item_ids):
-        missing = [iid for iid in data.item_ids if iid not in price_map]
-        cached = await db.listings_cache.find(
-            {"user_id": user_id, "item_id": {"$in": missing}},
-            {"_id": 0, "item_id": 1, "price": 1}
+    # Look up missing prices from inventory
+    missing_ids = [iid for iid in data.item_ids if iid not in price_map]
+    if missing_ids:
+        inv_items = await db.inventory.find(
+            {"user_id": user_id, "ebay_item_id": {"$in": missing_ids}},
+            {"_id": 0, "ebay_item_id": 1, "price": 1, "ebay_price": 1}
         ).to_list(5000)
-        for c in cached:
-            price_map[c["item_id"]] = c.get("price", 0)
+        for it in inv_items:
+            eid = it.get("ebay_item_id")
+            if eid and eid not in price_map:
+                price_map[eid] = it.get("ebay_price") or it.get("price") or 0
+
+    # Also check listings_cache for still-missing prices
+    still_missing = [iid for iid in data.item_ids if iid not in price_map]
+    if still_missing:
+        cache_doc = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0, "active": 1})
+        if cache_doc and cache_doc.get("active"):
+            for cached_item in cache_doc["active"]:
+                cid = cached_item.get("itemid") or cached_item.get("item_id", "")
+                if cid in still_missing and cid not in price_map:
+                    price_map[cid] = cached_item.get("price", 0)
 
     results = []
     import xml.etree.ElementTree as ET
