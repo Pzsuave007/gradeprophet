@@ -1,10 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Rocket, ArrowLeft, ArrowRight, Search, X, Package, CheckCircle, Gavel, DollarSign, Loader2, AlertCircle, Zap, RefreshCw } from 'lucide-react';
+import { Rocket, ArrowLeft, ArrowRight, Search, X, Package, CheckCircle, Gavel, DollarSign, Loader2, AlertCircle, Zap, RefreshCw, Clock } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
 const API = process.env.REACT_APP_BACKEND_URL;
+
+const SHIPPING_OPTIONS = [
+  { id: 'FreeShipping', label: 'Free Shipping', cost: 0 },
+  { id: 'PWEEnvelope', label: 'PWE Envelope', cost: 2.50 },
+  { id: 'USPSFirstClass', label: 'USPS First Class', cost: 4.50 },
+  { id: 'USPSPriority', label: 'USPS Priority', cost: 8.50 },
+];
 
 const StrategyLauncher = ({ onBack, onDone }) => {
   const [step, setStep] = useState(1);
@@ -20,9 +27,11 @@ const StrategyLauncher = ({ onBack, onDone }) => {
     auction_start_pct: 50,
     auto_decline_pct: 70,
     auto_accept_pct: 10,
-    shipping_option: 'USPSFirstClass',
-    shipping_cost: 1.50,
+    shipping_option: 'PWEEnvelope',
+    shipping_cost: 2.50,
     batch_size: 5,
+    auction_duration: 'Days_7',
+    post_hour: 19,
   });
 
   useEffect(() => {
@@ -61,39 +70,27 @@ const StrategyLauncher = ({ onBack, onDone }) => {
     const newPrices = { ...prices };
     for (const card of selectedCards) {
       if (newPrices[card.id]) continue;
-      // Use card_value or listed_price if available
       const existingPrice = card.card_value || card.listed_price || card.purchase_price;
       if (existingPrice && parseFloat(existingPrice) > 0) {
         newPrices[card.id] = parseFloat(existingPrice);
         continue;
       }
-      // Try market lookup
       try {
-        const parts = [card.year, card.set_name, card.player].filter(Boolean).join(' ');
-        if (parts) {
-          const res = await axios.post(`${API}/api/ebay/sell/preview`, { inventory_item_id: card.id }, { withCredentials: true });
-          if (res.data.market_data?.market_value) {
-            newPrices[card.id] = res.data.market_data.market_value;
-          } else if (res.data.suggested_price) {
-            newPrices[card.id] = res.data.suggested_price;
-          }
-        }
+        const res = await axios.post(`${API}/api/ebay/sell/preview`, { inventory_item_id: card.id }, { withCredentials: true });
+        if (res.data.market_data?.market_value) newPrices[card.id] = res.data.market_data.market_value;
+        else if (res.data.suggested_price) newPrices[card.id] = res.data.suggested_price;
       } catch {}
     }
     setPrices(newPrices);
     setLookingUp(false);
-    const found = Object.keys(newPrices).length;
-    const missing = selectedCards.length - found;
+    const missing = selectedCards.length - Object.keys(newPrices).length;
     if (missing > 0) toast.info(`${missing} cards need manual pricing`);
     else toast.success('All prices found!');
   };
 
   const handleLaunch = async () => {
     const missingPrice = selectedCards.filter(c => !prices[c.id] || prices[c.id] <= 0);
-    if (missingPrice.length > 0) {
-      toast.error(`${missingPrice.length} cards still need a price`);
-      return;
-    }
+    if (missingPrice.length > 0) { toast.error(`${missingPrice.length} cards still need a price`); return; }
     setLaunching(true);
     try {
       const res = await axios.post(`${API}/api/schedule/launch-strategy`, {
@@ -106,6 +103,8 @@ const StrategyLauncher = ({ onBack, onDone }) => {
         shipping_option: config.shipping_option,
         shipping_cost: config.shipping_cost,
         batch_size: config.batch_size,
+        auction_duration: config.auction_duration,
+        post_hour: config.post_hour,
       }, { withCredentials: true });
       toast.success(res.data.note);
       onDone();
@@ -194,7 +193,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
           </motion.div>
         )}
 
-        {/* STEP 2: Pick Auction Items + Set Prices */}
+        {/* STEP 2: Pick Auction Items + Set Prices — GRID VIEW */}
         {step === 2 && (
           <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <div className="mb-4 p-3 rounded-xl bg-amber-500/5 border border-amber-500/10">
@@ -202,7 +201,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               <p className="text-[10px] text-gray-500 mt-0.5">Auctions post 1/day. Everything else posts as fixed price in batches of {config.batch_size}/day.</p>
             </div>
 
-            <div className="flex gap-2 mb-3">
+            <div className="flex items-center gap-3 mb-3">
               <button onClick={lookupPrices} disabled={lookingUp}
                 className="flex items-center gap-2 px-4 py-2 rounded-lg bg-[#3b82f6]/20 border border-[#3b82f6]/30 text-[#3b82f6] text-xs font-bold hover:bg-[#3b82f6]/30 disabled:opacity-50 transition-colors"
                 data-testid="strategy-lookup-prices">
@@ -215,34 +214,29 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               </div>
             </div>
 
-            <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[420px] overflow-y-auto pr-1">
               {selectedCards.map(c => {
                 const isAuction = auctionIds.has(c.id);
                 const img = c.thumbnail || c.store_thumbnail || c.image;
                 const hasPrice = prices[c.id] && prices[c.id] > 0;
                 return (
-                  <div key={c.id} className={`flex items-center gap-3 p-2.5 rounded-xl border transition-all ${isAuction ? 'border-amber-500/30 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02]'}`}>
-                    <button onClick={() => toggleAuction(c.id)}
-                      className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${isAuction ? 'bg-amber-500 text-black' : 'bg-white/[0.04] text-gray-500 hover:text-white'}`}
-                      data-testid={`strategy-toggle-auction-${c.id}`}>
-                      <Gavel className="w-4 h-4" />
-                    </button>
-                    <div className="w-8 h-10 rounded-lg overflow-hidden bg-[#111] shrink-0">
-                      {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="w-full h-full object-cover" /> : <Package className="w-3 h-3 text-gray-700 m-auto mt-3" />}
+                  <div key={c.id} className={`relative rounded-xl overflow-hidden border-2 transition-all ${isAuction ? 'border-amber-500/60 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02]'}`}>
+                    <div className="cursor-pointer" onClick={() => toggleAuction(c.id)}>
+                      {img ? <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />
+                        : <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-6 h-6 text-gray-700" /></div>}
+                      <span className={`absolute top-1.5 left-1.5 text-[9px] font-black px-2 py-0.5 rounded-full ${isAuction ? 'bg-amber-500 text-black' : 'bg-emerald-500/80 text-white'}`}>
+                        {isAuction ? 'AUCTION' : 'FIXED'}
+                      </span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-white truncate">{c.player}</p>
-                      <p className="text-[9px] text-gray-500 truncate">{c.year} {c.set_name}</p>
-                    </div>
-                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${isAuction ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                      {isAuction ? 'AUCTION' : 'FIXED'}
-                    </span>
-                    <div className="w-24 shrink-0">
+                    <div className="p-2 space-y-1">
+                      <p className="text-[10px] font-bold text-white truncate">{c.player}</p>
+                      <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
                       <input type="number" step="0.01" min="0"
                         className={`w-full bg-[#0a0a0a] border rounded-lg px-2 py-1.5 text-xs text-right text-white outline-none ${hasPrice ? 'border-white/[0.06]' : 'border-red-500/40'}`}
                         value={prices[c.id] || ''}
                         onChange={e => setPrices(p => ({ ...p, [c.id]: e.target.value ? parseFloat(e.target.value) : '' }))}
                         placeholder="$0.00"
+                        onClick={e => e.stopPropagation()}
                         data-testid={`strategy-price-${c.id}`} />
                     </div>
                   </div>
@@ -281,68 +275,93 @@ const StrategyLauncher = ({ onBack, onDone }) => {
               <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center">
                 <p className="text-2xl font-black text-white">{Math.max(auctionCards.length, Math.ceil(fixedCards.length / config.batch_size))}</p>
                 <p className="text-[10px] text-gray-500 font-bold">TOTAL DAYS</p>
-                <p className="text-[9px] text-gray-600">to complete</p>
               </div>
               <div className="p-3 rounded-xl bg-white/[0.02] border border-white/[0.04] text-center">
                 <p className="text-2xl font-black text-white">{selected.length}</p>
                 <p className="text-[10px] text-gray-500 font-bold">TOTAL CARDS</p>
-                <p className="text-[9px] text-gray-600">in strategy</p>
               </div>
             </div>
 
-            {/* Settings */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-              <div>
-                <label className={labelCls}>Auction Start %</label>
-                <div className="flex items-center gap-1">
-                  <input type="number" min="10" max="90" step="5" value={config.auction_start_pct}
-                    onChange={e => setConfig(c => ({ ...c, auction_start_pct: e.target.value }))}
-                    className={inputCls + " text-center"} data-testid="strategy-auction-pct" />
-                  <span className="text-[10px] text-gray-500">% of comp</span>
+            {/* Settings Grid */}
+            <div className="space-y-4 mb-5">
+              {/* Pricing Settings */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <p className="text-xs font-bold text-white mb-3">Pricing</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelCls}>Auction Start %</label>
+                    <input type="number" min="10" max="90" step="5" value={config.auction_start_pct}
+                      onChange={e => setConfig(c => ({ ...c, auction_start_pct: e.target.value }))}
+                      className={inputCls + " text-center"} data-testid="strategy-auction-pct" />
+                    <p className="text-[9px] text-gray-600 mt-1">Starting bid % of comp</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Auto-Decline %</label>
+                    <input type="number" min="0" max="99" step="5" value={config.auto_decline_pct}
+                      onChange={e => setConfig(c => ({ ...c, auto_decline_pct: e.target.value }))}
+                      className={inputCls + " text-center"} data-testid="strategy-decline-pct" />
+                    <p className="text-[9px] text-gray-600 mt-1">Reject offers below</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Auto-Accept %</label>
+                    <input type="number" min="0" max="99" step="5" value={config.auto_accept_pct}
+                      onChange={e => setConfig(c => ({ ...c, auto_accept_pct: e.target.value }))}
+                      className={inputCls + " text-center"} data-testid="strategy-accept-pct" />
+                    <p className="text-[9px] text-gray-600 mt-1">Accept within</p>
+                  </div>
                 </div>
-                <p className="text-[9px] text-gray-600 mt-1">Auction starting bid</p>
               </div>
-              <div>
-                <label className={labelCls}>Auto-Decline %</label>
-                <div className="flex items-center gap-1">
-                  <input type="number" min="0" max="99" step="5" value={config.auto_decline_pct}
-                    onChange={e => setConfig(c => ({ ...c, auto_decline_pct: e.target.value }))}
-                    className={inputCls + " text-center"} data-testid="strategy-decline-pct" />
-                  <span className="text-[10px] text-gray-500">%</span>
+
+              {/* Schedule Settings */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <p className="text-xs font-bold text-white mb-3">Schedule</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelCls}>Post Time (Central)</label>
+                    <select value={config.post_hour} onChange={e => setConfig(c => ({ ...c, post_hour: parseInt(e.target.value) }))}
+                      className={inputCls} data-testid="strategy-post-hour">
+                      <option value={17}>5:00 PM</option>
+                      <option value={18}>6:00 PM</option>
+                      <option value={19}>7:00 PM</option>
+                      <option value={20}>8:00 PM</option>
+                      <option value={21}>9:00 PM</option>
+                    </select>
+                    <p className="text-[9px] text-gray-600 mt-1">Peak buyer hours</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Auction Duration</label>
+                    <select value={config.auction_duration} onChange={e => setConfig(c => ({ ...c, auction_duration: e.target.value }))}
+                      className={inputCls} data-testid="strategy-auction-duration">
+                      <option value="Days_7">7 Days</option>
+                      <option value="Days_10">10 Days</option>
+                    </select>
+                    <p className="text-[9px] text-gray-600 mt-1">Auction length</p>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Batch Size</label>
+                    <input type="number" min="3" max="10" step="1" value={config.batch_size}
+                      onChange={e => setConfig(c => ({ ...c, batch_size: parseInt(e.target.value) || 5 }))}
+                      className={inputCls + " text-center"} data-testid="strategy-batch-size" />
+                    <p className="text-[9px] text-gray-600 mt-1">Fixed price per day</p>
+                  </div>
                 </div>
-                <p className="text-[9px] text-gray-600 mt-1">Reject offers below</p>
               </div>
-              <div>
-                <label className={labelCls}>Auto-Accept %</label>
-                <div className="flex items-center gap-1">
-                  <input type="number" min="0" max="99" step="5" value={config.auto_accept_pct}
-                    onChange={e => setConfig(c => ({ ...c, auto_accept_pct: e.target.value }))}
-                    className={inputCls + " text-center"} data-testid="strategy-accept-pct" />
-                  <span className="text-[10px] text-gray-500">%</span>
+
+              {/* Shipping Settings */}
+              <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+                <p className="text-xs font-bold text-white mb-3">Shipping</p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {SHIPPING_OPTIONS.map(s => (
+                    <button key={s.id} onClick={() => setConfig(c => ({ ...c, shipping_option: s.id, shipping_cost: s.cost }))}
+                      className={`p-3 rounded-xl text-left transition-all border-2 ${config.shipping_option === s.id ? 'border-amber-500/50 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.08]'}`}
+                      data-testid={`strategy-ship-${s.id}`}>
+                      <p className={`text-xs font-bold ${config.shipping_option === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
+                      <p className={`text-sm font-black mt-1 ${config.shipping_option === s.id ? 'text-white' : 'text-gray-500'}`}>
+                        {s.cost === 0 ? 'Free' : `$${s.cost.toFixed(2)}`}
+                      </p>
+                    </button>
+                  ))}
                 </div>
-                <p className="text-[9px] text-gray-600 mt-1">Accept within</p>
-              </div>
-              <div>
-                <label className={labelCls}>Batch Size</label>
-                <input type="number" min="3" max="10" step="1" value={config.batch_size}
-                  onChange={e => setConfig(c => ({ ...c, batch_size: parseInt(e.target.value) || 5 }))}
-                  className={inputCls + " text-center"} data-testid="strategy-batch-size" />
-                <p className="text-[9px] text-gray-600 mt-1">Fixed price per day</p>
-              </div>
-              <div>
-                <label className={labelCls}>Shipping</label>
-                <select value={config.shipping_option} onChange={e => setConfig(c => ({ ...c, shipping_option: e.target.value }))}
-                  className={inputCls} data-testid="strategy-shipping">
-                  <option value="FreeShipping">Free Shipping</option>
-                  <option value="USPSFirstClass">USPS First Class</option>
-                  <option value="USPSPriority">USPS Priority</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Ship Cost</label>
-                <input type="number" step="0.50" value={config.shipping_cost}
-                  onChange={e => setConfig(c => ({ ...c, shipping_cost: parseFloat(e.target.value) || 0 }))}
-                  className={inputCls + " text-center"} data-testid="strategy-ship-cost" />
               </div>
             </div>
 

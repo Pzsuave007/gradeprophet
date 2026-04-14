@@ -295,6 +295,10 @@ async def launch_strategy(request: Request):
     shipping_option = body.get("shipping_option", "USPSFirstClass")
     shipping_cost = float(body.get("shipping_cost", 1.50))
     batch_size = int(body.get("batch_size", 5))
+    auction_duration = body.get("auction_duration", "Days_7")
+    post_hour_central = int(body.get("post_hour", 19))
+    # Convert Central Time to UTC (CDT = UTC-5, CST = UTC-6). Use UTC-5 for most of the year.
+    post_hour_utc = (post_hour_central + 5) % 24
 
     all_ids = auction_ids + fixed_ids
     if not all_ids:
@@ -315,9 +319,9 @@ async def launch_strategy(request: Request):
     # Use prices provided by frontend (market values looked up client-side)
     price_overrides = body.get("prices", {})
 
-    # Schedule start: tomorrow 7pm Central (midnight UTC during CDT)
+    # Schedule start: tomorrow at configured hour (converted to UTC)
     now = datetime.now(timezone.utc)
-    start_day = now.replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
+    start_day = now.replace(hour=post_hour_utc, minute=0, second=0, microsecond=0) + timedelta(days=1)
 
     added_auctions = []
     added_fixed = []
@@ -367,7 +371,7 @@ async def launch_strategy(request: Request):
             "starting_bid": starting_bid,
             "reserve_price": None,
             "buy_it_now": None,
-            "auction_duration": "Days_7",
+            "auction_duration": auction_duration,
             "shipping_option": shipping_option,
             "shipping_cost": shipping_cost,
             "condition_id": 400010,
