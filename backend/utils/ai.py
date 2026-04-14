@@ -318,7 +318,7 @@ For RAW (ungraded) cards, the back is especially important — it often has the 
 
 Return ONLY valid JSON with these fields (use null for anything you can't determine):
 {
-  "card_name": "<Full card name, e.g. '1996 Topps Chrome Kobe Bryant #138 Refractor'>",
+  "card_name": "<Full card name with PLAYER FIRST, e.g. 'Kobe Bryant 1996 Topps Chrome #138 Refractor'>",
   "player": "<Player name>",
   "year": <year as integer or null>,
   "set_name": "<Set/brand name, e.g. 'Topps Chrome', 'Fleer', 'Upper Deck SP'>",
@@ -347,7 +347,7 @@ The PSA label typically contains:
 
 Return ONLY a JSON object with this format (no other text):
 {
-    "card_name": "<Year> <Set> <Player Name> <Card Number if visible>",
+    "card_name": "<Player Name> <Year> <Set> <Card Number if visible>",
     "year": "<year>",
     "set": "<card set/brand>",
     "player": "<player name>",
@@ -357,7 +357,7 @@ Return ONLY a JSON object with this format (no other text):
 
 Example response:
 {
-    "card_name": "1996-97 Upper Deck SP #134 Kobe Bryant RC",
+    "card_name": "Kobe Bryant 1996-97 Upper Deck SP #134 RC",
     "year": "1996-97",
     "set": "Upper Deck SP",
     "player": "Kobe Bryant",

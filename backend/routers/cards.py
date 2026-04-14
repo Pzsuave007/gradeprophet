@@ -836,9 +836,9 @@ async def scan_upload(request: Request, file: UploadFile = File(...)):
                     variation = card_info.get("variation", "")
 
                     name_parts = []
+                    if player and player != "Unknown": name_parts.append(player)
                     if year: name_parts.append(str(year))
                     if set_name: name_parts.append(set_name)
-                    if player and player != "Unknown": name_parts.append(player)
                     if card_number: name_parts.append(f"#{card_number}")
                     if variation: name_parts.append(variation)
                     card_name = " ".join(name_parts) if name_parts else player or matched_item.get("card_name", "Unknown")

@@ -4639,7 +4639,7 @@ async def generate_ai_listing(data: ListingAIRequest):
 
 Return ONLY valid JSON with these fields:
 {{
-  "title": "<eBay title, MAX 80 chars. Include: year, brand/set, player name, card number, variation/parallel if any, grade if graded.>",
+  "title": "<eBay title, MAX 80 chars. PLAYER NAME FIRST, then year, brand/set, card number, variation/parallel if any, grade if graded. Example: 'Kobe Bryant 1996 Topps Chrome #138 Refractor PSA 10'>",
   "description": "<Compelling 3-5 sentence description. NO HTML tags.>"
 }}
 
