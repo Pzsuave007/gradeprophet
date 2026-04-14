@@ -243,6 +243,15 @@ const ScheduleModule = () => {
   const pending = filtered.filter(p => p.status === 'pending');
   const completed = filtered.filter(p => p.status !== 'pending');
 
+  // Strategy reminder: check when last auction ends
+  const auctionPosts = posts.filter(p => p.queue_type === 'auction' && p.status === 'pending');
+  const lastAuction = auctionPosts.length > 0 ? auctionPosts[auctionPosts.length - 1] : null;
+  const lastAuctionEnd = lastAuction ? new Date(new Date(lastAuction.scheduled_at).getTime() + 7 * 24 * 60 * 60 * 1000) : null;
+  const now = new Date();
+  const daysUntilNoAuctions = lastAuctionEnd ? Math.ceil((lastAuctionEnd - now) / (1000 * 60 * 60 * 24)) : null;
+  const showReminder = daysUntilNoAuctions !== null && daysUntilNoAuctions <= 3 && daysUntilNoAuctions >= 0;
+  const isUrgent = daysUntilNoAuctions !== null && daysUntilNoAuctions <= 1;
+
   return (
     <div className="max-w-5xl mx-auto" data-testid="schedule-module">
       {/* Header */}
@@ -265,6 +274,26 @@ const ScheduleModule = () => {
           )}
         </div>
       </div>
+
+      {/* Strategy Reminder */}
+      {showReminder && (
+        <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+          className={`flex items-center gap-3 p-3 rounded-xl mb-5 border ${isUrgent ? 'bg-red-500/10 border-red-500/20' : 'bg-amber-500/10 border-amber-500/20'}`}
+          data-testid="strategy-reminder-banner">
+          <Rocket className={`w-5 h-5 shrink-0 ${isUrgent ? 'text-red-400' : 'text-amber-400'}`} />
+          <div className="flex-1">
+            <p className={`text-xs font-bold ${isUrgent ? 'text-red-400' : 'text-amber-400'}`}>
+              {isUrgent ? 'Your auctions end tomorrow!' : `${daysUntilNoAuctions} days left of auctions`}
+            </p>
+            <p className="text-[10px] text-gray-500">Launch a new strategy to keep the traffic flowing</p>
+          </div>
+          <button onClick={() => setShowStrategy(true)}
+            className={`px-4 py-2 rounded-lg text-xs font-black transition-colors ${isUrgent ? 'bg-red-500 text-white hover:bg-red-400' : 'bg-amber-500 text-black hover:bg-amber-400'}`}
+            data-testid="strategy-reminder-launch-btn">
+            Launch Now
+          </button>
+        </motion.div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-5 p-1 rounded-xl bg-white/[0.02] border border-white/[0.04] w-fit">
