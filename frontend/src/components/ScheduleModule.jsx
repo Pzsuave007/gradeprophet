@@ -204,6 +204,10 @@ const ScheduleModule = () => {
   const [loading, setLoading] = useState(true);
   const [addingTo, setAddingTo] = useState(null); // 'fixed_price' | 'auction' | null
   const [showStrategy, setShowStrategy] = useState(false);
+  const [showBulkTime, setShowBulkTime] = useState(false);
+  const [bulkHour, setBulkHour] = useState('19');
+  const [bulkMinute, setBulkMinute] = useState('00');
+  const [bulkTimeUpdating, setBulkTimeUpdating] = useState(false);
 
   const fetchQueue = useCallback(async () => {
     try {
@@ -237,6 +241,21 @@ const ScheduleModule = () => {
       toast.success('Post time updated');
       fetchQueue();
     } catch { toast.error('Failed to update time'); }
+  };
+
+  const bulkChangeTime = async (queueType) => {
+    setBulkTimeUpdating(true);
+    try {
+      const res = await axios.post(`${API}/api/schedule/bulk-change-time`, {
+        hour: parseInt(bulkHour),
+        minute: parseInt(bulkMinute),
+        queue_type: queueType || null,
+      }, { withCredentials: true });
+      toast.success(`Updated ${res.data.updated} posts to ${bulkHour}:${bulkMinute} CT`);
+      setShowBulkTime(false);
+      fetchQueue();
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to update'); }
+    finally { setBulkTimeUpdating(false); }
   };
 
   if (showStrategy) {
@@ -336,9 +355,45 @@ const ScheduleModule = () => {
           {/* Pending (upcoming) */}
           {pending.length > 0 && (
             <div className="mb-6">
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5" /> Upcoming ({pending.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5" /> Upcoming ({pending.length})
+                </h3>
+                <button onClick={() => setShowBulkTime(!showBulkTime)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 transition-colors"
+                  data-testid="bulk-change-time-btn">
+                  <Clock className="w-3 h-3" /> Change All Times
+                </button>
+              </div>
+
+              {showBulkTime && (
+                <div className="flex flex-wrap items-center gap-3 p-3 mb-3 rounded-xl bg-amber-500/5 border border-amber-500/15" data-testid="bulk-time-panel">
+                  <span className="text-xs text-gray-400">New time:</span>
+                  <select value={bulkHour} onChange={e => setBulkHour(e.target.value)}
+                    className="bg-[#0a0a0a] border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white outline-none" data-testid="bulk-hour-select">
+                    {[15,16,17,18,19,20,21,22].map(h => (
+                      <option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>
+                    ))}
+                  </select>
+                  <select value={bulkMinute} onChange={e => setBulkMinute(e.target.value)}
+                    className="bg-[#0a0a0a] border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white outline-none" data-testid="bulk-minute-select">
+                    {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
+                  </select>
+                  <span className="text-xs text-gray-500 font-bold">CT</span>
+                  <div className="flex gap-2 ml-auto">
+                    <button onClick={() => bulkChangeTime(tab)} disabled={bulkTimeUpdating}
+                      className="px-4 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 disabled:opacity-50 transition-colors"
+                      data-testid="bulk-time-apply-tab">
+                      {bulkTimeUpdating ? 'Updating...' : `Apply to ${tab === 'auction' ? 'Auctions' : 'Fixed Price'}`}
+                    </button>
+                    <button onClick={() => bulkChangeTime(null)} disabled={bulkTimeUpdating}
+                      className="px-4 py-1.5 rounded-lg bg-white/5 text-gray-300 text-xs font-bold hover:bg-white/10 disabled:opacity-50 transition-colors"
+                      data-testid="bulk-time-apply-all">
+                      Apply to All
+                    </button>
+                  </div>
+                </div>
+              )}
               <div className="space-y-2">
                 {pending.map((post, idx) => (
                   <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} onEdit={editPostTime} />

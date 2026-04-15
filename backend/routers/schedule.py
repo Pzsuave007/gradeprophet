@@ -278,6 +278,41 @@ async def clear_queue(queue_type: str, request: Request):
     return {"success": True, "deleted": result.deleted_count}
 
 
+@router.post("/bulk-change-time")
+async def bulk_change_time(request: Request):
+    """Change the posting time for all pending posts, keeping their relative day order."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+
+    new_hour = int(body.get("hour", 19))  # Central time hour
+    new_minute = int(body.get("minute", 0))
+    queue_type = body.get("queue_type")  # optional: 'auction', 'fixed_price', or None for all
+
+    query = {"user_id": user_id, "status": "pending"}
+    if queue_type:
+        query["queue_type"] = queue_type
+
+    posts = await db.scheduled_posts.find(query, {"_id": 0, "id": 1, "scheduled_at": 1}).sort("scheduled_at", 1).to_list(5000)
+    if not posts:
+        raise HTTPException(status_code=404, detail="No pending posts found")
+
+    # Convert Central to UTC (CDT = UTC-5)
+    utc_hour = (new_hour + 5) % 24
+
+    updated = 0
+    for post in posts:
+        old_dt = datetime.fromisoformat(post["scheduled_at"].replace("Z", "+00:00")) if isinstance(post["scheduled_at"], str) else post["scheduled_at"]
+        new_dt = old_dt.replace(hour=utc_hour, minute=new_minute, second=0, microsecond=0)
+        await db.scheduled_posts.update_one(
+            {"id": post["id"]},
+            {"$set": {"scheduled_at": new_dt.isoformat()}}
+        )
+        updated += 1
+
+    return {"success": True, "updated": updated, "new_time_ct": f"{new_hour}:{new_minute:02d}"}
+
+
 # ========== STRATEGY LAUNCHER ==========
 
 @router.post("/launch-strategy")
