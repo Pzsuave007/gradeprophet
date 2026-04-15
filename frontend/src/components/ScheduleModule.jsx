@@ -394,11 +394,38 @@ const ScheduleModule = () => {
                   </div>
                 </div>
               )}
-              <div className="space-y-2">
-                {pending.map((post, idx) => (
-                  <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} onEdit={editPostTime} />
-                ))}
-              </div>
+              {/* Group by day */}
+              {(() => {
+                const groups = {};
+                pending.forEach(p => {
+                  const d = new Date(p.scheduled_at);
+                  const key = d.toISOString().split('T')[0];
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(p);
+                });
+                return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([date, dayPosts]) => {
+                  const d = new Date(date + 'T12:00:00');
+                  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+                  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+                  const dayName = days[d.getDay()];
+                  const isWeekend = d.getDay() === 0 || d.getDay() === 5 || d.getDay() === 6;
+                  return (
+                    <div key={date} className="mb-5">
+                      <div className={`flex items-center gap-2 mb-2 px-1 ${isWeekend ? 'text-emerald-400' : 'text-gray-400'}`}>
+                        <Calendar className="w-3.5 h-3.5" />
+                        <span className="text-xs font-bold">{dayName}</span>
+                        <span className="text-xs text-gray-500">{months[d.getMonth()]} {d.getDate()}</span>
+                        <span className="text-[10px] text-gray-600 ml-auto">{dayPosts.length} cards</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {dayPosts.map((post, idx) => (
+                          <PostCard key={post.id} post={post} onDelete={deletePost} onEdit={editPostTime} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -422,7 +449,98 @@ const ScheduleModule = () => {
 };
 
 
-// ============ POST ROW ============
+// ============ POST CARD (Visual Grid) ============
+const PostCard = ({ post, onDelete, onEdit }) => {
+  const [editing, setEditing] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
+  const status = STATUS_STYLES[post.status] || STATUS_STYLES.pending;
+  const isAuction = post.queue_type === 'auction';
+  const img = post.image;
+
+  const startEdit = () => {
+    const d = new Date(post.scheduled_at);
+    const central = new Date(d.getTime() - 5 * 60 * 60 * 1000);
+    setEditDate(central.toISOString().split('T')[0]);
+    const h = central.getHours().toString().padStart(2, '0');
+    const m = central.getMinutes().toString().padStart(2, '0');
+    setEditTime(`${h}:${m}`);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    const localDate = new Date(`${editDate}T${editTime}:00`);
+    const utcDate = new Date(localDate.getTime() + 5 * 60 * 60 * 1000);
+    onEdit(post.id, utcDate.toISOString());
+    setEditing(false);
+  };
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-white/[0.04] bg-white/[0.02] hover:border-white/[0.08] transition-colors group"
+      data-testid={`schedule-post-${post.id}`}>
+      <div className="flex gap-3 p-2.5">
+        {/* Big Thumbnail */}
+        <div className="w-20 h-28 rounded-lg overflow-hidden bg-[#111] shrink-0">
+          {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="w-full h-full object-cover" />
+            : <div className="w-full h-full flex items-center justify-center"><Package className="w-6 h-6 text-gray-700" /></div>}
+        </div>
+
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
+          <div>
+            <p className="text-sm font-bold text-white truncate">{post.title || post.player}</p>
+            <div className="flex items-center gap-2 mt-1">
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isAuction ? 'bg-amber-500/15 text-amber-400' : 'bg-emerald-500/15 text-emerald-400'}`}>
+                {isAuction ? 'AUCTION' : 'FIXED'}
+              </span>
+              <span className="text-xs text-gray-400 font-bold">
+                {isAuction ? `$${post.starting_bid} start` : `$${post.price}`}
+              </span>
+              {isAuction && (
+                <span className="text-[10px] text-gray-500 flex items-center gap-0.5"><Timer className="w-3 h-3" />{(post.auction_duration || '').replace('Days_', '')}d</span>
+              )}
+            </div>
+          </div>
+
+          {editing ? (
+            <div className="flex items-center gap-1.5 mt-2">
+              <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+                className="bg-[#0a0a0a] border border-white/10 rounded px-1.5 py-1 text-[10px] text-white outline-none flex-1" />
+              <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)}
+                className="bg-[#0a0a0a] border border-white/10 rounded px-1.5 py-1 text-[10px] text-white outline-none w-20" />
+              <button onClick={saveEdit} className="p-1 rounded bg-emerald-500/20 text-emerald-400"><CheckCircle className="w-3 h-3" /></button>
+              <button onClick={() => setEditing(false)} className="p-1 rounded bg-white/5 text-gray-500"><X className="w-3 h-3" /></button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-gray-400">
+                <Clock className="w-3 h-3 inline mr-1" />
+                {formatTime(post.scheduled_at)} CT
+              </p>
+              {post.status === 'pending' && (
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={startEdit} className="p-1 rounded hover:bg-amber-500/10 text-gray-600 hover:text-amber-400" data-testid={`edit-post-${post.id}`}>
+                    <Edit2 className="w-3.5 h-3.5" />
+                  </button>
+                  <button onClick={() => onDelete(post.id)} className="p-1 rounded hover:bg-red-500/10 text-gray-600 hover:text-red-400" data-testid={`delete-post-${post.id}`}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+      {post.error_message && (
+        <div className="px-2.5 pb-2">
+          <p className="text-[10px] text-red-400 flex items-center gap-1 truncate"><AlertCircle className="w-3 h-3 shrink-0" />{post.error_message}</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+
+// ============ POST ROW (for History) ============
 const PostRow = ({ post, idx, onDelete, onEdit }) => {
   const [editing, setEditing] = useState(false);
   const [editDate, setEditDate] = useState('');
