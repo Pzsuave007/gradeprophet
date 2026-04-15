@@ -279,6 +279,7 @@ async def get_inventory(
     condition: Optional[str] = None,
     listed: Optional[str] = None,
     category: Optional[str] = None,
+    scheduled: Optional[str] = None,
     ebay_item_id: Optional[str] = None,
     sort_by: Optional[str] = "created_at",
     sort_dir: Optional[str] = "desc",
@@ -311,6 +312,8 @@ async def get_inventory(
             query["listed"] = listed.lower() == "true"
         if category and category in ("collection", "for_sale", "sold"):
             query["category"] = category
+        if scheduled is not None and scheduled != "":
+            query["scheduled"] = scheduled.lower() == "true"
         if ebay_item_id:
             query["ebay_item_id"] = ebay_item_id
 
@@ -394,8 +397,9 @@ async def get_inventory_stats(request: Request):
         listed = await db.inventory.count_documents({**uq, "listed": True})
         not_listed = await db.inventory.count_documents({**uq, "listed": {"$ne": True}})
         collection_count = await db.inventory.count_documents({**uq, "category": "collection", "listed": {"$ne": True}})
-        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}})
+        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}, "scheduled": {"$ne": True}})
         sold_count = await db.inventory.count_documents({**uq, "category": "sold"})
+        scheduled_count = await db.inventory.count_documents({**uq, "scheduled": True, "listed": {"$ne": True}})
 
         pipeline = [
             {"$match": {**uq, "purchase_price": {"$gt": 0}}},
@@ -413,7 +417,7 @@ async def get_inventory_stats(request: Request):
             "total_cards": total, "total_quantity": inv_agg.get("total_quantity", total),
             "graded": graded, "raw": raw, "listed": listed, "not_listed": not_listed,
             "collection_count": collection_count, "for_sale_count": for_sale_count,
-            "sold_count": sold_count,
+            "sold_count": sold_count, "scheduled_count": scheduled_count,
             "total_invested": round(inv_agg.get("total_invested", 0), 2),
             "avg_price": round(inv_agg.get("avg_price", 0), 2),
         }

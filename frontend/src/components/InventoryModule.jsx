@@ -4,7 +4,7 @@ import {
   Plus, Search, Filter, X, Edit2, Trash2, Package, DollarSign,
   Upload, Image as ImageIcon, Save, RefreshCw, RotateCcw,
   Award, Tag, ShoppingBag, Heart, Scan, ChevronLeft, Layers, Check, ExternalLink, Store, TrendingUp,
-  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck, Zap, Star
+  Sun, Sliders, Palette, CircleDot, Loader2, Focus, Lock, Crop, Undo2, Sparkles, Truck, Zap, Star, Calendar
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -1300,6 +1300,13 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
         params.append('listed', 'true');
       } else if (activeCategory === 'sold') {
         params.append('category', 'sold');
+      } else if (activeCategory === 'scheduled') {
+        params.append('scheduled', 'true');
+        params.append('listed', 'false');
+      } else if (activeCategory === 'for_sale') {
+        params.append('category', 'for_sale');
+        params.append('listed', 'false');
+        params.append('scheduled', 'false');
       } else if (activeCategory !== 'all') {
         params.append('category', activeCategory);
         params.append('listed', 'false');
@@ -1591,6 +1598,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const categoryTabs = [
     { id: 'all', label: 'All', count: s.total_cards || 0 },
     { id: 'for_sale', label: 'Inventory', icon: ShoppingBag, count: s.for_sale_count || 0 },
+    { id: 'scheduled', label: 'Schedule', icon: Calendar, count: s.scheduled_count || 0 },
     { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
     { id: 'sold', label: 'Sold', icon: TrendingUp, count: s.sold_count || 0 },
   ];
@@ -1851,7 +1859,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                     </div>
                   )}
                 </div>
-                {item.category === 'for_sale' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
+                {item.scheduled && !item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-black uppercase font-bold flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" />Scheduled</span>
+                  : item.category === 'for_sale' && !item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
                 {item.listed && activeCategory !== 'listed' && <span className="absolute bottom-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold">Listed</span>}

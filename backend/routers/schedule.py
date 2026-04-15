@@ -126,6 +126,12 @@ async def add_to_schedule(request: Request):
     await db.scheduled_posts.insert_one(post)
     post.pop("_id", None)
 
+    # Mark card as scheduled in inventory
+    await db.inventory.update_one(
+        {"id": post["card_id"], "user_id": user["user_id"]},
+        {"$set": {"scheduled": True}}
+    )
+
     return {"success": True, "post": post}
 
 
@@ -224,6 +230,8 @@ async def add_bulk_to_schedule(request: Request):
         await db.scheduled_posts.insert_one(post)
         post.pop("_id", None)
         added.append(post)
+        # Mark card as scheduled
+        await db.inventory.update_one({"id": cid, "user_id": user_id}, {"$set": {"scheduled": True}})
 
     return {"success": True, "added": len(added), "skipped": len(skipped), "posts": added}
 
@@ -262,9 +270,15 @@ async def update_scheduled_post(post_id: str, request: Request):
 async def delete_scheduled_post(post_id: str, request: Request):
     """Remove a post from the schedule."""
     user = await get_current_user(request)
+    post = await db.scheduled_posts.find_one({"id": post_id, "user_id": user["user_id"]}, {"_id": 0, "card_id": 1})
     result = await db.scheduled_posts.delete_one({"id": post_id, "user_id": user["user_id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Scheduled post not found")
+    # Unmark card if no other pending schedules exist for it
+    if post and post.get("card_id"):
+        remaining = await db.scheduled_posts.find_one({"card_id": post["card_id"], "user_id": user["user_id"], "status": {"$in": ["pending", "processing"]}})
+        if not remaining:
+            await db.inventory.update_one({"id": post["card_id"], "user_id": user["user_id"]}, {"$set": {"scheduled": False}})
     return {"success": True}
 
 
@@ -505,6 +519,14 @@ async def launch_strategy(request: Request):
                 "best_offer_auto_accept_pct": auto_accept_pct,
             }},
             upsert=True,
+        )
+
+    # Mark all scheduled cards in inventory
+    all_scheduled_ids = [p["card_id"] for p in added_auctions + added_fixed]
+    if all_scheduled_ids:
+        await db.inventory.update_many(
+            {"id": {"$in": all_scheduled_ids}, "user_id": user_id},
+            {"$set": {"scheduled": True}}
         )
 
     total_days = max(auction_day, fixed_day + (1 if fixed_in_batch > 0 else 0))
