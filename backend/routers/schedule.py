@@ -280,7 +280,7 @@ async def clear_queue(queue_type: str, request: Request):
 
 @router.post("/bulk-change-time")
 async def bulk_change_time(request: Request):
-    """Change the posting time for all pending posts, keeping their relative day order."""
+    """Change the posting time for all pending posts, keeping their relative spacing within each day."""
     user = await get_current_user(request)
     user_id = user["user_id"]
     body = await request.json()
@@ -300,15 +300,26 @@ async def bulk_change_time(request: Request):
     # Convert Central to UTC (CDT = UTC-5)
     utc_hour = (new_hour + 5) % 24
 
-    updated = 0
+    # Group posts by day to preserve spacing within each day
+    from collections import defaultdict
+    day_groups = defaultdict(list)
     for post in posts:
-        old_dt = datetime.fromisoformat(post["scheduled_at"].replace("Z", "+00:00")) if isinstance(post["scheduled_at"], str) else post["scheduled_at"]
-        new_dt = old_dt.replace(hour=utc_hour, minute=new_minute, second=0, microsecond=0)
-        await db.scheduled_posts.update_one(
-            {"id": post["id"]},
-            {"$set": {"scheduled_at": new_dt.isoformat()}}
-        )
-        updated += 1
+        dt = datetime.fromisoformat(post["scheduled_at"].replace("Z", "+00:00")) if isinstance(post["scheduled_at"], str) else post["scheduled_at"]
+        day_key = dt.strftime("%Y-%m-%d")
+        day_groups[day_key].append((post, dt))
+
+    updated = 0
+    for day_key, group in day_groups.items():
+        group.sort(key=lambda x: x[1])
+        for i, (post, old_dt) in enumerate(group):
+            # First post at the new time, subsequent posts spaced 10 minutes apart
+            offset_minutes = new_minute + (i * 10)
+            new_dt = old_dt.replace(hour=utc_hour, minute=0, second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+            await db.scheduled_posts.update_one(
+                {"id": post["id"]},
+                {"$set": {"scheduled_at": new_dt.isoformat()}}
+            )
+            updated += 1
 
     return {"success": True, "updated": updated, "new_time_ct": f"{new_hour}:{new_minute:02d}"}
 
