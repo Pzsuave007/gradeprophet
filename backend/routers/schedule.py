@@ -292,6 +292,29 @@ async def clear_queue(queue_type: str, request: Request):
     return {"success": True, "deleted": result.deleted_count}
 
 
+@router.post("/sync-scheduled-flags")
+async def sync_scheduled_flags(request: Request):
+    """Sync the 'scheduled' field on inventory items based on pending scheduled posts."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    pending = await db.scheduled_posts.find(
+        {"user_id": user_id, "status": {"$in": ["pending", "processing"]}},
+        {"_id": 0, "card_id": 1}
+    ).to_list(5000)
+    card_ids = list(set(p["card_id"] for p in pending if p.get("card_id")))
+
+    # Reset all scheduled flags first
+    await db.inventory.update_many({"user_id": user_id}, {"$set": {"scheduled": False}})
+    # Mark cards that are actually scheduled
+    if card_ids:
+        result = await db.inventory.update_many(
+            {"user_id": user_id, "id": {"$in": card_ids}},
+            {"$set": {"scheduled": True}}
+        )
+        return {"success": True, "marked": result.modified_count, "total_pending": len(card_ids)}
+    return {"success": True, "marked": 0, "total_pending": 0}
+
+
 @router.post("/bulk-change-time")
 async def bulk_change_time(request: Request):
     """Change the posting time for all pending posts, keeping their relative spacing within each day."""

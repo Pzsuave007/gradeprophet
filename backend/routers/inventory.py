@@ -313,7 +313,10 @@ async def get_inventory(
         if category and category in ("collection", "for_sale", "sold"):
             query["category"] = category
         if scheduled is not None and scheduled != "":
-            query["scheduled"] = scheduled.lower() == "true"
+            if scheduled.lower() == "true":
+                query["scheduled"] = True
+            else:
+                query["$and"] = query.get("$and", []) + [{"$or": [{"scheduled": False}, {"scheduled": {"$exists": False}}]}]
         if ebay_item_id:
             query["ebay_item_id"] = ebay_item_id
 
@@ -397,7 +400,7 @@ async def get_inventory_stats(request: Request):
         listed = await db.inventory.count_documents({**uq, "listed": True})
         not_listed = await db.inventory.count_documents({**uq, "listed": {"$ne": True}})
         collection_count = await db.inventory.count_documents({**uq, "category": "collection", "listed": {"$ne": True}})
-        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}, "scheduled": {"$ne": True}})
+        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}, "$or": [{"scheduled": False}, {"scheduled": {"$exists": False}}]})
         sold_count = await db.inventory.count_documents({**uq, "category": "sold"})
         scheduled_count = await db.inventory.count_documents({**uq, "scheduled": True, "listed": {"$ne": True}})
 
