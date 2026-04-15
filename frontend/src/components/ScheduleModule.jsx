@@ -32,6 +32,19 @@ const formatTime = (iso) => {
   const d = new Date(iso);
   return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 };
+const formatTimeZones = (iso) => {
+  if (!iso) return { pt: '', ct: '', et: '' };
+  const d = new Date(iso);
+  const utcH = d.getUTCHours();
+  const utcM = d.getUTCMinutes();
+  const fmt = (offset) => {
+    let h = (utcH + offset + 24) % 24;
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12 || 12;
+    return `${h}:${utcM.toString().padStart(2, '0')} ${ampm}`;
+  };
+  return { pt: fmt(-7), ct: fmt(-5), et: fmt(-4) };
+};
 
 
 // ============ ADD TO SCHEDULE VIEW ============
@@ -512,10 +525,12 @@ const PostCard = ({ post, onDelete, onEdit }) => {
             </div>
           ) : (
             <div className="flex items-center justify-between mt-2">
-              <p className="text-xs text-gray-400">
-                <Clock className="w-3 h-3 inline mr-1" />
-                {formatTime(post.scheduled_at)} CT
-              </p>
+              <div className="text-[10px] space-y-0.5">
+                {(() => { const tz = formatTimeZones(post.scheduled_at); return (<>
+                  <p className="text-amber-400 font-bold">{tz.ct} CT</p>
+                  <p className="text-gray-500">{tz.pt} PT &middot; {tz.et} ET</p>
+                </>); })()}
+              </div>
               {post.status === 'pending' && (
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={startEdit} className="p-1 rounded hover:bg-amber-500/10 text-gray-600 hover:text-amber-400" data-testid={`edit-post-${post.id}`}>
@@ -620,7 +635,10 @@ const PostRow = ({ post, idx, onDelete, onEdit }) => {
       ) : (
         <div className="text-right shrink-0 cursor-pointer group/time" onClick={() => post.status === 'pending' && startEdit()}>
           <p className="text-[10px] text-gray-400 font-bold">{formatDate(post.scheduled_at)}</p>
-          <p className="text-[10px] text-gray-600">{formatTime(post.scheduled_at)}</p>
+          {(() => { const tz = formatTimeZones(post.scheduled_at); return (<>
+            <p className="text-[10px] text-amber-400 font-bold">{tz.ct} CT</p>
+            <p className="text-[9px] text-gray-600">{tz.pt} PT &middot; {tz.et} ET</p>
+          </>); })()}
           {post.status === 'pending' && <p className="text-[9px] text-amber-500/0 group-hover/time:text-amber-500/70 transition-colors">edit</p>}
         </div>
       )}
