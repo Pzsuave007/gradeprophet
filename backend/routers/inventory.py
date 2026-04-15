@@ -394,6 +394,23 @@ async def get_inventory_stats(request: Request):
         user = await get_current_user(request)
         user_id = user["user_id"]
         uq = {"user_id": user_id}
+
+        # Auto-sync scheduled flags from pending posts
+        pending_posts = await db.scheduled_posts.find(
+            {"user_id": user_id, "status": {"$in": ["pending", "processing"]}},
+            {"_id": 0, "card_id": 1}
+        ).to_list(5000)
+        scheduled_card_ids = list(set(p["card_id"] for p in pending_posts if p.get("card_id")))
+        await db.inventory.update_many(
+            {"user_id": user_id, "scheduled": True, "id": {"$nin": scheduled_card_ids}},
+            {"$set": {"scheduled": False}}
+        )
+        if scheduled_card_ids:
+            await db.inventory.update_many(
+                {"user_id": user_id, "id": {"$in": scheduled_card_ids}, "listed": {"$ne": True}},
+                {"$set": {"scheduled": True}}
+            )
+
         total = await db.inventory.count_documents(uq)
         graded = await db.inventory.count_documents({**uq, "condition": "Graded"})
         raw = await db.inventory.count_documents({**uq, "condition": "Raw"})
