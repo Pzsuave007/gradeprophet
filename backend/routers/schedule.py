@@ -312,7 +312,7 @@ async def launch_strategy(request: Request):
     for cid in all_ids:
         card = await db.inventory.find_one({"id": cid, "user_id": user_id}, {"_id": 0})
         if card and not card.get("listed"):
-            existing = await db.scheduled_posts.find_one({"card_id": cid, "user_id": user_id, "status": "pending"}, {"_id": 0})
+            existing = await db.scheduled_posts.find_one({"card_id": cid, "user_id": user_id, "status": {"$in": ["pending", "processing"]}}, {"_id": 0})
             if not existing:
                 cards_map[cid] = card
 
@@ -618,6 +618,13 @@ async def run_schedule_worker():
 
             for post in pending:
                 user_id = post["user_id"]
+                # Atomically mark as processing to prevent double-posting
+                lock = await db.scheduled_posts.find_one_and_update(
+                    {"id": post["id"], "status": "pending"},
+                    {"$set": {"status": "processing"}},
+                )
+                if not lock:
+                    continue  # Already picked up by another cycle
                 try:
                     token = await get_ebay_user_token(user_id)
                     if not token:
