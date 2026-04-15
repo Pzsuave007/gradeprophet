@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, Search, X, Timer, Zap, Rocket } from 'lucide-react';
+import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, Search, X, Timer, Zap, Rocket, Edit2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import StrategyLauncher from './StrategyLauncher';
@@ -231,6 +231,14 @@ const ScheduleModule = () => {
     } catch { toast.error('Failed to clear queue'); }
   };
 
+  const editPostTime = async (postId, newDate) => {
+    try {
+      await axios.put(`${API}/api/schedule/${postId}`, { scheduled_at: newDate }, { withCredentials: true });
+      toast.success('Post time updated');
+      fetchQueue();
+    } catch { toast.error('Failed to update time'); }
+  };
+
   if (showStrategy) {
     return <StrategyLauncher onBack={() => setShowStrategy(false)} onDone={() => { setShowStrategy(false); fetchQueue(); }} />;
   }
@@ -333,7 +341,7 @@ const ScheduleModule = () => {
               </h3>
               <div className="space-y-2">
                 {pending.map((post, idx) => (
-                  <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} />
+                  <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} onEdit={editPostTime} />
                 ))}
               </div>
             </div>
@@ -360,10 +368,32 @@ const ScheduleModule = () => {
 
 
 // ============ POST ROW ============
-const PostRow = ({ post, idx, onDelete }) => {
+const PostRow = ({ post, idx, onDelete, onEdit }) => {
+  const [editing, setEditing] = useState(false);
+  const [editDate, setEditDate] = useState('');
+  const [editTime, setEditTime] = useState('');
   const status = STATUS_STYLES[post.status] || STATUS_STYLES.pending;
   const isAuction = post.queue_type === 'auction';
   const img = post.image;
+
+  const startEdit = () => {
+    const d = new Date(post.scheduled_at);
+    // Convert UTC to Central (UTC-5 CDT)
+    const central = new Date(d.getTime() - 5 * 60 * 60 * 1000);
+    setEditDate(central.toISOString().split('T')[0]);
+    const h = central.getHours().toString().padStart(2, '0');
+    const m = central.getMinutes().toString().padStart(2, '0');
+    setEditTime(`${h}:${m}`);
+    setEditing(true);
+  };
+
+  const saveEdit = () => {
+    // Convert Central back to UTC
+    const localDate = new Date(`${editDate}T${editTime}:00`);
+    const utcDate = new Date(localDate.getTime() + 5 * 60 * 60 * 1000);
+    onEdit(post.id, utcDate.toISOString());
+    setEditing(false);
+  };
 
   return (
     <motion.div
@@ -399,17 +429,39 @@ const PostRow = ({ post, idx, onDelete }) => {
         )}
       </div>
 
-      {/* Schedule time */}
-      <div className="text-right shrink-0">
-        <p className="text-[10px] text-gray-400 font-bold">{formatDate(post.scheduled_at)}</p>
-        <p className="text-[10px] text-gray-600">{formatTime(post.scheduled_at)}</p>
-      </div>
+      {/* Schedule time - editable */}
+      {editing ? (
+        <div className="flex items-center gap-2 shrink-0">
+          <input type="date" value={editDate} onChange={e => setEditDate(e.target.value)}
+            className="bg-[#0a0a0a] border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" data-testid={`edit-date-${post.id}`} />
+          <input type="time" value={editTime} onChange={e => setEditTime(e.target.value)}
+            className="bg-[#0a0a0a] border border-white/10 rounded-lg px-2 py-1 text-[11px] text-white outline-none" data-testid={`edit-time-${post.id}`} />
+          <span className="text-[9px] text-gray-500">CT</span>
+          <button onClick={saveEdit} className="p-1 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30" data-testid={`save-edit-${post.id}`}>
+            <CheckCircle className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => setEditing(false)} className="p-1 rounded-lg bg-white/5 text-gray-500 hover:text-white">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="text-right shrink-0 cursor-pointer group/time" onClick={() => post.status === 'pending' && startEdit()}>
+          <p className="text-[10px] text-gray-400 font-bold">{formatDate(post.scheduled_at)}</p>
+          <p className="text-[10px] text-gray-600">{formatTime(post.scheduled_at)}</p>
+          {post.status === 'pending' && <p className="text-[9px] text-amber-500/0 group-hover/time:text-amber-500/70 transition-colors">edit</p>}
+        </div>
+      )}
 
       {/* Actions */}
-      {post.status === 'pending' && (
-        <button onClick={() => onDelete(post.id)} className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400 transition-all" data-testid={`delete-post-${post.id}`}>
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+      {post.status === 'pending' && !editing && (
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+          <button onClick={startEdit} className="p-1.5 rounded-lg hover:bg-amber-500/10 text-gray-600 hover:text-amber-400" data-testid={`edit-post-${post.id}`}>
+            <Edit2 className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={() => onDelete(post.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400" data-testid={`delete-post-${post.id}`}>
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
       {post.status === 'posted' && post.ebay_item_id && (
         <a href={`https://www.ebay.com/itm/${post.ebay_item_id}`} target="_blank" rel="noopener noreferrer" className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg hover:bg-white/5 text-gray-600 hover:text-white transition-all">
