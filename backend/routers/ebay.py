@@ -1220,13 +1220,13 @@ async def create_ebay_listing(data: EbayListingCreateRequest, request: Request):
 
     item_specifics_xml = "<ItemSpecifics>" + "".join(specifics) + "</ItemSpecifics>"
     safe_title = html.escape(data.title[:80])
-    safe_desc = html.escape(data.description)
+    safe_desc = data.description
 
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <{api_call}Request xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
-    <Title>{safe_title}</Title><Description>{safe_desc}</Description>
+    <Title>{safe_title}</Title><Description><![CDATA[{safe_desc}]]></Description>
     <PrimaryCategory><CategoryID>{data.category_id}</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -1330,10 +1330,18 @@ def generate_lot_title(cards: list) -> str:
 
 
 def generate_lot_description(cards: list) -> str:
-    """Generate plain text description with bullet points for each card."""
-    lines = [f"{len(cards)} Card Bundle", ""]
-    lines.append("This listing includes the following cards:")
-    lines.append("")
+    """Generate HTML description with card list for lot/bundle listings."""
+    players = [c.get("player", "") for c in cards if c.get("player")]
+    top_players = ", ".join(list(dict.fromkeys(players))[:5])
+
+    html_parts = []
+    html_parts.append('<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">')
+    html_parts.append(f'<h2 style="font-size:20px;margin:0 0 8px;">{len(cards)} Card Bundle</h2>')
+    if top_players:
+        html_parts.append(f'<p style="font-size:14px;color:#555;margin-bottom:12px;">Featuring: {html.escape(top_players)}</p>')
+
+    html_parts.append('<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>')
+    html_parts.append('<table style="font-size:13px;border-collapse:collapse;width:100%;">')
     for i, c in enumerate(cards, 1):
         name = c.get("card_name", "Unknown Card")
         player = c.get("player", "")
@@ -1344,23 +1352,20 @@ def generate_lot_description(cards: list) -> str:
         grade = c.get("grade", "")
         grading = c.get("grading_company", "")
 
-        detail = f"{i}. {name}"
+        detail = f"{player or name}" if player else name
         extras = []
-        if year and set_name:
-            extras.append(f"{year} {set_name}")
-        if variation:
-            extras.append(variation)
-        if condition == "Graded" and grading and grade:
-            extras.append(f"{grading} {grade}")
-        elif condition:
-            extras.append(condition)
-        if extras:
-            detail += f" - {', '.join(extras)}"
-        lines.append(detail)
+        if year and set_name: extras.append(f"{year} {set_name}")
+        if variation: extras.append(variation)
+        if condition == "Graded" and grading and grade: extras.append(f"{grading} {grade}")
+        elif condition: extras.append(condition)
 
-    lines.append("")
-    lines.append("All cards shown in photos. Ships fast with tracking.")
-    return "\n".join(lines)
+        bg = "#f9f9f9" if i % 2 == 0 else "#fff"
+        html_parts.append(f'<tr style="background:{bg};"><td style="padding:6px 8px;font-weight:bold;">{i}.</td><td style="padding:6px 8px;">{html.escape(detail)}</td><td style="padding:6px 8px;color:#777;">{html.escape(", ".join(extras))}</td></tr>')
+
+    html_parts.append('</table>')
+    html_parts.append('<p style="font-size:13px;color:#555;margin-top:16px;border-top:1px solid #ddd;padding-top:12px;">All cards shown in photos. Ships same day in penny sleeve + top loader + bubble mailer.</p>')
+    html_parts.append('</div>')
+    return "".join(html_parts)
 
 
 @router.post("/sell/create-lot")
@@ -1539,13 +1544,13 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
 
     # Create the listing XML - IDENTICAL to single listing format
     safe_title = html.escape(title[:80])
-    safe_desc = html.escape(description)
+    safe_desc = description  # Already HTML from generate_lot_description
 
     xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <AddFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
-    <Title>{safe_title}</Title><Description>{safe_desc}</Description>
+    <Title>{safe_title}</Title><Description><![CDATA[{safe_desc}]]></Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{data.price:.2f}</StartPrice>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
@@ -2046,9 +2051,34 @@ async def create_pick_your_card(request: Request):
     # Best offer
     best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>" if best_offer else ""
 
-    # Build description
-    desc_lines = [f"{title}", "", f"Choose from {len(cards_full)} cards available.", "Select your card from the dropdown menu.", "", "All cards shown in photos. Ships fast with tracking."]
-    safe_desc = html.escape("\n".join(desc_lines))
+    # Build description - HTML with card list
+    desc_parts = []
+    desc_parts.append('<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">')
+    desc_parts.append(f'<h2 style="font-size:20px;margin:0 0 8px;">{html.escape(title)}</h2>')
+    desc_parts.append(f'<p style="font-size:14px;color:#555;margin-bottom:12px;">Choose from {len(cards_full)} cards available. Select your card from the dropdown menu.</p>')
+    desc_parts.append('<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards available:</p>')
+    desc_parts.append('<table style="font-size:13px;border-collapse:collapse;width:100%;">')
+    for i, card in enumerate(cards_full, 1):
+        player = card.get("player", "")
+        year = card.get("year", "")
+        sn = card.get("set_name", "")
+        cn = card.get("card_number", "")
+        var = card.get("variation", "")
+        cond = card.get("condition", "")
+        grade_str = f"{card.get('grading_company', '')} {card.get('grade', '')}" if card.get("grade") else ""
+        detail = player or card.get("card_name", "Card")
+        extras = []
+        if year and sn: extras.append(f"{year} {sn}")
+        if cn: extras.append(f"#{cn}")
+        if var: extras.append(var)
+        if grade_str.strip(): extras.append(grade_str.strip())
+        elif cond: extras.append(cond)
+        bg = "#f9f9f9" if i % 2 == 0 else "#fff"
+        desc_parts.append(f'<tr style="background:{bg};"><td style="padding:5px 8px;font-weight:bold;">{i}.</td><td style="padding:5px 8px;">{html.escape(detail)}</td><td style="padding:5px 8px;color:#777;">{html.escape(", ".join(extras))}</td><td style="padding:5px 8px;font-weight:bold;">${card["_price"]:.2f}</td></tr>')
+    desc_parts.append('</table>')
+    desc_parts.append('<p style="font-size:13px;color:#555;margin-top:16px;border-top:1px solid #ddd;padding-top:12px;">All cards shown in photos. Ships same day in penny sleeve + top loader + bubble mailer.</p>')
+    desc_parts.append('</div>')
+    safe_desc = "".join(desc_parts)
 
     # Item Specifics - use most common values from all cards
     sports = [c.get("sport", "") for c in cards_full if c.get("sport")]
@@ -2087,7 +2117,7 @@ async def create_pick_your_card(request: Request):
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
     <Title>{html.escape(title)}</Title>
-    <Description>{safe_desc}</Description>
+    <Description><![CDATA[{safe_desc}]]></Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
     <ConditionID>{actual_condition_id}</ConditionID>{condition_descriptors_xml}
