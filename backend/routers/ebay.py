@@ -258,14 +258,22 @@ def build_item_specifics(item: dict, data=None) -> list:
 
 # ---- Helpers ----
 
+def truncate_title(title: str, max_len: int = 80) -> str:
+    """Truncate title at the last complete word within max_len."""
+    if len(title) <= max_len:
+        return title
+    truncated = title[:max_len]
+    last_space = truncated.rfind(' ')
+    if last_space > 0:
+        return truncated[:last_space].rstrip(' -,')
+    return truncated
+
+
 def generate_listing_title(item: dict) -> str:
     base = item.get("card_name", "")
     player = item.get("player", "")
-    # If card_name is long enough, put player first then card info
     if base and len(base) > 15:
-        # If player name exists and is in card_name, reorder so player comes first
         if player and player.lower() in base.lower():
-            # Remove player from base, put it first
             import re
             cleaned = re.sub(re.escape(player), '', base, count=1, flags=re.IGNORECASE).strip()
             cleaned = re.sub(r'\s+', ' ', cleaned).strip(' -,')
@@ -279,7 +287,7 @@ def generate_listing_title(item: dict) -> str:
             grade_str = f"{company} {item['grade']}"
             if grade_str.lower() not in title.lower():
                 title = f"{title} {grade_str}"
-        return title[:80]
+        return truncate_title(title)
     parts = []
     if player: parts.append(player)
     if item.get("year"): parts.append(str(item["year"]))
@@ -290,7 +298,7 @@ def generate_listing_title(item: dict) -> str:
         parts.append(f"{item.get('grading_company', 'PSA')} {item['grade']}")
     title = " ".join(parts)
     if not title.strip(): title = base or "Sports Card"
-    return title[:80]
+    return truncate_title(title)
 
 
 def generate_listing_description(item: dict) -> str:
@@ -1030,12 +1038,8 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request
     if hype:
         title_hook = hype.get("title_hook", "")
         if title_hook:
-            # Append hook to title if it fits within 80 chars
             hype_title = f"{title} - {title_hook}"
-            if len(hype_title) <= 80:
-                title = hype_title
-            else:
-                title = hype_title[:80]
+            title = truncate_title(hype_title)
         # Build hype HTML description
         description = build_hype_description(item, hype)
     # For ungraded cards: ConditionID is always 4000, condition shown via descriptor
@@ -4290,7 +4294,7 @@ async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
                 # Build new title
                 base_title = generate_listing_title(card_data)
                 hook = hype.get("title_hook", "")
-                new_title = f"{base_title} - {hook}"[:80]
+                new_title = truncate_title(f"{base_title} - {hook}")
 
                 # Build new description
                 new_desc = build_hype_description(card_data, hype)
