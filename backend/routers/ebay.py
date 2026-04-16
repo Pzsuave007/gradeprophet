@@ -4274,14 +4274,14 @@ class BulkBoostRequest(BaseModel):
 
 @router.post("/sell/bulk-boost-listings")
 async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
-    """Bulk update titles and descriptions with AI-generated hype content."""
+    """Bulk update titles and descriptions with AI-generated hype content. Skips lot/bundle listings."""
     user = await get_current_user(request)
     user_id = user["user_id"]
     token = await get_ebay_user_token(user_id)
     if not token:
         raise HTTPException(status_code=401, detail="eBay not connected")
 
-    # Get card data from inventory or listings cache
+    # Get current listing data from cache (has existing titles)
     cache_doc = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0, "active": 1})
     cache_map = {}
     if cache_doc and cache_doc.get("active"):
@@ -4297,21 +4297,30 @@ async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
     async with httpx.AsyncClient(timeout=30.0) as http_client:
         for item_id in data.item_ids:
             try:
-                # Find the card data from inventory (by ebay_item_id) or cache
+                cached = cache_map.get(item_id, {})
+                existing_title = cached.get("title", "")
+
+                # Check if this is a lot/bundle/pick-your-card — skip these
+                is_lot = "bundle" in existing_title.lower() or "lot" in existing_title.lower() or "you pick" in existing_title.lower() or "pick your" in existing_title.lower()
+
+                # Also check if multiple inventory items share this ebay_item_id
+                multi_count = await db.inventory.count_documents({"user_id": user_id, "ebay_item_id": item_id})
+                if is_lot or multi_count > 1:
+                    results.append({"item_id": item_id, "success": False, "error": "Skipped: lot/bundle listing"})
+                    continue
+
+                # Find the single card data from inventory
                 inv_item = await db.inventory.find_one(
                     {"user_id": user_id, "ebay_item_id": item_id}, {"_id": 0}
                 )
-                cached = cache_map.get(item_id, {})
 
                 card_data = {}
                 if inv_item:
                     card_data = inv_item
-                else:
-                    # Build card_data from cache
-                    title = cached.get("title", "")
-                    card_data = {"player": title.split(" ")[0] if title else "", "card_name": title, "sport": "Baseball"}
+                elif existing_title:
+                    card_data = {"card_name": existing_title, "player": existing_title.split(" ")[0], "sport": "Baseball"}
 
-                if not card_data.get("player"):
+                if not card_data.get("player") and not card_data.get("card_name"):
                     results.append({"item_id": item_id, "success": False, "error": "No card data found"})
                     continue
 
@@ -4321,17 +4330,19 @@ async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
                     results.append({"item_id": item_id, "success": False, "error": "AI hype generation failed"})
                     continue
 
-                # Build new title
-                base_title = generate_listing_title(card_data)
+                # Use EXISTING title as base, append hype hook
+                base_title = existing_title if existing_title else generate_listing_title(card_data)
+                # Remove any old hype hook if present (everything after " - ")
+                if " - " in base_title:
+                    base_title = base_title.split(" - ")[0].strip()
                 hook = hype.get("title_hook", "")
                 new_title = truncate_title(f"{base_title} - {hook}")
 
-                # Build new description
+                # Build new hype description
                 new_desc = build_hype_description(card_data, hype)
 
                 # Revise on eBay
                 safe_title = html.escape(new_title)
-                safe_desc = new_desc  # Already escaped inside build_hype_description
 
                 xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
 <ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
@@ -4339,7 +4350,7 @@ async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
   <Item>
     <ItemID>{item_id}</ItemID>
     <Title>{safe_title}</Title>
-    <Description><![CDATA[{safe_desc}]]></Description>
+    <Description><![CDATA[{new_desc}]]></Description>
   </Item>
 </ReviseFixedPriceItemRequest>'''
 
@@ -4361,10 +4372,11 @@ async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
                 results.append({"item_id": item_id, "success": False, "error": str(e)})
 
     ok = sum(1 for r in results if r["success"])
+    skipped = sum(1 for r in results if "Skipped" in (r.get("error") or ""))
     return {
         "success": ok > 0, "total": len(data.item_ids), "updated": ok,
-        "failed": len(data.item_ids) - ok, "results": results,
-        "note": f"Boosted {ok}/{len(data.item_ids)} listings with AI hype"
+        "failed": len(data.item_ids) - ok - skipped, "skipped": skipped, "results": results,
+        "note": f"Boosted {ok}/{len(data.item_ids)} listings ({skipped} lots skipped)"
     }
 
 
