@@ -1396,6 +1396,29 @@ async def create_lot_listing(data: LotListingRequest, request: Request):
     title = data.title or generate_lot_title(cards)
     description = generate_lot_description(cards)
 
+    # Add AI hype about the top players in the lot
+    players = [c.get("player", "") for c in cards if c.get("player")]
+    if players:
+        top_card = max(cards, key=lambda c: float(c.get("card_value", 0) or c.get("purchase_price", 0) or 0))
+        lot_hype = await generate_hype_content(top_card)
+        if lot_hype:
+            hook = lot_hype.get("title_hook", "")
+            if hook:
+                title = truncate_title(f"{title} - {hook}")
+            # Inject hype into description before the card table
+            hype_line = lot_hype.get("hype_line", "")
+            bullets = lot_hype.get("why_it_matters", [])
+            hype_html = ""
+            if hype_line:
+                hype_html += f'<p style="font-size:16px;font-weight:bold;color:#333;margin-bottom:8px;">{html.escape(hype_line)}</p>'
+            if bullets:
+                hype_html += '<ul style="font-size:13px;line-height:1.8;padding-left:20px;color:#444;margin-bottom:12px;">'
+                for b in bullets:
+                    hype_html += f'<li>{html.escape(b)}</li>'
+                hype_html += '</ul>'
+            if hype_html:
+                description = description.replace('Cards included:', f'{hype_html}<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>').replace('<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p><p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>', '<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>')
+
     # Generate collage + combined front/back images
     from utils.image import create_lot_collage, create_front_back_combined
 
@@ -1679,6 +1702,29 @@ async def lot_preview(request: Request):
 
     title = generate_lot_title(cards)
     description = generate_lot_description(cards)
+
+    # Add AI hype for lot preview
+    players = [c.get("player", "") for c in cards if c.get("player")]
+    if players:
+        top_card = max(cards, key=lambda c: float(c.get("card_value", 0) or c.get("purchase_price", 0) or 0))
+        lot_hype = await generate_hype_content(top_card)
+        if lot_hype:
+            hook = lot_hype.get("title_hook", "")
+            if hook:
+                title = truncate_title(f"{title} - {hook}")
+            hype_line = lot_hype.get("hype_line", "")
+            bullets = lot_hype.get("why_it_matters", [])
+            hype_html = ""
+            if hype_line:
+                hype_html += f'<p style="font-size:16px;font-weight:bold;color:#333;margin-bottom:8px;">{html.escape(hype_line)}</p>'
+            if bullets:
+                hype_html += '<ul style="font-size:13px;line-height:1.8;padding-left:20px;color:#444;margin-bottom:12px;">'
+                for b in bullets:
+                    hype_html += f'<li>{html.escape(b)}</li>'
+                hype_html += '</ul>'
+            if hype_html:
+                description = description.replace('Cards included:', f'{hype_html}<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>').replace('<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p><p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>', '<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards included:</p>')
+
     total_value = sum(c.get("purchase_price") or c.get("card_value") or 0 for c in cards)
 
     # Generate collage preview from thumbnails (max 4 per collage, 2 per row)
@@ -1905,7 +1951,15 @@ async def pick_your_card_preview(request: Request):
     common_sport = max(set(sports), key=sports.count) if sports else "Sports"
     common_year = max(set(years), key=years.count) if years else ""
 
-    title = f"{common_year} {common_set} {common_sport} Cards - You Pick"[:80]
+    title = f"{common_year} {common_set} {common_sport} Cards - You Pick"
+
+    # Add AI hype for the most valuable card
+    top_card = max(cards, key=lambda c: float(c.get("card_value", 0) or c.get("purchase_price", 0) or 0))
+    pyc_hype = await generate_hype_content(top_card)
+    if pyc_hype and pyc_hype.get("title_hook"):
+        title = truncate_title(f"{title} - {pyc_hype['title_hook']}")
+    else:
+        title = truncate_title(title)
 
     # Build card list with variation labels (must be unique!)
     card_list = []
@@ -2051,10 +2105,24 @@ async def create_pick_your_card(request: Request):
     # Best offer
     best_offer_xml = "<BestOfferDetails><BestOfferEnabled>true</BestOfferEnabled></BestOfferDetails>" if best_offer else ""
 
-    # Build description - HTML with card list
+    # Build description - HTML with card list + hype
+    top_card = max(cards_full, key=lambda c: float(c.get("card_value", 0) or c.get("purchase_price", 0) or 0))
+    pyc_hype = await generate_hype_content(top_card)
+
     desc_parts = []
     desc_parts.append('<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">')
     desc_parts.append(f'<h2 style="font-size:20px;margin:0 0 8px;">{html.escape(title)}</h2>')
+    # Hype section
+    if pyc_hype:
+        hype_line = pyc_hype.get("hype_line", "")
+        bullets = pyc_hype.get("why_it_matters", [])
+        if hype_line:
+            desc_parts.append(f'<p style="font-size:16px;font-weight:bold;color:#333;margin-bottom:8px;">{html.escape(hype_line)}</p>')
+        if bullets:
+            desc_parts.append('<ul style="font-size:13px;line-height:1.8;padding-left:20px;color:#444;margin-bottom:12px;">')
+            for b in bullets:
+                desc_parts.append(f'<li>{html.escape(b)}</li>')
+            desc_parts.append('</ul>')
     desc_parts.append(f'<p style="font-size:14px;color:#555;margin-bottom:12px;">Choose from {len(cards_full)} cards available. Select your card from the dropdown menu.</p>')
     desc_parts.append('<p style="font-size:14px;font-weight:bold;margin:12px 0 6px;">Cards available:</p>')
     desc_parts.append('<table style="font-size:13px;border-collapse:collapse;width:100%;">')
