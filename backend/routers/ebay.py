@@ -13,6 +13,7 @@ import html
 import re
 import logging
 import httpx
+import os
 from database import db
 from config import EBAY_CLIENT_ID, EBAY_CLIENT_SECRET, EBAY_RUNAME, openai_client
 from utils.auth import get_current_user
@@ -310,6 +311,93 @@ def generate_listing_description(item: dict) -> str:
     lines.extend(["", "Ships securely in penny sleeve and top loader.", "Ships within 1 business day."])
     if item.get("notes"): lines.append(f"\nNotes: {item['notes']}")
     return "\n".join(lines)
+
+
+async def generate_hype_content(item: dict) -> dict:
+    """Use AI to generate a hype title hook and bullet points for a card listing."""
+    import openai
+    player = item.get("player", "")
+    year = item.get("year", "")
+    set_name = item.get("set_name", "")
+    variation = item.get("variation", "")
+    card_number = item.get("card_number", "")
+    grade = f"{item.get('grading_company', '')} {item.get('grade', '')}" if item.get("grade") else "Raw"
+    sport = item.get("sport", "Baseball")
+
+    prompt = f"""You are a sports card selling expert. Generate hype content for an eBay listing.
+
+Card: {player} {year} {set_name} {variation} #{card_number} ({grade})
+Sport: {sport}
+
+Return JSON with:
+1. "title_hook": A SHORT catchy phrase (max 35 chars) to append to the title. Focus on what makes this player/card/year special. Examples: "Historic MVP Season", "HOF Legend Rookie Year", "Generational Talent", "World Series Hero", "$700M Superstar". Do NOT repeat the player name or year.
+
+2. "why_it_matters": 3-4 bullet points (each max 80 chars) about why this specific card matters. Include real stats, achievements, milestones, or investment potential. Be factual but exciting.
+
+3. "hype_line": One powerful opening sentence (max 120 chars) for the description.
+
+Return ONLY valid JSON, no markdown."""
+
+    try:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            return {}
+        client = openai.AsyncOpenAI(api_key=api_key)
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7,
+            max_tokens=300,
+        )
+        import json
+        text = response.choices[0].message.content.strip()
+        if text.startswith("```"): text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+        return json.loads(text)
+    except Exception as e:
+        logger.warning(f"Hype generation failed: {e}")
+        return {}
+
+
+def build_hype_description(item: dict, hype: dict) -> str:
+    """Build an HTML description with hype content."""
+    player = item.get("player", "")
+    year = item.get("year", "")
+    set_name = item.get("set_name", "")
+    variation = item.get("variation", "")
+    card_number = item.get("card_number", "")
+    condition = item.get("condition", "Raw")
+    grade = f"{item.get('grading_company', '')} {item.get('grade', '')}" if item.get("grade") else "Ungraded"
+    hype_line = hype.get("hype_line", "")
+    bullets = hype.get("why_it_matters", [])
+
+    html_parts = []
+    html_parts.append('<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#222;">')
+    # Hype headline
+    if hype_line:
+        html_parts.append(f'<p style="font-size:18px;font-weight:bold;color:#333;margin-bottom:8px;">{html.escape(hype_line)}</p>')
+    # Card title
+    html_parts.append(f'<h2 style="font-size:20px;margin:12px 0 8px;">{html.escape(player)} &mdash; {html.escape(str(year))} {html.escape(set_name)}</h2>')
+    # Why it matters
+    if bullets:
+        html_parts.append('<p style="font-size:14px;font-weight:bold;color:#555;margin:12px 0 6px;">Why this card matters:</p>')
+        html_parts.append('<ul style="font-size:14px;line-height:1.8;padding-left:20px;color:#333;">')
+        for b in bullets:
+            html_parts.append(f'<li>{html.escape(b)}</li>')
+        html_parts.append('</ul>')
+    # Card details
+    html_parts.append('<table style="font-size:13px;border-collapse:collapse;margin:16px 0;width:100%;">')
+    details = [("Player", player), ("Year", str(year)), ("Set", set_name)]
+    if variation: details.append(("Variation", variation))
+    if card_number: details.append(("Card #", card_number))
+    details.append(("Condition", f"{condition} — {grade}" if item.get("grade") else condition))
+    if item.get("cert_number"): details.append(("Cert #", item["cert_number"]))
+    for label, val in details:
+        html_parts.append(f'<tr><td style="padding:4px 12px 4px 0;font-weight:bold;color:#555;">{html.escape(label)}</td><td style="padding:4px 0;color:#222;">{html.escape(str(val))}</td></tr>')
+    html_parts.append('</table>')
+    # Shipping
+    html_parts.append('<p style="font-size:13px;color:#555;margin-top:16px;border-top:1px solid #ddd;padding-top:12px;">Ships same day in penny sleeve + top loader + bubble mailer for maximum protection.</p>')
+    html_parts.append('</div>')
+    return "".join(html_parts)
 
 
 # ---- OAuth Routes ----
@@ -936,6 +1024,20 @@ async def preview_ebay_listing(data: EbayListingPreviewRequest, request: Request
 
     title = generate_listing_title(item)
     description = generate_listing_description(item)
+
+    # Generate AI hype content for title and description
+    hype = await generate_hype_content(item)
+    if hype:
+        title_hook = hype.get("title_hook", "")
+        if title_hook:
+            # Append hook to title if it fits within 80 chars
+            hype_title = f"{title} - {title_hook}"
+            if len(hype_title) <= 80:
+                title = hype_title
+            else:
+                title = hype_title[:80]
+        # Build hype HTML description
+        description = build_hype_description(item, hype)
     # For ungraded cards: ConditionID is always 4000, condition shown via descriptor
     # Map card_condition from inventory to descriptor value for frontend
     card_cond_to_descriptor = {"Near Mint or Better": 400010, "Excellent": 400011, "Very Good": 400012, "Poor": 400013}
