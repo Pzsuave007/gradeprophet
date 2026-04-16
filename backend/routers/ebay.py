@@ -4234,6 +4234,105 @@ async def bulk_revise_specifics(data: BulkReviseSpecificsRequest, request: Reque
     }
 
 
+class BulkBoostRequest(BaseModel):
+    item_ids: List[str]
+
+
+@router.post("/sell/bulk-boost-listings")
+async def bulk_boost_listings(data: BulkBoostRequest, request: Request):
+    """Bulk update titles and descriptions with AI-generated hype content."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    # Get card data from inventory or listings cache
+    cache_doc = await db.listings_cache.find_one({"user_id": user_id}, {"_id": 0, "active": 1})
+    cache_map = {}
+    if cache_doc and cache_doc.get("active"):
+        for c in cache_doc["active"]:
+            cid = c.get("itemid") or c.get("item_id", "")
+            if cid:
+                cache_map[cid] = c
+
+    results = []
+    import xml.etree.ElementTree as ET
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        for item_id in data.item_ids:
+            try:
+                # Find the card data from inventory (by ebay_item_id) or cache
+                inv_item = await db.inventory.find_one(
+                    {"user_id": user_id, "ebay_item_id": item_id}, {"_id": 0}
+                )
+                cached = cache_map.get(item_id, {})
+
+                card_data = {}
+                if inv_item:
+                    card_data = inv_item
+                else:
+                    # Build card_data from cache
+                    title = cached.get("title", "")
+                    card_data = {"player": title.split(" ")[0] if title else "", "card_name": title, "sport": "Baseball"}
+
+                if not card_data.get("player"):
+                    results.append({"item_id": item_id, "success": False, "error": "No card data found"})
+                    continue
+
+                # Generate hype
+                hype = await generate_hype_content(card_data)
+                if not hype or not hype.get("title_hook"):
+                    results.append({"item_id": item_id, "success": False, "error": "AI hype generation failed"})
+                    continue
+
+                # Build new title
+                base_title = generate_listing_title(card_data)
+                hook = hype.get("title_hook", "")
+                new_title = f"{base_title} - {hook}"[:80]
+
+                # Build new description
+                new_desc = build_hype_description(card_data, hype)
+
+                # Revise on eBay
+                safe_title = html.escape(new_title)
+                safe_desc = new_desc  # Already escaped inside build_hype_description
+
+                xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<ReviseFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item>
+    <ItemID>{item_id}</ItemID>
+    <Title>{safe_title}</Title>
+    <Description><![CDATA[{safe_desc}]]></Description>
+  </Item>
+</ReviseFixedPriceItemRequest>'''
+
+                resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                    "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                    "X-EBAY-API-CALL-NAME": "ReviseFixedPriceItem",
+                    "X-EBAY-API-IAF-TOKEN": token, "Content-Type": "text/xml",
+                }, content=xml_body)
+
+                root = ET.fromstring(resp.text)
+                ack = root.find("e:Ack", ns)
+                if ack is not None and ack.text in ("Success", "Warning"):
+                    results.append({"item_id": item_id, "success": True, "new_title": new_title})
+                else:
+                    err_el = root.find(".//e:Errors/e:LongMessage", ns)
+                    results.append({"item_id": item_id, "success": False, "error": err_el.text if err_el is not None else "Failed"})
+
+            except Exception as e:
+                results.append({"item_id": item_id, "success": False, "error": str(e)})
+
+    ok = sum(1 for r in results if r["success"])
+    return {
+        "success": ok > 0, "total": len(data.item_ids), "updated": ok,
+        "failed": len(data.item_ids) - ok, "results": results,
+        "note": f"Boosted {ok}/{len(data.item_ids)} listings with AI hype"
+    }
+
 
 # ---- Promoted Listings Standard (PLS) ----
 

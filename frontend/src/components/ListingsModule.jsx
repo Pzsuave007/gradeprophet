@@ -4,7 +4,7 @@ import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, ChevronRight, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
-  ArrowDownUp, Calendar, ChevronDown, Check
+  ArrowDownUp, Calendar, ChevronDown, Check, Zap
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -862,6 +862,7 @@ const ListingsModule = () => {
   const [bulkDeclinePct, setBulkDeclinePct] = useState('');
   const [bulkAcceptPct, setBulkAcceptPct] = useState('');
   const [showBulkSpecifics, setShowBulkSpecifics] = useState(false);
+  const [bulkBoosting, setBulkBoosting] = useState(false);
   const [showBulkPromote, setShowBulkPromote] = useState(false);
   const [showStoreDiscount, setShowStoreDiscount] = useState(false);
   const [promoteCampaigns, setPromoteCampaigns] = useState([]);
@@ -923,6 +924,19 @@ const ListingsModule = () => {
     } finally {
       setBulkUpdating(false);
     }
+  };
+
+  const bulkBoostListings = async () => {
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    setBulkBoosting(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/bulk-boost-listings`, { item_ids: selectedIds });
+      toast.success(res.data.note || `Boosted ${res.data.updated} listings`);
+      exitSelectMode();
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to boost');
+    } finally { setBulkBoosting(false); }
   };
 
   const bulkApplyOfferRules = async () => {
@@ -1376,6 +1390,11 @@ const ListingsModule = () => {
               <button onClick={openPromotePanel} disabled={!selectMode || selected.size === 0}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-orange-600 text-white text-sm font-semibold hover:bg-orange-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-promote-btn">
                 <TrendingUp className="w-4 h-4" /> Promote {selected.size > 0 ? `(${selected.size})` : ''}
+              </button>
+              <button onClick={bulkBoostListings} disabled={!selectMode || selected.size === 0 || bulkBoosting}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-pink-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-boost-btn">
+                {bulkBoosting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                {bulkBoosting ? 'Boosting...' : `AI Boost ${selected.size > 0 ? `(${selected.size})` : ''}`}
               </button>
             </>
           )}
