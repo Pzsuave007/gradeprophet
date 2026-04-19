@@ -267,7 +267,7 @@ async def add_bulk_to_schedule(request: Request):
         post.pop("_id", None)
         added.append(post)
         # Mark card as scheduled
-        await db.inventory.update_one({"id": cid, "user_id": user["user_id"]}, {"$set": {"scheduled": True}})
+        await db.inventory.update_one({"id": card_id, "user_id": user["user_id"]}, {"$set": {"scheduled": True}})
 
     return {"success": True, "added": len(added), "skipped": len(skipped), "posts": added}
 
