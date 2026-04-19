@@ -138,12 +138,15 @@ async def add_to_schedule(request: Request):
 @router.post("/add-bulk")
 async def add_bulk_to_schedule(request: Request):
     """Add multiple cards to the schedule queue."""
-    user = await get_current_user(request)
-    body = await request.json()
+    try:
+        user = await get_current_user(request)
+        body = await request.json()
+    except Exception as e:
+        logger.error(f"add_bulk parse error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
 
     card_ids = body.get("card_ids", [])
     queue_type = body.get("queue_type", "fixed_price")
-    base_config = body.get("config", {})
 
     if not card_ids:
         raise HTTPException(status_code=400, detail="card_ids required")
@@ -172,17 +175,6 @@ async def add_bulk_to_schedule(request: Request):
     skipped = []
     day_offset = 0
     in_batch = 0
-
-    # Count existing pending posts on the start date to offset time correctly
-    day_start_utc = start_day.replace(hour=0, minute=0, second=0)
-    day_end_utc = day_start_utc + timedelta(days=1)
-    existing_on_day = await db.scheduled_posts.count_documents({
-        "user_id": user["user_id"],
-        "status": {"$in": ["pending", "processing"]},
-        "queue_type": queue_type,
-        "scheduled_at": {"$gte": day_start_utc.isoformat(), "$lt": day_end_utc.isoformat()}
-    })
-    in_batch = existing_on_day  # Start offset from existing cards on that day
 
     for idx, card_id in enumerate(card_ids):
         card = await db.inventory.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
@@ -239,15 +231,17 @@ async def add_bulk_to_schedule(request: Request):
             "image": card.get("image", ""),
             "back_image": card.get("back_image", ""),
             "category_id": cat_map.get(sport.lower(), "261328"),
-            "price": float(base_config.get("price", card.get("listed_price") or card.get("card_value") or 9.99)),
-            "starting_bid": float(base_config.get("starting_bid", 0.99)),
-            "reserve_price": float(base_config.get("reserve_price")) if base_config.get("reserve_price") else None,
-            "buy_it_now": float(base_config.get("buy_it_now")) if base_config.get("buy_it_now") else None,
-            "auction_duration": base_config.get("auction_duration", "Days_7"),
-            "shipping_option": base_config.get("shipping_option", "USPSFirstClass"),
-            "shipping_cost": float(base_config.get("shipping_cost", 1.50)),
-            "condition_id": int(base_config.get("condition_id", 400010)),
-            "best_offer": base_config.get("best_offer", False),
+            "price": float(body.get("price") or card.get("listed_price") or card.get("card_value") or 9.99),
+            "starting_bid": float(body.get("starting_bid", 0.99)),
+            "reserve_price": float(body.get("reserve_price")) if body.get("reserve_price") else None,
+            "buy_it_now": float(body.get("buy_it_now")) if body.get("buy_it_now") else None,
+            "auction_duration": body.get("auction_duration", "Days_7"),
+            "shipping_option": body.get("shipping_option", "USPSFirstClass"),
+            "shipping_cost": float(body.get("shipping_cost", 1.50)),
+            "condition_id": 2750 if card.get("condition") == "Graded" else 400010,
+            "condition": card.get("condition", ""),
+            "card_condition": card.get("card_condition", "Near Mint or Better"),
+            "best_offer": body.get("best_offer", False),
             "postal_code": settings.get("postal_code", ""),
             "location": settings.get("location", ""),
             "ebay_item_id": None,
