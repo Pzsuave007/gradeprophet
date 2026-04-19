@@ -57,6 +57,7 @@ const SHIPPING_OPTIONS_SCHED = [
 
 // ============ ADD TO SCHEDULE VIEW ============
 const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
+  const [step, setStep] = useState(1);
   const [cards, setCards] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -66,14 +67,14 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
     auction_duration: 'Days_7', price: '',
     shipping_option: 'PWEEnvelope', shipping_cost: 2.50,
     best_offer: true, post_hour: '19', post_minute: '00',
-    start_date: new Date().toISOString().split('T')[0], batch_size: 5,
+    start_date: new Date().toISOString().split('T')[0],
   });
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchCards = async () => {
       try {
-        const res = await axios.get(`${API}/api/inventory?category=for_sale&listed=false&limit=200`, { withCredentials: true });
+        const res = await axios.get(`${API}/api/inventory?category=for_sale&listed=false&scheduled=false&limit=200`, { withCredentials: true });
         setCards(res.data.items || []);
       } catch { toast.error('Failed to load inventory'); }
       finally { setLoading(false); }
@@ -87,11 +88,6 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
     const q = search.toLowerCase();
     return (c.player || '').toLowerCase().includes(q) || (c.set_name || '').toLowerCase().includes(q) || (c.card_name || '').toLowerCase().includes(q);
   });
-  const selectAll = () => {
-    const vis = filtered.map(c => c.id);
-    if (vis.every(id => selected.includes(id))) setSelected(s => s.filter(id => !vis.includes(id)));
-    else setSelected(s => [...new Set([...s, ...vis])]);
-  };
 
   const handleSubmit = async () => {
     if (!selected.length) return;
@@ -107,9 +103,9 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
         post_hour: parseInt(config.post_hour),
         post_minute: parseInt(config.post_minute),
         start_date: config.start_date,
-        batch_size: parseInt(config.batch_size) || 5,
+        batch_size: 999,
       }, { withCredentials: true });
-      toast.success(`${selected.length} card(s) scheduled! Refreshing queue...`);
+      toast.success(`${selected.length} card(s) scheduled!`);
       onAdded();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to schedule');
@@ -117,131 +113,157 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
   };
 
   const isAuction = queueType === 'auction';
+  const selectedCards = cards.filter(c => selected.includes(c.id));
   const inputCls = "w-full bg-[#0a0a0a] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500/30";
   const labelCls = "text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 block";
 
   return (
     <div data-testid="add-to-schedule-view">
       <div className="flex items-center gap-3 mb-5">
-        <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/5" data-testid="schedule-back-btn"><ArrowLeft className="w-4 h-4 text-gray-400" /></button>
-        <div>
+        <button onClick={() => step === 1 ? onBack() : setStep(1)} className="p-1.5 rounded-lg hover:bg-white/5" data-testid="schedule-back-btn">
+          <ArrowLeft className="w-4 h-4 text-gray-400" />
+        </button>
+        <div className="flex-1">
           <h2 className="text-lg font-black text-white flex items-center gap-2">
             {isAuction ? <Gavel className="w-5 h-5 text-amber-400" /> : <DollarSign className="w-5 h-5 text-emerald-400" />}
-            Schedule {isAuction ? 'Auctions' : 'Fixed Price'}
+            {step === 1 ? 'Select Cards' : 'Configure & Schedule'}
           </h2>
-          <p className="text-[10px] text-gray-500">Select cards and configure posting settings</p>
+          <p className="text-[10px] text-gray-500">{step === 1 ? `Pick cards for ${isAuction ? 'auction' : 'fixed price'}` : `${selected.length} cards selected`}</p>
+        </div>
+        <div className="flex gap-1">
+          <div className={`w-8 h-1.5 rounded-full ${step >= 1 ? 'bg-amber-500' : 'bg-white/[0.06]'}`} />
+          <div className={`w-8 h-1.5 rounded-full ${step >= 2 ? 'bg-amber-500' : 'bg-white/[0.06]'}`} />
         </div>
       </div>
 
-      <div className="space-y-4 mb-5">
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-          <p className="text-xs font-bold text-white mb-3">{isAuction ? 'Auction Settings' : 'Pricing'}</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {isAuction ? (<>
-              <div><label className={labelCls}>Starting Bid</label><input type="number" step="0.01" value={config.starting_bid} onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} data-testid="starting-bid-input" /></div>
-              <div><label className={labelCls}>Reserve Price</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="reserve-price-input" /></div>
-              <div><label className={labelCls}>Buy It Now</label><input type="number" step="0.01" value={config.buy_it_now} onChange={e => setConfig(c => ({...c, buy_it_now: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="buy-it-now-input" /></div>
-              <div><label className={labelCls}>Duration</label>
-                <select value={config.auction_duration} onChange={e => setConfig(c => ({...c, auction_duration: e.target.value}))} className={inputCls} data-testid="auction-duration-select">
-                  {AUCTION_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                </select></div>
-            </>) : (<>
-              <div><label className={labelCls}>Price (blank = card value)</label><input type="number" step="0.01" value={config.price} onChange={e => setConfig(c => ({...c, price: e.target.value}))} placeholder="Auto" className={inputCls} data-testid="price-input" /></div>
-              <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer">
-                <div className={`w-8 h-4 rounded-full transition-colors cursor-pointer flex items-center px-0.5 ${config.best_offer ? 'bg-emerald-500' : 'bg-[#333]'}`}
-                  onClick={() => setConfig(c => ({...c, best_offer: !c.best_offer}))}><div className={`w-3 h-3 rounded-full bg-white transition-transform ${config.best_offer ? 'translate-x-4' : ''}`} /></div>
-                <span className="text-xs text-gray-300">Best Offer</span>
-              </label></div>
-            </>)}
+      {step === 1 && (<>
+        <div className="flex items-center gap-3 mb-3">
+          <div className="flex-1 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search cards..."
+              className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white outline-none focus:border-white/10" data-testid="schedule-search" />
+            {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-gray-500" /></button>}
           </div>
+          <button onClick={() => { const vis = filtered.map(c => c.id); if (vis.every(id => selected.includes(id))) setSelected(s => s.filter(id => !vis.includes(id))); else setSelected(s => [...new Set([...s, ...vis])]); }}
+            className="text-xs text-amber-400 hover:text-amber-300 font-bold shrink-0" data-testid="select-all-btn">
+            {filtered.length > 0 && filtered.every(c => selected.includes(c.id)) ? 'Deselect All' : 'Select All'}
+          </button>
         </div>
 
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-          <p className="text-xs font-bold text-white mb-3">Schedule</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div>
-              <label className={labelCls}>Start Date</label>
-              <input type="date" value={config.start_date} onChange={e => setConfig(c => ({...c, start_date: e.target.value}))}
-                className={inputCls} data-testid="schedule-start-date" />
-            </div>
-            <div>
-              <label className={labelCls}>Time (Central)</label>
-              <select value={config.post_hour} onChange={e => setConfig(c => ({...c, post_hour: e.target.value}))} className={inputCls} data-testid="schedule-post-hour">
-                {[15,16,17,18,19,20,21,22].map(h => (<option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>))}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Minutes</label>
-              <select value={config.post_minute} onChange={e => setConfig(c => ({...c, post_minute: e.target.value}))} className={inputCls} data-testid="schedule-post-minute">
-                {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Per Day</label>
-              <input type="number" min="1" max="20" value={config.batch_size} onChange={e => setConfig(c => ({...c, batch_size: e.target.value}))}
-                className={inputCls} data-testid="schedule-batch-size" />
-            </div>
+        {loading ? (
+          <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-gray-600 animate-spin" /></div>
+        ) : (
+          <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 max-h-[450px] overflow-y-auto pr-1">
+            {filtered.map(c => {
+              const sel = selected.includes(c.id);
+              const img = c.thumbnail || c.store_thumbnail || c.image;
+              return (
+                <motion.div key={c.id} whileTap={{ scale: 0.97 }} onClick={() => toggle(c.id)}
+                  className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
+                  data-testid={`schedule-card-${c.id}`}>
+                  {img && <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />}
+                  {!img && <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-5 h-5 text-gray-700" /></div>}
+                  <div className="p-1">
+                    <p className="text-[8px] font-bold text-white truncate">{c.player}</p>
+                    <p className="text-[7px] text-gray-500 truncate">{c.year} {c.set_name}</p>
+                  </div>
+                  {sel && <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-2 h-2 text-black" /></div>}
+                </motion.div>);
+            })}
           </div>
-          <p className="text-[10px] text-gray-600 mt-2">Cards spaced 10 min apart. {isAuction ? '1 auction per day.' : `${config.batch_size} cards per day.`}</p>
-        </div>
+        )}
 
-        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-          <p className="text-xs font-bold text-white mb-3">Shipping</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {SHIPPING_OPTIONS_SCHED.map(s => (
-              <button key={s.id} onClick={() => setConfig(c => ({...c, shipping_option: s.id, shipping_cost: s.cost}))}
-                className={`p-3 rounded-xl text-left transition-all border-2 ${config.shipping_option === s.id ? 'border-amber-500/50 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.08]'}`}
-                data-testid={`schedule-ship-${s.id}`}>
-                <p className={`text-xs font-bold ${config.shipping_option === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
-                <p className={`text-sm font-black mt-1 ${config.shipping_option === s.id ? 'text-white' : 'text-gray-500'}`}>{s.cost === 0 ? 'Free' : `$${s.cost.toFixed(2)}`}</p>
-              </button>))}
-          </div>
+        <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
+          <p className="text-xs text-gray-500">{selected.length} cards selected</p>
+          <button onClick={() => { if (!selected.length) { toast.error('Select at least 1 card'); return; } setStep(2); }}
+            disabled={!selected.length}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black text-sm font-black disabled:opacity-30"
+            data-testid="schedule-next-btn">
+            Next: Configure <ArrowRight className="w-4 h-4" />
+          </button>
         </div>
-      </div>
+      </>)}
 
-      <div className="flex items-center gap-3 mb-3">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search cards..." className="w-full bg-[#0a0a0a] border border-white/[0.06] rounded-lg pl-9 pr-3 py-2 text-sm text-white outline-none focus:border-white/10" data-testid="schedule-search" />
-          {search && <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2"><X className="w-3.5 h-3.5 text-gray-500" /></button>}
-        </div>
-        <button onClick={selectAll} className="text-xs text-amber-400 hover:text-amber-300 font-bold shrink-0" data-testid="select-all-btn">
-          {filtered.length > 0 && filtered.every(c => selected.includes(c.id)) ? 'Deselect All' : 'Select All'}
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-gray-600 animate-spin" /></div>
-      ) : (
-        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 max-h-[350px] overflow-y-auto pr-1">
-          {filtered.map(c => {
-            const sel = selected.includes(c.id);
-            const img = c.thumbnail || c.store_thumbnail || c.image;
+      {step === 2 && (<>
+        {/* Selected cards preview */}
+        <div className="flex gap-1.5 overflow-x-auto pb-2 mb-5">
+          {selectedCards.map(c => {
+            const img = c.thumbnail || c.store_thumbnail;
             return (
-              <motion.div key={c.id} whileTap={{ scale: 0.97 }} onClick={() => toggle(c.id)}
-                className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
-                data-testid={`schedule-card-${c.id}`}>
-                {img && <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />}
-                {!img && <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-5 h-5 text-gray-700" /></div>}
-                <div className="p-1">
-                  <p className="text-[8px] font-bold text-white truncate">{c.player}</p>
-                  <p className="text-[7px] text-gray-500 truncate">{c.year} {c.set_name}</p>
-                </div>
-                {sel && <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-2 h-2 text-black" /></div>}
-              </motion.div>);
+              <div key={c.id} className="w-12 h-16 rounded-lg overflow-hidden bg-[#111] shrink-0 border border-white/[0.04]">
+                {img ? <img src={`data:image/jpeg;base64,${img}`} alt="" className="w-full h-full object-cover" /> : <Package className="w-4 h-4 text-gray-700 m-auto mt-5" />}
+              </div>);
           })}
         </div>
-      )}
 
-      <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
-        <p className="text-xs text-gray-500">{selected.length} card(s) selected</p>
-        <button onClick={handleSubmit} disabled={!selected.length || submitting}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black text-sm font-black disabled:opacity-30 hover:shadow-lg hover:shadow-amber-500/20 transition-shadow"
-          data-testid="schedule-submit-btn">
-          {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
-          Schedule {selected.length} Card{selected.length !== 1 ? 's' : ''}
-        </button>
-      </div>
+        <div className="space-y-4 mb-5">
+          {/* Pricing */}
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <p className="text-xs font-bold text-white mb-3">{isAuction ? 'Auction Settings' : 'Pricing'}</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {isAuction ? (<>
+                <div><label className={labelCls}>Starting Bid</label><input type="number" step="0.01" value={config.starting_bid} onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} /></div>
+                <div><label className={labelCls}>Reserve Price</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} /></div>
+                <div><label className={labelCls}>Buy It Now</label><input type="number" step="0.01" value={config.buy_it_now} onChange={e => setConfig(c => ({...c, buy_it_now: e.target.value}))} placeholder="Optional" className={inputCls} /></div>
+                <div><label className={labelCls}>Duration</label>
+                  <select value={config.auction_duration} onChange={e => setConfig(c => ({...c, auction_duration: e.target.value}))} className={inputCls}>
+                    {AUCTION_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                  </select></div>
+              </>) : (<>
+                <div><label className={labelCls}>Price (blank = card value)</label><input type="number" step="0.01" value={config.price} onChange={e => setConfig(c => ({...c, price: e.target.value}))} placeholder="Auto" className={inputCls} /></div>
+                <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer">
+                  <div className={`w-8 h-4 rounded-full transition-colors flex items-center px-0.5 ${config.best_offer ? 'bg-emerald-500' : 'bg-[#333]'}`}
+                    onClick={() => setConfig(c => ({...c, best_offer: !c.best_offer}))}><div className={`w-3 h-3 rounded-full bg-white transition-transform ${config.best_offer ? 'translate-x-4' : ''}`} /></div>
+                  <span className="text-xs text-gray-300">Best Offer</span>
+                </label></div>
+              </>)}
+            </div>
+          </div>
+
+          {/* Schedule */}
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <p className="text-xs font-bold text-white mb-3">When to Post</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div><label className={labelCls}>Date</label>
+                <input type="date" value={config.start_date} onChange={e => setConfig(c => ({...c, start_date: e.target.value}))} className={inputCls} /></div>
+              <div><label className={labelCls}>Time (Central)</label>
+                <select value={config.post_hour} onChange={e => setConfig(c => ({...c, post_hour: e.target.value}))} className={inputCls}>
+                  {[15,16,17,18,19,20,21,22].map(h => (<option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>))}
+                </select></div>
+              <div><label className={labelCls}>Minutes</label>
+                <select value={config.post_minute} onChange={e => setConfig(c => ({...c, post_minute: e.target.value}))} className={inputCls}>
+                  {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
+                </select></div>
+            </div>
+            <p className="text-[10px] text-gray-600 mt-2">{selected.length} cards starting at {parseInt(config.post_hour) > 12 ? parseInt(config.post_hour) - 12 : config.post_hour}:{config.post_minute} PM CT, spaced 10 min apart</p>
+          </div>
+
+          {/* Shipping */}
+          <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+            <p className="text-xs font-bold text-white mb-3">Shipping</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {SHIPPING_OPTIONS_SCHED.map(s => (
+                <button key={s.id} onClick={() => setConfig(c => ({...c, shipping_option: s.id, shipping_cost: s.cost}))}
+                  className={`p-3 rounded-xl text-left transition-all border-2 ${config.shipping_option === s.id ? 'border-amber-500/50 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.08]'}`}>
+                  <p className={`text-xs font-bold ${config.shipping_option === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
+                  <p className={`text-sm font-black mt-1 ${config.shipping_option === s.id ? 'text-white' : 'text-gray-500'}`}>{s.cost === 0 ? 'Free' : `$${s.cost.toFixed(2)}`}</p>
+                </button>))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-4 border-t border-white/[0.04]">
+          <button onClick={() => setStep(1)} className="text-xs text-gray-400 hover:text-white font-bold">
+            <ArrowLeft className="w-3.5 h-3.5 inline mr-1" /> Back to Cards
+          </button>
+          <button onClick={handleSubmit} disabled={submitting}
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-black text-sm font-black disabled:opacity-30 hover:shadow-lg hover:shadow-amber-500/20 transition-shadow"
+            data-testid="schedule-submit-btn">
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Calendar className="w-4 h-4" />}
+            Schedule {selected.length} Card{selected.length !== 1 ? 's' : ''}
+          </button>
+        </div>
+      </>)}
     </div>
   );
 };
