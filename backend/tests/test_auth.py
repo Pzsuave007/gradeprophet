@@ -7,7 +7,7 @@ import requests
 import os
 import uuid
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://best-offer-rules.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://hype-boost-ebay.preview.emergentagent.com')
 
 class TestAuthRegister:
     """Test user registration endpoint"""

@@ -314,6 +314,9 @@ const ScheduleModule = () => {
 
   useEffect(() => { fetchQueue(); }, [fetchQueue]);
 
+  // Re-fetch when tab changes
+  useEffect(() => { fetchQueue(); }, [tab]);
+
   const deletePost = async (id) => {
     try {
       await axios.delete(`${API}/api/schedule/${id}`, { withCredentials: true });

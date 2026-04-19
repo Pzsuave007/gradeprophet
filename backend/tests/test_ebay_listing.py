@@ -6,7 +6,7 @@ import pytest
 import requests
 import os
 
-BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://best-offer-rules.preview.emergentagent.com')
+BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', 'https://hype-boost-ebay.preview.emergentagent.com')
 
 # Known inventory items from the database
 INVENTORY_ITEMS = [
