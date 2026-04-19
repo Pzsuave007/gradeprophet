@@ -47,6 +47,13 @@ const formatTimeZones = (iso) => {
 };
 
 
+const SHIPPING_OPTIONS_SCHED = [
+  { id: 'FreeShipping', label: 'Free Shipping', cost: 0 },
+  { id: 'PWEEnvelope', label: 'PWE Envelope', cost: 2.50 },
+  { id: 'USPSFirstClass', label: 'USPS First Class', cost: 4.50 },
+  { id: 'USPSPriority', label: 'USPS Priority', cost: 8.50 },
+];
+
 // ============ ADD TO SCHEDULE VIEW ============
 const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
   const [cards, setCards] = useState([]);
@@ -54,15 +61,10 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [config, setConfig] = useState({
-    starting_bid: 0.99,
-    reserve_price: '',
-    buy_it_now: '',
-    auction_duration: 'Days_7',
-    price: '',
-    shipping_option: 'USPSFirstClass',
-    shipping_cost: 1.50,
-    best_offer: false,
-    interval_hours: 24,
+    starting_bid: 0.99, reserve_price: '', buy_it_now: '',
+    auction_duration: 'Days_7', price: '',
+    shipping_option: 'PWEEnvelope', shipping_cost: 2.50,
+    best_offer: true, post_hour: '19', post_minute: '00',
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -78,87 +80,106 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
   }, []);
 
   const toggle = (id) => setSelected(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  const selectAll = () => {
-    const visible = filtered.map(c => c.id);
-    if (visible.every(id => selected.includes(id))) setSelected(s => s.filter(id => !visible.includes(id)));
-    else setSelected(s => [...new Set([...s, ...visible])]);
-  };
-
   const filtered = cards.filter(c => {
     if (!search) return true;
     const q = search.toLowerCase();
-    return (c.player || '').toLowerCase().includes(q) || (c.set_name || '').toLowerCase().includes(q);
+    return (c.player || '').toLowerCase().includes(q) || (c.set_name || '').toLowerCase().includes(q) || (c.card_name || '').toLowerCase().includes(q);
   });
+  const selectAll = () => {
+    const vis = filtered.map(c => c.id);
+    if (vis.every(id => selected.includes(id))) setSelected(s => s.filter(id => !vis.includes(id)));
+    else setSelected(s => [...new Set([...s, ...vis])]);
+  };
 
   const handleSubmit = async () => {
     if (!selected.length) return;
     setSubmitting(true);
     try {
-      const res = await axios.post(`${API}/api/schedule/add-bulk`, {
-        card_ids: selected,
-        queue_type: queueType,
-        interval_hours: config.interval_hours,
-        config: {
-          ...(queueType === 'auction' ? {
-            starting_bid: parseFloat(config.starting_bid) || 0.99,
-            reserve_price: config.reserve_price ? parseFloat(config.reserve_price) : null,
-            buy_it_now: config.buy_it_now ? parseFloat(config.buy_it_now) : null,
-            auction_duration: config.auction_duration,
-          } : {
-            price: config.price ? parseFloat(config.price) : null,
-            best_offer: config.best_offer,
-          }),
-          shipping_option: config.shipping_option,
-          shipping_cost: parseFloat(config.shipping_cost) || 1.50,
-        },
+      await axios.post(`${API}/api/schedule/add-bulk`, {
+        card_ids: selected, queue_type: queueType, ...config,
+        starting_bid: parseFloat(config.starting_bid) || 0.99,
+        reserve_price: config.reserve_price ? parseFloat(config.reserve_price) : null,
+        buy_it_now: config.buy_it_now ? parseFloat(config.buy_it_now) : null,
+        price: config.price ? parseFloat(config.price) : null,
+        shipping_cost: parseFloat(config.shipping_cost) || 0,
+        post_hour: parseInt(config.post_hour),
+        post_minute: parseInt(config.post_minute),
       }, { withCredentials: true });
-      toast.success(`${res.data.added} card(s) scheduled!`);
-      if (res.data.skipped > 0) toast.info(`${res.data.skipped} skipped (already listed/scheduled)`);
+      toast.success(`${selected.length} card(s) scheduled!`);
       onAdded();
-    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to schedule'); }
-    finally { setSubmitting(false); }
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to schedule');
+    } finally { setSubmitting(false); }
   };
 
+  const isAuction = queueType === 'auction';
   const inputCls = "w-full bg-[#0a0a0a] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500/30";
-  const labelCls = "text-xs text-gray-400 font-medium mb-1 block";
+  const labelCls = "text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1 block";
 
   return (
     <div data-testid="add-to-schedule-view">
-      {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/5" data-testid="schedule-back-btn"><ArrowLeft className="w-4 h-4 text-gray-400" /></button>
-        <h2 className="text-lg font-black text-white">
-          Add to {queueType === 'auction' ? 'Auction' : 'Fixed Price'} Queue
-        </h2>
+        <div>
+          <h2 className="text-lg font-black text-white flex items-center gap-2">
+            {isAuction ? <Gavel className="w-5 h-5 text-amber-400" /> : <DollarSign className="w-5 h-5 text-emerald-400" />}
+            Schedule {isAuction ? 'Auctions' : 'Fixed Price'}
+          </h2>
+          <p className="text-[10px] text-gray-500">Select cards and configure posting settings</p>
+        </div>
       </div>
 
-      {/* Config */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-5 p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-        {queueType === 'auction' ? (
-          <>
-            <div><label className={labelCls}>Starting Bid</label><input type="number" step="0.01" value={config.starting_bid} onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} data-testid="starting-bid-input" /></div>
-            <div><label className={labelCls}>Reserve Price</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="reserve-price-input" /></div>
-            <div><label className={labelCls}>Buy It Now</label><input type="number" step="0.01" value={config.buy_it_now} onChange={e => setConfig(c => ({...c, buy_it_now: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="buy-it-now-input" /></div>
-            <div><label className={labelCls}>Duration</label>
-              <select value={config.auction_duration} onChange={e => setConfig(c => ({...c, auction_duration: e.target.value}))} className={inputCls} data-testid="auction-duration-select">
-                {AUCTION_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-              </select>
-            </div>
-          </>
-        ) : (
-          <>
-            <div><label className={labelCls}>Price (blank = card value)</label><input type="number" step="0.01" value={config.price} onChange={e => setConfig(c => ({...c, price: e.target.value}))} placeholder="Auto" className={inputCls} data-testid="price-input" /></div>
-            <div className="flex items-end pb-1"><label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={config.best_offer} onChange={e => setConfig(c => ({...c, best_offer: e.target.checked}))} className="accent-amber-500" />
-              <span className="text-xs text-gray-300">Best Offer</span>
-            </label></div>
-          </>
-        )}
-        <div><label className={labelCls}>Post every (hours)</label><input type="number" step="1" min="1" value={config.interval_hours} onChange={e => setConfig(c => ({...c, interval_hours: e.target.value}))} className={inputCls} data-testid="interval-input" /></div>
-        <div><label className={labelCls}>Shipping Cost</label><input type="number" step="0.01" value={config.shipping_cost} onChange={e => setConfig(c => ({...c, shipping_cost: e.target.value}))} className={inputCls} data-testid="shipping-cost-input" /></div>
+      <div className="space-y-4 mb-5">
+        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <p className="text-xs font-bold text-white mb-3">{isAuction ? 'Auction Settings' : 'Pricing'}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {isAuction ? (<>
+              <div><label className={labelCls}>Starting Bid</label><input type="number" step="0.01" value={config.starting_bid} onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} data-testid="starting-bid-input" /></div>
+              <div><label className={labelCls}>Reserve Price</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="reserve-price-input" /></div>
+              <div><label className={labelCls}>Buy It Now</label><input type="number" step="0.01" value={config.buy_it_now} onChange={e => setConfig(c => ({...c, buy_it_now: e.target.value}))} placeholder="Optional" className={inputCls} data-testid="buy-it-now-input" /></div>
+              <div><label className={labelCls}>Duration</label>
+                <select value={config.auction_duration} onChange={e => setConfig(c => ({...c, auction_duration: e.target.value}))} className={inputCls} data-testid="auction-duration-select">
+                  {AUCTION_DURATIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select></div>
+            </>) : (<>
+              <div><label className={labelCls}>Price (blank = card value)</label><input type="number" step="0.01" value={config.price} onChange={e => setConfig(c => ({...c, price: e.target.value}))} placeholder="Auto" className={inputCls} data-testid="price-input" /></div>
+              <div className="flex items-end pb-2"><label className="flex items-center gap-2 cursor-pointer">
+                <div className={`w-8 h-4 rounded-full transition-colors cursor-pointer flex items-center px-0.5 ${config.best_offer ? 'bg-emerald-500' : 'bg-[#333]'}`}
+                  onClick={() => setConfig(c => ({...c, best_offer: !c.best_offer}))}><div className={`w-3 h-3 rounded-full bg-white transition-transform ${config.best_offer ? 'translate-x-4' : ''}`} /></div>
+                <span className="text-xs text-gray-300">Best Offer</span>
+              </label></div>
+            </>)}
+          </div>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <p className="text-xs font-bold text-white mb-3">Post Time (Central)</p>
+          <div className="flex items-center gap-3">
+            <select value={config.post_hour} onChange={e => setConfig(c => ({...c, post_hour: e.target.value}))} className={inputCls + " w-32"} data-testid="schedule-post-hour">
+              {[15,16,17,18,19,20,21,22].map(h => (<option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>))}
+            </select>
+            <select value={config.post_minute} onChange={e => setConfig(c => ({...c, post_minute: e.target.value}))} className={inputCls + " w-24"} data-testid="schedule-post-minute">
+              {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
+            </select>
+            <span className="text-xs text-gray-500 font-bold">CT</span>
+          </div>
+          <p className="text-[10px] text-gray-600 mt-2">Cards will be spaced 10 min apart within each day</p>
+        </div>
+
+        <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
+          <p className="text-xs font-bold text-white mb-3">Shipping</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {SHIPPING_OPTIONS_SCHED.map(s => (
+              <button key={s.id} onClick={() => setConfig(c => ({...c, shipping_option: s.id, shipping_cost: s.cost}))}
+                className={`p-3 rounded-xl text-left transition-all border-2 ${config.shipping_option === s.id ? 'border-amber-500/50 bg-amber-500/5' : 'border-white/[0.04] bg-white/[0.02] hover:border-white/[0.08]'}`}
+                data-testid={`schedule-ship-${s.id}`}>
+                <p className={`text-xs font-bold ${config.shipping_option === s.id ? 'text-amber-400' : 'text-gray-400'}`}>{s.label}</p>
+                <p className={`text-sm font-black mt-1 ${config.shipping_option === s.id ? 'text-white' : 'text-gray-500'}`}>{s.cost === 0 ? 'Free' : `$${s.cost.toFixed(2)}`}</p>
+              </button>))}
+          </div>
+        </div>
       </div>
 
-      {/* Search + Select All */}
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
@@ -170,32 +191,29 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
         </button>
       </div>
 
-      {/* Card Grid */}
       {loading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 text-gray-600 animate-spin" /></div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 max-h-[400px] overflow-y-auto pr-1">
+        <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-7 gap-2 max-h-[350px] overflow-y-auto pr-1">
           {filtered.map(c => {
             const sel = selected.includes(c.id);
             const img = c.thumbnail || c.store_thumbnail || c.image;
             return (
               <motion.div key={c.id} whileTap={{ scale: 0.97 }} onClick={() => toggle(c.id)}
-                className={`relative rounded-xl overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
+                className={`relative rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${sel ? 'border-amber-500/60 bg-amber-500/5' : 'border-transparent bg-white/[0.02] hover:bg-white/[0.04]'}`}
                 data-testid={`schedule-card-${c.id}`}>
                 {img && <img src={`data:image/jpeg;base64,${img}`} alt={c.player} className="w-full aspect-[3/4] object-cover" />}
-                {!img && <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-6 h-6 text-gray-700" /></div>}
-                <div className="p-1.5">
-                  <p className="text-[10px] font-bold text-white truncate">{c.player}</p>
-                  <p className="text-[8px] text-gray-500 truncate">{c.year} {c.set_name}</p>
+                {!img && <div className="w-full aspect-[3/4] bg-[#111] flex items-center justify-center"><Package className="w-5 h-5 text-gray-700" /></div>}
+                <div className="p-1">
+                  <p className="text-[8px] font-bold text-white truncate">{c.player}</p>
+                  <p className="text-[7px] text-gray-500 truncate">{c.year} {c.set_name}</p>
                 </div>
-                {sel && <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-3 h-3 text-black" /></div>}
-              </motion.div>
-            );
+                {sel && <div className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-amber-500 flex items-center justify-center"><CheckCircle className="w-2 h-2 text-black" /></div>}
+              </motion.div>);
           })}
         </div>
       )}
 
-      {/* Submit */}
       <div className="flex items-center justify-between mt-5 pt-4 border-t border-white/[0.04]">
         <p className="text-xs text-gray-500">{selected.length} card(s) selected</p>
         <button onClick={handleSubmit} disabled={!selected.length || submitting}
