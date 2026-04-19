@@ -21,7 +21,10 @@ def _calc_starting_bid(body: dict, card: dict) -> float:
         card_value = float(card.get("card_value") or card.get("listed_price") or card.get("purchase_price") or 0)
         if card_value > 0:
             return round(card_value * float(pct) / 100, 2)
-    return float(body.get("starting_bid", 0.99))
+    bid = body.get("starting_bid")
+    if bid is not None:
+        return float(bid)
+    return 0.99
 
 
 # ========== CRUD ENDPOINTS ==========
