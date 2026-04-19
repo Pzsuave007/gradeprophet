@@ -13,6 +13,17 @@ logger = logging.getLogger("routers.schedule")
 router = APIRouter(prefix="/schedule", tags=["schedule"])
 
 
+
+def _calc_starting_bid(body: dict, card: dict) -> float:
+    """Calculate starting bid from fixed amount or percentage of card value."""
+    pct = body.get("starting_bid_pct")
+    if pct:
+        card_value = float(card.get("card_value") or card.get("listed_price") or card.get("purchase_price") or 0)
+        if card_value > 0:
+            return round(card_value * float(pct) / 100, 2)
+    return float(body.get("starting_bid", 0.99))
+
+
 # ========== CRUD ENDPOINTS ==========
 
 @router.get("/queue")
@@ -232,7 +243,7 @@ async def add_bulk_to_schedule(request: Request):
             "back_image": card.get("back_image", ""),
             "category_id": cat_map.get(sport.lower(), "261328"),
             "price": float(body.get("price") or card.get("listed_price") or card.get("card_value") or 9.99),
-            "starting_bid": float(body.get("starting_bid", 0.99)),
+            "starting_bid": _calc_starting_bid(body, card),
             "reserve_price": float(body.get("reserve_price")) if body.get("reserve_price") else None,
             "buy_it_now": float(body.get("buy_it_now")) if body.get("buy_it_now") else None,
             "auction_duration": body.get("auction_duration", "Days_7"),

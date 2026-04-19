@@ -63,7 +63,7 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState([]);
   const [config, setConfig] = useState({
-    starting_bid: 0.99, reserve_price: '', buy_it_now: '',
+    starting_bid: 0.99, starting_bid_pct: '50', use_pct: true, reserve_price: '', buy_it_now: '',
     auction_duration: 'Days_7', price: '',
     shipping_option: 'PWEEnvelope', shipping_cost: 2.50,
     best_offer: true, post_hour: '19', post_minute: '00',
@@ -95,7 +95,8 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
     try {
       await axios.post(`${API}/api/schedule/add-bulk`, {
         card_ids: selected, queue_type: queueType, ...config,
-        starting_bid: parseFloat(config.starting_bid) || 0.99,
+        starting_bid: config.use_pct ? null : (parseFloat(config.starting_bid) || 0.99),
+        starting_bid_pct: config.use_pct ? (parseFloat(config.starting_bid_pct) || 50) : null,
         reserve_price: config.reserve_price ? parseFloat(config.reserve_price) : null,
         buy_it_now: config.buy_it_now ? parseFloat(config.buy_it_now) : null,
         price: config.price ? parseFloat(config.price) : null,
@@ -202,8 +203,30 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
             <p className="text-xs font-bold text-white mb-3">{isAuction ? 'Auction Settings' : 'Pricing'}</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {isAuction ? (<>
-                <div><label className={labelCls}>Starting Bid</label><input type="number" step="0.01" value={config.starting_bid} onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} /></div>
-                <div><label className={labelCls}>Reserve Price</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} /></div>
+                <div className="col-span-2">
+                  <label className={labelCls}>Starting Bid</label>
+                  <div className="flex gap-2 mb-2">
+                    <button onClick={() => setConfig(c => ({...c, use_pct: true}))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${config.use_pct ? 'bg-amber-500 text-black' : 'bg-white/[0.04] text-gray-400'}`}>
+                      % of Value
+                    </button>
+                    <button onClick={() => setConfig(c => ({...c, use_pct: false}))}
+                      className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-colors ${!config.use_pct ? 'bg-amber-500 text-black' : 'bg-white/[0.04] text-gray-400'}`}>
+                      $ Fixed
+                    </button>
+                  </div>
+                  {config.use_pct ? (
+                    <div className="flex items-center gap-2">
+                      <input type="number" min="10" max="100" step="5" value={config.starting_bid_pct}
+                        onChange={e => setConfig(c => ({...c, starting_bid_pct: e.target.value}))} className={inputCls + " text-center"} />
+                      <span className="text-xs text-gray-400 shrink-0">% of card value</span>
+                    </div>
+                  ) : (
+                    <input type="number" step="0.01" value={config.starting_bid}
+                      onChange={e => setConfig(c => ({...c, starting_bid: e.target.value}))} className={inputCls} placeholder="$0.99" />
+                  )}
+                </div>
+                <div><label className={labelCls}>Reserve</label><input type="number" step="0.01" value={config.reserve_price} onChange={e => setConfig(c => ({...c, reserve_price: e.target.value}))} placeholder="Optional" className={inputCls} /></div>
                 <div><label className={labelCls}>Buy It Now</label><input type="number" step="0.01" value={config.buy_it_now} onChange={e => setConfig(c => ({...c, buy_it_now: e.target.value}))} placeholder="Optional" className={inputCls} /></div>
                 <div><label className={labelCls}>Duration</label>
                   <select value={config.auction_duration} onChange={e => setConfig(c => ({...c, auction_duration: e.target.value}))} className={inputCls}>
