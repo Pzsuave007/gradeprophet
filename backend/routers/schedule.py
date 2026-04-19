@@ -172,6 +172,18 @@ async def add_bulk_to_schedule(request: Request):
     skipped = []
     day_offset = 0
     in_batch = 0
+
+    # Count existing pending posts on the start date to offset time correctly
+    day_start_utc = start_day.replace(hour=0, minute=0, second=0)
+    day_end_utc = day_start_utc + timedelta(days=1)
+    existing_on_day = await db.scheduled_posts.count_documents({
+        "user_id": user["user_id"],
+        "status": {"$in": ["pending", "processing"]},
+        "queue_type": queue_type,
+        "scheduled_at": {"$gte": day_start_utc.isoformat(), "$lt": day_end_utc.isoformat()}
+    })
+    in_batch = existing_on_day  # Start offset from existing cards on that day
+
     for idx, card_id in enumerate(card_ids):
         card = await db.inventory.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
         if not card:

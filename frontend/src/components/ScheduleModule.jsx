@@ -108,7 +108,7 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
         start_date: config.start_date,
         batch_size: parseInt(config.batch_size) || 5,
       }, { withCredentials: true });
-      toast.success(`${selected.length} card(s) scheduled!`);
+      toast.success(`${selected.length} card(s) scheduled! Refreshing queue...`);
       onAdded();
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to schedule');
