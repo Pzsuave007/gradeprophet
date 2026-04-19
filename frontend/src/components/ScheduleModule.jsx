@@ -17,6 +17,7 @@ const AUCTION_DURATIONS = [
 
 const STATUS_STYLES = {
   pending: { bg: 'bg-amber-500/10', text: 'text-amber-400', label: 'Scheduled' },
+  processing: { bg: 'bg-blue-500/10', text: 'text-blue-400', label: 'Posting...' },
   posted: { bg: 'bg-emerald-500/10', text: 'text-emerald-400', label: 'Posted' },
   failed: { bg: 'bg-red-500/10', text: 'text-red-400', label: 'Failed' },
   cancelled: { bg: 'bg-gray-500/10', text: 'text-gray-400', label: 'Cancelled' },
@@ -316,8 +317,8 @@ const ScheduleModule = () => {
   }
 
   const filtered = posts.filter(p => p.queue_type === tab);
-  const pending = filtered.filter(p => p.status === 'pending');
-  const completed = filtered.filter(p => p.status !== 'pending');
+  const pending = filtered.filter(p => p.status === 'pending' || p.status === 'processing');
+  const completed = filtered.filter(p => p.status !== 'pending' && p.status !== 'processing');
 
   // Strategy reminder: check when last auction ends
   const auctionPosts = posts.filter(p => p.queue_type === 'auction' && p.status === 'pending');
