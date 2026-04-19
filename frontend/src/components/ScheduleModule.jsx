@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, Search, X, Timer, Zap, Rocket, Edit2 } from 'lucide-react';
+import { Calendar, Clock, Gavel, DollarSign, Package, Trash2, Plus, ChevronRight, AlertCircle, CheckCircle, Loader2, ArrowLeft, ArrowRight, Search, X, Timer, Zap, Rocket, Edit2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import StrategyLauncher from './StrategyLauncher';
