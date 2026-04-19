@@ -1,43 +1,40 @@
 <analysis>**original_problem_statement**: 
-The user wants to finalize the Chase Card Pack feature. This includes wiring the  to the main Dashboard, giving the seller full control over all details of active packs, and refining the public Reveal Page. Following that, they needed to fix an ongoing error with eBay Store Promotions and build a 3-Step Wizard for creating Chase Packs, including auto-calculating the price based on card values (30% margin after eBay fees) and auto-detecting sales from eBay via a background monitor.
+The user wants to finalize the Chase Card Pack feature, fix eBay Store Promotions, and build a Schedule Posting feature. After successfully implementing the Pick Your Card flow for Chase Packs, the user requested **Auto-Decline and Auto-Accept Rules for eBay Best Offers** based on percentages. Later in the session, the user requested an **eBay Strategy Launcher** to batch schedule listings (e.g., 150 items: 21 auctions spaced 1 per day, 129 fixed-price listings spaced 5 per day). The user also requested an image cropping tool for the Flip Finder, AI-generated Hype titles and descriptions for eBay listings, and separating scheduled inventory from available inventory in the UI.
 
 PRODUCT REQUIREMENTS:
-- Complete Chase Packs Module (Inline editing, Setup Wizard).
-- Refine Reveal Page (Responsive layout, 3-tier celebrations, 3D flip card, mobile fixes).
-- Fix Store Promotions (Fix eBay errors related to , multiple tiers, and description length).
-- Setup Wizard: Select unlisted/unsold cards -> Assign Tiers -> Details (Auto-pricing using  + 30% profit margin + 13% eBay fee consideration).
-- Pre-post Preview: Generate 3 aesthetic images (Chase, Mid, Base) to preview before listing on eBay.
-- Auto-assign: Background monitor that detects eBay sales, generates codes, assigns buyers, and sends an eBay message with the claim link.
+- Best Offer auto-decline % and auto-accept % global settings and bulk-apply in Listings.
+- Strategy Launcher for bulk-scheduling Auctions and Fixed Price listings with specific daily distributions.
+- AI-generated Hype hooks for eBay titles (max 80 chars, player name first) and bullet points for descriptions.
+- Image Cropper in the Card Scanner / Flip Finder.
+- Isolate Scheduled items into their own tab within the Inventory Module.
 
-**User's preferred language**: **Spanish** (INSTRUCT NEXT AGENT: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. The user exclusively communicates in Spanish, so ALL replies MUST be in Spanish).
+**User's preferred language**: **Spanish** (INSTRUCT NEXT AGENT: You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in the user's preferred language only. The user communicates almost exclusively in Spanish, so ALL replies MUST be in Spanish).
 
 **what currently exists?** 
-A mature React + FastAPI + MongoDB app. The Chase Card Pack functionality is heavily developed. The seller Dashboard has a 3-step Wizard to create packs, preview 3 tier collages, and auto-calculate prices. The backend includes a background monitor that polls eBay every 60 seconds for Chase Pack sales, auto-assigns buyers, and sends eBay messages. The Reveal Page has 3 levels of custom particle celebrations based on the pulled card's tier. 
+A mature React + FastAPI + MongoDB app with robust eBay Trading API integration. The application features a Chase Card Pack flow, a Flip Finder AI scanner, a Schedule Posting background worker, Best Offer auto-rules, an AI Hype Generator for eBay listings, and a Strategy Launcher for complex, multi-day scheduling campaigns.
 
 **Last working item**:
-    - Last item agent was working: Modifying the  function inside  so that if there are more than 2 cards in a tier, the preview images arrange the cards in a 2-cards-per-row grid format (instead of a single row/cluster), making the generated eBay images look much better.
+    - Last item agent was working: Debugging an issue where individually scheduled cards are not displaying in the Schedule Queue tab. The user reported that after scheduling a card and navigating away from the tab, the card disappears and the queue shows 0. The agent ran a test script to check the queue fetching logic, which returned some garbage/binary output at the very end of the terminal log.
     - Status: IN PROGRESS
-    - Agent Testing Done: N (The agent was just reading  when the session ended).
-    - Which testing method agent to use? manual testing by python -c or curl (to hit the  endpoint and verify the base64 output).
+    - Agent Testing Done: Y (via bash script, but debugging incomplete)
+    - Which testing method agent to use? manual testing by curl / python -c for backend API, screenshot tool for frontend.
     - User Testing Done: N
 
 **All Pending/In progress Issue list**:  
-  Issue 1: Update eBay Collage Preview Image Grid (2 cards per row)
-     - Attempted fixes: The agent viewed  but hasn't applied the  yet.
-     - Next debug checklist: Check  in . Update the coordinate math to wrap to a new row after 2 cards ( resets,  increments).
-     - Why fix this issue and what will be achieved with the fix? The user explicitly requested that the generated eBay preview images look more attractive by placing exactly 2 cards per row.
+  Issue 1: Scheduled cards disappearing from the Schedule Queue UI
+     - Attempted fixes: Agent fixed earlier bugs regarding  vs  variable scope and a  error for . Agent also added  calls to  and navigation handlers.
+     - Next debug checklist: 
+       1. Check the  endpoint logic in  to ensure it is correctly fetching posts for the user.
+       2. Investigate why the bash script test at the end of the session outputted garbage binary text (could be a broken package or rogue print statement in the queue fetch logic).
+       3. Verify the frontend  state management for  to ensure it renders items properly upon returning to the tab.
+     - Why fix this issue and what will be achieved with the fix? Users need to reliably see and manage the items they have scheduled. Currently, individual additions seem to vanish from the UI.
      - Status: IN PROGRESS
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Backend (verify collage generation).
-     - Blocked on other issue: None.
+     - Is recurring issue? Y
+     - Should Test frontend/backend/both after fix? Both
+     - Blocked on other issue: None
 
 **In progress Task List**:
-  Task 1: Chase Pack Phase 1 Final Polish
-     - Where to resume: Implement the 2-cards-per-row logic in . Then show the user the updated preview in the Step 3 wizard.
-     - What will be achieved with this? Wraps up the last visual request for the Chase Pack creation flow before moving to Stripe integration.
-     - Status: IN PROGRESS
-     - Should Test frontend/backend/both after fix? Both (Backend image gen, Frontend display).
-     - Blocked on something: None.
+  *(None currently aside from Issue 1)*
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
@@ -50,134 +47,100 @@ A mature React + FastAPI + MongoDB app. The Chase Card Pack functionality is hea
     - P5: Flip Finder Core Logic Enhancements.
     - P6: Windows Scanner App.
     - P7: Team Access (Legend tier).
-    - P8: Refactor  & .
+    - P8: Refactor , , and .
 
 **Completed work in this session**
-- Verified Inline Editing for Chase Packs Title/Price (DONE)
-- Redesigned Chase Reveal Page to be responsive with 3-tier custom celebrations (Sparkles, Confetti, Gold Rings) (DONE)
-- Fixed mobile UI for Reveal Page (stacked buttons, 3D flip card fix, unblocked pointer-events) (DONE)
-- Fixed eBay Store Promotions bug (fetched , restricted to 1 discount rule, truncated description) (DONE)
-- Built 3-Step Chase Pack Creation Wizard () (DONE)
-- Filtered Wizard card selector to exclude sold/listed cards (DONE)
-- Implemented eBay background monitor () for auto-assigning buyers & messaging via Trading API (DONE)
-- Implemented Auto-Pricing calculation logic prioritizing  + 30% profit + 13% eBay fees (DONE)
-- Created  endpoint to generate 3 tier collages before publishing (DONE)
+- Implemented Best Offer Auto-Decline/Accept (Global Settings + Bulk Apply in Listings) (DONE)
+- Fixed Best Offer XML by adding  (DONE)
+- Created eBay Strategy Launcher in Schedule tab for bulk-campaign posting (DONE)
+- Added  to Card Scanner / Flip Finder (DONE)
+- Improved AI Corner Crop quality (35% size, upscale to 400px min, 95% JPEG quality) (DONE)
+- Integrated Analyze button directly on Inventory cards (DONE)
+- Restructured AI Prompts to ALWAYS put Player Name first in titles (DONE)
+- Built AI Hype Generator for eBay Titles and Descriptions (Single, Lot, and Pick-Your-Card) (DONE)
+- Created Bulk AI Boost button in Listings to apply hype to existing listings (DONE)
+- Separated Schedule cards into their own tab in the Inventory Module with auto-sync (DONE)
+- Added Inline Time Editing and Bulk Change Time feature to the Schedule queue (DONE)
+- Fixed race condition in background Schedule Worker by introducing a  status (DONE)
 
 **Earlier issues found/mentioned but not fixed**
    - None.
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: Admin login hash getting corrupted/outdated across forks.
-  - Recurrence count: 10+
-  - Status: RESOLVED (Startup script ensures admin hash on boot. Dev token  is actively being used safely).
+  - Issue recurrence in previous fork: None.
+  - Recurrence count: 0
+  - Status: RESOLVED
 
 **Code Architecture**
 /app/
 ├── backend/
 │   ├── routers/
-│   │   ├── ebay.py             // Contains Chase Pack CRUD, Chase Monitor loop, Preview generation, Promos
-│   │   ├── inventory.py        // Updated filters for  and 
+│   │   ├── ebay.py             // Best Offer, AI Hype generation, eBay XMLs
+│   │   ├── schedule.py         // Strategy Launcher, Schedule Queue, Background Worker
+│   │   ├── inventory.py        // Inventory sorting, Scheduled Sync
 │   ├── utils/
-│   │   └── image.py            // Collage generators (, )
-│   ├── server.py               // Starts background 
+│   │   ├── ai.py               // AI Prompts (Title formatting, player name first)
+│   │   ├── image.py            // Auto-corner cropping logic
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── ChasePacksModule.jsx  // 3-step wizard, preview image rendering, Check Sales button
-│   │   │   ├── StorePromotions.jsx   // Fixed to allow 1 rule for eBay compatibility
-│   │   ├── pages/
-│   │   │   ├── ChaseRevealPage.jsx   // Layout fixes, 3-tier animations, mobile optimizations
+│   │   │   ├── ScheduleModule.jsx
+│   │   │   ├── StrategyLauncher.jsx  // New: Bulk campaign wizard
+│   │   │   ├── ImageCropper.jsx      // New: Image cropping tool
+│   │   │   ├── CardScanner.jsx       
+│   │   │   ├── InventoryModule.jsx   
+│   │   │   ├── ListingsModule.jsx    
 
 **Key Technical Concepts**
 - React frontend, FastAPI backend, MongoDB.
-- eBay Trading API used heavily for background polling () and messages ().
-- PIL/cv2 used for in-memory collage generation.
-- Framer Motion used heavily on the Reveal Page.
+- eBay Trading API (, ).
+- Background asyncio loops ().
+- OpenAI GPT-4o for AI Hype Generation.
 
 **key DB schema**
-  - : Uses  (representing the user-input Value $),  ('sold', 'collection', 'for_sale').
-  - : Stores .
+  - : {best_offer_auto_decline_pct, best_offer_auto_accept_pct}
+  - : {queue_type, status: pending/processing/posted/failed, scheduled_at, condition_id, starting_bid_pct}
+  - : {scheduled: bool}
 
 **changes in tech stack**
-  - None
+  - Added  to the frontend .
 
 **All files of reference**
-  -  (Currently modifying  for 2-column grid).
-  -  (Wizard and Preview rendering).
-  -  (Preview endpoint, Sales monitor loop).
-  -  (CRITICAL: Rules for building and testing).
-  - Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
-yarn run v1.22.22
-$ craco build
-Creating an optimized production build...
-Compiled with warnings.
+  -  (Currently debugging queue fetching and individual add bugs here).
+  -  (Queue UI display).
+  -  (AI Hype generation and listing XML creation).
+  - ============================================
+  FlipSlab Engine - Deploy Fix
+============================================
 
-[eslint] 
-src/components/AccountModule.jsx
-  Line 68:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+[1/5] Git pull...
+  OK
+[2/5] Backend dependencies...
+  OK
+[3/5] Backend files...
+  OK
+[4/5] Frontend (pre-built, NO compile)...
+  OK
+[5/5] Reiniciando backend...
+  API: OK
 
-src/components/AuctionSniper.jsx
-  Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-  Line 258:6:  React Hook useEffect has a missing dependency: 'handleCheckItem'. Either include it or remove the dependency array     react-hooks/exhaustive-deps
-
-src/components/BatchUploadView.jsx
-  Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
-
-src/components/HistoryPanel.jsx
-  Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-
-src/components/InventoryModule.jsx
-  Line 1338:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 1340:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
-
-src/components/ListingsModule.jsx
-  Line 123:6:  React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
-  Line 144:6:  React Hook useEffect has missing dependencies: 'listing.item_id' and 'listing.title'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-
-src/components/PriceHistoryChart.jsx
-  Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
-
-src/pages/ChaseRevealPage.jsx
-  Line 36:5:    React Hook useMemo has missing dependencies: 'cfg.colors', 'cfg.count', 'cfg.durMax', 'cfg.durMin', 'cfg.sizeMax', 'cfg.sizeMin', and 'cfg.spread'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 159:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array                                                                                            react-hooks/exhaustive-deps
-
-Search for the keywords to learn more about each warning.
-To ignore, add // eslint-disable-next-line to the line before.
-
-File sizes after gzip:
-
-  423.05 kB  build/static/js/main.540dc5ac.js
-  19.69 kB   build/static/css/main.3a779e57.css
-
-The project was built assuming it is hosted at /.
-You can control this with the homepage field in your package.json.
-
-The build folder is ready to be deployed.
-You may serve it with a static server:
-
-  yarn global add serve
-  serve -s build
-
-Find out more about deployment here:
-
-  https://cra.link/deployment
-
-Done in 26.83s.
-Build complete. Ready for deploy. (CRITICAL: Always use this to compile the frontend).
+============================================
+  LISTO! Abre flipslabengine.com con Ctrl+Shift+R
+============================================ (Deployment script. The user provided this to another agent. CRITICAL: It does not build the frontend on the server).
 
 **Areas that need refactoring**:
--  collage generation logic is getting complex with multiple different functions doing similar math.
--  and  remain extremely large.
+-  (>5000 lines), , and  are growing very large and handle too many responsibilities.
 
 **key api endpoints**
 - 
--  (Generates base64 preview images)
--  (Manual trigger for the auto-monitor)
--  (Store Promos)
+- 
+- 
+- 
 
 **Critical Info for New Agent**
-- **LANGUAGE**: You **MUST** reply in **Spanish**. The user only speaks Spanish.
-- **FRONTEND BUILD**: NEVER run  manually. **ALWAYS run Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
+- **LANGUAGE**: You **MUST** reply in **Spanish**.
+- **FRONTEND BUILD**: NEVER run yarn run v1.22.22
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command. or  manually on the server. **ALWAYS run Building frontend with REACT_APP_BACKEND_URL=https://flipslabengine.com
 yarn run v1.22.22
 $ craco build
 Creating an optimized production build...
@@ -185,7 +148,7 @@ Compiled with warnings.
 
 [eslint] 
 src/components/AccountModule.jsx
-  Line 68:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  Line 75:6:  React Hook useEffect has a missing dependency: 'fetchPlan'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/AuctionSniper.jsx
   Line 199:6:  React Hook useCallback has a missing dependency: 'handleAlertFired'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
@@ -194,12 +157,15 @@ src/components/AuctionSniper.jsx
 src/components/BatchUploadView.jsx
   Line 33:37:  The ref value 'previewCacheRef.current' will likely have changed by the time this effect cleanup function runs. If this ref points to a node rendered by React, copy 'previewCacheRef.current' to a variable inside the effect, and use that variable in the cleanup function  react-hooks/exhaustive-deps
 
+src/components/CardScanner.jsx
+  Line 153:6:  React Hook useEffect has missing dependencies: 'API' and 'onInitialCardConsumed'. Either include them or remove the dependency array. If 'onInitialCardConsumed' changes too often, find the parent component that defines it and wrap that definition in useCallback  react-hooks/exhaustive-deps
+
 src/components/HistoryPanel.jsx
   Line 24:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
 src/components/InventoryModule.jsx
-  Line 1338:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 1340:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
+  Line 1333:6:   React Hook useEffect has missing dependencies: 'fetchInventory' and 'search'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
+  Line 1335:70:  React Hook useEffect has a missing dependency: 'search'. Either include it or remove the dependency array                         react-hooks/exhaustive-deps
 
 src/components/ListingsModule.jsx
   Line 123:6:  React Hook useEffect has a missing dependency: 'listing'. Either include it or remove the dependency array                                react-hooks/exhaustive-deps
@@ -208,17 +174,20 @@ src/components/ListingsModule.jsx
 src/components/PriceHistoryChart.jsx
   Line 79:40:  React Hook useEffect has a missing dependency: 'fetchHistory'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
 
+src/components/ScheduleModule.jsx
+  Line 318:38:  React Hook useEffect has a missing dependency: 'fetchQueue'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+
 src/pages/ChaseRevealPage.jsx
   Line 36:5:    React Hook useMemo has missing dependencies: 'cfg.colors', 'cfg.count', 'cfg.durMax', 'cfg.durMin', 'cfg.sizeMax', 'cfg.sizeMin', and 'cfg.spread'. Either include them or remove the dependency array  react-hooks/exhaustive-deps
-  Line 159:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array                                                                                            react-hooks/exhaustive-deps
+  Line 163:37:  React Hook useEffect has a missing dependency: 'fetchPack'. Either include it or remove the dependency array                                                                                            react-hooks/exhaustive-deps
 
 Search for the keywords to learn more about each warning.
 To ignore, add // eslint-disable-next-line to the line before.
 
 File sizes after gzip:
 
-  423.05 kB  build/static/js/main.540dc5ac.js
-  19.69 kB   build/static/css/main.3a779e57.css
+  441.73 kB (+8 B)  build/static/js/main.1270e763.js
+  21.53 kB          build/static/css/main.29245ba8.css
 
 The project was built assuming it is hosted at /.
 You can control this with the homepage field in your package.json.
@@ -233,40 +202,48 @@ Find out more about deployment here:
 
   https://cra.link/deployment
 
-Done in 18.40s.
-Build complete. Ready for deploy.**.
+Done in 18.63s.
+Build complete. Ready for deploy.** in the dev environment. The compiled files are pushed, and  just copies them over.
 - **AUTH RULES**: DO NOT TOUCH AUTH. Use the permanent dev token  for testing.
-- **EBAY PROMOS**: eBay requires users to have a Store Subscription to run  promos. The user has now upgraded to a Basic Store, so promos work correctly.
-- **IMAGE GEN**: The user specifically requested the generated images for the Mid and Base tiers in the Chase Pack preview to display cards in a grid of 2 per row (2 tarjetas por line). Update  accordingly.
+- **AI HYPE CALLS**: To save OpenAI costs, AI Hype generation occurs ONLY when the user clicks List on eBay (preview stage) or clicks the AI Boost bulk button. It does NOT happen during the initial card scan.
+- **SCHEDULE WORKER**: Scheduled posts go through states:  ->  ->  or . This prevents double-posting race conditions.
 
 **documents and test reports created in this job**
-  -  (Updated with latest completed features).
+  -  (Updated)
 
 **Last 10 User Messages and any pending HUMAN messages** 
- - ok tambien en la imagenes que se crean necesito que si son mas de dos imagens siempre uses el formato que estamos usando en las otras seeciones deonde solo pones2 tarjetas por line asi se van a ver mucho mejor
+ - User complained that scheduling two cards individually for the same day removed the first one. (Agent fixed a time spacing bug).
+ - User complained that clicking Add Cards resulted in a blank page. (Agent fixed a missing  lucide-react import).
+ - User complained that scheduling failed completely. (Agent fixed a  crash for ).
+ - User complained that it failed again on the first click. (Agent fixed a  vs  undefined variable error in ).
+ - User reported that after scheduling a card, leaving the Schedule tab, and coming back, the card is gone and the queue says 0. (Agent started debugging this but didn't finish).
 
 **Project Health Check:**
-- Broken: None.
-- Mocked: None.
+- Broken: The display of scheduled cards in the  queue.
+- Mocked: None
 
 **3rd Party Integrations**
-- OpenAI GPT-4o — requires User API Key.
-- eBay API — requires User API Key.
-- Stripe (Payments) — requires User API Key.
+- OpenAI GPT-4o — requires User API Key
+- eBay API — requires User API Key
+- Stripe (Payments) — requires User API Key
 
 **Testing status**
-  - Testing agent used after significant changes: NO (Iterative frontend/backend checks were verified manually via screenshots and bash curl tests).
+  - Testing agent used after significant changes: NO
   - Troubleshoot agent used after agent stuck in loop: NO
   - Test files created: None
-  - Known regressions: None.
+  - Known regressions: Queue list disappears on re-render.
 
 **Credentials to test flow:**
-Use . A  token is available for safe backend curl testing.
+Use . A  token is available for cookies.
 
 **What agent forgot to execute**
-The agent was in the middle of updating  in  to enforce the 2-cards-per-row layout for eBay preview images, but the session timed out before the file was edited and compiled.
+The agent ran a python test script at the very end to check the queue output, which seemingly printed a large binary/garbage string. The agent did not identify the cause of the queue display issue or apply a final fix before the context window ended.
 
 **Debugging checklist for current issue**
-    Issue: eBay Collage Images - 2 Cards per Row
-    Backend files to check: 
-    Action: Edit the  function. Implement logic so that iterating through  places exactly 2 cards side-by-side, then resets  to the start margin and increments  to the next row. Re-calculate the canvas height () based on . After fixing, test via curl to  or take a screenshot of Step 3 in the .</analysis>
+    Issue: Scheduled cards not showing up in the queue / queue count is 0 after navigation
+    Backend files to check:  (check  endpoint)
+    Frontend files to check:  (check  and  dependencies)
+    Action:
+    1. Figure out why the last  script printed garbage (e.g.  network requests or a bad print statement returning binary).
+    2. Ensure  returns the recently added posts (check if they are stuck in  or another status, or if the  query is failing).
+    3. Verify frontend state updates properly when navigating back to the Schedule module.</analysis>
