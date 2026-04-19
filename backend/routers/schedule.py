@@ -144,7 +144,6 @@ async def add_bulk_to_schedule(request: Request):
     card_ids = body.get("card_ids", [])
     queue_type = body.get("queue_type", "fixed_price")
     base_config = body.get("config", {})
-    interval_hours = float(body.get("interval_hours", 24))
 
     if not card_ids:
         raise HTTPException(status_code=400, detail="card_ids required")
@@ -152,18 +151,27 @@ async def add_bulk_to_schedule(request: Request):
     settings = await db.user_settings.find_one({"user_id": user["user_id"]}, {"_id": 0}) or {}
     cat_map = {"baseball": "261328", "basketball": "261329", "football": "261330", "soccer": "261331", "hockey": "261332"}
 
-    # Calculate start time — default 7pm EST = midnight UTC
-    start_str = body.get("start_at")
-    if start_str:
-        start_at = datetime.fromisoformat(start_str.replace("Z", "+00:00"))
+    # Calculate start time from user's selected date/hour
+    post_hour_central = int(body.get("post_hour", 19))
+    post_minute = int(body.get("post_minute", 0))
+    post_hour_utc = (post_hour_central + 5) % 24
+    start_date_str = body.get("start_date")  # "2026-04-15" format
+    batch_size = int(body.get("batch_size", 5))
+
+    now = datetime.now(timezone.utc)
+    if start_date_str:
+        from datetime import date as date_type
+        parts = start_date_str.split("-")
+        start_day = datetime(int(parts[0]), int(parts[1]), int(parts[2]), post_hour_utc, post_minute, 0, tzinfo=timezone.utc)
     else:
-        now = datetime.now(timezone.utc)
-        start_at = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        if now.hour >= 0:
-            start_at += timedelta(days=1)
+        start_day = now.replace(hour=post_hour_utc, minute=post_minute, second=0, microsecond=0)
+        if now >= start_day:
+            start_day += timedelta(days=1)
 
     added = []
     skipped = []
+    day_offset = 0
+    in_batch = 0
     for idx, card_id in enumerate(card_ids):
         card = await db.inventory.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
         if not card:
@@ -180,7 +188,15 @@ async def add_bulk_to_schedule(request: Request):
             skipped.append(card_id)
             continue
 
-        scheduled_at = start_at + timedelta(hours=interval_hours * idx)
+        # Schedule: batch_size per day for fixed_price, 1 per day for auction
+        if queue_type == 'auction':
+            scheduled_at = start_day + timedelta(days=len(added))
+        else:
+            scheduled_at = start_day + timedelta(days=day_offset, minutes=in_batch * 10)
+            in_batch += 1
+            if in_batch >= batch_size:
+                in_batch = 0
+                day_offset += 1
 
         player = card.get("player", "")
         year = card.get("year", "")

@@ -65,6 +65,7 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
     auction_duration: 'Days_7', price: '',
     shipping_option: 'PWEEnvelope', shipping_cost: 2.50,
     best_offer: true, post_hour: '19', post_minute: '00',
+    start_date: new Date().toISOString().split('T')[0], batch_size: 5,
   });
   const [submitting, setSubmitting] = useState(false);
 
@@ -104,6 +105,8 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
         shipping_cost: parseFloat(config.shipping_cost) || 0,
         post_hour: parseInt(config.post_hour),
         post_minute: parseInt(config.post_minute),
+        start_date: config.start_date,
+        batch_size: parseInt(config.batch_size) || 5,
       }, { withCredentials: true });
       toast.success(`${selected.length} card(s) scheduled!`);
       onAdded();
@@ -153,17 +156,32 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
         </div>
 
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
-          <p className="text-xs font-bold text-white mb-3">Post Time (Central)</p>
-          <div className="flex items-center gap-3">
-            <select value={config.post_hour} onChange={e => setConfig(c => ({...c, post_hour: e.target.value}))} className={inputCls + " w-32"} data-testid="schedule-post-hour">
-              {[15,16,17,18,19,20,21,22].map(h => (<option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>))}
-            </select>
-            <select value={config.post_minute} onChange={e => setConfig(c => ({...c, post_minute: e.target.value}))} className={inputCls + " w-24"} data-testid="schedule-post-minute">
-              {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
-            </select>
-            <span className="text-xs text-gray-500 font-bold">CT</span>
+          <p className="text-xs font-bold text-white mb-3">Schedule</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className={labelCls}>Start Date</label>
+              <input type="date" value={config.start_date} onChange={e => setConfig(c => ({...c, start_date: e.target.value}))}
+                className={inputCls} data-testid="schedule-start-date" />
+            </div>
+            <div>
+              <label className={labelCls}>Time (Central)</label>
+              <select value={config.post_hour} onChange={e => setConfig(c => ({...c, post_hour: e.target.value}))} className={inputCls} data-testid="schedule-post-hour">
+                {[15,16,17,18,19,20,21,22].map(h => (<option key={h} value={h}>{h > 12 ? h - 12 : h}:00 {h >= 12 ? 'PM' : 'AM'}</option>))}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Minutes</label>
+              <select value={config.post_minute} onChange={e => setConfig(c => ({...c, post_minute: e.target.value}))} className={inputCls} data-testid="schedule-post-minute">
+                {['00','15','30','45'].map(m => <option key={m} value={m}>:{m}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Per Day</label>
+              <input type="number" min="1" max="20" value={config.batch_size} onChange={e => setConfig(c => ({...c, batch_size: e.target.value}))}
+                className={inputCls} data-testid="schedule-batch-size" />
+            </div>
           </div>
-          <p className="text-[10px] text-gray-600 mt-2">Cards will be spaced 10 min apart within each day</p>
+          <p className="text-[10px] text-gray-600 mt-2">Cards spaced 10 min apart. {isAuction ? '1 auction per day.' : `${config.batch_size} cards per day.`}</p>
         </div>
 
         <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.04]">
