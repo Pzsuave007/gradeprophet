@@ -70,6 +70,7 @@ FlipSlab Engine is a card management and selling platform for sports card collec
 - eBay listing auto-end on pack End/Delete
 - Collection option removed from inventory
 - Rich HTML description for eBay listings
+- **Apr 19 2026**: Fixed Schedule Queue disappearing bug — cards persist across tab navigation (verified via UI test: add card → navigate away → return, card still visible).
 
 ## Next Priority
 - **P0:** Stripe Production Integration (Rookie, MVP $14.99, Hall of Famer $19.99)
