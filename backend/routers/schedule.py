@@ -216,7 +216,9 @@ async def add_bulk_to_schedule(request: Request):
         try:
             ed = datetime.fromisoformat(ep["scheduled_at"].replace("Z", "+00:00")) if isinstance(ep.get("scheduled_at"), str) else ep["scheduled_at"]
             occupied_slots.add(ed.isoformat())
-            if ed >= start_day:
+            # Compare by DATE (not datetime) so a 30-min difference doesn't skip
+            # the existing-post check and cause two auctions to land on the same day.
+            if ed.date() >= start_day.date():
                 d_offset = (ed.date() - start_day.date()).days
                 day_counts[d_offset] = day_counts.get(d_offset, 0) + 1
                 if d_offset > max_existing_day_offset:
