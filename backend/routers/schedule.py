@@ -215,12 +215,14 @@ async def add_bulk_to_schedule(request: Request):
         except Exception:
             continue
 
-    # Starting offset: respect the user's chosen time on each call. We only push the
-    # user's chosen slot forward when it's literally already occupied. Multiple cards
-    # in a single bulk call get spaced 10 minutes apart.
+    # Starting offset: respect the user's chosen time on each call. Multiple cards
+    # in a single bulk call get spaced 10 minutes apart, and roll over to the next
+    # day once we hit batch_size (useful for fixed_price "5 per day" type flows).
+    # Exact-slot collisions with existing posts push 10 minutes forward.
     added = []
     skipped = []
-    call_offset = 0  # cards added IN THIS call (for intra-call 10-min spacing)
+    call_day = 0   # day offset within THIS call
+    call_slot = 0  # slot index within the current day (0, 1, 2...)
 
     for idx, card_id in enumerate(card_ids):
         card = await db.inventory.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
@@ -238,13 +240,17 @@ async def add_bulk_to_schedule(request: Request):
             skipped.append(card_id)
             continue
 
-        # Start at the user's chosen slot (+ 10 min per prior card in this call)
-        scheduled_at = start_day + timedelta(minutes=call_offset * 10)
+        # Start at the user's chosen slot (+ 10 min per slot in current day)
+        scheduled_at = start_day + timedelta(days=call_day, minutes=call_slot * 10)
         # If slot already taken by any existing pending post, push forward 10 min at a time
         while scheduled_at.isoformat() in occupied_slots:
             scheduled_at += timedelta(minutes=10)
         occupied_slots.add(scheduled_at.isoformat())
-        call_offset += 1
+
+        call_slot += 1
+        if call_slot >= batch_size:
+            call_slot = 0
+            call_day += 1
 
         player = card.get("player", "")
         year = card.get("year", "")
