@@ -333,6 +333,22 @@ const ScheduleModule = () => {
     } catch { toast.error('Failed to clear queue'); }
   };
 
+  const clearFailed = async () => {
+    try {
+      const res = await axios.delete(`${API}/api/schedule/bulk/clear-failed?queue_type=${tab}`, { withCredentials: true });
+      toast.success(`${res.data.deleted} failed post(s) deleted`);
+      fetchQueue();
+    } catch { toast.error('Failed to clear failed posts'); }
+  };
+
+  const retryPost = async (postId) => {
+    try {
+      await axios.post(`${API}/api/schedule/${postId}/retry`, {}, { withCredentials: true });
+      toast.success('Post rescheduled — will retry in ~2 min');
+      fetchQueue();
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to retry'); }
+  };
+
   const editPostTime = async (postId, newDate) => {
     try {
       await axios.put(`${API}/api/schedule/${postId}`, { scheduled_at: newDate }, { withCredentials: true });
@@ -530,12 +546,21 @@ const ScheduleModule = () => {
           {/* Completed (posted/failed) */}
           {completed.length > 0 && (
             <div>
-              <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <CheckCircle className="w-3.5 h-3.5" /> History ({completed.length})
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+                  <CheckCircle className="w-3.5 h-3.5" /> History ({completed.length})
+                </h3>
+                {completed.some(p => p.status === 'failed') && (
+                  <button onClick={clearFailed}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/20 transition-colors"
+                    data-testid="clear-failed-btn">
+                    <Trash2 className="w-3 h-3" /> Clear Failed
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
                 {completed.map((post, idx) => (
-                  <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} />
+                  <PostRow key={post.id} post={post} idx={idx} onDelete={deletePost} onRetry={retryPost} />
                 ))}
               </div>
             </div>
@@ -641,7 +666,7 @@ const PostCard = ({ post, onDelete, onEdit }) => {
 
 
 // ============ POST ROW (for History) ============
-const PostRow = ({ post, idx, onDelete, onEdit }) => {
+const PostRow = ({ post, idx, onDelete, onEdit, onRetry }) => {
   const [editing, setEditing] = useState(false);
   const [editDate, setEditDate] = useState('');
   const [editTime, setEditTime] = useState('');
@@ -735,6 +760,20 @@ const PostRow = ({ post, idx, onDelete, onEdit }) => {
             <Edit2 className="w-3.5 h-3.5" />
           </button>
           <button onClick={() => onDelete(post.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400" data-testid={`delete-post-${post.id}`}>
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+      {post.status === 'failed' && (
+        <div className="flex items-center gap-1 shrink-0">
+          {onRetry && (
+            <button onClick={() => onRetry(post.id)}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 text-[10px] font-bold transition-colors"
+              data-testid={`retry-post-${post.id}`}>
+              <Rocket className="w-3 h-3" /> Retry
+            </button>
+          )}
+          <button onClick={() => onDelete(post.id)} className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400" data-testid={`delete-failed-${post.id}`}>
             <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>

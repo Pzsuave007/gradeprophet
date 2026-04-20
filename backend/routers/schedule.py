@@ -371,6 +371,65 @@ async def clear_queue(queue_type: str, request: Request):
     return {"success": True, "deleted": result.deleted_count}
 
 
+@router.post("/{post_id}/retry")
+async def retry_scheduled_post(post_id: str, request: Request):
+    """Retry a failed post by resetting it to pending and rescheduling it for soon."""
+    user = await get_current_user(request)
+    post = await db.scheduled_posts.find_one(
+        {"id": post_id, "user_id": user["user_id"], "status": "failed"}, {"_id": 0}
+    )
+    if not post:
+        raise HTTPException(status_code=404, detail="Failed post not found")
+
+    # Reschedule 2 minutes from now so the worker picks it up in the next cycle
+    new_time = (datetime.now(timezone.utc) + timedelta(minutes=2)).isoformat()
+    await db.scheduled_posts.update_one(
+        {"id": post_id},
+        {"$set": {
+            "status": "pending",
+            "scheduled_at": new_time,
+            "error_message": None,
+            "posted_at": None,
+        }}
+    )
+    # Re-mark inventory as scheduled (in case it was unflagged)
+    if post.get("card_id"):
+        await db.inventory.update_one(
+            {"id": post["card_id"], "user_id": user["user_id"]},
+            {"$set": {"scheduled": True}}
+        )
+    return {"success": True, "scheduled_at": new_time}
+
+
+@router.delete("/bulk/clear-failed")
+async def clear_failed_posts(request: Request):
+    """Delete all failed posts from history (optionally for a specific queue_type)."""
+    user = await get_current_user(request)
+    queue_type = request.query_params.get("queue_type")
+    query = {"user_id": user["user_id"], "status": "failed"}
+    if queue_type in ("auction", "fixed_price"):
+        query["queue_type"] = queue_type
+
+    # Grab card_ids before deletion to potentially unflag inventory
+    failed_docs = await db.scheduled_posts.find(query, {"_id": 0, "card_id": 1}).to_list(5000)
+    card_ids = list({d["card_id"] for d in failed_docs if d.get("card_id")})
+
+    result = await db.scheduled_posts.delete_many(query)
+
+    # For each card, unflag scheduled if no remaining pending/processing/failed post exists
+    for cid in card_ids:
+        remaining = await db.scheduled_posts.find_one(
+            {"card_id": cid, "user_id": user["user_id"], "status": {"$in": ["pending", "processing", "failed"]}}
+        )
+        if not remaining:
+            await db.inventory.update_one(
+                {"id": cid, "user_id": user["user_id"]},
+                {"$set": {"scheduled": False}}
+            )
+
+    return {"success": True, "deleted": result.deleted_count}
+
+
 @router.post("/sync-scheduled-flags")
 async def sync_scheduled_flags(request: Request):
     """Sync the 'scheduled' field on inventory items based on pending scheduled posts."""
