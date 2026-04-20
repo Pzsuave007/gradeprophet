@@ -171,7 +171,10 @@ async def add_bulk_to_schedule(request: Request):
     # Calculate start time from user's selected date/hour
     post_hour_central = int(body.get("post_hour", 19))
     post_minute = int(body.get("post_minute", 0))
+    # CT (UTC-5) → UTC conversion. For late-CT hours (e.g. 7pm–11pm CT = 0am–4am UTC next day)
+    # the UTC calendar day rolls forward by 1.
     post_hour_utc = (post_hour_central + 5) % 24
+    day_shift = (post_hour_central + 5) // 24
     start_date_str = body.get("start_date")  # "2026-04-15" format
     batch_size = int(body.get("batch_size", 5))
 
@@ -179,14 +182,14 @@ async def add_bulk_to_schedule(request: Request):
     if start_date_str:
         from datetime import date as date_type
         parts = start_date_str.split("-")
-        start_day = datetime(int(parts[0]), int(parts[1]), int(parts[2]), post_hour_utc, post_minute, 0, tzinfo=timezone.utc)
+        start_day = datetime(int(parts[0]), int(parts[1]), int(parts[2]), post_hour_utc, post_minute, 0, tzinfo=timezone.utc) + timedelta(days=day_shift)
         # Safety: if the chosen start_day is already in the past, roll forward
         # by full days so the first post still lands at the user's chosen post_hour
         # but never in the past (which would cause the worker to process it instantly).
         while start_day <= now:
             start_day += timedelta(days=1)
     else:
-        start_day = now.replace(hour=post_hour_utc, minute=post_minute, second=0, microsecond=0)
+        start_day = now.replace(hour=post_hour_utc, minute=post_minute, second=0, microsecond=0) + timedelta(days=day_shift)
         if now >= start_day:
             start_day += timedelta(days=1)
 
@@ -523,8 +526,9 @@ async def launch_strategy(request: Request):
     batch_size = int(body.get("batch_size", 5))
     auction_duration = body.get("auction_duration", "Days_7")
     post_hour_central = int(body.get("post_hour", 19))
-    # Convert Central Time to UTC (CDT = UTC-5, CST = UTC-6). Use UTC-5 for most of the year.
+    # Convert Central Time to UTC (CDT = UTC-5). Late-CT hours (e.g. 7pm+) roll into next UTC day.
     post_hour_utc = (post_hour_central + 5) % 24
+    day_shift = (post_hour_central + 5) // 24
 
     all_ids = auction_ids + fixed_ids
     if not all_ids:
@@ -547,7 +551,7 @@ async def launch_strategy(request: Request):
 
     # Schedule start: today if before post hour, otherwise tomorrow
     now = datetime.now(timezone.utc)
-    today_post = now.replace(hour=post_hour_utc, minute=0, second=0, microsecond=0)
+    today_post = now.replace(hour=post_hour_utc, minute=0, second=0, microsecond=0) + timedelta(days=day_shift)
     if now < today_post:
         start_day = today_post
     else:
