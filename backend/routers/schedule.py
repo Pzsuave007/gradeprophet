@@ -185,10 +185,45 @@ async def add_bulk_to_schedule(request: Request):
         if now >= start_day:
             start_day += timedelta(days=1)
 
+    # Look up already-scheduled posts of the same queue_type so we don't stack
+    # items at the SAME scheduled_at across separate add-bulk calls.
+    existing_same_queue = await db.scheduled_posts.find(
+        {"user_id": user["user_id"], "queue_type": queue_type, "status": {"$in": ["pending", "processing"]}},
+        {"_id": 0, "scheduled_at": 1}
+    ).to_list(5000)
+
+    # Build a map of day_offset -> count of existing items on that day (from start_day onwards)
+    # and the set of occupied slot timestamps.
+    occupied_slots = set()
+    day_counts = {}
+    max_existing_day_offset = -1
+    for ep in existing_same_queue:
+        try:
+            ed = datetime.fromisoformat(ep["scheduled_at"].replace("Z", "+00:00")) if isinstance(ep.get("scheduled_at"), str) else ep["scheduled_at"]
+            occupied_slots.add(ed.isoformat())
+            if ed >= start_day:
+                d_offset = (ed.date() - start_day.date()).days
+                day_counts[d_offset] = day_counts.get(d_offset, 0) + 1
+                if d_offset > max_existing_day_offset:
+                    max_existing_day_offset = d_offset
+        except Exception:
+            continue
+
+    # Starting day offset:
+    #  - auctions: always next free day (1 per day rule)
+    #  - fixed_price: start on last day if still has capacity, else next day
+    if queue_type == 'auction':
+        existing_day_offset = max_existing_day_offset + 1 if max_existing_day_offset >= 0 else 0
+    else:
+        if max_existing_day_offset >= 0 and day_counts.get(max_existing_day_offset, 0) < batch_size:
+            existing_day_offset = max_existing_day_offset
+        else:
+            existing_day_offset = max_existing_day_offset + 1 if max_existing_day_offset >= 0 else 0
+
     added = []
     skipped = []
-    day_offset = 0
-    in_batch = 0
+    day_offset = existing_day_offset
+    in_batch = day_counts.get(day_offset, 0) if queue_type != 'auction' else 0
 
     for idx, card_id in enumerate(card_ids):
         card = await db.inventory.find_one({"id": card_id, "user_id": user["user_id"]}, {"_id": 0})
@@ -208,9 +243,17 @@ async def add_bulk_to_schedule(request: Request):
 
         # Schedule: batch_size per day for fixed_price, 1 per day for auction
         if queue_type == 'auction':
-            scheduled_at = start_day + timedelta(days=len(added))
+            scheduled_at = start_day + timedelta(days=existing_day_offset + len(added))
         else:
             scheduled_at = start_day + timedelta(days=day_offset, minutes=in_batch * 10)
+            # If slot already occupied, push forward in 10-min increments
+            while scheduled_at.isoformat() in occupied_slots:
+                in_batch += 1
+                if in_batch >= batch_size:
+                    in_batch = 0
+                    day_offset += 1
+                scheduled_at = start_day + timedelta(days=day_offset, minutes=in_batch * 10)
+            occupied_slots.add(scheduled_at.isoformat())
             in_batch += 1
             if in_batch >= batch_size:
                 in_batch = 0
