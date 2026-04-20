@@ -67,7 +67,12 @@ const AddToScheduleView = ({ queueType, onBack, onAdded }) => {
     auction_duration: 'Days_7', price: '',
     shipping_option: 'PWEEnvelope', shipping_cost: 2.50,
     best_offer: true, post_hour: '19', post_minute: '00',
-    start_date: new Date().toISOString().split('T')[0],
+    start_date: (() => {
+      // Default to TODAY in Central Time (not UTC), so the date the user sees matches their CT day.
+      const d = new Date();
+      const ct = new Date(d.getTime() - 5 * 60 * 60 * 1000);
+      return ct.toISOString().split('T')[0];
+    })(),
   });
   const [submitting, setSubmitting] = useState(false);
 
