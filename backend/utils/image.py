@@ -49,8 +49,8 @@ def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
 
         h, w = img.shape[:2]
         TOP_CUT = 150
-        SIDE_CUT = 130
-        BOT_CUT = 72
+        SIDE_CUT = 40
+        BOT_CUT = 20
 
         y1 = min(TOP_CUT, h - 1)
         y2 = max(y1 + 1, h - BOT_CUT)
