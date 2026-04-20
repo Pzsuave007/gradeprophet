@@ -180,6 +180,11 @@ async def add_bulk_to_schedule(request: Request):
         from datetime import date as date_type
         parts = start_date_str.split("-")
         start_day = datetime(int(parts[0]), int(parts[1]), int(parts[2]), post_hour_utc, post_minute, 0, tzinfo=timezone.utc)
+        # Safety: if the chosen start_day is already in the past, roll forward
+        # by full days so the first post still lands at the user's chosen post_hour
+        # but never in the past (which would cause the worker to process it instantly).
+        while start_day <= now:
+            start_day += timedelta(days=1)
     else:
         start_day = now.replace(hour=post_hour_utc, minute=post_minute, second=0, microsecond=0)
         if now >= start_day:
@@ -879,10 +884,10 @@ async def run_schedule_worker():
                                 "posted_at": datetime.now(timezone.utc).isoformat(),
                             }}
                         )
-                        # Mark card as listed
+                        # Mark card as listed and clear scheduled flag
                         await db.inventory.update_one(
                             {"id": post["card_id"], "user_id": user_id},
-                            {"$set": {"listed": True, "ebay_item_id": ebay_item_id}}
+                            {"$set": {"listed": True, "scheduled": False, "ebay_item_id": ebay_item_id}}
                         )
                         logger.info(f"Schedule: posted {post['title']} -> {ebay_item_id}")
                     else:
