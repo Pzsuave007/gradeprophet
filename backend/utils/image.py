@@ -33,9 +33,8 @@ def _find_largest_block(std_arr, threshold, gap_tolerance=5):
 
 
 def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
-    """Auto-crop scanner image: fixed pixel cut from each edge.
-    Top: 240px (removes Gem Mint label), Sides/Bottom: 40px.
-    Simple and reliable - no edge detection needed.
+    """Auto-crop scanner image: detect card top dynamically and keep a small margin.
+    Side/bottom use fixed pixel cut.
     """
     try:
         import cv2
@@ -48,17 +47,38 @@ def scanner_auto_process(image_base64: str, is_back: bool = False) -> str:
             return image_base64
 
         h, w = img.shape[:2]
-        TOP_CUT = 240
         SIDE_CUT = 40
         BOT_CUT = 40
+        MARGIN_TOP = 20   # keep at least this many px above the card
+        MAX_TOP_CUT = 320 # safety ceiling — never cut more than this from top
 
-        y1 = min(TOP_CUT, h - 1)
+        # Find first row that is predominantly BRIGHT (card's white border) OR
+        # has a large horizontal white streak — that's the top of the card.
+        # Sample the middle 60% of image width to avoid holder side edges.
+        x1 = int(w * 0.2)
+        x2 = int(w * 0.8)
+        region = img[:, x1:x2]  # full-height strip of middle columns
+        gray = cv2.cvtColor(region, cv2.COLOR_BGR2GRAY)
+        # A row is "card-like" if >70% of pixels are near-white (>=225)
+        row_white_ratio = (gray >= 225).mean(axis=1)
+        card_rows = np.where(row_white_ratio >= 0.7)[0]
+
+        if len(card_rows) > 0:
+            card_top = int(card_rows[0])
+            top_cut = max(0, card_top - MARGIN_TOP)
+            # Cap the cut so we never shave more than MAX_TOP_CUT
+            top_cut = min(top_cut, MAX_TOP_CUT)
+        else:
+            # Fallback: conservative small cut
+            top_cut = 40
+
+        y1 = min(top_cut, h - 1)
         y2 = max(y1 + 1, h - BOT_CUT)
-        x1 = min(SIDE_CUT, w - 1)
-        x2 = max(x1 + 1, w - SIDE_CUT)
+        xa = min(SIDE_CUT, w - 1)
+        xb = max(xa + 1, w - SIDE_CUT)
 
-        img = img[y1:y2, x1:x2]
-        logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]}")
+        img = img[y1:y2, xa:xb]
+        logger.info(f"Scanner crop: {w}x{h} -> {img.shape[1]}x{img.shape[0]} (top_cut={top_cut})")
 
         _, buffer = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 95])
         return base64.b64encode(buffer).decode('utf-8')
