@@ -377,7 +377,7 @@ async def sync_scheduled_flags(request: Request):
     user = await get_current_user(request)
     user_id = user["user_id"]
     pending = await db.scheduled_posts.find(
-        {"user_id": user_id, "status": {"$in": ["pending", "processing"]}},
+        {"user_id": user_id, "status": {"$in": ["pending", "processing", "failed"]}},
         {"_id": 0, "card_id": 1}
     ).to_list(5000)
     card_ids = list(set(p["card_id"] for p in pending if p.get("card_id")))

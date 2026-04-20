@@ -395,9 +395,10 @@ async def get_inventory_stats(request: Request):
         user_id = user["user_id"]
         uq = {"user_id": user_id}
 
-        # Auto-sync scheduled flags from pending posts
+        # Auto-sync scheduled flags from pending/processing/failed posts
+        # (failed items stay marked scheduled so user can retry or delete them)
         pending_posts = await db.scheduled_posts.find(
-            {"user_id": user_id, "status": {"$in": ["pending", "processing"]}},
+            {"user_id": user_id, "status": {"$in": ["pending", "processing", "failed"]}},
             {"_id": 0, "card_id": 1}
         ).to_list(5000)
         scheduled_card_ids = list(set(p["card_id"] for p in pending_posts if p.get("card_id")))
