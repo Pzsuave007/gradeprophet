@@ -4,7 +4,7 @@ import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
   DollarSign, ShoppingBag, Plus, Search, Layers,
   Image as ImageIcon, Truck, Gavel, CheckCircle2, AlertTriangle,  Edit2, Save, X, ChevronLeft, ChevronRight, TrendingUp, BarChart3, ArrowUpRight, Trash2, User,
-  ArrowDownUp, Calendar, ChevronDown, Check, Zap
+  ArrowDownUp, Calendar, ChevronDown, Check, Zap, Rocket
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -849,6 +849,7 @@ const ListingsModule = () => {
   const [soldDays, setSoldDays] = useState(30);
   const [listingsSearch, setListingsSearch] = useState('');
   const [sportFilter, setSportFilter] = useState('all');
+  const [ageFilter, setAgeFilter] = useState('all');  // 'all' | '30' | '45' | '60'
 
   // Bulk select state
   const [selectMode, setSelectMode] = useState(false);
@@ -937,6 +938,35 @@ const ListingsModule = () => {
     } catch (err) {
       toast.error(err.response?.data?.detail || 'Failed to boost');
     } finally { setBulkBoosting(false); }
+  };
+
+  const [bulkReposting, setBulkReposting] = useState(false);
+  const bulkEndAndRepost = async () => {
+    const selectedIds = allSortedActive.filter(i => selected.has(i.item_id)).map(i => i.item_id);
+    if (selectedIds.length === 0) { toast.error('No items selected'); return; }
+    if (!window.confirm(`This will END ${selectedIds.length} listing(s) on eBay and repost them as NEW (boosts ranking). Continue?`)) return;
+    setBulkReposting(true);
+    try {
+      const res = await axios.post(`${API}/api/ebay/sell/end-and-repost-bulk`, { ebay_item_ids: selectedIds });
+      const { succeeded_count, skipped_count, failed_count, skipped, failed } = res.data;
+      let msg = `✓ ${succeeded_count} reposted as new`;
+      if (skipped_count > 0) msg += ` · ${skipped_count} skipped`;
+      if (failed_count > 0) msg += ` · ${failed_count} failed`;
+      toast.success(msg);
+      if (skipped_count > 0) {
+        const sample = skipped.slice(0, 3).map(s => `${s.ebay_item_id}: ${s.reason}`).join('\n');
+        toast.message('Skipped items', { description: sample + (skipped.length > 3 ? `\n...+${skipped.length - 3} more` : '') });
+      }
+      if (failed_count > 0) {
+        const sample = failed.slice(0, 3).map(s => `${s.ebay_item_id}: ${s.reason}`).join('\n');
+        toast.error('Some items failed', { description: sample });
+      }
+      exitSelectMode();
+      // Refresh listings after a short delay (eBay propagation)
+      setTimeout(() => fetchData(true), 2500);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'End & Repost failed');
+    } finally { setBulkReposting(false); }
   };
 
   const bulkApplyOfferRules = async () => {
@@ -1292,7 +1322,12 @@ const ListingsModule = () => {
   const filterBySearchAndSport = (items) => items.filter(i => {
     const matchSearch = !listingsSearch || (i.title || '').toLowerCase().includes(listingsSearch.toLowerCase());
     const matchSport = sportFilter === 'all' || detectSport(i) === sportFilter;
-    return matchSearch && matchSport;
+    let matchAge = true;
+    if (ageFilter !== 'all' && i.start_time) {
+      const ageDays = (Date.now() - new Date(i.start_time).getTime()) / 86400000;
+      matchAge = ageDays >= parseInt(ageFilter, 10);
+    }
+    return matchSearch && matchSport && matchAge;
   });
 
   const allSortedActive = filterBySearchAndSport(sortItems(eb.active, activeSort, 'active'));
@@ -1395,6 +1430,11 @@ const ListingsModule = () => {
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-pink-600 text-white text-sm font-semibold hover:from-purple-500 hover:to-pink-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-boost-btn">
                 {bulkBoosting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
                 {bulkBoosting ? 'Boosting...' : `AI Boost ${selected.size > 0 ? `(${selected.size})` : ''}`}
+              </button>
+              <button onClick={bulkEndAndRepost} disabled={!selectMode || selected.size === 0 || bulkReposting}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-gradient-to-r from-orange-600 to-amber-600 text-white text-sm font-semibold hover:from-orange-500 hover:to-amber-500 disabled:opacity-30 transition-colors" data-testid="listings-bulk-repost-btn">
+                {bulkReposting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Rocket className="w-4 h-4" />}
+                {bulkReposting ? 'Reposting...' : `End & Repost ${selected.size > 0 ? `(${selected.size})` : ''}`}
               </button>
             </>
           )}
@@ -1608,6 +1648,18 @@ const ListingsModule = () => {
               data-testid="sport-filter-select">
               <option value="all" className="bg-[#111] text-white">All Sports</option>
               {allSports.map(s => <option key={s} value={s} className="bg-[#111] text-white">{s}</option>)}
+            </select>
+          )}
+          {activeTab === 'active' && (
+            <select value={ageFilter} onChange={e => setAgeFilter(e.target.value)}
+              className="appearance-none bg-[#111] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-sm text-white focus:border-[#f59e0b] focus:outline-none cursor-pointer hover:border-[#333] transition-colors"
+              data-testid="age-filter-select" title="Filter by listing age">
+              <option value="all" className="bg-[#111] text-white">Any age</option>
+              <option value="14" className="bg-[#111] text-white">≥14 days old</option>
+              <option value="21" className="bg-[#111] text-white">≥21 days old</option>
+              <option value="30" className="bg-[#111] text-white">≥30 days old</option>
+              <option value="45" className="bg-[#111] text-white">≥45 days old</option>
+              <option value="60" className="bg-[#111] text-white">≥60 days old</option>
             </select>
           )}
         </div>

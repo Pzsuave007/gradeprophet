@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink, Download, QrCode, ShieldCheck, Percent } from 'lucide-react';
+import { Link2, CheckCircle, XCircle, RefreshCw, Save, MapPin, User, Package, Smartphone, Copy, Eye, EyeOff, Crown, Store, ExternalLink, Download, QrCode, ShieldCheck, Percent, Rocket } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -546,7 +546,73 @@ const AccountModule = () => {
         <h2 className="text-base font-black text-white mb-4">Store Promotions</h2>
         <StorePromotions />
       </motion.div>
+
+      {/* Auto-Repost — End & repost listings older than X days at 7pm CT */}
+      <AutoRepostSettings />
     </div>
+  );
+};
+
+const AutoRepostSettings = () => {
+  const [enabled, setEnabled] = React.useState(false);
+  const [days, setDays] = React.useState(30);
+  const [saving, setSaving] = React.useState(false);
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get(`${API}/api/ebay/sell/auto-repost-settings`);
+        setEnabled(!!res.data.enabled);
+        setDays(res.data.days || 30);
+      } catch {}
+      finally { setLoaded(true); }
+    })();
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await axios.post(`${API}/api/ebay/sell/auto-repost-settings`, { enabled, days: parseInt(days, 10) });
+      toast.success(enabled ? `Auto-Repost ON · runs daily 7pm CT for items ≥${days} days` : 'Auto-Repost OFF');
+    } catch (e) {
+      toast.error(e.response?.data?.detail || 'Save failed');
+    } finally { setSaving(false); }
+  };
+
+  if (!loaded) return null;
+  return (
+    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+      className="bg-[#111] border border-[#1a1a1a] rounded-2xl overflow-hidden" data-testid="auto-repost-section">
+      <div className="px-5 py-4 border-b border-[#1a1a1a] flex items-center gap-2">
+        <Rocket className="w-4 h-4 text-orange-400" />
+        <h2 className="text-sm font-bold text-white">Auto-Repost (Ranking Boost)</h2>
+        <span className="text-[10px] text-gray-600 ml-auto">Runs daily 7pm CT</span>
+      </div>
+      <div className="p-5 space-y-4">
+        <p className="text-xs text-gray-400">
+          Automatically <strong className="text-white">end and re-create</strong> fixed-price listings older than the days you set, posted as new (gives a fresh ranking boost in eBay search). Skips items with active bids, pending Best Offers, or sales.
+        </p>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer" data-testid="auto-repost-enabled-toggle">
+            <input type="checkbox" checked={enabled} onChange={e => setEnabled(e.target.checked)} className="w-4 h-4 accent-orange-500" />
+            <span className="text-sm text-white">Enable daily auto-repost</span>
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-400">Threshold:</span>
+            <input type="number" min="1" max="365" value={days} onChange={e => setDays(e.target.value)}
+              className="w-20 px-3 py-1.5 bg-[#0a0a0a] border border-[#222] rounded-lg text-sm text-white text-center focus:border-orange-500 outline-none"
+              data-testid="auto-repost-days-input" />
+            <span className="text-xs text-gray-400">days old</span>
+          </div>
+          <button onClick={save} disabled={saving}
+            className="px-4 py-1.5 rounded-lg bg-orange-500 hover:bg-orange-400 text-black text-xs font-bold disabled:opacity-50"
+            data-testid="auto-repost-save-btn">
+            {saving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

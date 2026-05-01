@@ -258,6 +258,10 @@ async def startup_db_client():
     asyncio.create_task(run_schedule_worker())
     logger.info("Schedule Worker launched")
 
+    from routers.ebay import run_auto_repost_worker
+    asyncio.create_task(run_auto_repost_worker())
+    logger.info("Auto-Repost Worker launched")
+
 
 async def ensure_admin_password():
     """Ensure admin user pzsuave007@gmail.com always has the correct password.

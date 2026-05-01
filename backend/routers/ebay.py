@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from typing import Optional, List
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from io import BytesIO
 from PIL import Image
 import asyncio
@@ -3797,6 +3797,156 @@ async def end_ebay_listing(ebay_item_id: str, request: Request, reason: str = "N
         raise HTTPException(status_code=500, detail=str(e))
 
 
+async def _check_listing_state(token: str, ebay_item_id: str) -> dict:
+    """Use GetItem to check if listing has bids, best offers, or is sold."""
+    import xml.etree.ElementTree as ET
+    xml_body = f'''<?xml version="1.0" encoding="utf-8"?>
+<GetItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID>
+  <DetailLevel>ReturnAll</DetailLevel>
+</GetItemRequest>'''
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as http_client:
+            resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+                "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+                "X-EBAY-API-CALL-NAME": "GetItem", "X-EBAY-API-IAF-TOKEN": token,
+                "Content-Type": "text/xml",
+            }, content=xml_body)
+        ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+        root = ET.fromstring(resp.text)
+        bid_count_el = root.find(".//e:Item/e:SellingStatus/e:BidCount", ns)
+        best_offer_count_el = root.find(".//e:Item/e:BestOfferDetails/e:BestOfferCount", ns)
+        quantity_sold_el = root.find(".//e:Item/e:SellingStatus/e:QuantitySold", ns)
+        listing_status_el = root.find(".//e:Item/e:SellingStatus/e:ListingStatus", ns)
+        listing_type_el = root.find(".//e:Item/e:ListingType", ns)
+        return {
+            "bid_count": int(bid_count_el.text) if bid_count_el is not None else 0,
+            "best_offer_count": int(best_offer_count_el.text) if best_offer_count_el is not None else 0,
+            "quantity_sold": int(quantity_sold_el.text) if quantity_sold_el is not None else 0,
+            "listing_status": listing_status_el.text if listing_status_el is not None else "Unknown",
+            "listing_type": listing_type_el.text if listing_type_el is not None else "FixedPriceItem",
+        }
+    except Exception as e:
+        logger.warning(f"GetItem failed for {ebay_item_id}: {e}")
+        return {"bid_count": 0, "best_offer_count": 0, "quantity_sold": 0, "listing_status": "Active", "listing_type": "FixedPriceItem"}
+
+
+async def _end_and_repost_one(user_id: str, ebay_item_id: str, token: str) -> dict:
+    """End an active fixed-price listing and create a NEW listing as if it were brand new
+    (gives ranking boost in eBay search). Skips if has bids, best offers, or sold quantity.
+    Returns dict with success/error/new_ebay_item_id/skipped_reason.
+    """
+    import xml.etree.ElementTree as ET
+
+    # 1. Check listing state via GetItem
+    state = await _check_listing_state(token, ebay_item_id)
+    if state["bid_count"] > 0:
+        return {"success": False, "skipped": True, "reason": "Has active bids", "ebay_item_id": ebay_item_id}
+    if state["best_offer_count"] > 0:
+        return {"success": False, "skipped": True, "reason": "Best Offer in place — review first", "ebay_item_id": ebay_item_id}
+    if state["quantity_sold"] > 0:
+        return {"success": False, "skipped": True, "reason": "Already sold", "ebay_item_id": ebay_item_id}
+    if state["listing_type"] not in ("FixedPriceItem", "StoresFixedPrice"):
+        return {"success": False, "skipped": True, "reason": f"Not a fixed-price listing ({state['listing_type']})", "ebay_item_id": ebay_item_id}
+
+    # 2. End the active listing
+    end_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<EndFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <ItemID>{ebay_item_id}</ItemID><EndingReason>NotAvailable</EndingReason>
+</EndFixedPriceItemRequest>'''
+    async with httpx.AsyncClient(timeout=30.0) as http_client:
+        end_resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+            "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "EndFixedPriceItem", "X-EBAY-API-IAF-TOKEN": token,
+            "Content-Type": "text/xml",
+        }, content=end_xml)
+    ns = {"e": "urn:ebay:apis:eBLBaseComponents"}
+    end_root = ET.fromstring(end_resp.text)
+    ack_el = end_root.find("e:Ack", ns)
+    if ack_el is None or ack_el.text not in ("Success", "Warning"):
+        errs = [e.find("e:LongMessage", ns).text for e in end_root.findall(".//e:Errors", ns) if e.find("e:LongMessage", ns) is not None]
+        return {"success": False, "skipped": False, "reason": f"End failed: {errs[0] if errs else 'unknown'}", "ebay_item_id": ebay_item_id}
+
+    # 3. Relist using RelistFixedPriceItem — creates NEW ItemID, eBay treats as fresh listing.
+    relist_xml = f'''<?xml version="1.0" encoding="utf-8"?>
+<RelistFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
+  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
+  <Item><ItemID>{ebay_item_id}</ItemID></Item>
+  <DeletedField>Item.ListingDetails.StartTime</DeletedField>
+  <DeletedField>Item.ListingDetails.EndTime</DeletedField>
+</RelistFixedPriceItemRequest>'''
+    async with httpx.AsyncClient(timeout=60.0) as http_client:
+        rl_resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
+            "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
+            "X-EBAY-API-CALL-NAME": "RelistFixedPriceItem", "X-EBAY-API-IAF-TOKEN": token,
+            "Content-Type": "text/xml",
+        }, content=relist_xml)
+    rl_root = ET.fromstring(rl_resp.text)
+    rl_ack = rl_root.find("e:Ack", ns)
+    new_item_id_el = rl_root.find("e:ItemID", ns)
+    if rl_ack is None or rl_ack.text not in ("Success", "Warning") or new_item_id_el is None:
+        errs = [e.find("e:LongMessage", ns).text for e in rl_root.findall(".//e:Errors", ns) if e.find("e:LongMessage", ns) is not None]
+        return {"success": False, "skipped": False, "reason": f"Relist failed: {errs[0] if errs else 'unknown'}", "ebay_item_id": ebay_item_id}
+
+    new_item_id = new_item_id_el.text
+
+    # 4. Update inventory + created_listings
+    now_iso = datetime.now(timezone.utc).isoformat()
+    await db.inventory.update_many(
+        {"ebay_item_id": ebay_item_id, "user_id": user_id},
+        {"$set": {"ebay_item_id": new_item_id, "listed_at": now_iso, "updated_at": now_iso}}
+    )
+    await db.created_listings.update_one(
+        {"ebay_item_id": ebay_item_id, "user_id": user_id},
+        {"$set": {"ebay_item_id": new_item_id, "reposted_at": now_iso, "reposted_from": ebay_item_id, "created_at": now_iso}}
+    )
+
+    return {"success": True, "skipped": False, "ebay_item_id": ebay_item_id, "new_ebay_item_id": new_item_id}
+
+
+@router.post("/sell/end-and-repost-bulk")
+async def end_and_repost_bulk(request: Request):
+    """End active fixed-price listings and immediately re-create them as new listings
+    (gives ranking boost). Skips items with bids, best offers, or sold quantity.
+    Body: {"ebay_item_ids": ["...", "..."]}.
+    """
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    body = await request.json()
+    ids = body.get("ebay_item_ids", [])
+    if not isinstance(ids, list) or not ids:
+        raise HTTPException(status_code=400, detail="ebay_item_ids must be a non-empty list")
+
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        raise HTTPException(status_code=401, detail="eBay not connected")
+
+    succeeded = []
+    skipped = []
+    failed = []
+    for item_id in ids[:100]:  # Cap at 100 per call
+        try:
+            result = await _end_and_repost_one(user_id, item_id, token)
+            if result["success"]:
+                succeeded.append({"old": item_id, "new": result["new_ebay_item_id"]})
+            elif result["skipped"]:
+                skipped.append({"ebay_item_id": item_id, "reason": result["reason"]})
+            else:
+                failed.append({"ebay_item_id": item_id, "reason": result["reason"]})
+        except Exception as e:
+            logger.error(f"end-and-repost {item_id} crashed: {e}", exc_info=True)
+            failed.append({"ebay_item_id": item_id, "reason": str(e)})
+
+    return {
+        "success": True,
+        "succeeded": succeeded, "succeeded_count": len(succeeded),
+        "skipped": skipped, "skipped_count": len(skipped),
+        "failed": failed, "failed_count": len(failed),
+    }
+
+
 @router.get("/sell/created-listings")
 async def get_created_listings(request: Request):
     """Get listings created through the app"""
@@ -5230,3 +5380,111 @@ async def chase_sales_monitor_loop():
         except Exception as e:
             logger.error(f"Chase sales monitor error: {e}")
         await asyncio.sleep(60)
+
+
+
+# ============ AUTO-REPOST WORKER (runs daily ~7pm CT) ============
+
+async def _run_auto_repost_for_user(user_id: str, days_threshold: int) -> dict:
+    """End and repost all of one user's fixed-price listings older than days_threshold."""
+    token = await get_ebay_user_token(user_id)
+    if not token:
+        return {"user_id": user_id, "skipped": "no eBay token"}
+    # Get active listings via cached helper (calls eBay GetSellerList).
+    # We'll use the cached_listings collection if available for speed.
+    cache = await db.cached_listings.find_one({"user_id": user_id}, {"_id": 0})
+    active = (cache or {}).get("active", []) if cache else []
+    if not active:
+        return {"user_id": user_id, "skipped": "no active listings cached"}
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days_threshold)
+    aged = []
+    for it in active:
+        st = it.get("start_time")
+        if not st:
+            continue
+        try:
+            st_dt = datetime.fromisoformat(st.replace("Z", "+00:00"))
+            if st_dt <= cutoff and (it.get("listing_type") or "FixedPriceItem") in ("FixedPriceItem", "StoresFixedPrice"):
+                aged.append(it.get("itemid") or it.get("item_id"))
+        except Exception:
+            continue
+
+    if not aged:
+        return {"user_id": user_id, "processed": 0, "note": "no items older than threshold"}
+
+    succeeded = 0; skipped = 0; failed = 0
+    for item_id in aged[:100]:
+        try:
+            r = await _end_and_repost_one(user_id, item_id, token)
+            if r["success"]: succeeded += 1
+            elif r["skipped"]: skipped += 1
+            else: failed += 1
+        except Exception as e:
+            logger.error(f"auto-repost {item_id} crashed: {e}")
+            failed += 1
+        await asyncio.sleep(2)  # gentle pacing
+
+    return {"user_id": user_id, "succeeded": succeeded, "skipped": skipped, "failed": failed, "processed": len(aged)}
+
+
+async def run_auto_repost_worker():
+    """Daily worker: at 7pm CT (00:00 UTC next day during CDT), runs auto-repost
+    for users who have it enabled. Default threshold = 30 days, configurable per-user.
+    """
+    import asyncio
+    logger.info("Auto-Repost Worker started")
+    last_run_date = None  # tracks UTC date of last run
+
+    while True:
+        try:
+            now_utc = datetime.now(timezone.utc)
+            # 7pm CT (CDT, UTC-5) = 00:00 UTC the NEXT calendar day. We trigger when UTC hour is 0.
+            if now_utc.hour == 0 and last_run_date != now_utc.date():
+                last_run_date = now_utc.date()
+                logger.info("Auto-Repost Worker: starting daily run")
+                # Find users with auto_repost_enabled
+                cursor = db.user_settings.find(
+                    {"auto_repost_enabled": True},
+                    {"_id": 0, "user_id": 1, "auto_repost_days": 1}
+                )
+                users = await cursor.to_list(5000)
+                for s in users:
+                    uid = s.get("user_id")
+                    days = int(s.get("auto_repost_days", 30))
+                    try:
+                        res = await _run_auto_repost_for_user(uid, days)
+                        logger.info(f"Auto-Repost result: {res}")
+                    except Exception as e:
+                        logger.error(f"Auto-Repost user {uid} failed: {e}")
+                    await asyncio.sleep(5)
+        except Exception as e:
+            logger.error(f"Auto-Repost Worker tick error: {e}")
+        await asyncio.sleep(300)  # check every 5 minutes
+
+
+@router.post("/sell/auto-repost-settings")
+async def update_auto_repost_settings(request: Request):
+    """Save user's auto-repost preferences."""
+    user = await get_current_user(request)
+    body = await request.json()
+    enabled = bool(body.get("enabled", False))
+    days = int(body.get("days", 30))
+    if days < 1 or days > 365:
+        raise HTTPException(status_code=400, detail="days must be 1-365")
+    await db.user_settings.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"auto_repost_enabled": enabled, "auto_repost_days": days}},
+        upsert=True
+    )
+    return {"success": True, "enabled": enabled, "days": days}
+
+
+@router.get("/sell/auto-repost-settings")
+async def get_auto_repost_settings(request: Request):
+    user = await get_current_user(request)
+    s = await db.user_settings.find_one({"user_id": user["user_id"]}, {"_id": 0}) or {}
+    return {
+        "enabled": bool(s.get("auto_repost_enabled", False)),
+        "days": int(s.get("auto_repost_days", 30)),
+    }
