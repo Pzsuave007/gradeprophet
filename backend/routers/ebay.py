@@ -3833,11 +3833,12 @@ async def _check_listing_state(token: str, ebay_item_id: str) -> dict:
 
 
 async def _end_and_repost_one(user_id: str, ebay_item_id: str, token: str) -> dict:
-    """End an active fixed-price listing and create a NEW listing as if it were brand new
-    (gives ranking boost in eBay search). Skips if has bids, best offers, or sold quantity.
-    Returns dict with success/error/new_ebay_item_id/skipped_reason.
+    """End an active fixed-price listing and immediately AddItem a brand-new listing
+    from inventory data (gives full ranking boost — new ItemID, fresh history).
+    Skips if has bids, best offers, or sold quantity.
     """
     import xml.etree.ElementTree as ET
+    from routers.schedule import _create_ebay_listing
 
     # 1. Check listing state via GetItem
     state = await _check_listing_state(token, ebay_item_id)
@@ -3850,7 +3851,20 @@ async def _end_and_repost_one(user_id: str, ebay_item_id: str, token: str) -> di
     if state["listing_type"] not in ("FixedPriceItem", "StoresFixedPrice"):
         return {"success": False, "skipped": True, "reason": f"Not a fixed-price listing ({state['listing_type']})", "ebay_item_id": ebay_item_id}
 
-    # 2. End the active listing
+    # 2. Look up inventory + most recent created_listing for this item
+    inv = await db.inventory.find_one({"user_id": user_id, "ebay_item_id": ebay_item_id}, {"_id": 0})
+    if not inv:
+        return {"success": False, "skipped": True, "reason": "Inventory item not found in DB (cannot rebuild)", "ebay_item_id": ebay_item_id}
+
+    cl = await db.created_listings.find_one(
+        {"user_id": user_id, "ebay_item_id": ebay_item_id},
+        {"_id": 0},
+        sort=[("created_at", -1)]
+    ) or {}
+
+    settings = await db.user_settings.find_one({"user_id": user_id}, {"_id": 0}) or {}
+
+    # 3. End the active listing
     end_xml = f'''<?xml version="1.0" encoding="utf-8"?>
 <EndFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
@@ -3867,41 +3881,74 @@ async def _end_and_repost_one(user_id: str, ebay_item_id: str, token: str) -> di
     ack_el = end_root.find("e:Ack", ns)
     if ack_el is None or ack_el.text not in ("Success", "Warning"):
         errs = [e.find("e:LongMessage", ns).text for e in end_root.findall(".//e:Errors", ns) if e.find("e:LongMessage", ns) is not None]
-        return {"success": False, "skipped": False, "reason": f"End failed: {errs[0] if errs else 'unknown'}", "ebay_item_id": ebay_item_id}
+        # Already ended is acceptable — proceed
+        already_ended = any("already" in (m or "").lower() and "ended" in (m or "").lower() for m in errs)
+        if not already_ended:
+            return {"success": False, "skipped": False, "reason": f"End failed: {errs[0] if errs else 'unknown'}", "ebay_item_id": ebay_item_id}
 
-    # 3. Relist using RelistFixedPriceItem — creates NEW ItemID, eBay treats as fresh listing.
-    relist_xml = f'''<?xml version="1.0" encoding="utf-8"?>
-<RelistFixedPriceItemRequest xmlns="urn:ebay:apis:eBLBaseComponents">
-  <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
-  <Item><ItemID>{ebay_item_id}</ItemID></Item>
-  <DeletedField>Item.ListingDetails.StartTime</DeletedField>
-  <DeletedField>Item.ListingDetails.EndTime</DeletedField>
-</RelistFixedPriceItemRequest>'''
-    async with httpx.AsyncClient(timeout=60.0) as http_client:
-        rl_resp = await http_client.post("https://api.ebay.com/ws/api.dll", headers={
-            "X-EBAY-API-SITEID": "0", "X-EBAY-API-COMPATIBILITY-LEVEL": "967",
-            "X-EBAY-API-CALL-NAME": "RelistFixedPriceItem", "X-EBAY-API-IAF-TOKEN": token,
-            "Content-Type": "text/xml",
-        }, content=relist_xml)
-    rl_root = ET.fromstring(rl_resp.text)
-    rl_ack = rl_root.find("e:Ack", ns)
-    new_item_id_el = rl_root.find("e:ItemID", ns)
-    if rl_ack is None or rl_ack.text not in ("Success", "Warning") or new_item_id_el is None:
-        errs = [e.find("e:LongMessage", ns).text for e in rl_root.findall(".//e:Errors", ns) if e.find("e:LongMessage", ns) is not None]
-        return {"success": False, "skipped": False, "reason": f"Relist failed: {errs[0] if errs else 'unknown'}", "ebay_item_id": ebay_item_id}
+    # 4. Build post dict from inventory + listing + settings
+    price = float(cl.get("listed_price") or cl.get("price") or inv.get("listed_price") or inv.get("price") or 0)
+    if price <= 0:
+        return {"success": False, "skipped": True, "reason": "No price found — cannot repost", "ebay_item_id": ebay_item_id}
 
-    new_item_id = new_item_id_el.text
+    # Derive condition_id (used for ungraded cards). For graded, schedule worker handles via grading_company/grade.
+    cond_str = (inv.get("condition") or "").lower()
+    cond_map = {
+        "near mint or better": 400010, "near mint": 400010, "nm": 400010,
+        "excellent": 400011, "ex": 400011,
+        "very good": 400012, "vg": 400012,
+        "good": 400013, "g": 400013,
+        "poor": 400014,
+    }
+    condition_id = cond_map.get(cond_str, 400010)
 
-    # 4. Update inventory + created_listings
+    post = {
+        "queue_type": "fixed_price",
+        "card_id": inv.get("id"),
+        "user_id": user_id,
+        "title": cl.get("title") or inv.get("title") or inv.get("card_name") or "Trading Card",
+        "description": cl.get("description") or inv.get("description") or "",
+        "image": inv.get("image", "") or inv.get("front_image", ""),
+        "back_image": inv.get("back_image", ""),
+        "price": price,
+        "best_offer": bool(cl.get("best_offer", inv.get("best_offer", True))),
+        "shipping_option": cl.get("shipping_option") or settings.get("default_shipping_option") or "USPSFirstClass",
+        "shipping_cost": float(cl.get("shipping_cost") or settings.get("default_shipping_cost") or 1.50),
+        "grading_company": inv.get("grading_company", ""),
+        "grade": str(inv.get("grade", "")) if inv.get("grade") else "",
+        "condition_id": condition_id,
+        "player": inv.get("player", ""),
+        "year": str(inv.get("year", "")),
+        "card_set": inv.get("set_name", "") or inv.get("card_set", ""),
+        "card_number": str(inv.get("card_number", "")),
+        "category_id": cl.get("category_id") or inv.get("category_id") or settings.get("default_category_id") or "261328",
+        "postal_code": settings.get("zip_code") or settings.get("postal_code") or "",
+        "location": settings.get("city") or settings.get("location") or "",
+    }
+
+    # 5. Create new listing
+    create_result = await _create_ebay_listing(post, token)
+    if not create_result.get("success"):
+        err_msg = create_result.get('error', 'unknown')
+        logger.error(f"end-and-repost {ebay_item_id} → AddItem failed for user {user_id}: {err_msg}")
+        return {"success": False, "skipped": False, "reason": f"AddItem failed: {err_msg}", "ebay_item_id": ebay_item_id}
+
+    new_item_id = create_result["ebay_item_id"]
+    logger.info(f"end-and-repost {ebay_item_id} → new listing {new_item_id} (user {user_id})")
+
+    # 6. Update inventory + created_listings to point to new item
     now_iso = datetime.now(timezone.utc).isoformat()
     await db.inventory.update_many(
         {"ebay_item_id": ebay_item_id, "user_id": user_id},
         {"$set": {"ebay_item_id": new_item_id, "listed_at": now_iso, "updated_at": now_iso}}
     )
-    await db.created_listings.update_one(
-        {"ebay_item_id": ebay_item_id, "user_id": user_id},
-        {"$set": {"ebay_item_id": new_item_id, "reposted_at": now_iso, "reposted_from": ebay_item_id, "created_at": now_iso}}
-    )
+    await db.created_listings.insert_one({
+        "id": str(uuid.uuid4()), "user_id": user_id, "ebay_item_id": new_item_id,
+        "inventory_item_id": inv.get("id"), "title": post["title"],
+        "listed_price": price, "shipping_option": post["shipping_option"],
+        "listing_format": "fixed_price", "best_offer": post["best_offer"],
+        "reposted_from": ebay_item_id, "created_at": now_iso,
+    })
 
     return {"success": True, "skipped": False, "ebay_item_id": ebay_item_id, "new_ebay_item_id": new_item_id}
 
