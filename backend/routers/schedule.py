@@ -504,6 +504,7 @@ async def launch_strategy(request: Request):
     auction_ids = body.get("auction_card_ids", [])
     fixed_ids = body.get("fixed_card_ids", [])
     auction_start_pct = float(body.get("auction_start_pct", 50))
+    auction_reserve_pct = float(body.get("auction_reserve_pct", 0))
     auto_decline_pct = float(body.get("auto_decline_pct", 70))
     auto_accept_pct = float(body.get("auto_accept_pct", 10))
     shipping_option = body.get("shipping_option", "USPSFirstClass")
@@ -564,6 +565,7 @@ async def launch_strategy(request: Request):
             continue
 
         starting_bid = round(float(price) * (auction_start_pct / 100), 2)
+        reserve_price = round(float(price) * (auction_reserve_pct / 100), 2) if auction_reserve_pct > 0 else None
         scheduled_at = start_day + timedelta(days=auction_day)
         sport = card.get("sport", "Baseball")
 
@@ -588,7 +590,7 @@ async def launch_strategy(request: Request):
             "category_id": cat_map.get(sport.lower(), "261328"),
             "price": float(price),
             "starting_bid": starting_bid,
-            "reserve_price": None,
+            "reserve_price": reserve_price,
             "buy_it_now": None,
             "auction_duration": auction_duration,
             "shipping_option": shipping_option,

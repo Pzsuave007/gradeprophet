@@ -26,6 +26,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
   const [launching, setLaunching] = useState(false);
   const [config, setConfig] = useState({
     auction_start_pct: 50,
+    auction_reserve_pct: 0,
     auto_decline_pct: 70,
     auto_accept_pct: 10,
     shipping_option: 'PWEEnvelope',
@@ -139,6 +140,7 @@ const StrategyLauncher = ({ onBack, onDone }) => {
         fixed_card_ids: fixedCards.map(c => c.id),
         prices,
         auction_start_pct: config.auction_start_pct,
+        auction_reserve_pct: config.auction_reserve_pct,
         auto_decline_pct: config.auto_decline_pct,
         auto_accept_pct: config.auto_accept_pct,
         shipping_option: config.shipping_option,
