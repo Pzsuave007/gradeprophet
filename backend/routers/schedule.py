@@ -743,7 +743,11 @@ async def launch_strategy(request: Request):
 
 async def _create_ebay_listing(post: dict, token: str) -> dict:
     """Create an eBay listing (fixed price or auction) from a scheduled post."""
-    from routers.ebay import _upload_image_to_ebay, build_item_specifics, build_best_offer_xml
+    from routers.ebay import (
+        _upload_image_to_ebay, build_item_specifics, build_best_offer_xml,
+        generate_listing_description, generate_hype_content, build_hype_description,
+        truncate_title,
+    )
 
     # Upload images (capture specific errors for diagnostics)
     picture_urls = []
@@ -804,6 +808,18 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
     postal = html.escape(post.get("postal_code", ""))
     location = html.escape(post.get("location", ""))
 
+    # Build rich description with AI hype (same as manual listing flow)
+    description = generate_listing_description(post)
+    try:
+        hype = await generate_hype_content(post)
+        if hype:
+            hook = hype.get("title_hook", "")
+            if hook:
+                safe_title = html.escape(truncate_title(f"{post.get('title', 'Card')} - {hook}"))
+            description = build_hype_description(post, hype)
+    except Exception as e:
+        logger.warning(f"Schedule: hype generation failed for {post.get('id')}: {e}")
+
     # Determine listing type
     is_auction = post.get("queue_type") == "auction"
 
@@ -833,7 +849,7 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
 <{api_call}Request xmlns="urn:ebay:apis:eBLBaseComponents">
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
-    <Title>{safe_title}</Title><Description>{safe_title}</Description>
+    <Title>{safe_title}</Title><Description><![CDATA[{description}]]></Description>
     <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{start_price:.2f}</StartPrice>
     <Quantity>1</Quantity>
