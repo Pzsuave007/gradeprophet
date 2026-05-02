@@ -102,7 +102,8 @@ class ListingAIRequest(BaseModel):
 
 
 async def _upload_image_to_ebay(token: str, img_base64: str, label: str = "card", title: str = "card") -> str:
-    """Global helper to upload an image to eBay. Returns hosted URL or None."""
+    """Global helper to upload an image to eBay. Returns hosted URL or raises with error message."""
+    import xml.etree.ElementTree as ET
     image_bytes = base64.b64decode(img_base64)
     try:
         img_pil = Image.open(BytesIO(image_bytes))
@@ -128,10 +129,19 @@ async def _upload_image_to_ebay(token: str, img_base64: str, label: str = "card"
             "X-EBAY-API-IAF-TOKEN": token,
             "Content-Type": f"multipart/form-data; boundary={boundary}",
         }, content=full_body)
-    import xml.etree.ElementTree as ET
     root = ET.fromstring(resp.text)
-    url_el = root.find(".//{urn:ebay:apis:eBLBaseComponents}FullURL")
-    return url_el.text if url_el is not None else None
+    ns = "{urn:ebay:apis:eBLBaseComponents}"
+    url_el = root.find(f".//{ns}FullURL")
+    if url_el is not None and url_el.text:
+        return url_el.text
+    # Extract eBay error for clearer diagnostics
+    errors = []
+    for err in root.findall(f".//{ns}Errors"):
+        sev = err.find(f"{ns}SeverityCode")
+        msg = err.find(f"{ns}LongMessage")
+        if sev is not None and sev.text == "Error" and msg is not None:
+            errors.append(msg.text)
+    raise RuntimeError("; ".join(errors) if errors else f"eBay upload returned no URL (HTTP {resp.status_code})")
 
 
 

@@ -707,8 +707,9 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
     """Create an eBay listing (fixed price or auction) from a scheduled post."""
     from routers.ebay import _upload_image_to_ebay, build_item_specifics, build_best_offer_xml
 
-    # Upload images
+    # Upload images (capture specific errors for diagnostics)
     picture_urls = []
+    image_errors = []
     for img_field in ["image", "back_image"]:
         img_b64 = post.get(img_field, "")
         if img_b64:
@@ -717,10 +718,13 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
                 if url:
                     picture_urls.append(url)
             except Exception as e:
-                logger.warning(f"Schedule: image upload failed ({img_field}): {e}")
+                err_msg = str(e)
+                logger.warning(f"Schedule: image upload failed ({img_field}): {err_msg}")
+                image_errors.append(f"{img_field}: {err_msg}")
 
     if not picture_urls:
-        return {"success": False, "error": "Failed to upload images to eBay"}
+        detail = "; ".join(image_errors) if image_errors else "no images on card"
+        return {"success": False, "error": f"Failed to upload images to eBay ({detail})"}
 
     pics_xml = "".join(f"<PictureURL>{url}</PictureURL>" for url in picture_urls)
 
@@ -792,7 +796,7 @@ async def _create_ebay_listing(post: dict, token: str) -> dict:
   <RequesterCredentials><eBayAuthToken>{token}</eBayAuthToken></RequesterCredentials>
   <Item>
     <Title>{safe_title}</Title><Description>{safe_title}</Description>
-    <PrimaryCategory><CategoryID>{post.get("category_id", "261328")}</CategoryID></PrimaryCategory>
+    <PrimaryCategory><CategoryID>261328</CategoryID></PrimaryCategory>
     <StartPrice currencyID="USD">{start_price:.2f}</StartPrice>
     <Quantity>1</Quantity>
     <CategoryMappingAllowed>true</CategoryMappingAllowed>
