@@ -346,6 +346,14 @@ const ScheduleModule = () => {
     } catch { toast.error('Failed to clear failed posts'); }
   };
 
+  const retryAllFailed = async () => {
+    try {
+      const res = await axios.post(`${API}/api/schedule/bulk/retry-failed?queue_type=${tab}`, {}, { withCredentials: true });
+      toast.success(`${res.data.retried} post(s) rescheduled — will retry shortly`);
+      fetchQueue();
+    } catch (err) { toast.error(err.response?.data?.detail || 'Failed to retry all'); }
+  };
+
   const retryPost = async (postId) => {
     try {
       await axios.post(`${API}/api/schedule/${postId}/retry`, {}, { withCredentials: true });
@@ -556,11 +564,18 @@ const ScheduleModule = () => {
                   <CheckCircle className="w-3.5 h-3.5" /> History ({completed.length})
                 </h3>
                 {completed.some(p => p.status === 'failed') && (
-                  <button onClick={clearFailed}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/20 transition-colors"
-                    data-testid="clear-failed-btn">
-                    <Trash2 className="w-3 h-3" /> Clear Failed
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={retryAllFailed}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-[10px] font-bold hover:bg-amber-500/20 transition-colors"
+                      data-testid="retry-all-failed-btn">
+                      <Zap className="w-3 h-3" /> Retry All Failed
+                    </button>
+                    <button onClick={clearFailed}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-[10px] font-bold hover:bg-red-500/20 transition-colors"
+                      data-testid="clear-failed-btn">
+                      <Trash2 className="w-3 h-3" /> Clear Failed
+                    </button>
+                  </div>
                 )}
               </div>
               <div className="space-y-2">

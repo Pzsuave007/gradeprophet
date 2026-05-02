@@ -394,6 +394,44 @@ async def retry_scheduled_post(post_id: str, request: Request):
     return {"success": True, "scheduled_at": new_time}
 
 
+@router.post("/bulk/retry-failed")
+async def retry_all_failed(request: Request):
+    """Retry ALL failed posts by resetting them to pending. Spaces them 30s apart so the worker processes in order."""
+    user = await get_current_user(request)
+    user_id = user["user_id"]
+    queue_type = request.query_params.get("queue_type")
+
+    query = {"user_id": user_id, "status": "failed"}
+    if queue_type in ("auction", "fixed_price"):
+        query["queue_type"] = queue_type
+
+    failed_posts = await db.scheduled_posts.find(query, {"_id": 0, "id": 1, "card_id": 1}).to_list(5000)
+    if not failed_posts:
+        return {"success": True, "retried": 0}
+
+    now = datetime.now(timezone.utc)
+    retried = 0
+    for i, post in enumerate(failed_posts):
+        new_time = (now + timedelta(minutes=2, seconds=i * 30)).isoformat()
+        await db.scheduled_posts.update_one(
+            {"id": post["id"]},
+            {"$set": {
+                "status": "pending",
+                "scheduled_at": new_time,
+                "error_message": None,
+                "posted_at": None,
+            }}
+        )
+        if post.get("card_id"):
+            await db.inventory.update_one(
+                {"id": post["card_id"], "user_id": user_id},
+                {"$set": {"scheduled": True}}
+            )
+        retried += 1
+
+    return {"success": True, "retried": retried}
+
+
 @router.delete("/bulk/clear-failed")
 async def clear_failed_posts(request: Request):
     """Delete all failed posts from history (optionally for a specific queue_type)."""
