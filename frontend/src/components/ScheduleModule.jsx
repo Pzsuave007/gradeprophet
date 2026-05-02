@@ -521,17 +521,19 @@ const ScheduleModule = () => {
                   </div>
                 </div>
               )}
-              {/* Group by day */}
+              {/* Group by day (use LOCAL calendar date, not UTC) */}
               {(() => {
                 const groups = {};
                 pending.forEach(p => {
                   const d = new Date(p.scheduled_at);
-                  const key = d.toISOString().split('T')[0];
+                  // Build key from LOCAL date so 7pm CT stays on the same day
+                  const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
                   if (!groups[key]) groups[key] = [];
                   groups[key].push(p);
                 });
                 return Object.entries(groups).sort(([a],[b]) => a.localeCompare(b)).map(([date, dayPosts]) => {
-                  const d = new Date(date + 'T12:00:00');
+                  const [y, m, dd] = date.split('-').map(Number);
+                  const d = new Date(y, m - 1, dd, 12, 0, 0);
                   const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
                   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
                   const dayName = days[d.getDay()];
