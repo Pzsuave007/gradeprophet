@@ -1382,8 +1382,15 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     }
   };
   const handleDelete = async (id) => { try { await axios.delete(`${API}/api/inventory/${id}`); toast.success('Removed'); fetchInventory(search); } catch { toast.error('Failed'); } };
-  const openEdit = (item) => { setEditItem(item); setShowForm(true); };
-  const openAdd = () => { setEditItem(null); setShowForm(true); };
+  const scrollPosRef = useRef(0);
+  const restoreScroll = () => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.scrollTo(0, scrollPosRef.current));
+    });
+  };
+  const openEdit = (item) => { scrollPosRef.current = window.scrollY; setEditItem(item); setShowForm(true); };
+  const openAdd = () => { scrollPosRef.current = window.scrollY; setEditItem(null); setShowForm(true); };
+  const closeForm = () => { setShowForm(false); setEditItem(null); restoreScroll(); };
 
   const toggleSelect = (id) => {
     setSelected(prev => {
@@ -1588,7 +1595,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
     return (
       <CardFormView
         editItem={editItem}
-        onBack={() => { setShowForm(false); setEditItem(null); }}
+        onBack={closeForm}
         onSave={handleSave}
       />
     );

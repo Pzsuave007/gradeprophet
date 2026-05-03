@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Tag, ExternalLink, RefreshCw, Clock, Eye, Package,
@@ -844,6 +844,14 @@ const ListingsModule = () => {
   const [viewMode, setViewMode] = useState('grid');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedListing, setSelectedListing] = useState(null);
+  const scrollPosRef = useRef(0);
+  const openListing = (listing) => { scrollPosRef.current = window.scrollY; setSelectedListing(listing); };
+  const closeListing = () => {
+    setSelectedListing(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.scrollTo(0, scrollPosRef.current));
+    });
+  };
   const [activeSort, setActiveSort] = useState('listed_desc');
   const [soldSort, setSoldSort] = useState('date_desc');
   const [soldDays, setSoldDays] = useState(30);
@@ -1353,8 +1361,8 @@ const ListingsModule = () => {
         <ListingDetail
           listing={selectedListing}
           cardData={inventoryItems.find(i => i.ebay_item_id === selectedListing.item_id)}
-          onBack={() => setSelectedListing(null)}
-          onSuccess={() => { setSelectedListing(null); setLoading(true); fetchData(); }}
+          onBack={closeListing}
+          onSuccess={() => { closeListing(); setLoading(true); fetchData(); }}
           onEndListing={endListing}
         />
       </div>
@@ -1955,7 +1963,7 @@ const ListingsModule = () => {
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: Math.min(i * 0.02, 0.5) }}
                 className={`bg-[#1a1a1a] border rounded-xl overflow-hidden transition-all cursor-pointer group ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/50'}`}
-                onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
+                onClick={() => selectMode ? toggleSelect(item.item_id) : openListing(item)} data-testid={`active-listing-${i}`}>
                 <div className="aspect-square bg-[#111] overflow-hidden relative">
                   {item.image_url ? (
                     <img src={item.image_url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
@@ -2015,7 +2023,7 @@ const ListingsModule = () => {
             {sortedActive.map((item, i) => (
               <motion.div key={item.item_id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: Math.min(i * 0.03, 0.5) }}
                 className={`bg-[#1a1a1a] border rounded-xl p-3 flex items-center gap-3 transition-colors cursor-pointer ${selected.has(item.item_id) ? 'border-amber-500 ring-1 ring-amber-500/30' : 'border-[#2a2a2a] hover:border-[#3b82f6]/40'}`}
-                onClick={() => selectMode ? toggleSelect(item.item_id) : setSelectedListing(item)} data-testid={`active-listing-${i}`}>
+                onClick={() => selectMode ? toggleSelect(item.item_id) : openListing(item)} data-testid={`active-listing-${i}`}>
                 {selectMode && (
                   <div className={`w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${selected.has(item.item_id) ? 'bg-amber-500 border-amber-500' : 'bg-transparent border-gray-600'}`}>
                     {selected.has(item.item_id) && <Check className="w-3 h-3 text-white" />}
@@ -2037,7 +2045,7 @@ const ListingsModule = () => {
                 </div>
                 {!selectMode && (
                   <>
-                    <button onClick={e => { e.stopPropagation(); setSelectedListing(item); }}
+                    <button onClick={e => { e.stopPropagation(); openListing(item); }}
                       className="p-2 hover:bg-[#3b82f6]/10 rounded-lg transition-colors text-gray-500 hover:text-[#3b82f6]" data-testid={`edit-btn-${i}`}>
                       <Edit2 className="w-4 h-4" />
                     </button>
