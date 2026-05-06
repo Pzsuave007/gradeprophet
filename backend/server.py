@@ -48,6 +48,7 @@ from routers.admin import router as admin_router
 from routers.shop import router as shop_router
 from routers.marketplace import router as marketplace_router
 from routers.schedule import router as schedule_router, run_schedule_worker
+from routers.pull_game import router as pull_game_router
 
 # Create parent API router
 api_router = APIRouter(prefix="/api")
@@ -69,6 +70,7 @@ api_router.include_router(admin_router)
 api_router.include_router(shop_router)
 api_router.include_router(marketplace_router)
 api_router.include_router(schedule_router)
+api_router.include_router(pull_game_router)
 
 
 # Stripe Webhook (under /api prefix for routing)

@@ -24,7 +24,7 @@ import ListingsModule from '../components/ListingsModule';
 import FlipFinder from '../components/FlipFinder';
 import MarketModule from '../components/MarketModule';
 import QuickScan from '../components/QuickScan';
-import ChasePacksModule from '../components/ChasePacksModule';
+import ChaseCardsModule from '../components/ChaseCardsModule';
 import ScheduleModule from '../components/ScheduleModule';
 
 // Placeholder components for future modules
@@ -54,7 +54,7 @@ const modules = [
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'listings', label: 'Listings', icon: Tag },
   { id: 'flipfinder', label: 'Flip Finder', icon: Crosshair },
-  { id: 'chase-packs', label: 'Chase Packs', icon: Flame },
+  { id: 'chase-cards', label: 'Chase Cards', icon: Flame },
   { id: 'schedule', label: 'Schedule', icon: Calendar },
   { id: 'market', label: 'Market', icon: BarChart3 },
   { id: 'account', label: 'Account', icon: User },
@@ -112,7 +112,7 @@ const Dashboard = ({ user, onLogout }) => {
       case 'inventory': return <InventoryModule pendingDetailCard={pendingDetailCard} onDetailCardConsumed={() => setPendingDetailCard(null)} pendingAddCategory={pendingAddCategory} onAddCategoryConsumed={() => setPendingAddCategory(null)} onAnalyzeCard={(card) => { setPendingAnalyzeCard(card); setActiveModule('flipfinder'); }} />;
       case 'listings': return <ListingsModule />;
       case 'flipfinder': return <FlipFinder onNavigateToAccount={() => setActiveModule('account')} initialAnalyzeCard={pendingAnalyzeCard} onAnalyzeCardConsumed={() => setPendingAnalyzeCard(null)} />;
-      case 'chase-packs': return <ChasePacksModule />;
+      case 'chase-cards': return <ChaseCardsModule />;
       case 'schedule': return <ScheduleModule />;
       case 'market': return <MarketModule onNavigateToAccount={() => setActiveModule('account')} />;
       case 'account': return <AccountModule />;

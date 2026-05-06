@@ -6,6 +6,8 @@ import AdminPage from "./pages/AdminPage";
 import ShopPage from "./pages/ShopPage";
 import MarketplacePage from "./pages/MarketplacePage";
 import ChaseRevealPage from "./pages/ChaseRevealPage";
+import PullGamePublicPage from "./pages/PullGamePublicPage";
+import PullGameRevealPage from "./pages/PullGameRevealPage";
 import LandingPage from "./components/LandingPage";
 import AuthPage from "./components/AuthPage";
 import OnboardingWizard from "./components/OnboardingWizard";
@@ -137,6 +139,8 @@ function App() {
             <Route path="/shop/:slug" element={<ShopPage />} />
             <Route path="/marketplace" element={<MarketplacePage />} />
             <Route path="/chase/:packId" element={<ChaseRevealPage />} />
+            <Route path="/pull-game/:gameId/reveal" element={<PullGameRevealPage />} />
+            <Route path="/pull-game/:gameId" element={<PullGamePublicPage />} />
             <Route path="*" element={<AuthPage onSuccess={handleAuthSuccess} onBack={() => setView('landing')} />} />
           </Routes>
           <Toaster position="bottom-right" />
@@ -149,6 +153,8 @@ function App() {
           <Route path="/shop/:slug" element={<ShopPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/chase/:packId" element={<ChaseRevealPage />} />
+          <Route path="/pull-game/:gameId/reveal" element={<PullGameRevealPage />} />
+          <Route path="/pull-game/:gameId" element={<PullGamePublicPage />} />
           <Route path="*" element={<LandingPage onGetStarted={() => setView('auth')} />} />
         </Routes>
         <Toaster position="bottom-right" />
@@ -164,6 +170,8 @@ function App() {
           <Route path="/shop/:slug" element={<ShopPage />} />
           <Route path="/marketplace" element={<MarketplacePage />} />
           <Route path="/chase/:packId" element={<ChaseRevealPage />} />
+          <Route path="/pull-game/:gameId/reveal" element={<PullGameRevealPage />} />
+          <Route path="/pull-game/:gameId" element={<PullGamePublicPage />} />
           <Route path="*" element={<OnboardingWizard user={user} onComplete={handleOnboardingComplete} onSkip={handleOnboardingSkip} />} />
         </Routes>
         <Toaster position="bottom-right" />
@@ -178,6 +186,8 @@ function App() {
         <Route path="/shop/:slug" element={<ShopPage />} />
         <Route path="/marketplace" element={<MarketplacePage />} />
         <Route path="/chase/:packId" element={<ChaseRevealPage />} />
+        <Route path="/pull-game/:gameId/reveal" element={<PullGameRevealPage />} />
+        <Route path="/pull-game/:gameId" element={<PullGamePublicPage />} />
         <Route path="/admin" element={<AdminRoute user={user} onLogout={handleLogout} />} />
         <Route path="*" element={<Dashboard user={user} onLogout={handleLogout} />} />
       </Routes>
