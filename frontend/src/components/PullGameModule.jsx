@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Gamepad2, Sparkles, Gem, Crown, Package, Loader2, ArrowLeft, ArrowRight, Check, Pause, Play, XCircle, DollarSign, Users, Trophy, ExternalLink, Search, Zap } from 'lucide-react';
+import { Plus, Gamepad2, Sparkles, Gem, Crown, Package, Loader2, ArrowLeft, ArrowRight, Check, Pause, Play, XCircle, DollarSign, Users, Trophy, ExternalLink, Search, Zap, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -223,21 +223,51 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
             <input type="number" min="10" max="500" className={inputCls} value={totalPulls} onChange={e => {
               const n = parseInt(e.target.value) || 65;
               setTotalPulls(n);
-              // Adjust last tier's 'to' to match total
-              setTiers(ts => ts.map((t, i) => i === ts.length - 1 ? { ...t, to: n } : t));
             }} data-testid="total-pulls-input" />
           </div>
           <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 block">Pricing Tiers</label>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400 block">Pricing Tiers</label>
+              <button type="button" onClick={() => setTiers(ts => {
+                const last = ts[ts.length - 1];
+                const newFrom = (last?.to || 0) + 1;
+                return [...ts, { from: newFrom, to: Math.max(newFrom, totalPulls), price: (last?.price || 5) + 5 }];
+              })} className="flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:text-amber-300" data-testid="add-tier-btn">
+                <Plus className="w-3 h-3" /> Add Tier
+              </button>
+            </div>
             <div className="space-y-2">
               {tiers.map((t, i) => (
-                <div key={i} className="flex items-center gap-2 p-2 bg-[#111] border border-[#1a1a1a] rounded-lg">
-                  <span className="text-xs text-gray-500 w-16">Pulls {t.from}–{t.to}</span>
-                  <input type="number" className={inputCls + ' w-24'} value={t.price} onChange={e => setTiers(ts => ts.map((x, idx) => idx === i ? { ...x, price: parseFloat(e.target.value) || 0 } : x))} />
-                  <span className="text-xs text-gray-500">USD</span>
+                <div key={i} className="flex items-center gap-2 p-2 bg-[#111] border border-[#1a1a1a] rounded-lg" data-testid={`tier-row-${i}`}>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase">Pulls</span>
+                  <input type="number" min="1" className={inputCls + ' w-16 text-center'} value={t.from} onChange={e => setTiers(ts => ts.map((x, idx) => idx === i ? { ...x, from: parseInt(e.target.value) || 1 } : x))} data-testid={`tier-from-${i}`} />
+                  <span className="text-xs text-gray-500">–</span>
+                  <input type="number" min="1" className={inputCls + ' w-16 text-center'} value={t.to} onChange={e => setTiers(ts => ts.map((x, idx) => idx === i ? { ...x, to: parseInt(e.target.value) || 1 } : x))} data-testid={`tier-to-${i}`} />
+                  <span className="text-xs text-gray-500 ml-auto">$</span>
+                  <input type="number" min="0" step="0.5" className={inputCls + ' w-20 text-center'} value={t.price} onChange={e => setTiers(ts => ts.map((x, idx) => idx === i ? { ...x, price: parseFloat(e.target.value) || 0 } : x))} data-testid={`tier-price-${i}`} />
+                  <span className="text-[10px] text-gray-500">USD</span>
+                  {tiers.length > 1 && (
+                    <button type="button" onClick={() => setTiers(ts => ts.filter((_, idx) => idx !== i))} className="p-1 rounded hover:bg-red-500/20 text-red-400" data-testid={`tier-remove-${i}`}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
+            {(() => {
+              const sorted = [...tiers].sort((a,b) => a.from - b.from);
+              const issues = [];
+              if (sorted[0]?.from !== 1) issues.push(`First tier should start at 1 (currently ${sorted[0]?.from})`);
+              if (sorted[sorted.length-1]?.to < totalPulls) issues.push(`Last tier ends at ${sorted[sorted.length-1]?.to} but total pulls is ${totalPulls}`);
+              for (let i=1; i<sorted.length; i++) {
+                if (sorted[i].from !== sorted[i-1].to + 1) issues.push(`Gap/overlap between tier ${i} (ends ${sorted[i-1].to}) and tier ${i+1} (starts ${sorted[i].from})`);
+              }
+              return issues.length > 0 ? (
+                <div className="mt-2 p-2 rounded bg-amber-500/10 border border-amber-500/30 text-[10px] text-amber-300" data-testid="tier-warnings">
+                  {issues.map((m, i) => <div key={i}>⚠️ {m}</div>)}
+                </div>
+              ) : null;
+            })()}
           </div>
           <button onClick={() => setStep(2)} className="w-full px-5 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black text-sm font-bold flex items-center justify-center gap-2" data-testid="wizard-next-1">
             Next: Pick Cards <ArrowRight className="w-4 h-4" />
