@@ -58,6 +58,8 @@ def _public_game(game: dict, spots: list) -> dict:
         "tiers": game.get("tiers", []),
         "chasers": chasers,  # visible chasers (card names + images + values)
         "claimed_chasers": claimed_chasers,
+        "mega_box_cards": game.get("mega_box_cards", []),
+        "mega_box_claimed_index": game.get("mega_box_claimed_index"),
         "blue_chase_alive": blue_alive,
         "created_at": game.get("created_at"),
         "spots": [
