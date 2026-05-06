@@ -312,6 +312,15 @@ async def get_inventory(
             query["listed"] = listed.lower() == "true"
         if category and category in ("collection", "for_sale", "sold"):
             query["category"] = category
+            # Hide chase_pack + pull_game cards from regular for_sale inventory; they live in "chasers" tab
+            if category == "for_sale":
+                query["$and"] = query.get("$and", []) + [{"$or": [{"pull_game_locked": {"$ne": True}}, {"pull_game_locked": {"$exists": False}}]}]
+        elif category == "chasers":
+            # Virtual category: cards used in Chase Packs OR locked in Pull Games
+            query["$or"] = (query.get("$or") or []) + [
+                {"category": "chase_pack"},
+                {"pull_game_locked": True},
+            ]
         if scheduled is not None and scheduled != "":
             if scheduled.lower() == "true":
                 query["scheduled"] = True
@@ -418,9 +427,10 @@ async def get_inventory_stats(request: Request):
         listed = await db.inventory.count_documents({**uq, "listed": True})
         not_listed = await db.inventory.count_documents({**uq, "listed": {"$ne": True}})
         collection_count = await db.inventory.count_documents({**uq, "category": "collection", "listed": {"$ne": True}})
-        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}, "$or": [{"scheduled": False}, {"scheduled": {"$exists": False}}]})
+        for_sale_count = await db.inventory.count_documents({**uq, "category": "for_sale", "listed": {"$ne": True}, "$or": [{"scheduled": False}, {"scheduled": {"$exists": False}}], "$and": [{"$or": [{"pull_game_locked": {"$ne": True}}, {"pull_game_locked": {"$exists": False}}]}]})
         sold_count = await db.inventory.count_documents({**uq, "category": "sold"})
         scheduled_count = await db.inventory.count_documents({**uq, "scheduled": True, "listed": {"$ne": True}})
+        chasers_count = await db.inventory.count_documents({**uq, "$or": [{"category": "chase_pack"}, {"pull_game_locked": True}]})
 
         pipeline = [
             {"$match": {**uq, "purchase_price": {"$gt": 0}}},
@@ -439,6 +449,7 @@ async def get_inventory_stats(request: Request):
             "graded": graded, "raw": raw, "listed": listed, "not_listed": not_listed,
             "collection_count": collection_count, "for_sale_count": for_sale_count,
             "sold_count": sold_count, "scheduled_count": scheduled_count,
+            "chasers_count": chasers_count,
             "total_invested": round(inv_agg.get("total_invested", 0), 2),
             "avg_price": round(inv_agg.get("avg_price", 0), 2),
         }

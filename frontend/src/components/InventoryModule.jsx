@@ -1098,7 +1098,9 @@ const CardDetailModal = ({ item, onClose, onEdit, onDelete, onList, onFlip, isFl
                 )
               )}
               {item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 font-bold uppercase">Listed</span>}
-              {item.category === 'for_sale' && !item.listed && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Inventory</span>}
+              {item.category === 'chase_pack' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 font-bold uppercase flex items-center gap-1"><Sparkles className="w-3 h-3" /> Chase Pack</span>}
+              {item.pull_game_locked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold uppercase flex items-center gap-1"><Sparkles className="w-3 h-3" /> Pull Game</span>}
+              {item.category === 'for_sale' && !item.listed && !item.pull_game_locked && <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-bold uppercase">Inventory</span>}
             </div>
           </div>
 
@@ -1303,6 +1305,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
       } else if (activeCategory === 'scheduled') {
         params.append('scheduled', 'true');
         params.append('listed', 'false');
+      } else if (activeCategory === 'chasers') {
+        params.append('category', 'chasers');
       } else if (activeCategory === 'for_sale') {
         params.append('category', 'for_sale');
         params.append('listed', 'false');
@@ -1605,6 +1609,7 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
   const categoryTabs = [
     { id: 'all', label: 'All', count: s.total_cards || 0 },
     { id: 'for_sale', label: 'Inventory', icon: ShoppingBag, count: s.for_sale_count || 0 },
+    { id: 'chasers', label: 'Chasers', icon: Sparkles, count: s.chasers_count || 0 },
     { id: 'scheduled', label: 'Schedule', icon: Calendar, count: s.scheduled_count || 0 },
     { id: 'listed', label: 'Listed', icon: Store, count: s.listed || 0 },
     { id: 'sold', label: 'Sold', icon: TrendingUp, count: s.sold_count || 0 },
@@ -1867,6 +1872,8 @@ const InventoryList = ({ activeCategory, onCategoryChange, pendingDetailCard, on
                   )}
                 </div>
                 {item.scheduled && !item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-black uppercase font-bold flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" />Scheduled</span>
+                  : item.category === 'chase_pack' ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-purple-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Sparkles className="w-2.5 h-2.5" />Chase</span>
+                  : item.pull_game_locked ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-blue-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Sparkles className="w-2.5 h-2.5" />Pull</span>
                   : item.category === 'for_sale' && !item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-emerald-500/90 text-white uppercase font-bold">Sale</span>
                   : item.listed ? <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-amber-500/90 text-white uppercase font-bold flex items-center gap-0.5"><Store className="w-2.5 h-2.5" />eBay</span>
                   : <span className="absolute top-2 left-2 text-[8px] px-1.5 py-0.5 rounded bg-[#3b82f6]/90 text-white uppercase font-bold">Col</span>}
