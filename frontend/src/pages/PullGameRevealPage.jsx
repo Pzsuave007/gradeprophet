@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Gem, Crown, Loader2, Trophy, Package, Gift } from 'lucide-react';
@@ -24,19 +24,21 @@ const PullGameRevealPage = () => {
   const [pollCount, setPollCount] = useState(0);
   const [megaCards, setMegaCards] = useState(null);
   const [megaChoice, setMegaChoice] = useState(null);
+  const doneRef = useRef(false);
 
   const poll = useCallback(async () => {
-    if (!sessionId) { setState('failed'); return; }
+    if (doneRef.current) return true;
+    if (!sessionId) { doneRef.current = true; setState('failed'); return true; }
     try {
       const r = await axios.get(`${API}/api/pull-game/checkout/status/${sessionId}`);
       if (r.data.payment_status === 'paid' && r.data.revealed && r.data.spot) {
+        doneRef.current = true;
         setSpot(r.data.spot);
         setState('revealing');
-        // Delay dramatic reveal
         setTimeout(() => setState('revealed'), 1800);
         return true;
       }
-      if (r.data.payment_status === 'failed') { setState('failed'); return true; }
+      if (r.data.payment_status === 'failed') { doneRef.current = true; setState('failed'); return true; }
     } catch {}
     return false;
   }, [sessionId]);
@@ -48,12 +50,15 @@ const PullGameRevealPage = () => {
       const done = await poll();
       count++;
       setPollCount(count);
-      if (done || count > 30) { clearInterval(iv); if (count > 30 && state === 'polling') setState('failed'); return; }
+      if (done || count > 30) {
+        clearInterval(iv);
+        if (count > 30 && !doneRef.current) { doneRef.current = true; setState('failed'); }
+      }
     };
     run();
     iv = setInterval(run, 2000);
     return () => clearInterval(iv);
-  }, [poll, state]);
+  }, [poll]);
 
   // When Blue Chase revealed, show mega box selection
   useEffect(() => {
