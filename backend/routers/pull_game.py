@@ -500,7 +500,17 @@ async def buy_pull(game_id: str, request: Request):
             "user_id": user_id or "",
         },
     )
-    session = await stripe_checkout.create_checkout_session(checkout_request)
+    try:
+        session = await stripe_checkout.create_checkout_session(checkout_request)
+    except Exception as e:
+        # Release all reserved spots if Stripe call fails so they don't leak
+        for r in reserved:
+            await db.pull_spots.update_one(
+                {"id": r["id"]},
+                {"$set": {"status": "available", "stripe_session_id": None, "payment_status": None}},
+            )
+        logger.exception("Stripe checkout creation failed; released %d reservations", len(reserved))
+        raise HTTPException(502, f"Checkout session failed: {e}")
 
     # Attach session to all reserved spots
     spot_ids = [r["id"] for r in reserved]
