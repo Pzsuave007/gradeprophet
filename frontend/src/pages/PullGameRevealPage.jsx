@@ -8,9 +8,9 @@ import { toast } from 'sonner';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const TIER = {
-  mini: { label: 'MINI HIT', color: 'text-emerald-400', bg: 'from-emerald-500/30 to-emerald-900/20', icon: Sparkles },
-  mid: { label: 'MID CHASE', color: 'text-amber-400', bg: 'from-amber-500/30 to-amber-900/20', icon: Gem },
-  blue: { label: 'BLUE CHASE', color: 'text-blue-400', bg: 'from-blue-500/40 to-blue-900/30', icon: Crown },
+  red: { label: 'RED CHASE', color: 'text-red-400', bg: 'from-red-500/30 to-red-900/20', icon: Sparkles },
+  orange: { label: 'ORANGE BOX', color: 'text-amber-400', bg: 'from-amber-500/30 to-amber-900/20', icon: Gem },
+  blue: { label: 'BLUE BOX', color: 'text-blue-400', bg: 'from-blue-500/40 to-blue-900/30', icon: Crown },
 };
 
 const PullGameRevealPage = () => {
@@ -19,11 +19,12 @@ const PullGameRevealPage = () => {
   const sessionId = params.get('session_id');
   const navigate = useNavigate();
 
-  const [state, setState] = useState('polling'); // polling | revealing | revealed | failed | mega-select | mega-revealed
+  const [state, setState] = useState('polling'); // polling | revealing | revealed | failed | box-select | box-revealed
   const [spot, setSpot] = useState(null);
   const [pollCount, setPollCount] = useState(0);
-  const [megaCards, setMegaCards] = useState(null);
-  const [megaChoice, setMegaChoice] = useState(null);
+  const [boxCards, setBoxCards] = useState([]);
+  const [boxTone, setBoxTone] = useState('orange');
+  const [pickedCard, setPickedCard] = useState(null);
   const doneRef = useRef(false);
 
   const poll = useCallback(async () => {
@@ -34,14 +35,28 @@ const PullGameRevealPage = () => {
       if (r.data.payment_status === 'paid' && r.data.revealed && r.data.spot) {
         doneRef.current = true;
         setSpot(r.data.spot);
-        setState('revealing');
-        setTimeout(() => setState('revealed'), 1800);
+        if (r.data.needs_box_pick) {
+          // Trigger spot — go straight to box selection
+          const tone = r.data.trigger_type;
+          setBoxTone(tone);
+          // Fetch the game to get the box cards
+          try {
+            const gameRes = await axios.get(`${API}/api/pull-game/games/${gameId}`);
+            const cards = tone === 'orange' ? gameRes.data.orange_box_cards : gameRes.data.blue_box_cards;
+            setBoxCards(cards || []);
+          } catch {}
+          setState('revealing');
+          setTimeout(() => setState('box-select'), 1800);
+        } else {
+          setState('revealing');
+          setTimeout(() => setState('revealed'), 1800);
+        }
         return true;
       }
       if (r.data.payment_status === 'failed') { doneRef.current = true; setState('failed'); return true; }
     } catch {}
     return false;
-  }, [sessionId]);
+  }, [sessionId, gameId]);
 
   useEffect(() => {
     let iv;
@@ -60,23 +75,15 @@ const PullGameRevealPage = () => {
     return () => clearInterval(iv);
   }, [poll]);
 
-  // When Blue Chase revealed, show mega box selection
-  useEffect(() => {
-    if (state === 'revealed' && spot?.chaser_tier === 'blue') {
-      // Fetch game to get mega box cards count (don't reveal content - they're hidden boxes)
-      axios.get(`${API}/api/pull-game/games/${gameId}`).then(() => {
-        setTimeout(() => setState('mega-select'), 2500);
-      });
-    }
-  }, [state, spot, gameId]);
+  // (Box selection happens automatically after reveal animation if needs_box_pick)
 
-  const pickMegaBox = async (index) => {
+  const pickBox = async (index) => {
     try {
-      const r = await axios.post(`${API}/api/pull-game/games/${gameId}/mega-box/${sessionId}`, { box_index: index });
-      setMegaChoice(r.data.mega_card);
-      setState('mega-revealed');
+      const r = await axios.post(`${API}/api/pull-game/games/${gameId}/box-pick/${sessionId}`, { box_index: index });
+      setPickedCard(r.data.card);
+      setState('box-revealed');
     } catch (err) {
-      toast.error(err.response?.data?.detail || 'Mega box unavailable');
+      toast.error(err.response?.data?.detail || 'Box pick failed');
     }
   };
 
@@ -108,25 +115,25 @@ const PullGameRevealPage = () => {
         {state === 'revealed' && spot && (
           <motion.div key="revealed" initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full" data-testid="reveal-result">
             <RevealCard spot={spot} />
-            {spot.chaser_tier !== 'blue' && (
-              <button onClick={() => navigate(`/pull-game/${gameId}`)} className="mt-6 w-full px-5 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black">
-                Back to Board
-              </button>
-            )}
+            <button onClick={() => navigate(`/pull-game/${gameId}`)} className="mt-6 w-full px-5 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-black">
+              Back to Board
+            </button>
           </motion.div>
         )}
 
-        {state === 'mega-select' && (
-          <MegaBoxSelect onPick={pickMegaBox} />
+        {state === 'box-select' && (
+          <BoxSelect tone={boxTone} cards={boxCards} onPick={pickBox} />
         )}
 
-        {state === 'mega-revealed' && megaChoice && (
-          <motion.div key="mega-revealed" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full text-center" data-testid="mega-revealed">
-            <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 1 }} className="text-8xl mb-5">🏆</motion.div>
-            <h2 className="text-3xl font-black text-blue-400 mb-2">MEGA CHASE PULLED!</h2>
-            <RevealCard spot={{ card_snapshot: megaChoice, chaser_tier: 'blue', is_chaser: true }} />
-            <button onClick={() => navigate('/')} className="mt-6 w-full px-5 py-3 rounded-lg bg-blue-500 hover:bg-blue-400 text-white font-black">
-              Game Resets — View Other Games
+        {state === 'box-revealed' && pickedCard && (
+          <motion.div key="box-revealed" initial={{ scale: 0.5, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="max-w-md w-full text-center" data-testid="box-revealed">
+            <motion.div animate={{ rotate: [0, 360] }} transition={{ duration: 1 }} className="text-8xl mb-5">{boxTone === 'blue' ? '🏆' : '💎'}</motion.div>
+            <h2 className={`text-3xl font-black mb-2 ${boxTone === 'blue' ? 'text-blue-400' : 'text-amber-400'}`}>
+              {boxTone === 'blue' ? 'BLUE BOX PULLED!' : 'ORANGE BOX PULLED!'}
+            </h2>
+            <RevealCard spot={{ card_snapshot: pickedCard, chaser_tier: boxTone, is_chaser: true }} />
+            <button onClick={() => navigate(`/pull-game/${gameId}`)} className={`mt-6 w-full px-5 py-3 rounded-lg font-black text-white ${boxTone === 'blue' ? 'bg-blue-500 hover:bg-blue-400' : 'bg-amber-500 hover:bg-amber-400 text-black'}`}>
+              Back to Board
             </button>
           </motion.div>
         )}
@@ -180,33 +187,42 @@ const RevealCard = ({ spot }) => {
   );
 };
 
-const MegaBoxSelect = ({ onPick }) => (
-  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-2xl w-full text-center" data-testid="mega-select">
-    <motion.h2
-      animate={{ scale: [1, 1.05, 1] }}
-      transition={{ duration: 2, repeat: Infinity }}
-      className="text-4xl font-black text-blue-400 mb-2 tracking-tight"
-    >
-      👑 BLUE CHASE UNLOCKED 👑
-    </motion.h2>
-    <p className="text-sm text-blue-200/70 mb-8">Pick ONE of the 4 Mega Boxes below. One contains a MEGA CHASE.</p>
-    <div className="grid grid-cols-2 gap-4">
-      {[0, 1, 2, 3].map(i => (
-        <motion.button
-          key={i}
-          whileHover={{ scale: 1.05, rotateY: 10 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => onPick(i)}
-          data-testid={`mega-box-${i}`}
-          className="aspect-square rounded-2xl bg-gradient-to-br from-blue-500/30 via-purple-500/20 to-blue-900/30 border-2 border-blue-400/50 shadow-[0_0_40px_rgba(59,130,246,0.5)] flex flex-col items-center justify-center cursor-pointer hover:border-blue-300 transition-all"
-        >
-          <Gift className="w-16 h-16 text-blue-300 mb-3" />
-          <p className="text-xl font-black text-white">BOX {i + 1}</p>
-          <p className="text-[10px] text-blue-200/70 mt-1">Click to open</p>
-        </motion.button>
-      ))}
-    </div>
-  </motion.div>
-);
+const BoxSelect = ({ tone, cards, onPick }) => {
+  const isBlue = tone === 'blue';
+  const colorClass = isBlue ? 'text-blue-400' : 'text-amber-400';
+  const bgClass = isBlue
+    ? 'from-blue-500/30 via-purple-500/20 to-blue-900/30 border-blue-400/50 shadow-[0_0_40px_rgba(59,130,246,0.5)] hover:border-blue-300'
+    : 'from-amber-500/30 via-orange-500/20 to-amber-900/30 border-amber-400/50 shadow-[0_0_40px_rgba(245,158,11,0.5)] hover:border-amber-300';
+  const headline = isBlue ? '👑 BLUE BOX UNLOCKED 👑' : '💎 ORANGE BOX UNLOCKED 💎';
+  const subline = isBlue ? 'Pick ONE of the 4 Blue Boxes — one is the MEGA chase ($600).' : 'Pick ONE of the 4 Orange Boxes to claim a mid-value chase.';
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl w-full text-center" data-testid="box-select">
+      <motion.h2
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2, repeat: Infinity }}
+        className={`text-4xl font-black mb-2 tracking-tight ${colorClass}`}
+      >
+        {headline}
+      </motion.h2>
+      <p className="text-sm text-gray-400 mb-8">{subline}</p>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {[0, 1, 2, 3].map(i => (
+          <motion.button
+            key={i}
+            whileHover={{ scale: 1.05, y: -4 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => onPick(i)}
+            data-testid={`box-${i}`}
+            className={`aspect-[3/4] rounded-2xl bg-gradient-to-br ${bgClass} border-2 flex flex-col items-center justify-center cursor-pointer transition-all`}
+          >
+            <Gift className={`w-12 h-12 ${colorClass} mb-3`} />
+            <p className="text-xl font-black text-white">BOX {i + 1}</p>
+            <p className="text-[10px] text-gray-300/70 mt-1">Click to open</p>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
 
 export default PullGameRevealPage;

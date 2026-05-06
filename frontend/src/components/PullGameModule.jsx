@@ -7,9 +7,9 @@ import { toast } from 'sonner';
 const API = process.env.REACT_APP_BACKEND_URL;
 
 const TIER_META = {
-  mini: { label: 'Mini Hit', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', icon: Sparkles },
-  mid: { label: 'Mid Chase', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30', icon: Gem },
-  blue: { label: 'Blue Chase', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/30', icon: Crown },
+  red: { label: 'Red Chase', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/30', icon: Sparkles, target: 6 },
+  orange: { label: 'Orange Box', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30', icon: Gem, target: 4 },
+  blue: { label: 'Blue Box', color: 'text-blue-400', bg: 'bg-blue-500/10 border-blue-500/30', icon: Crown, target: 4 },
 };
 
 const PullGameModule = () => {
@@ -137,7 +137,6 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
   const [inventory, setInventory] = useState([]);
   const [selectedChasers, setSelectedChasers] = useState({}); // card_id -> tier
   const [selectedLowEnds, setSelectedLowEnds] = useState(new Set());
-  const [selectedMegaBox, setSelectedMegaBox] = useState([]); // array of card_ids (max 4)
   const [search, setSearch] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -175,27 +174,23 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
     });
   };
 
-  const toggleMegaBox = (id) => {
-    setSelectedMegaBox(prev => {
-      if (prev.includes(id)) return prev.filter(x => x !== id);
-      if (prev.length >= 4) { toast.error('Max 4 Mega Box cards'); return prev; }
-      return [...prev, id];
-    });
-  };
-
   const submit = async () => {
-    const chaserArr = Object.entries(selectedChasers).map(([card_id, tier]) => ({ card_id, tier }));
-    if (chaserArr.length === 0) { toast.error('Add at least one chaser'); return; }
-    if (!chaserArr.some(c => c.tier === 'blue')) { toast.error('Mark one card as Blue Chase to enable Mega Box'); return; }
-    if (selectedLowEnds.size === 0) { toast.error('Add at least one low-end card'); return; }
-    if (selectedMegaBox.length !== 4) { toast.error('Select exactly 4 cards for the Mega Box'); return; }
+    const grouped = { red: [], orange: [], blue: [] };
+    Object.entries(selectedChasers).forEach(([cid, tier]) => { if (grouped[tier]) grouped[tier].push(cid); });
+    if (grouped.red.length !== TIER_META.red.target) { toast.error(`Pick exactly ${TIER_META.red.target} Red Chase cards (currently ${grouped.red.length})`); return; }
+    if (grouped.orange.length !== TIER_META.orange.target) { toast.error(`Pick exactly ${TIER_META.orange.target} Orange Box cards (currently ${grouped.orange.length})`); return; }
+    if (grouped.blue.length !== TIER_META.blue.target) { toast.error(`Pick exactly ${TIER_META.blue.target} Blue Box cards (currently ${grouped.blue.length})`); return; }
+    const minLowEnd = totalPulls - 8; // 6 red + 1 orange trigger + 1 blue trigger
+    if (selectedLowEnds.size < 1) { toast.error('Add at least 1 low-end card'); return; }
+    if (selectedLowEnds.size < Math.min(minLowEnd, 5)) { toast.error(`Add at least ${Math.min(minLowEnd, 5)} low-end cards (pool will recycle if total < ${minLowEnd})`); return; }
     setSubmitting(true);
     try {
       await axios.post(`${API}/api/pull-game/admin/games`, {
         name, total_pulls: totalPulls, tiers,
-        chaser_ids: chaserArr,
+        red_ids: grouped.red,
+        orange_ids: grouped.orange,
+        blue_ids: grouped.blue,
         low_end_ids: Array.from(selectedLowEnds),
-        mega_box_ids: selectedMegaBox,
       });
       toast.success('Pull game created!');
       onCreated();
@@ -205,15 +200,15 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
   };
 
   const inputCls = 'w-full bg-[#0a0a0a] border border-white/[0.06] rounded-lg px-3 py-2 text-sm text-white outline-none focus:border-amber-500/30';
-  const chaserCount = Object.keys(selectedChasers).length;
+  const counts = Object.values(selectedChasers).reduce((acc, t) => { acc[t] = (acc[t] || 0) + 1; return acc; }, {});
 
   return (
     <div data-testid="create-pull-game-wizard">
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack} className="p-1.5 rounded-lg hover:bg-white/5" data-testid="wizard-back-btn"><ArrowLeft className="w-4 h-4 text-gray-400" /></button>
         <div>
-          <h2 className="text-xl font-bold text-white">New Pull Game · Step {step}/3</h2>
-          <p className="text-xs text-gray-500">{step === 1 ? 'Basics & pricing' : step === 2 ? 'Pick chasers + low-ends' : 'Pick 4 Mega Box cards'}</p>
+          <h2 className="text-xl font-bold text-white">New Pull Game · Step {step}/2</h2>
+          <p className="text-xs text-gray-500">{step === 1 ? 'Basics & pricing' : 'Pick your chasers (6 Red + 4 Orange + 4 Blue) and low-end pool'}</p>
         </div>
       </div>
 
@@ -258,11 +253,23 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input className={inputCls + ' pl-9'} placeholder="Search player, set..." value={search} onChange={e => setSearch(e.target.value)} />
               </div>
-              <span className="text-xs text-gray-500 whitespace-nowrap">
-                <span className="text-amber-400 font-bold">{chaserCount}</span> chasers · <span className="text-emerald-400 font-bold">{selectedLowEnds.size}</span> low-ends
+            </div>
+            <div className="flex items-center flex-wrap gap-2 text-[11px]">
+              {(['red','orange','blue']).map(t => {
+                const m = TIER_META[t];
+                const has = counts[t] || 0;
+                const ok = has === m.target;
+                return (
+                  <span key={t} className={`px-2 py-1 rounded-full border ${ok ? m.bg : 'bg-white/[0.02] border-white/10'} font-bold ${m.color}`}>
+                    {ok ? '✓ ' : ''}{m.label}: {has}/{m.target}
+                  </span>
+                );
+              })}
+              <span className="px-2 py-1 rounded-full border border-white/10 bg-white/[0.02] text-emerald-400 font-bold">
+                Low-End: {selectedLowEnds.size}
               </span>
             </div>
-            <p className="text-[11px] text-gray-500">Click tier buttons on a card to mark it. Or click the card to add as low-end.</p>
+            <p className="text-[11px] text-gray-500 mt-2">Click a tier button to mark a card as that chaser. Click the card body itself to add as low-end.</p>
           </div>
           {loading ? (
             <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-gray-500" /></div>
@@ -280,41 +287,7 @@ const CreateGameWizard = ({ onBack, onCreated }) => {
           )}
           <div className="sticky bottom-0 bg-[#0a0a0a] pt-3 mt-3 border-t border-[#1a1a1a] flex gap-2">
             <button onClick={() => setStep(1)} className="px-5 py-3 rounded-lg bg-white/5 text-gray-400 text-sm font-bold"><ArrowLeft className="w-4 h-4 inline mr-1" /> Back</button>
-            <button onClick={() => setStep(3)} disabled={chaserCount === 0 || selectedLowEnds.size === 0} className="flex-1 px-5 py-3 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:bg-gray-700 disabled:cursor-not-allowed text-black text-sm font-bold flex items-center justify-center gap-2" data-testid="wizard-next-2">
-              Next: Mega Box <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {step === 3 && (
-        <div>
-          <div className="mb-4 p-4 rounded-xl bg-blue-500/5 border border-blue-500/20">
-            <p className="text-sm text-blue-300 font-bold mb-1">Mega Box Selection</p>
-            <p className="text-xs text-blue-200/70">When a buyer hits the Blue Chase, they unlock a Mega Box selection — pick ONE of 4 boxes to reveal a mega card. Pick the 4 cards that will be in those boxes (valued $250–$350+ each).</p>
-          </div>
-          <div className="mb-3 text-xs text-gray-500">{selectedMegaBox.length}/4 selected</div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 mb-5">
-            {inventory.filter(c => !selectedLowEnds.has(c.id) && !selectedChasers[c.id]).map(c => {
-              const chosen = selectedMegaBox.includes(c.id);
-              const img = c.store_thumbnail || c.thumbnail;
-              return (
-                <div key={c.id} onClick={() => toggleMegaBox(c.id)} className={`relative cursor-pointer rounded-lg overflow-hidden border-2 transition-all ${chosen ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-white/[0.04] hover:border-white/[0.2]'}`}>
-                  <div className="aspect-square bg-[#111]">
-                    {img ? <img src={`data:image/jpeg;base64,${img}`} className="w-full h-full object-cover" alt="" /> : <Package className="w-8 h-8 text-gray-700 m-auto mt-8" />}
-                  </div>
-                  <div className="p-2">
-                    <p className="text-[10px] font-bold text-white truncate">{c.player || c.card_name}</p>
-                    <p className="text-[9px] text-amber-400 font-bold">${(c.card_value || 0).toFixed(2)}</p>
-                  </div>
-                  {chosen && <div className="absolute top-1 right-1 w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center"><Check className="w-3 h-3 text-white" /></div>}
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex gap-2">
-            <button onClick={() => setStep(2)} className="px-5 py-3 rounded-lg bg-white/5 text-gray-400 text-sm font-bold"><ArrowLeft className="w-4 h-4 inline mr-1" /> Back</button>
-            <button onClick={submit} disabled={submitting || selectedMegaBox.length !== 4} className="flex-1 px-5 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-700 disabled:cursor-not-allowed text-black text-sm font-bold flex items-center justify-center gap-2" data-testid="wizard-submit-btn">
+            <button onClick={submit} disabled={submitting} className="flex-1 px-5 py-3 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:bg-gray-700 disabled:cursor-not-allowed text-black text-sm font-bold flex items-center justify-center gap-2" data-testid="wizard-submit-btn">
               {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
               {submitting ? 'Creating...' : 'Launch Game'}
             </button>
@@ -341,7 +314,7 @@ const CardPicker = ({ card, chaserTier, isLowEnd, onToggleChaser, onToggleLowEnd
         <p className="text-[9px] text-amber-400 font-bold">${(card.card_value || 0).toFixed(2)}</p>
       </div>
       <div className="flex gap-1 p-1 bg-[#0a0a0a]">
-        {['mini', 'mid', 'blue'].map(t => {
+        {['red', 'orange', 'blue'].map(t => {
           const m = TIER_META[t];
           const Icon = m.icon;
           const active = chaserTier === t;

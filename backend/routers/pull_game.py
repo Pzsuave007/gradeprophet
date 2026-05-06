@@ -38,19 +38,8 @@ def _public_game(game: dict, spots: list) -> dict:
     pulls_sold = sum(1 for s in spots if s["status"] == "claimed")
     tiers = game.get("tiers", [])
     current_price = _current_tier_price(pulls_sold, tiers)
-    claimed_chasers = [
-        {
-            "tier": s.get("chaser_tier"),
-            "card_name": s.get("card_snapshot", {}).get("title", "Hidden"),
-            "value": s.get("card_snapshot", {}).get("value", 0),
-            "pull_number": s["pull_number"],
-            "claimed_at": s.get("revealed_at"),
-            "first_name": (s.get("shipping_address") or {}).get("first_name", "Anonymous"),
-        }
-        for s in spots if s["status"] == "claimed" and s.get("is_chaser")
-    ]
-    chasers = game.get("chasers", [])
-    blue_alive = not any(s.get("chaser_tier") == "blue" and s["status"] == "claimed" for s in spots)
+    orange_done = game.get("orange_triggered_at") is not None
+    blue_done = game.get("blue_triggered_at") is not None
     return {
         "id": game["id"],
         "name": game["name"],
@@ -60,20 +49,29 @@ def _public_game(game: dict, spots: list) -> dict:
         "pulls_sold": pulls_sold,
         "current_price": current_price,
         "tiers": tiers,
-        "chasers": chasers,
-        "claimed_chasers": claimed_chasers,
-        "mega_box_cards": game.get("mega_box_cards", []),
-        "mega_box_claimed_index": game.get("mega_box_claimed_index"),
-        "blue_chase_alive": blue_alive,
+        # Visible chasers
+        "red_chases": game.get("red_chases", []),
+        "orange_box_cards": game.get("orange_box_cards", []),
+        "blue_box_cards": game.get("blue_box_cards", []),
+        # Trigger state
+        "orange_triggered": orange_done,
+        "orange_picked_index": game.get("orange_picked_index"),
+        "orange_picked_card": game.get("orange_picked_card"),
+        "blue_triggered": blue_done,
+        "blue_picked_index": game.get("blue_picked_index"),
+        "blue_picked_card": game.get("blue_picked_card"),
         "created_at": game.get("created_at"),
         "spots": [
             {
                 "pull_number": s["pull_number"],
                 "price": s["price"] if s["status"] == "claimed" else current_price,
                 "status": s["status"],
+                # Reveal: claimed low-end/red show card; orange/blue triggers show card after box pick
                 "card": s.get("card_snapshot") if s["status"] == "claimed" else None,
                 "is_chaser": s.get("is_chaser", False) if s["status"] == "claimed" else False,
                 "chaser_tier": s.get("chaser_tier") if s["status"] == "claimed" else None,
+                "is_trigger": s.get("is_trigger", False),
+                "trigger_type": s.get("trigger_type") if s["status"] == "claimed" else None,
             }
             for s in spots
         ],
@@ -117,68 +115,86 @@ def _make_card_snapshot(card: dict) -> dict:
 
 
 async def _generate_spots(game_id: str, game: dict):
-    """Generate all pull spots with hidden random card assignments.
-    Chasers are placed at random unique pull_numbers; everything else draws from low_end_pool."""
+    """Generate pull spots:
+    - 6 (or len(red_chases)) random spots → red chase (each gets a pre-assigned red card)
+    - 1 random spot → orange trigger (card revealed via box pick)
+    - 1 random spot → blue trigger (card revealed via box pick)
+    - rest → low-end (random from pool)
+    """
     total = game["total_pulls"]
     tiers = game["tiers"]
-    chasers = game.get("chasers", [])  # each: {card_id, tier, card_snapshot}
-    low_end_pool = game.get("low_end_pool", [])  # list of card snapshots
+    red_chases = game.get("red_chases", [])  # list of card snapshots (1 per spot)
+    has_orange = len(game.get("orange_box_cards", [])) > 0
+    has_blue = len(game.get("blue_box_cards", [])) > 0
+    low_end_pool = game.get("low_end_pool", [])
 
-    # Reserve random spots for chasers
+    # Reserve random unique spots for triggers + reds
     all_numbers = list(range(1, total + 1))
     random.shuffle(all_numbers)
-    chaser_numbers = all_numbers[:len(chasers)]
-    chaser_map = {num: ch for num, ch in zip(chaser_numbers, chasers)}
+    pos = 0
+    red_numbers = all_numbers[pos:pos + len(red_chases)]; pos += len(red_chases)
+    orange_number = all_numbers[pos] if has_orange else None
+    if has_orange: pos += 1
+    blue_number = all_numbers[pos] if has_blue else None
+    if has_blue: pos += 1
 
-    # Shuffle low-ends; repeat if pool < (total - chasers)
-    needed = total - len(chasers)
+    red_map = {num: card for num, card in zip(red_numbers, red_chases)}
+
+    needed = total - len(red_chases) - (1 if has_orange else 0) - (1 if has_blue else 0)
     pool = list(low_end_pool)
     random.shuffle(pool)
     while len(pool) < needed:
-        pool.extend(low_end_pool)  # recycle pool
+        pool.extend(low_end_pool)
     pool = pool[:needed]
     pool_iter = iter(pool)
 
     spots = []
     for n in range(1, total + 1):
-        if n in chaser_map:
-            ch = chaser_map[n]
-            spots.append({
-                "id": str(uuid.uuid4())[:12],
-                "game_id": game_id,
-                "pull_number": n,
-                "price": _price_for_pull(n, tiers),
-                "status": "available",
-                "card_snapshot": ch["card_snapshot"],
+        base = {
+            "id": str(uuid.uuid4())[:12],
+            "game_id": game_id,
+            "pull_number": n,
+            "price": _price_for_pull(n, tiers),
+            "status": "available",
+            "claimed_by_user_id": None,
+            "claimed_by_email": None,
+            "shipping_address": None,
+            "stripe_session_id": None,
+            "payment_status": None,
+            "revealed_at": None,
+            "shipped_at": None,
+            "is_trigger": False,
+            "trigger_type": None,
+        }
+        if n in red_map:
+            base.update({
+                "card_snapshot": red_map[n],
                 "is_chaser": True,
-                "chaser_tier": ch["tier"],
-                "claimed_by_user_id": None,
-                "claimed_by_email": None,
-                "shipping_address": None,
-                "stripe_session_id": None,
-                "payment_status": None,
-                "revealed_at": None,
-                "shipped_at": None,
+                "chaser_tier": "red",
+            })
+        elif n == orange_number:
+            base.update({
+                "card_snapshot": None,  # revealed after box pick
+                "is_chaser": True,
+                "chaser_tier": "orange",
+                "is_trigger": True,
+                "trigger_type": "orange",
+            })
+        elif n == blue_number:
+            base.update({
+                "card_snapshot": None,
+                "is_chaser": True,
+                "chaser_tier": "blue",
+                "is_trigger": True,
+                "trigger_type": "blue",
             })
         else:
-            card_snap = next(pool_iter)
-            spots.append({
-                "id": str(uuid.uuid4())[:12],
-                "game_id": game_id,
-                "pull_number": n,
-                "price": _price_for_pull(n, tiers),
-                "status": "available",
-                "card_snapshot": card_snap,
+            base.update({
+                "card_snapshot": next(pool_iter),
                 "is_chaser": False,
                 "chaser_tier": None,
-                "claimed_by_user_id": None,
-                "claimed_by_email": None,
-                "shipping_address": None,
-                "stripe_session_id": None,
-                "payment_status": None,
-                "revealed_at": None,
-                "shipped_at": None,
             })
+        spots.append(base)
     await db.pull_spots.insert_many(spots)
 
 
@@ -200,33 +216,25 @@ async def create_game(request: Request):
         {"from": 41, "to": 55, "price": 18},
         {"from": 56, "to": 65, "price": 25},
     ]
-    chaser_ids = body.get("chaser_ids", [])  # [{card_id, tier: mini|mid|blue}]
+    chaser_ids = body.get("chaser_ids", [])  # legacy support
+    red_ids = body.get("red_ids", [])  # 6 card_ids for direct red chases
+    orange_ids = body.get("orange_ids", [])  # 4 card_ids for orange box
+    blue_ids = body.get("blue_ids", [])  # 4 card_ids for blue box
     low_end_ids = body.get("low_end_ids", [])  # list of card_id
-    mega_box_ids = body.get("mega_box_ids", [])  # 4 card_ids for the Mega Box reward
+    mega_box_ids = body.get("mega_box_ids", [])  # legacy compat
 
     # Load inventory cards
-    all_ids = [c["card_id"] for c in chaser_ids] + low_end_ids + mega_box_ids
+    all_ids = list(set(red_ids + orange_ids + blue_ids + low_end_ids + mega_box_ids + [c.get("card_id") for c in chaser_ids if c.get("card_id")]))
     cards_cursor = db.inventory.find({"id": {"$in": all_ids}, "user_id": user["user_id"]}, {"_id": 0})
     cards_map = {c["id"]: c async for c in cards_cursor}
 
-    chasers = []
-    for c in chaser_ids:
-        card = cards_map.get(c["card_id"])
-        if not card:
-            continue
-        chasers.append({
-            "card_id": c["card_id"],
-            "tier": c["tier"],  # mini | mid | blue
-            "card_snapshot": _make_card_snapshot(card),
-        })
+    red_chases = [_make_card_snapshot(cards_map[cid]) for cid in red_ids if cid in cards_map]
+    orange_box_cards = [_make_card_snapshot(cards_map[cid]) for cid in orange_ids if cid in cards_map]
+    blue_box_cards = [_make_card_snapshot(cards_map[cid]) for cid in blue_ids if cid in cards_map]
 
     low_end_pool = [_make_card_snapshot(cards_map[cid]) for cid in low_end_ids if cid in cards_map]
     if not low_end_pool:
         raise HTTPException(400, "No valid low-end cards provided")
-    if not any(c["tier"] == "blue" for c in chasers):
-        logger.warning(f"Game {name} created without Blue Chase — Mega Box won't trigger")
-
-    mega_box_snapshots = [_make_card_snapshot(cards_map[cid]) for cid in mega_box_ids if cid in cards_map]
 
     game_id = str(uuid.uuid4())[:12]
     game = {
@@ -236,11 +244,19 @@ async def create_game(request: Request):
         "status": "active",  # active | paused | ended
         "total_pulls": total_pulls,
         "tiers": tiers,
-        "chasers": chasers,
+        "red_chases": red_chases,
+        "orange_box_cards": orange_box_cards,
+        "blue_box_cards": blue_box_cards,
         "low_end_pool": low_end_pool,
-        "mega_box_cards": mega_box_snapshots,
-        "mega_box_claimed_index": None,
-        "blue_chase_triggered_at": None,
+        # Trigger state
+        "orange_triggered_at": None,
+        "orange_picked_index": None,
+        "orange_picked_card": None,
+        "orange_session_id": None,
+        "blue_triggered_at": None,
+        "blue_picked_index": None,
+        "blue_picked_card": None,
+        "blue_session_id": None,
         "created_at": _now(),
         "ended_at": None,
         "stats": {"pulls_sold": 0, "revenue": 0.0},
@@ -248,7 +264,7 @@ async def create_game(request: Request):
     await db.pull_games.insert_one(game)
 
     # Lock cards in inventory
-    locked_ids = [c["card_id"] for c in chasers] + low_end_ids + mega_box_ids
+    locked_ids = list(set(red_ids + orange_ids + blue_ids + low_end_ids))
     if locked_ids:
         await db.inventory.update_many(
             {"id": {"$in": locked_ids}, "user_id": user["user_id"]},
@@ -512,22 +528,23 @@ async def checkout_status(session_id: str, request: Request):
             }},
         )
         if spot:
-            # Update game stats
             await db.pull_games.update_one(
                 {"id": spot["game_id"]},
-                {
-                    "$inc": {"stats.pulls_sold": 1, "stats.revenue": spot["price"]},
-                    "$set": {
-                        **({"blue_chase_triggered_at": _now()} if spot.get("chaser_tier") == "blue" else {}),
-                    },
-                },
+                {"$inc": {"stats.pulls_sold": 1, "stats.revenue": spot["price"]}},
             )
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"payment_status": "paid", "status": "completed", "revealed": True, "paid_at": _now()}},
         )
         fresh_spot = await db.pull_spots.find_one({"stripe_session_id": session_id}, {"_id": 0})
-        return {"payment_status": "paid", "revealed": True, "spot": fresh_spot}
+        # If trigger spot, the card is not yet revealed — frontend must call /box-pick
+        return {
+            "payment_status": "paid",
+            "revealed": True,
+            "spot": fresh_spot,
+            "needs_box_pick": fresh_spot.get("is_trigger") if fresh_spot else False,
+            "trigger_type": fresh_spot.get("trigger_type") if fresh_spot else None,
+        }
 
     if status.status == "expired" or status.payment_status == "unpaid":
         # Release the reservation
@@ -540,46 +557,74 @@ async def checkout_status(session_id: str, request: Request):
     return {"payment_status": status.payment_status, "revealed": False}
 
 
-@router.post("/games/{game_id}/mega-box/{session_id}")
-async def open_mega_box(game_id: str, session_id: str, request: Request):
-    """Open one of the 4 Mega Boxes after hitting Blue Chase. Game resets after."""
+@router.post("/games/{game_id}/box-pick/{session_id}")
+async def open_box(game_id: str, session_id: str, request: Request):
+    """Open one of the 4 boxes after hitting an Orange or Blue trigger spot.
+    Reveals the chosen card and assigns it to the spot.
+    Game ends automatically when BOTH orange and blue triggers have been picked."""
     body = await request.json()
     box_index = int(body.get("box_index", 0))
 
     spot = await db.pull_spots.find_one({
-        "stripe_session_id": session_id, "status": "claimed", "chaser_tier": "blue",
+        "stripe_session_id": session_id, "status": "claimed", "is_trigger": True,
     }, {"_id": 0})
     if not spot:
-        raise HTTPException(404, "Blue Chase session not found")
+        raise HTTPException(404, "Trigger session not found or not paid")
+    if spot.get("card_snapshot"):
+        # Already picked — return the assigned card
+        return {"success": True, "card": spot["card_snapshot"], "trigger_type": spot.get("trigger_type"), "already_picked": True}
+
+    trigger_type = spot.get("trigger_type")  # 'orange' | 'blue'
+    if trigger_type not in ("orange", "blue"):
+        raise HTTPException(400, "Invalid trigger type")
 
     game = await db.pull_games.find_one({"id": game_id}, {"_id": 0})
     if not game:
         raise HTTPException(404, "Game not found")
-    if game.get("mega_box_claimed_index") is not None:
-        raise HTTPException(409, "Mega Box already claimed for this game")
 
-    mega_cards = game.get("mega_box_cards", [])
-    if box_index < 0 or box_index >= len(mega_cards):
+    # Already triggered globally?
+    if trigger_type == "orange" and game.get("orange_triggered_at"):
+        raise HTTPException(409, "Orange already triggered for this game")
+    if trigger_type == "blue" and game.get("blue_triggered_at"):
+        raise HTTPException(409, "Blue already triggered for this game")
+
+    pool = game.get("orange_box_cards" if trigger_type == "orange" else "blue_box_cards", [])
+    if box_index < 0 or box_index >= len(pool):
         raise HTTPException(400, "Invalid box index")
-    chosen = mega_cards[box_index]
+    chosen = pool[box_index]
 
-    # Record the mega box win + end the game (reset)
-    await db.pull_games.update_one(
-        {"id": game_id},
-        {"$set": {
-            "mega_box_claimed_index": box_index,
-            "mega_box_claimed_card": chosen,
-            "mega_box_claimed_by_session": session_id,
-            "status": "ended",
-            "ended_at": _now(),
-        }},
+    # Assign card to spot + mark trigger
+    await db.pull_spots.update_one(
+        {"id": spot["id"]},
+        {"$set": {"card_snapshot": chosen}},
     )
-    # Disable remaining available spots
-    await db.pull_spots.update_many(
-        {"game_id": game_id, "status": "available"},
-        {"$set": {"status": "disabled"}},
-    )
-    return {"success": True, "mega_card": chosen, "game_reset": True}
+    update_fields = {
+        f"{trigger_type}_triggered_at": _now(),
+        f"{trigger_type}_picked_index": box_index,
+        f"{trigger_type}_picked_card": chosen,
+        f"{trigger_type}_session_id": session_id,
+    }
+    await db.pull_games.update_one({"id": game_id}, {"$set": update_fields})
+
+    # Re-fetch to check if both done
+    fresh_game = await db.pull_games.find_one({"id": game_id}, {"_id": 0})
+    game_ended = False
+    has_orange = len(fresh_game.get("orange_box_cards", [])) > 0
+    has_blue = len(fresh_game.get("blue_box_cards", [])) > 0
+    orange_done = (not has_orange) or fresh_game.get("orange_triggered_at")
+    blue_done = (not has_blue) or fresh_game.get("blue_triggered_at")
+    if orange_done and blue_done:
+        await db.pull_games.update_one(
+            {"id": game_id},
+            {"$set": {"status": "ended", "ended_at": _now()}},
+        )
+        await db.pull_spots.update_many(
+            {"game_id": game_id, "status": "available"},
+            {"$set": {"status": "disabled"}},
+        )
+        game_ended = True
+
+    return {"success": True, "card": chosen, "trigger_type": trigger_type, "game_ended": game_ended}
 
 
 @router.get("/inventory/available")

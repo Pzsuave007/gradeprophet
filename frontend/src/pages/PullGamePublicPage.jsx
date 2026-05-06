@@ -35,18 +35,17 @@ const PullGamePublicPage = () => {
   if (loading) return <div className="min-h-screen bg-[#050505] flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin text-amber-400" /></div>;
   if (!game) return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-gray-500">Game not found</div>;
 
-  const blueChaser = game.chasers.find(c => c.tier === 'blue');
-  const redChasers = game.chasers.filter(c => c.tier !== 'blue');
-  // Mega box cards are on the game object (admin-created list) - exposed via the spots that match mega_box_cards
-  // We need them from the game API. Since public game endpoint returns mega_box_cards via game.chasers?
-  // Actually mega_box_cards is a separate field on the game - we expose it via /games/{id} but currently don't. Let me add to _public_game.
-  const megaCards = game.mega_box_cards || [];
-  const blueAlive = game.blue_chase_alive;
+  const blueBoxCards = game.blue_box_cards || [];
+  const orangeBoxCards = game.orange_box_cards || [];
+  const redChasers = game.red_chases || [];
   const claimedByCardId = new Set(
-    game.spots.filter(s => s.status === 'claimed' && s.card).map(s => s.card.card_id)
+    (game.spots || []).filter(s => s.status === 'claimed' && s.card).map(s => s.card.card_id)
   );
-
-  const odds = game.pulls_remaining > 0 ? Math.max(1, Math.round(game.pulls_remaining / Math.max(1, game.chasers.length - game.claimed_chasers.length))) : 0;
+  const totalChaserEvents = redChasers.length + (orangeBoxCards.length > 0 ? 1 : 0) + (blueBoxCards.length > 0 ? 1 : 0);
+  const claimedChaserSpots = (game.spots || []).filter(s => s.status === 'claimed' && s.is_chaser).length;
+  const odds = game.pulls_remaining > 0 ? Math.max(1, Math.round(game.pulls_remaining / Math.max(1, totalChaserEvents - claimedChaserSpots))) : 0;
+  const blueAlive = !game.blue_triggered;
+  const orangeAlive = !game.orange_triggered;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden" data-testid="pull-game-public">
@@ -64,7 +63,8 @@ const PullGamePublicPage = () => {
               <span className="text-amber-400 font-bold">{game.pulls_remaining} / {game.total_pulls} remaining</span>
               <span>·</span>
               <span>1 in {odds} odds</span>
-              {blueAlive && <><span>·</span><span className="text-blue-400 font-bold animate-pulse">👀 Blue Chase Alive</span></>}
+              {blueAlive && <><span>·</span><span className="text-blue-400 font-bold animate-pulse">👀 Blue Alive</span></>}
+              {orangeAlive && <><span>·</span><span className="text-amber-400 font-bold">🟧 Orange Alive</span></>}
             </div>
           </div>
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
@@ -75,40 +75,31 @@ const PullGamePublicPage = () => {
 
       {/* Main 3-column layout */}
       <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-6 lg:py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.5fr_1fr] gap-6 lg:gap-8 items-start">
-          {/* LEFT: Blue Chase */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_1.4fr_1fr] gap-6 lg:gap-8 items-start">
+          {/* LEFT: Blue Box Chases (4 cards) */}
           <div className="order-2 lg:order-1">
-            <SectionHeading icon={Crown} label="Blue Chase" tone="blue" />
-            {blueChaser ? (
-              <BigChaseCard
-                tier={BLUE_CHASE}
-                card={blueChaser.card_snapshot}
-                claimed={claimedByCardId.has(blueChaser.card_snapshot?.card_id)}
-                massive
-              />
-            ) : (
-              <EmptyTile label="No Blue Chase" />
-            )}
+            <SectionHeading icon={Crown} label="Blue Box (Pick 1 of 4)" tone="blue" />
+            <BoxGrid cards={blueBoxCards} tone={BLUE_CHASE} pickedIndex={game.blue_picked_index} triggered={game.blue_triggered} />
           </div>
 
-          {/* CENTER: Tilted Recipe Box with pull numbers */}
+          {/* CENTER: Recipe Box with pull numbers */}
           <div className="order-1 lg:order-2" data-testid="board-section">
             <SectionHeading icon={Zap} label="The Board" tone="amber" />
             <RecipeBox game={game} onSelect={setSelectedPull} />
           </div>
 
-          {/* RIGHT: Mega Boxes */}
+          {/* RIGHT: Orange Box Chases (4 cards) */}
           <div className="order-3">
-            <SectionHeading icon={Gift} label="Mega Box Chases" tone="amber" />
-            <MegaBoxDisplay cards={megaCards} claimed={game.mega_box_claimed_index !== null && game.mega_box_claimed_index !== undefined} />
+            <SectionHeading icon={Gift} label="Orange Box (Pick 1 of 4)" tone="amber" />
+            <BoxGrid cards={orangeBoxCards} tone={ORANGE_MEGA} pickedIndex={game.orange_picked_index} triggered={game.orange_triggered} />
           </div>
         </div>
 
-        {/* BOTTOM: Red Chases */}
+        {/* BOTTOM: Red Chases (6 cards) */}
         <div className="mt-10 lg:mt-14" data-testid="red-chases-section">
-          <SectionHeading icon={Trophy} label={`Chasers (${redChasers.length})`} tone="red" />
+          <SectionHeading icon={Trophy} label={`Red Chases (${redChasers.length})`} tone="red" />
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {redChasers.map((c, i) => (
+            {redChasers.map((card, i) => (
               <motion.div
                 key={i}
                 initial={{ opacity: 0, y: 20 }}
@@ -116,8 +107,8 @@ const PullGamePublicPage = () => {
                 transition={{ delay: i * 0.05 }}
               >
                 <RedChaseCard
-                  card={c.card_snapshot}
-                  claimed={claimedByCardId.has(c.card_snapshot?.card_id)}
+                  card={card}
+                  claimed={claimedByCardId.has(card?.card_id)}
                 />
               </motion.div>
             ))}
@@ -213,51 +204,53 @@ const RedChaseCard = ({ card, claimed }) => {
   );
 };
 
-// ──────── Mega Box Display ────────
-const MegaBoxDisplay = ({ cards, claimed }) => {
-  // 4 cards in a 2x2 grid with orange glow, but styled as "sealed boxes"
+// ──────── Box Grid (4 cards visible in their box, used for both Blue and Orange) ────────
+const BoxGrid = ({ cards, tone, pickedIndex, triggered }) => {
   const filled = [...cards];
   while (filled.length < 4) filled.push(null);
   return (
     <div className="grid grid-cols-2 gap-3">
-      {filled.slice(0, 4).map((card, i) => (
-        <motion.div
-          key={i}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: i * 0.07 }}
-          className={`relative rounded-xl overflow-hidden border-2 bg-gradient-to-b ${ORANGE_MEGA.bgGrad} ${ORANGE_MEGA.border} ${!claimed ? ORANGE_MEGA.glow : 'grayscale'}`}
-        >
-          {/* Box label strip */}
-          <div className="absolute top-0 left-0 right-0 z-10 bg-black/70 backdrop-blur px-2 py-1 flex items-center justify-between">
-            <div className="flex items-center gap-1">
-              <Gift className={`w-2.5 h-2.5 ${ORANGE_MEGA.color}`} />
-              <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${ORANGE_MEGA.color}`}>Box {i + 1}</span>
+      {filled.slice(0, 4).map((card, i) => {
+        const isPicked = pickedIndex === i;
+        const wasPassed = triggered && pickedIndex !== i;
+        return (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: i * 0.07 }}
+            className={`relative rounded-xl overflow-hidden border-2 bg-gradient-to-b ${tone.bgGrad} ${tone.border} ${
+              triggered ? (isPicked ? tone.glow : 'grayscale opacity-50') : tone.glow
+            }`}
+          >
+            <div className={`absolute top-0 left-0 right-0 z-10 bg-black/70 backdrop-blur px-2 py-1 flex items-center justify-between`}>
+              <div className="flex items-center gap-1">
+                <Gift className={`w-2.5 h-2.5 ${tone.color}`} />
+                <span className={`text-[8px] font-black uppercase tracking-[0.2em] ${tone.color}`}>Box {i + 1}</span>
+              </div>
+              {!triggered && <Lock className={`w-2.5 h-2.5 ${tone.color}/70`} />}
+              {isPicked && <span className="text-[8px] font-black text-emerald-400">PICKED</span>}
             </div>
-            <Lock className="w-2.5 h-2.5 text-amber-400/70" />
-          </div>
-          <div className="aspect-[3/4] bg-[#0a0a0a] relative pt-6">
-            {card?.thumbnail ? (
-              <img src={`data:image/jpeg;base64,${card.thumbnail}`} className="w-full h-full object-cover" alt="" />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <Package className="w-10 h-10 text-gray-700" />
+            <div className="aspect-[3/4] bg-[#0a0a0a] relative pt-6">
+              {card?.thumbnail ? (
+                <img src={`data:image/jpeg;base64,${card.thumbnail}`} className="w-full h-full object-cover" alt="" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center"><Package className="w-10 h-10 text-gray-700" /></div>
+              )}
+              {!triggered && <div className={`absolute inset-0 bg-gradient-to-t ${tone.bgGrad} opacity-30 pointer-events-none`} />}
+            </div>
+            <div className="p-2 bg-black/40">
+              <p className="text-[10px] font-bold text-white truncate">{card?.title || '???'}</p>
+              <p className={`text-[9px] font-bold ${tone.color}`}>${card?.value?.toFixed(0) || '?'}</p>
+            </div>
+            {wasPassed && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-20">
+                <span className="text-xs font-black text-red-400 tracking-[0.2em] rotate-[-8deg]">PASSED</span>
               </div>
             )}
-            {/* Sealed overlay - amber tint */}
-            <div className="absolute inset-0 bg-gradient-to-t from-amber-500/20 via-transparent to-amber-500/10 pointer-events-none" />
-          </div>
-          <div className="p-2 bg-black/40">
-            <p className="text-[10px] font-bold text-white truncate">{card?.title || '???'}</p>
-            <p className="text-[9px] text-amber-400 font-bold">${card?.value?.toFixed(0) || '?'}</p>
-          </div>
-          {claimed && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-20">
-              <span className="text-xs font-black text-red-400 tracking-[0.2em] rotate-[-8deg]">OPENED</span>
-            </div>
-          )}
-        </motion.div>
-      ))}
+          </motion.div>
+        );
+      })}
     </div>
   );
 };
