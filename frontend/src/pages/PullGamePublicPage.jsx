@@ -327,16 +327,32 @@ const RecipeBox = ({ game, onSelect }) => {
               {game.pulls_remaining} <span className="text-2xl text-[#7a6a4a]">/ {game.total_pulls}</span>
             </p>
             <p className="text-[10px] uppercase tracking-wider text-[#7a6a4a] mt-1 font-bold">pulls remaining</p>
+            <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#3d2818] text-amber-200">
+              <span className="text-[9px] uppercase tracking-[0.2em] font-bold">Current Price</span>
+              <span className="text-base font-black">${game.current_price?.toFixed(0) ?? game.tiers?.[0]?.price}</span>
+            </div>
           </div>
 
-          {/* Price tiers */}
+          {/* Price tiers — interpreted as "first N pulls = $X" */}
           <div className="space-y-1.5 max-w-md mx-auto">
-            {game.tiers.map((t, i) => (
-              <div key={i} className="flex items-center justify-between px-3 py-2 rounded-md bg-[#3d2818]/8 border border-[#a89878]/40">
-                <span className="text-[11px] font-bold text-[#5a4a2a] uppercase tracking-wider">Pulls {t.from}–{t.to}</span>
-                <span className="text-base font-black text-[#3d2818]">${t.price}</span>
-              </div>
-            ))}
+            {game.tiers.map((t, i) => {
+              const count = t.to - t.from + 1;
+              const label = i === 0 ? `First ${count} pulls` : `Next ${count} pulls`;
+              const isCurrent = game.pulls_sold + 1 >= t.from && game.pulls_sold + 1 <= t.to;
+              const isPast = game.pulls_sold >= t.to;
+              return (
+                <div key={i} className={`flex items-center justify-between px-3 py-2 rounded-md border transition-all ${
+                  isCurrent ? 'bg-amber-500/20 border-amber-700 shadow-[0_0_0_1px_rgba(180,120,40,0.3)]' :
+                  isPast ? 'bg-[#3d2818]/3 border-[#a89878]/20 opacity-50 line-through' :
+                  'bg-[#3d2818]/8 border-[#a89878]/40'
+                }`}>
+                  <span className="text-[11px] font-bold text-[#5a4a2a] uppercase tracking-wider">
+                    {isCurrent && '► '}{label}
+                  </span>
+                  <span className="text-base font-black text-[#3d2818]">${t.price}</span>
+                </div>
+              );
+            })}
           </div>
 
           {hoveredNum !== null && hoveredNum !== undefined && (

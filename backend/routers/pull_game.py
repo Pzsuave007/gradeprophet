@@ -35,6 +35,9 @@ async def _is_admin(user) -> bool:
 def _public_game(game: dict, spots: list) -> dict:
     """Build public view of a game - hide hidden card assignments."""
     remaining = sum(1 for s in spots if s["status"] == "available")
+    pulls_sold = sum(1 for s in spots if s["status"] == "claimed")
+    tiers = game.get("tiers", [])
+    current_price = _current_tier_price(pulls_sold, tiers)
     claimed_chasers = [
         {
             "tier": s.get("chaser_tier"),
@@ -46,7 +49,6 @@ def _public_game(game: dict, spots: list) -> dict:
         }
         for s in spots if s["status"] == "claimed" and s.get("is_chaser")
     ]
-    # Count remaining chasers by tier (for odds)
     chasers = game.get("chasers", [])
     blue_alive = not any(s.get("chaser_tier") == "blue" and s["status"] == "claimed" for s in spots)
     return {
@@ -55,8 +57,10 @@ def _public_game(game: dict, spots: list) -> dict:
         "status": game["status"],
         "total_pulls": game["total_pulls"],
         "pulls_remaining": remaining,
-        "tiers": game.get("tiers", []),
-        "chasers": chasers,  # visible chasers (card names + images + values)
+        "pulls_sold": pulls_sold,
+        "current_price": current_price,
+        "tiers": tiers,
+        "chasers": chasers,
         "claimed_chasers": claimed_chasers,
         "mega_box_cards": game.get("mega_box_cards", []),
         "mega_box_claimed_index": game.get("mega_box_claimed_index"),
@@ -65,9 +69,8 @@ def _public_game(game: dict, spots: list) -> dict:
         "spots": [
             {
                 "pull_number": s["pull_number"],
-                "price": s["price"],
+                "price": s["price"] if s["status"] == "claimed" else current_price,
                 "status": s["status"],
-                # Reveal card snapshot only when claimed
                 "card": s.get("card_snapshot") if s["status"] == "claimed" else None,
                 "is_chaser": s.get("is_chaser", False) if s["status"] == "claimed" else False,
                 "chaser_tier": s.get("chaser_tier") if s["status"] == "claimed" else None,
@@ -77,7 +80,19 @@ def _public_game(game: dict, spots: list) -> dict:
     }
 
 
+def _current_tier_price(pulls_sold: int, tiers: list) -> float:
+    """Price for the NEXT pull based on how many have already been sold.
+    Tiers are interpreted as 'first N pulls sold' ranges, e.g. tier {from:1,to:5,price:5}
+    means the 1st through 5th pulls SOLD cost $5 each (regardless of pull number)."""
+    next_pull_index = pulls_sold + 1
+    for t in tiers:
+        if t["from"] <= next_pull_index <= t["to"]:
+            return float(t["price"])
+    return float(tiers[-1]["price"]) if tiers else 5.0
+
+
 def _price_for_pull(pull_number: int, tiers: list) -> float:
+    """Legacy fallback: maps a fixed pull number to tier price (used only for display defaults)."""
     for t in tiers:
         if t["from"] <= pull_number <= t["to"]:
             return float(t["price"])
@@ -406,13 +421,18 @@ async def buy_pull(game_id: str, request: Request):
     if not game or game["status"] != "active":
         raise HTTPException(400, "Game not available")
 
-    # Atomically reserve the spot
+    # Compute current dynamic price based on pulls already sold
+    pulls_sold = await db.pull_spots.count_documents({"game_id": game_id, "status": "claimed"})
+    current_price = _current_tier_price(pulls_sold, game.get("tiers", []))
+
+    # Atomically reserve the spot and lock in the price at time of purchase
     spot = await db.pull_spots.find_one_and_update(
         {"game_id": game_id, "pull_number": pull_number, "status": "available"},
-        {"$set": {"status": "reserved", "reserved_at": _now()}},
+        {"$set": {"status": "reserved", "reserved_at": _now(), "price": current_price}},
     )
     if not spot:
         raise HTTPException(409, "Pull already claimed or reserved")
+    spot["price"] = current_price
 
     host_url = str(request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
