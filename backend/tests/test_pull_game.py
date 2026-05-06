@@ -5,7 +5,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://schedule-boost-5.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("REACT_APP_BACKEND_URL", "https://dynamic-pull-shop.preview.emergentagent.com").rstrip("/")
 DEV_COOKIE = {"session_token": "dev_flipslab_access"}
 
 

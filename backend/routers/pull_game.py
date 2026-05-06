@@ -419,13 +419,21 @@ async def public_winners(game_id: str):
 
 @router.post("/games/{game_id}/buy-pull")
 async def buy_pull(game_id: str, request: Request):
-    """Initiate Stripe checkout for a specific pull number. Guest or logged-in."""
+    """Initiate Stripe checkout for one or many pull numbers in a single transaction.
+    Body: {pull_number: int} OR {pull_numbers: [int, int, ...]}, email, shipping_address, origin_url, user_id?"""
     body = await request.json()
-    pull_number = int(body.get("pull_number"))
+    pull_numbers = body.get("pull_numbers")
+    if pull_numbers is None:
+        # Legacy single-pull support
+        single = body.get("pull_number")
+        pull_numbers = [int(single)] if single is not None else []
+    pull_numbers = sorted(set(int(n) for n in pull_numbers))
+    if not pull_numbers:
+        raise HTTPException(400, "At least one pull required")
     email = (body.get("email") or "").strip().lower()
     shipping = body.get("shipping_address") or {}
     origin_url = body.get("origin_url", "")
-    user_id = body.get("user_id")  # optional if logged in
+    user_id = body.get("user_id")
 
     if not email:
         raise HTTPException(400, "Email required")
@@ -437,44 +445,67 @@ async def buy_pull(game_id: str, request: Request):
     if not game or game["status"] != "active":
         raise HTTPException(400, "Game not available")
 
-    # Compute current dynamic price based on pulls already sold
     pulls_sold = await db.pull_spots.count_documents({"game_id": game_id, "status": "claimed"})
-    current_price = _current_tier_price(pulls_sold, game.get("tiers", []))
+    tiers = game.get("tiers", [])
 
-    # Atomically reserve the spot and lock in the price at time of purchase
-    spot = await db.pull_spots.find_one_and_update(
-        {"game_id": game_id, "pull_number": pull_number, "status": "available"},
-        {"$set": {"status": "reserved", "reserved_at": _now(), "price": current_price}},
-    )
-    if not spot:
-        raise HTTPException(409, "Pull already claimed or reserved")
-    spot["price"] = current_price
+    # Reserve all spots atomically — if any fails, rollback the rest
+    reserved = []
+    total_amount = 0.0
+    try:
+        for idx, pn in enumerate(pull_numbers):
+            # Each subsequent pull's price reflects the prior pulls also being sold
+            price = _current_tier_price(pulls_sold + idx, tiers)
+            spot = await db.pull_spots.find_one_and_update(
+                {"game_id": game_id, "pull_number": pn, "status": "available"},
+                {"$set": {"status": "reserved", "reserved_at": _now(), "price": price}},
+            )
+            if not spot:
+                # Rollback everything we already reserved
+                for r in reserved:
+                    await db.pull_spots.update_one(
+                        {"id": r["id"]},
+                        {"$set": {"status": "available", "stripe_session_id": None, "payment_status": None}},
+                    )
+                raise HTTPException(409, f"Pull #{pn} already claimed or reserved")
+            spot["price"] = price
+            reserved.append(spot)
+            total_amount += price
+    except HTTPException:
+        raise
+    except Exception as e:
+        for r in reserved:
+            await db.pull_spots.update_one(
+                {"id": r["id"]},
+                {"$set": {"status": "available"}},
+            )
+        raise HTTPException(500, str(e))
 
     host_url = str(request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
     stripe_checkout = StripeCheckout(api_key=STRIPE_API_KEY, webhook_url=webhook_url)
-
     success_url = f"{origin_url}/pull-game/{game_id}/reveal?session_id={{CHECKOUT_SESSION_ID}}"
-    cancel_url = f"{origin_url}/pull-game/{game_id}?cancelled=1&pull={pull_number}"
+    cancel_url = f"{origin_url}/pull-game/{game_id}?cancelled=1"
 
     checkout_request = CheckoutSessionRequest(
-        amount=float(spot["price"]),
+        amount=float(round(total_amount, 2)),
         currency="usd",
         success_url=success_url,
         cancel_url=cancel_url,
         metadata={
             "type": "pull_game",
             "game_id": game_id,
-            "pull_number": str(pull_number),
+            "pull_numbers": ",".join(str(n) for n in pull_numbers),
+            "pull_count": str(len(pull_numbers)),
             "email": email,
             "user_id": user_id or "",
         },
     )
     session = await stripe_checkout.create_checkout_session(checkout_request)
 
-    # Update spot with session + shipping info
-    await db.pull_spots.update_one(
-        {"id": spot["id"]},
+    # Attach session to all reserved spots
+    spot_ids = [r["id"] for r in reserved]
+    await db.pull_spots.update_many(
+        {"id": {"$in": spot_ids}},
         {"$set": {
             "stripe_session_id": session.session_id,
             "claimed_by_email": email,
@@ -488,8 +519,9 @@ async def buy_pull(game_id: str, request: Request):
         "user_id": user_id,
         "type": "pull_game",
         "game_id": game_id,
-        "pull_number": pull_number,
-        "amount": float(spot["price"]),
+        "pull_numbers": pull_numbers,
+        "pull_count": len(pull_numbers),
+        "amount": float(round(total_amount, 2)),
         "currency": "usd",
         "payment_status": "pending",
         "status": "initiated",
@@ -497,20 +529,29 @@ async def buy_pull(game_id: str, request: Request):
         "created_at": _now(),
     })
 
-    return {"checkout_url": session.url, "session_id": session.session_id}
+    return {
+        "checkout_url": session.url,
+        "session_id": session.session_id,
+        "total": float(round(total_amount, 2)),
+        "pull_count": len(pull_numbers),
+    }
 
 
 @router.get("/checkout/status/{session_id}")
 async def checkout_status(session_id: str, request: Request):
-    """Poll Stripe; on paid, finalize the pull reveal."""
+    """Poll Stripe; on paid, finalize ALL pulls in this session."""
     txn = await db.payment_transactions.find_one({"session_id": session_id, "type": "pull_game"}, {"_id": 0})
     if not txn:
         raise HTTPException(404, "Session not found")
 
     # Already revealed
     if txn.get("payment_status") == "paid" and txn.get("revealed"):
-        spot = await db.pull_spots.find_one({"stripe_session_id": session_id}, {"_id": 0})
-        return {"payment_status": "paid", "revealed": True, "spot": spot}
+        spots = await db.pull_spots.find({"stripe_session_id": session_id}, {"_id": 0}).sort("pull_number", 1).to_list(50)
+        return {
+            "payment_status": "paid", "revealed": True,
+            "spots": spots,
+            "spot": spots[0] if spots else None,  # legacy
+        }
 
     host_url = str(request.base_url).rstrip("/")
     webhook_url = f"{host_url}/api/webhook/stripe"
@@ -518,8 +559,8 @@ async def checkout_status(session_id: str, request: Request):
     status = await stripe_checkout.get_checkout_status(session_id)
 
     if status.payment_status == "paid":
-        # Finalize: mark spot claimed and reveal
-        spot = await db.pull_spots.find_one_and_update(
+        # Finalize ALL spots for this session
+        await db.pull_spots.update_many(
             {"stripe_session_id": session_id, "status": "reserved"},
             {"$set": {
                 "status": "claimed",
@@ -527,28 +568,27 @@ async def checkout_status(session_id: str, request: Request):
                 "revealed_at": _now(),
             }},
         )
-        if spot:
+        spots = await db.pull_spots.find({"stripe_session_id": session_id}, {"_id": 0}).sort("pull_number", 1).to_list(50)
+        if spots:
+            game_id = spots[0]["game_id"]
+            total_revenue = sum(s["price"] for s in spots)
             await db.pull_games.update_one(
-                {"id": spot["game_id"]},
-                {"$inc": {"stats.pulls_sold": 1, "stats.revenue": spot["price"]}},
+                {"id": game_id},
+                {"$inc": {"stats.pulls_sold": len(spots), "stats.revenue": total_revenue}},
             )
         await db.payment_transactions.update_one(
             {"session_id": session_id},
             {"$set": {"payment_status": "paid", "status": "completed", "revealed": True, "paid_at": _now()}},
         )
-        fresh_spot = await db.pull_spots.find_one({"stripe_session_id": session_id}, {"_id": 0})
-        # If trigger spot, the card is not yet revealed — frontend must call /box-pick
         return {
-            "payment_status": "paid",
-            "revealed": True,
-            "spot": fresh_spot,
-            "needs_box_pick": fresh_spot.get("is_trigger") if fresh_spot else False,
-            "trigger_type": fresh_spot.get("trigger_type") if fresh_spot else None,
+            "payment_status": "paid", "revealed": True,
+            "spots": spots,
+            "spot": spots[0] if spots else None,  # legacy
         }
 
     if status.status == "expired" or status.payment_status == "unpaid":
-        # Release the reservation
-        await db.pull_spots.update_one(
+        # Release all reservations for this session
+        await db.pull_spots.update_many(
             {"stripe_session_id": session_id, "status": "reserved"},
             {"$set": {"status": "available", "stripe_session_id": None, "payment_status": None}},
         )
@@ -564,15 +604,15 @@ async def open_box(game_id: str, session_id: str, request: Request):
     Game ends automatically when BOTH orange and blue triggers have been picked."""
     body = await request.json()
     box_index = int(body.get("box_index", 0))
+    trigger_type_req = body.get("trigger_type")  # 'orange' or 'blue' to disambiguate when multi-pull
 
-    spot = await db.pull_spots.find_one({
-        "stripe_session_id": session_id, "status": "claimed", "is_trigger": True,
-    }, {"_id": 0})
+    # Find the trigger spot in this session matching the requested type (if specified)
+    spot_query = {"stripe_session_id": session_id, "status": "claimed", "is_trigger": True, "card_snapshot": None}
+    if trigger_type_req in ("orange", "blue"):
+        spot_query["trigger_type"] = trigger_type_req
+    spot = await db.pull_spots.find_one(spot_query, {"_id": 0})
     if not spot:
-        raise HTTPException(404, "Trigger session not found or not paid")
-    if spot.get("card_snapshot"):
-        # Already picked — return the assigned card
-        return {"success": True, "card": spot["card_snapshot"], "trigger_type": spot.get("trigger_type"), "already_picked": True}
+        raise HTTPException(404, "Trigger session not found or not paid (or already picked)")
 
     trigger_type = spot.get("trigger_type")  # 'orange' | 'blue'
     if trigger_type not in ("orange", "blue"):

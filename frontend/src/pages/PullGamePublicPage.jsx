@@ -16,7 +16,17 @@ const PullGamePublicPage = () => {
   const navigate = useNavigate();
   const [game, setGame] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPull, setSelectedPull] = useState(null);
+  const [cart, setCart] = useState(new Set());
+  const [showCheckout, setShowCheckout] = useState(false);
+
+  const toggleCart = (pull_number) => {
+    setCart(prev => {
+      const next = new Set(prev);
+      if (next.has(pull_number)) next.delete(pull_number);
+      else next.add(pull_number);
+      return next;
+    });
+  };
 
   const fetchGame = useCallback(async () => {
     try {
@@ -85,7 +95,7 @@ const PullGamePublicPage = () => {
           {/* CENTER: Recipe Box with pull numbers */}
           <div className="order-1 lg:order-2" data-testid="board-section">
             <SectionHeading icon={Zap} label="The Board" tone="amber" />
-            <RecipeBox game={game} onSelect={setSelectedPull} />
+            <RecipeBox game={game} cart={cart} onToggle={toggleCart} />
           </div>
 
           {/* RIGHT: Orange Box Chases (4 cards) */}
@@ -117,8 +127,11 @@ const PullGamePublicPage = () => {
       </div>
 
       <AnimatePresence>
-        {selectedPull && (
-          <CheckoutModal gameId={gameId} spot={selectedPull} onClose={() => setSelectedPull(null)} />
+        {cart.size > 0 && !showCheckout && (
+          <CartFloat cart={cart} currentPrice={game.current_price} onCheckout={() => setShowCheckout(true)} onClear={() => setCart(new Set())} onRemove={toggleCart} />
+        )}
+        {showCheckout && (
+          <CheckoutModal gameId={gameId} pullNumbers={Array.from(cart).sort((a,b)=>a-b)} currentPrice={game.current_price} onClose={() => setShowCheckout(false)} />
         )}
       </AnimatePresence>
     </div>
@@ -256,17 +269,14 @@ const BoxGrid = ({ cards, tone, pickedIndex, triggered }) => {
 };
 
 // ──────── Recipe Box (file divider style, front-facing with rounded tabs) ────────
-const RecipeBox = ({ game, onSelect }) => {
+const RecipeBox = ({ game, cart, onToggle }) => {
   const [hoveredNum, setHoveredNum] = useState(null);
 
-  // Arrange spots into rows of 10 (staggered like file dividers)
   const COLS = 10;
   const rows = [];
   for (let i = 0; i < game.spots.length; i += COLS) {
     rows.push(game.spots.slice(i, i + COLS));
   }
-  // Reverse rows so row 1 (1-10) is on top of stack visually (in front)
-  // We'll render back rows first so front rows overlap them
   const renderRows = [...rows].reverse();
 
   return (
@@ -296,7 +306,8 @@ const RecipeBox = ({ game, onSelect }) => {
                 <PullTab
                   key={spot.pull_number}
                   spot={spot}
-                  onSelect={onSelect}
+                  inCart={cart.has(spot.pull_number)}
+                  onToggle={onToggle}
                   onHover={setHoveredNum}
                   active={hoveredNum === spot.pull_number}
                   gameActive={game.status === 'active'}
@@ -359,12 +370,14 @@ const RecipeBox = ({ game, onSelect }) => {
   );
 };
 
-const PullTab = ({ spot, onSelect, onHover, active, gameActive }) => {
+const PullTab = ({ spot, inCart, onToggle, onHover, active, gameActive }) => {
   const available = spot.status === 'available' && gameActive;
   const claimed = spot.status === 'claimed';
 
   // Domed/half-circle tab style
-  const baseClasses = available
+  const baseClasses = inCart && available
+    ? 'bg-gradient-to-b from-emerald-300 via-emerald-400 to-emerald-600 border-emerald-800 text-white cursor-pointer'
+    : available
     ? 'bg-gradient-to-b from-[#1a3a8a] via-[#0f2a6a] to-[#0a1f5a] border-[#0a1538] text-white hover:from-[#2a4ab0] cursor-pointer'
     : claimed
     ? 'bg-gradient-to-b from-[#7a1a1a] via-[#5a0a0a] to-[#3a0505] border-[#1a0202] text-red-100/80 cursor-not-allowed'
@@ -375,7 +388,7 @@ const PullTab = ({ spot, onSelect, onHover, active, gameActive }) => {
       whileHover={available ? { y: -3 } : {}}
       whileTap={available ? { y: 0 } : {}}
       disabled={!available}
-      onClick={() => onSelect(spot)}
+      onClick={() => onToggle(spot.pull_number)}
       onMouseEnter={() => onHover && onHover(spot.pull_number)}
       onMouseLeave={() => onHover && onHover(null)}
       data-testid={`pull-tab-${spot.pull_number}`}
@@ -385,12 +398,13 @@ const PullTab = ({ spot, onSelect, onHover, active, gameActive }) => {
         height: '52px',
         marginRight: '-1px',
         marginLeft: '-1px',
-        // Dome/arch shape on top using border-radius
         borderTopLeftRadius: '50% 100%',
         borderTopRightRadius: '50% 100%',
         borderBottomLeftRadius: '0',
         borderBottomRightRadius: '0',
-        boxShadow: active
+        boxShadow: inCart && available
+          ? '0 0 18px rgba(16,185,129,0.7), inset 0 1px 0 rgba(255,255,255,0.3)'
+          : active
           ? '0 0 18px rgba(245,158,11,0.6), inset 0 1px 0 rgba(255,255,255,0.2)'
           : 'inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 0 rgba(0,0,0,0.4)',
       }}
@@ -399,17 +413,66 @@ const PullTab = ({ spot, onSelect, onHover, active, gameActive }) => {
         #{spot.pull_number}
       </span>
       <span className="text-[8px] font-bold leading-none block mt-0.5 opacity-80">
-        {claimed ? '✓ SOLD' : `$${spot.price}`}
+        {claimed ? '✓ SOLD' : inCart ? '✓ IN CART' : `$${spot.price}`}
       </span>
     </motion.button>
   );
 };
 
-// ──────── Checkout Modal (unchanged logic) ────────
-const CheckoutModal = ({ gameId, spot, onClose }) => {
+// ──────── Cart Float (sticky bottom) ────────
+const CartFloat = ({ cart, currentPrice, onCheckout, onClear, onRemove }) => {
+  const total = cart.size * currentPrice;
+  const sortedNumbers = Array.from(cart).sort((a, b) => a - b);
+  return (
+    <motion.div
+      initial={{ y: 100, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 100, opacity: 0 }}
+      className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[95%] max-w-2xl"
+      data-testid="cart-float"
+    >
+      <div className="bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl shadow-[0_20px_50px_-10px_rgba(245,158,11,0.6)] border border-amber-300 p-3 sm:p-4 flex items-center gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <ShoppingCart className="w-4 h-4 text-black" />
+            <span className="text-xs font-black text-black uppercase tracking-wider">{cart.size} pull{cart.size !== 1 ? 's' : ''} in cart</span>
+          </div>
+          <div className="flex flex-wrap gap-1 max-h-12 overflow-y-auto">
+            {sortedNumbers.map(n => (
+              <button
+                key={n}
+                onClick={() => onRemove(n)}
+                className="px-1.5 py-0.5 rounded bg-black/15 hover:bg-black/30 text-[10px] font-black text-black flex items-center gap-0.5 transition-colors"
+                data-testid={`cart-chip-${n}`}
+              >#{n} ✕</button>
+            ))}
+          </div>
+        </div>
+        <div className="text-right">
+          <p className="text-[9px] font-bold text-black/70 uppercase">Total</p>
+          <p className="text-2xl font-black text-black leading-none">${total.toFixed(0)}</p>
+        </div>
+        <button
+          onClick={onClear}
+          className="hidden sm:block px-3 py-2 rounded-lg bg-black/15 hover:bg-black/30 text-black text-xs font-black"
+          data-testid="cart-clear-btn"
+        >Clear</button>
+        <button
+          onClick={onCheckout}
+          className="px-4 py-3 rounded-xl bg-black hover:bg-[#1a1a1a] text-white text-sm font-black flex items-center gap-1.5 whitespace-nowrap"
+          data-testid="cart-checkout-btn"
+        >
+          <Zap className="w-4 h-4" /> Checkout
+        </button>
+      </div>
+    </motion.div>
+  );
+};
+
+// ──────── Checkout Modal (multi-pull) ────────
+const CheckoutModal = ({ gameId, pullNumbers, currentPrice, onClose }) => {
   const [email, setEmail] = useState('');
   const [form, setForm] = useState({ first_name: '', last_name: '', line1: '', line2: '', city: '', state: '', postal_code: '', country: 'US' });
   const [submitting, setSubmitting] = useState(false);
+  const total = pullNumbers.length * currentPrice;
 
   const submit = async () => {
     if (!email || !email.includes('@')) { toast.error('Valid email required'); return; }
@@ -419,7 +482,7 @@ const CheckoutModal = ({ gameId, spot, onClose }) => {
     setSubmitting(true);
     try {
       const res = await axios.post(`${API}/api/pull-game/games/${gameId}/buy-pull`, {
-        pull_number: spot.pull_number,
+        pull_numbers: pullNumbers,
         email,
         shipping_address: form,
         origin_url: window.location.origin,
@@ -445,14 +508,14 @@ const CheckoutModal = ({ gameId, spot, onClose }) => {
         className="bg-[#111] border border-white/10 rounded-2xl max-w-md w-full p-6 max-h-[90vh] overflow-y-auto"
         data-testid="checkout-modal"
       >
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-12 h-12 rounded-xl bg-amber-500/20 flex items-center justify-center">
-            <span className="text-lg font-black text-amber-400">#{spot.pull_number}</span>
+        <div className="mb-5">
+          <h3 className="text-lg font-bold mb-1">Pulling {pullNumbers.length} card{pullNumbers.length !== 1 ? 's' : ''}</h3>
+          <div className="flex flex-wrap gap-1 mb-3">
+            {pullNumbers.map(n => (
+              <span key={n} className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-black">#{n}</span>
+            ))}
           </div>
-          <div className="flex-1">
-            <h3 className="text-lg font-bold">Pull #{spot.pull_number}</h3>
-            <p className="text-sm text-amber-400 font-bold">${spot.price} USD</p>
-          </div>
+          <p className="text-2xl font-black text-amber-400">${total.toFixed(2)} <span className="text-xs text-gray-500 font-normal">USD</span></p>
         </div>
 
         <div className="space-y-3 mb-5">
@@ -480,9 +543,9 @@ const CheckoutModal = ({ gameId, spot, onClose }) => {
           data-testid="checkout-submit-btn"
         >
           {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShoppingCart className="w-4 h-4" />}
-          {submitting ? 'Creating session...' : `Pay $${spot.price} & Pull`}
+          {submitting ? 'Creating session...' : `Pay $${total.toFixed(2)} & Pull ${pullNumbers.length}`}
         </button>
-        <p className="text-[10px] text-gray-500 text-center mt-3">Secure payment via Stripe. Card ships within 1 business day.</p>
+        <p className="text-[10px] text-gray-500 text-center mt-3">Secure payment via Stripe. Cards ship within 1 business day.</p>
       </motion.div>
     </motion.div>
   );
