@@ -262,68 +262,88 @@ const MegaBoxDisplay = ({ cards, claimed }) => {
   );
 };
 
-// ──────── Recipe Box (tilted, numbers as tabs) ────────
+// ──────── Recipe Box (file divider style, front-facing with rounded tabs) ────────
 const RecipeBox = ({ game, onSelect }) => {
   const [hoveredNum, setHoveredNum] = useState(null);
-  return (
-    <div
-      className="relative"
-      style={{
-        perspective: '1200px',
-      }}
-    >
-      <div
-        className="relative"
-        style={{
-          transform: 'rotateX(8deg) rotateZ(-2deg)',
-          transformStyle: 'preserve-3d',
-        }}
-      >
-        {/* Outer "wood/leather" frame */}
-        <div className="relative rounded-2xl bg-gradient-to-b from-[#1a1310] via-[#0f0a08] to-[#0a0605] border-2 border-[#3d2818] shadow-[0_40px_80px_-20px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,215,150,0.1)] p-4 sm:p-5">
-          {/* Subtle grain */}
-          <div className="absolute inset-0 rounded-2xl opacity-30 bg-[radial-gradient(circle_at_30%_20%,rgba(255,200,120,0.08),transparent_50%)] pointer-events-none" />
 
-          {/* Tab numbers along the top (sticking up out of the box) */}
-          <div className="flex flex-wrap gap-1 sm:gap-1.5 justify-center relative mb-3 sm:mb-4" style={{ marginTop: '-22px' }}>
-            {game.spots.map(spot => (
-              <PullTab
-                key={spot.pull_number}
-                spot={spot}
-                onSelect={onSelect}
-                onHover={setHoveredNum}
-                active={hoveredNum === spot.pull_number}
-                gameActive={game.status === 'active'}
-              />
+  // Arrange spots into rows of 10 (staggered like file dividers)
+  const COLS = 10;
+  const rows = [];
+  for (let i = 0; i < game.spots.length; i += COLS) {
+    rows.push(game.spots.slice(i, i + COLS));
+  }
+  // Reverse rows so row 1 (1-10) is on top of stack visually (in front)
+  // We'll render back rows first so front rows overlap them
+  const renderRows = [...rows].reverse();
+
+  return (
+    <div className="relative">
+      {/* Tab stack - file dividers sticking up (back rows visible above front) */}
+      <div className="relative pb-1">
+        {renderRows.map((row, rowIdx) => {
+          const isFront = rowIdx === renderRows.length - 1;
+          // Offset back rows to the right (like a fanned card catalog)
+          const totalRows = renderRows.length;
+          const offsetX = (totalRows - 1 - rowIdx) * 26;
+          const zIndex = rowIdx + 1;
+          // Each row reveals top ~30px above next row; front row sits flush on box body
+          const overlap = isFront ? '-2px' : '-26px';
+          return (
+            <div
+              key={rowIdx}
+              className="flex justify-center"
+              style={{
+                marginBottom: overlap,
+                paddingLeft: `${offsetX}px`,
+                position: 'relative',
+                zIndex,
+              }}
+            >
+              {row.map(spot => (
+                <PullTab
+                  key={spot.pull_number}
+                  spot={spot}
+                  onSelect={onSelect}
+                  onHover={setHoveredNum}
+                  active={hoveredNum === spot.pull_number}
+                  gameActive={game.status === 'active'}
+                />
+              ))}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Box body (file/index card holder) - flat, front-facing */}
+      <div className="relative rounded-b-2xl rounded-tr-2xl bg-gradient-to-b from-[#f4ede0] via-[#ebe1cf] to-[#dcd0b9] border-2 border-[#a89878] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.7),inset_0_2px_0_rgba(255,255,255,0.5)] overflow-hidden">
+        {/* Paper texture overlay */}
+        <div className="absolute inset-0 opacity-30 bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(168,152,120,0.1)_3px,transparent_4px)] pointer-events-none" />
+
+        <div className="relative px-5 py-6 sm:px-8 sm:py-8">
+          {/* Header */}
+          <div className="text-center mb-5 pb-4 border-b-2 border-[#a89878]/30 border-dashed">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#7a6a4a] mb-1">Pull Board</p>
+            <p className="text-4xl sm:text-5xl font-black text-[#3d2818] tracking-tight">
+              {game.pulls_remaining} <span className="text-2xl text-[#7a6a4a]">/ {game.total_pulls}</span>
+            </p>
+            <p className="text-[10px] uppercase tracking-wider text-[#7a6a4a] mt-1 font-bold">pulls remaining</p>
+          </div>
+
+          {/* Price tiers */}
+          <div className="space-y-1.5 max-w-md mx-auto">
+            {game.tiers.map((t, i) => (
+              <div key={i} className="flex items-center justify-between px-3 py-2 rounded-md bg-[#3d2818]/8 border border-[#a89878]/40">
+                <span className="text-[11px] font-bold text-[#5a4a2a] uppercase tracking-wider">Pulls {t.from}–{t.to}</span>
+                <span className="text-base font-black text-[#3d2818]">${t.price}</span>
+              </div>
             ))}
           </div>
 
-          {/* Inner box "depth" - below tabs, like the filing drawer */}
-          <div className="rounded-xl bg-gradient-to-b from-[#050201] to-[#000] border border-[#2a1a10] shadow-[inset_0_6px_20px_rgba(0,0,0,0.8)] px-3 py-4 sm:px-5 sm:py-5">
-            <div className="text-center">
-              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-600 mb-1.5">Pull Board</p>
-              <p className="text-3xl sm:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-b from-amber-300 to-amber-600 tracking-tight">
-                {game.pulls_remaining} / {game.total_pulls}
-              </p>
-              <p className="text-[10px] text-gray-500 mt-1">pulls remaining</p>
-
-              {/* Price tiers as rows */}
-              <div className="mt-4 space-y-1 max-w-sm mx-auto">
-                {game.tiers.map((t, i) => (
-                  <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-md bg-black/50 border border-amber-900/30">
-                    <span className="text-[10px] font-bold text-amber-500/80 uppercase tracking-wider">Pulls {t.from}–{t.to}</span>
-                    <span className="text-xs font-black text-amber-300">${t.price}</span>
-                  </div>
-                ))}
-              </div>
-
-              {hoveredNum && (
-                <p className="mt-3 text-[10px] font-bold text-amber-400">
-                  Tap #{hoveredNum} to pull
-                </p>
-              )}
-            </div>
-          </div>
+          {hoveredNum !== null && hoveredNum !== undefined && (
+            <p className="mt-4 text-center text-[10px] font-black uppercase tracking-wider text-[#7a4a18] animate-pulse">
+              ► Click #{hoveredNum} to pull ◄
+            </p>
+          )}
         </div>
       </div>
     </div>
@@ -333,52 +353,45 @@ const RecipeBox = ({ game, onSelect }) => {
 const PullTab = ({ spot, onSelect, onHover, active, gameActive }) => {
   const available = spot.status === 'available' && gameActive;
   const claimed = spot.status === 'claimed';
+
+  // Domed/half-circle tab style
+  const baseClasses = available
+    ? 'bg-gradient-to-b from-[#1a3a8a] via-[#0f2a6a] to-[#0a1f5a] border-[#0a1538] text-white hover:from-[#2a4ab0] cursor-pointer'
+    : claimed
+    ? 'bg-gradient-to-b from-[#7a1a1a] via-[#5a0a0a] to-[#3a0505] border-[#1a0202] text-red-100/80 cursor-not-allowed'
+    : 'bg-gradient-to-b from-[#444] to-[#222] border-[#0a0a0a] text-gray-500 cursor-not-allowed opacity-60';
+
   return (
     <motion.button
-      whileHover={available ? { y: -4, scale: 1.05 } : {}}
-      whileTap={available ? { scale: 0.95 } : {}}
+      whileHover={available ? { y: -3 } : {}}
+      whileTap={available ? { y: 0 } : {}}
       disabled={!available}
       onClick={() => onSelect(spot)}
       onMouseEnter={() => onHover && onHover(spot.pull_number)}
       onMouseLeave={() => onHover && onHover(null)}
       data-testid={`pull-tab-${spot.pull_number}`}
-      className={`relative transition-all ${
-        available
-          ? 'cursor-pointer'
-          : claimed
-          ? 'cursor-not-allowed'
-          : 'cursor-not-allowed opacity-40'
-      }`}
+      className={`relative inline-block transition-all border-2 ${baseClasses}`}
       style={{
-        width: '34px',
-        height: '46px',
+        width: '52px',
+        height: '52px',
+        marginRight: '-1px',
+        marginLeft: '-1px',
+        // Dome/arch shape on top using border-radius
+        borderTopLeftRadius: '50% 100%',
+        borderTopRightRadius: '50% 100%',
+        borderBottomLeftRadius: '0',
+        borderBottomRightRadius: '0',
+        boxShadow: active
+          ? '0 0 18px rgba(245,158,11,0.6), inset 0 1px 0 rgba(255,255,255,0.2)'
+          : 'inset 0 1px 0 rgba(255,255,255,0.2), 0 1px 0 rgba(0,0,0,0.4)',
       }}
     >
-      {/* Tab body (index card sticking out) */}
-      <div
-        className={`w-full h-full rounded-t-[4px] rounded-b-sm flex flex-col items-center justify-between py-1 px-0.5 relative overflow-hidden ${
-          available
-            ? 'bg-gradient-to-b from-amber-100 via-amber-200 to-amber-400 border border-amber-600 shadow-[0_3px_6px_rgba(0,0,0,0.5)]'
-            : claimed
-            ? 'bg-gradient-to-b from-red-300 via-red-400 to-red-600 border border-red-800'
-            : 'bg-gradient-to-b from-gray-600 to-gray-800 border border-gray-700'
-        }`}
-      >
-        {/* Punch hole / notch */}
-        <div className={`w-1.5 h-1.5 rounded-full ${available ? 'bg-amber-800/60' : claimed ? 'bg-red-900/70' : 'bg-gray-900/70'}`} />
-        <span className={`text-[9px] font-black leading-none ${available ? 'text-amber-950' : claimed ? 'text-red-950' : 'text-gray-400'}`}>
-          #{spot.pull_number}
-        </span>
-        <span className={`text-[8px] font-black leading-none ${available ? 'text-amber-900' : 'text-gray-900'}`}>
-          {claimed ? '✓' : `$${spot.price}`}
-        </span>
-      </div>
-      {active && (
-        <motion.div
-          layoutId="tab-glow"
-          className="absolute inset-0 rounded-t-[4px] shadow-[0_0_18px_rgba(245,158,11,0.6)] pointer-events-none"
-        />
-      )}
+      <span className="text-[11px] font-black leading-none block mt-2.5">
+        #{spot.pull_number}
+      </span>
+      <span className="text-[8px] font-bold leading-none block mt-0.5 opacity-80">
+        {claimed ? '✓ SOLD' : `$${spot.price}`}
+      </span>
     </motion.button>
   );
 };
