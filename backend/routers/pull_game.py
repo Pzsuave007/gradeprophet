@@ -684,7 +684,9 @@ async def list_available_inventory(request: Request):
     if not await _is_admin(user):
         raise HTTPException(403, "Admin only")
     cards = await db.inventory.find(
-        {"user_id": user["user_id"], "listed": {"$ne": True}, "sold": {"$ne": True},
+        {"user_id": user["user_id"],
+         "listed": {"$ne": True},
+         "category": {"$nin": ["sold", "chase_pack"]},
          "$or": [{"pull_game_locked": {"$ne": True}}, {"pull_game_locked": {"$exists": False}}]},
         {"_id": 0, "id": 1, "player": 1, "year": 1, "set_name": 1, "card_number": 1,
          "card_value": 1, "listed_price": 1, "thumbnail": 1, "store_thumbnail": 1,
