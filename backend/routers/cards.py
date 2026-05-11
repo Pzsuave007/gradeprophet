@@ -580,7 +580,7 @@ async def batch_upload_queue(request: Request):
     user_id = user["user_id"]
 
     form = await request.form()
-    category = form.get("category", "collection")
+    category = form.get("category", "for_sale")
     front_file = form.get("front")
     back_file = form.get("back")
 
@@ -640,7 +640,7 @@ async def _process_queued_card(queue_id: str, user_id: str):
 
         front_raw = doc["front_raw"]
         back_raw = doc.get("back_raw")
-        category = doc.get("category", "collection")
+        category = doc.get("category", "for_sale")
 
         # Scanner mode: auto-crop + Scanner Fix before processing
         if doc.get("scanner_mode", False):
